@@ -1,0 +1,39 @@
+{
+  "name": "aigent",
+  "version": "0.0.1",
+  "description": "TypeScript framework for AI tools, context, prompt, and memory orchestration",
+  "keywords": [
+    "ai",
+    "agent",
+    "typescript",
+    "llm"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Anupheaus/aigent.git"
+  },
+  "homepage": "https://github.com/Anupheaus/aigent#readme",
+  "bugs": {
+    "url": "https://github.com/Anupheaus/aigent/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
