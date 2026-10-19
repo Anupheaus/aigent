@@ -1,4 +1,4 @@
-# aigent
+# @anupheaus/aigent
 
 TypeScript framework for AI tools, context, prompt, and memory orchestration.
 
