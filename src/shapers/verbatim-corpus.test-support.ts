@@ -35,5 +35,8 @@ export const VERBATIM_CORPUS: Record<string, string> = {
   'trailing-whitespace': 'a   \nb\t\t\n   \n\n\n\nc ',
   tabs: '\tindented\n\t\tmore\n',
   empty: '',
+  // Whole contents that equal an alias token, or look like an alias legend: never expanded or rewritten.
+  'alias-token': 'F1',
+  'alias-legend': 'F1 = "src/components/theme/ThemeProvider.tsx"\nF2\n',
   'huge-1mb': hugeText(),
 };

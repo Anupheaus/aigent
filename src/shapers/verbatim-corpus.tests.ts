@@ -61,3 +61,27 @@ describe('verbatim guarantee', () => {
     }));
   });
 });
+
+// Mutation checks: the assertions above would catch a broken guard, so they are not true by construction.
+describe('verbatim corpus: mutation checks', () => {
+  /** Corpus entries the full pipeline alters when a result reaches the shapers as lossy-ok of `kind`. */
+  function alteredAs(kind: ContentKind): string[] {
+    return CORPUS.filter(([, text]) => JSON.stringify(pipeline({ value: text, kind, fidelity: 'lossy-ok' })) !== JSON.stringify(text)).map(([name]) => name);
+  }
+
+  it('a result let through to the shapers (the fidelity guard bypassed) is altered for many corpus entries', () => {
+    const altered = new Set([...alteredAs('command-output'), ...alteredAs('web-page'), ...alteredAs('log')]);
+    expect(altered.size).toBeGreaterThanOrEqual(CORPUS.length / 2);
+    expect([...altered]).toEqual(expect.arrayContaining(['ansi-file', 'repeated-lines', 'html-page', 'trailing-whitespace']));
+  });
+
+  it('a shaper that wrongly declares file-content would be caught by the file-content assertion', () => {
+    const stripNoise = BUILTINS.find(({ name }) => name === 'strip-noise')!;
+    const registry = createShaperRegistry([{ ...stripNoise, name: 'rogue', appliesTo: ['file-content'] }]);
+    const altered = CORPUS.filter(([, text]) => {
+      const shaped = runShapers({ value: text, callId: 'c1', state: createShapingState(), registry, tool: { name: 'read', contentKind: 'file-content', fidelity: 'lossy-ok' } });
+      return JSON.stringify(shaped.value) !== JSON.stringify(text);
+    });
+    expect(altered.length).toBeGreaterThan(0);
+  });
+});

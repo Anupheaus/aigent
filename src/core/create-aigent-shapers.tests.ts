@@ -29,6 +29,15 @@ const shellTool = defineTool({
   contentKind: 'command-output', fidelity: 'lossy-ok', describeActivity: ({ command }) => ({ title: command }), run: async () => NOISY,
 });
 
+/** Most calls one aigent_multi call takes. */
+const MAX_MULTI_CALLS = 20;
+
+/** Paths with their corpus index, in aigent_multi-sized batches. */
+function multiBatches(names: string[]): { path: string; index: number }[][] {
+  const indexed = names.map((path, index) => ({ path, index }));
+  return Array.from({ length: Math.ceil(indexed.length / MAX_MULTI_CALLS) }, (_unused, batch) => indexed.slice(batch * MAX_MULTI_CALLS, (batch + 1) * MAX_MULTI_CALLS));
+}
+
 /** A lossy-ok search whose repeated long path becomes alias F1 in the run's table. */
 const aliasingSearch = defineTool({
   name: 'search', description: 'Search', args: z.object({ query: z.string() }).strict(), deterministic: false, cache: false,
@@ -175,6 +184,46 @@ describe('createAigent shaper pipeline', () => {
     });
     await agent.task({ task: 'multi' });
     expect(seen.sort()).toEqual([`read:${LONG_PATH}`, 'read:F9', 'read:see F1', 'note:F1'].sort());
+  });
+
+  it('verbatim corpus end to end with a populated alias table: misses, cache hits inside aigent_multi and writes are byte-identical (review I7)', async () => {
+    const disk = new Map(Object.entries(VERBATIM_CORPUS));
+    const written: { path: string; content: string }[] = [];
+    // A real file tool: cached, verbatim, and its path argument is a reference the alias legend may cover.
+    const readFile = defineTool({
+      name: 'read_file', description: 'Read', args: z.object({ path: z.string() }).strict(), deterministic: true, cache: true, contentKind: 'file-content', acceptsAliases: true,
+      describeActivity: () => ({ title: 'r' }), run: async ({ path }) => disk.get(path),
+    });
+    // Its content argument is literal data, so it does not opt in to aliases.
+    const writeFile = defineTool({
+      name: 'write_file', description: 'Write', args: z.object({ path: z.string(), content: z.string() }).strict(), deterministic: false, cache: false, hasSideEffects: true,
+      describeActivity: () => ({ title: 'w' }), run: async ({ path, content }) => { written.push({ path, content }); return 'ok'; },
+    });
+    const names = Object.keys(VERBATIM_CORPUS);
+    const { agent, provider, store } = setup({
+      tools: [aliasingSearch, readFile, writeFile],
+      turns: [
+        toolTurn([{ id: 's1', name: 'search', args: { query: 'theme' } }]),
+        toolTurn(names.map((path, index) => ({ id: `r${index}`, name: 'read_file', args: { path } }))),
+        // aigent_multi takes at most 20 calls, so the corpus is read back in batches.
+        toolTurn(multiBatches(names).map((batch, batchIndex) => ({ id: `m${batchIndex}`, name: 'aigent_multi', args: { calls: batch.map(({ path, index }) => ({ id: `i${index}`, tool: 'read_file', args: { path } })) } }))),
+        toolTurn(names.map((path, index) => ({ id: `w${index}`, name: 'write_file', args: { path, content: VERBATIM_CORPUS[path] } }))),
+        textTurn('done'),
+      ],
+    });
+    const result = await agent.task({ task: 'touch every file' });
+    // The alias table really holds F1, so any expansion bug would show below.
+    expect(visibleResult({ provider, request: 1, callId: 's1' })).toMatchObject({ result: { hits: [{ path: 'F1' }, { path: 'F1' }] } });
+    const multi = multiBatches(names).flatMap((_batch, batchIndex) => visibleResult({ provider, request: 3, callId: `m${batchIndex}` }) as { id: string; ok: boolean; result: unknown }[]);
+    names.forEach((path, index) => {
+      expect(visibleResult({ provider, request: 2, callId: `r${index}` })).toBe(VERBATIM_CORPUS[path]);
+      expect(multi[index]).toEqual({ id: `i${index}`, tool: 'read_file', ok: true, result: VERBATIM_CORPUS[path] });
+    });
+    expect(written).toEqual(names.map(path => ({ path, content: VERBATIM_CORPUS[path] })));
+    const { steps } = (await store.get<TraceRecord>('traces', result.runId))!.value;
+    const innerHits = steps.filter(({ parentCallId, cacheHit }) => parentCallId?.startsWith('m') === true && cacheHit === true);
+    // Every file under maxEntryBytes is served from the cache the second time; the 1 MiB one is never cached.
+    expect(innerHits).toHaveLength(names.length - 1);
   });
 
   it('read-edit round trip: a verbatim file tool shows the model exactly the bytes on disk, and writing them back changes nothing', async () => {
