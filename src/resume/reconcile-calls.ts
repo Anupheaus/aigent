@@ -54,7 +54,7 @@ function interruptedCalls(restored: RestoredRun): ToolCall[] {
   const { state: { inFlight, totals, context: { messages } }, ledger } = restored;
   const committed = new Set(messages.flatMap(({ message: { toolCallId } }) => (toolCallId == null ? [] : [toolCallId])));
   const fromLedger = (): ToolCall[] => ledger
-    .filter(({ parentCallId, turn }) => parentCallId == null)
+    .filter(({ parentCallId, turn }) => parentCallId == null && turn > totals.turns)
     .map(({ callId, tool, args }) => ({ id: callId, name: tool, args }));
   const calls = inFlight?.assistant.toolCalls ?? fromLedger();
   return calls.filter(({ id }) => !committed.has(id));
@@ -64,7 +64,7 @@ function interruptedCalls(restored: RestoredRun): ToolCall[] {
 function thinkingOf(params: { restored: RestoredRun; ids: ReadonlySet<string> }): ThinkingBlock[] {
   const { restored: { state: { inFlight }, ledger }, ids } = params;
   if (inFlight != null) return inFlight.assistant.thinkingBlocks ?? [];
-  return [];
+  return ledger.find(({ callId, thinkingBlocks }) => ids.has(callId) && thinkingBlocks != null)?.thinkingBlocks ?? [];
 }
 
 /**
