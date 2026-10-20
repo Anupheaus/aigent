@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createAigent } from '../core/create-aigent.js';
 import type { Agent } from '../core/agent-types.js';
+import type { ModelSettings } from '../core/model-settings.js';
 import type { Clock, IdGenerator } from '../core/runtime-services.js';
 import { defineTool } from '../tools/define-tool.js';
 import { anthropic } from './anthropic.js';
 import {
-  anthropicSse, interleavedToolUseBlocks, messageDelta, messageStart, messageStop, textBlock, textBlockStart, textDelta,
+  anthropicSse, interleavedToolUseBlocks, messageDelta, messageStart, messageStop, redactedThinkingBlock, textBlock, textBlockStart, textDelta,
+  thinkingBlock,
 } from './anthropic-fixtures.test-support.js';
 import type { AnthropicEventFixture, AnthropicUsageFixture } from './anthropic-fixtures.test-support.js';
 import { byteChunks, createFakeBody, createFakeFetch, encodeText } from './fake-fetch.test-support.js';
@@ -58,23 +60,24 @@ type FetchImpl = typeof fetch;
 
 interface EndToEndParams {
   createProvider(fetchImpl: FetchImpl): Provider;
-  /** One per model request, served in order. */
-  responses: FakeResponseSpec[];
+  /** One per model request, served in order; a function sees the request it answers. */
+  responses: (FakeResponseSpec | ((request: RecordedRequest) => FakeResponseSpec))[];
+  modelSettings?: ModelSettings;
 }
 
 /** An agent with the echo tool on the given provider, its HTTP answered by the fixtures. */
 function endToEnd(params: EndToEndParams): EndToEnd {
-  const { createProvider, responses } = params;
+  const { createProvider, responses, modelSettings } = params;
   let nextResponse = 0;
-  const { fetch, requests } = createFakeFetch(() => {
+  const { fetch, requests } = createFakeFetch(request => {
     const response = responses[nextResponse];
     nextResponse += 1;
     if (response == null) throw new Error(`unexpected model request #${nextResponse}; only ${responses.length} fixtures were provided`);
-    return response;
+    return typeof response === 'function' ? response(request) : response;
   });
   const provider = createProvider(fetch);
   const ai = createAigent({ providers: [provider], clock, ids: sequentialIds() });
-  const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool] });
+  const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool], ...(modelSettings == null ? {} : { modelSettings }) });
   return { agent, requests };
 }
 
@@ -203,8 +206,36 @@ function anthropicAnswerTurn(): FakeResponseSpec {
   ]);
 }
 
-function anthropicEndToEnd(responses: FakeResponseSpec[]): EndToEnd {
-  return endToEnd({ createProvider: fetchImpl => anthropic({ apiKey: 'sk-ant-test', baseUrl: 'https://anthropic.test', fetch: fetchImpl }), responses });
+function anthropicEndToEnd(responses: EndToEndParams['responses'], modelSettings?: ModelSettings): EndToEnd {
+  return endToEnd({ createProvider: fetchImpl => anthropic({ apiKey: 'sk-ant-test', baseUrl: 'https://anthropic.test', fetch: fetchImpl }), responses, ...(modelSettings == null ? {} : { modelSettings }) });
+}
+
+const THINKING_SIGNATURE = 'EqQBCgIYAhIM1gbcDa9GJwZA2b3hGgxBdjrkzLoky3dl1pkiMOYds';
+const REDACTED_DATA = 'EmwKAhgBEgy3va3pzix/LafPsn4aDFIT2Xlxh0L5L8rLVyIwxtE3rAFBa8cr3qpPkNRj2YfWXGmKDxH4mPnZ5sQ7vB5URj';
+const ASSISTANT_THINKING_BLOCKS = [
+  { type: 'thinking', thinking: 'I should echo hi.', signature: THINKING_SIGNATURE },
+  { type: 'redacted_thinking', data: REDACTED_DATA },
+];
+
+function anthropicThinkingToolTurn(): FakeResponseSpec {
+  return anthropicChunked([
+    messageStart(toAnthropicUsage(FIRST_USAGE)),
+    ...thinkingBlock({ index: 0, chunks: ['I should ', 'echo hi.'], signature: THINKING_SIGNATURE }),
+    ...redactedThinkingBlock({ index: 1, data: REDACTED_DATA }),
+    ...interleavedToolUseBlocks({ calls: [{ id: 'call_valid', name: 'echo', args: { text: 'hi' } }], firstIndex: 2 }),
+    messageDelta({ stopReason: 'tool_use', outputTokens: FIRST_USAGE.outputTokens }), messageStop(),
+  ]);
+}
+
+/** Answers like the Messages API with thinking on: a 400 unless the tool_use turn starts with its thinking blocks, unmodified. */
+function requireReplayedThinking(request: RecordedRequest): FakeResponseSpec {
+  const messages = sentBody(request).messages as { role: string; content: Record<string, unknown>[] }[];
+  const assistant = messages.find(({ role }) => role === 'assistant');
+  const replayed = JSON.stringify(assistant?.content.slice(0, ASSISTANT_THINKING_BLOCKS.length)) === JSON.stringify(ASSISTANT_THINKING_BLOCKS);
+  if (!replayed) {
+    return { status: 400, body: '{"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0.type: Expected `thinking` or `redacted_thinking`, but found `tool_use`."}}' };
+  }
+  return anthropicAnswerTurn();
 }
 
 describe('end to end through anthropic', () => {
@@ -245,6 +276,16 @@ describe('end to end through anthropic', () => {
     const messages = sentBody(requests[1]).messages as { content: Record<string, unknown>[] }[];
     expect(messages[1]?.content.at(-1)).toEqual({ type: 'tool_use', id: 'call_multi', name: 'aigent_multi', input: MULTI_CALL.args });
     expect(envelopeOf(messages[2]?.content[0]?.content)).toMatchObject({ id: 'call_multi', ok: true });
+  });
+
+  it('runs a two-turn tool loop with effort on, replaying the thinking blocks and signature before tool_use', async () => {
+    const { agent, requests } = anthropicEndToEnd([anthropicThinkingToolTurn(), requireReplayedThinking], { effort: 'medium' });
+    const result = await agent.task({ task: 'Echo' });
+
+    expect(result).toMatchObject({ status: 'completed', answer: 'All done.', usage: { turns: 2, toolCalls: 1 } });
+    expect(sentBody(requests[0]).thinking).toEqual({ type: 'enabled', budget_tokens: 8000 });
+    const messages = sentBody(requests[1]).messages as { role: string; content: Record<string, unknown>[] }[];
+    expect(messages[1]?.content).toEqual([...ASSISTANT_THINKING_BLOCKS, { type: 'tool_use', id: 'call_valid', name: 'echo', input: { text: 'hi' } }]);
   });
 
   it('settles as cancelled when cancelled mid-stream and cancels the response body', async () => {

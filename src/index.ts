@@ -9,7 +9,7 @@ export type { ResiliencePolicy } from './core/resilience-policy.js';
 export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';
-export type { FinishReason, JsonSchema, MessageRole, Provider, ProviderCapabilities, ProviderEvent, ProviderMessage, ProviderRequest, ProviderSettings, ProviderToolSpec, ToolCall, Usage } from './providers/provider-types.js';
+export type { FinishReason, JsonSchema, MessageRole, Provider, ProviderCapabilities, ProviderEvent, ProviderMessage, ProviderRequest, ProviderSettings, ProviderToolSpec, ThinkingBlock, ToolCall, Usage } from './providers/provider-types.js';
 export { anthropic } from './providers/anthropic.js';
 export type { AnthropicOptions } from './providers/anthropic.js';
 export { openAiCompatible } from './providers/openai-compatible.js';

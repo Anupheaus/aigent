@@ -94,6 +94,7 @@ All adapters stream over `fetch` (Node 20+), with no vendor SDK. Their shared be
 - **Tool calls:** tools are sent with the `strict` flag where the API has one (OpenAI-compatible `strict: true`, `aigent_multi` with `strict: false`). Strict decoding is a request, not a guarantee: OpenAI does not guarantee schema conformance for parallel tool calls unless `parallel_tool_calls` is false, and DeepSeek honours `strict` only on its `/beta` base URL. The loop validates every call's arguments against the tool schema either way. Malformed tool-call JSON from the model reaches the loop as the raw string, so the model gets a precise validation error it can fix.
 - **Failures:** HTTP errors become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx), plus `details.retryAfterMs` when the server sent a `retry-after` header. The message includes the server's own reason when the body has one. Dropped connections and streams cut off before their final event are `provider_failed` with `details.retryable: true` and no `status`. A 2xx response that is not `text/event-stream` fails with its content type and body. A failure that retries and fallback models (see [Retries, timeouts and fallback models](#retries-timeouts-and-fallback-models)) cannot recover ends the run with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
 - **Usage:** a `usage` event is emitted only when the server reports usage; it is left out, never reported as zeros, when the server sends none.
+- **Thinking blocks:** with Anthropic thinking on (including through `effort`), each completed `thinking` block (with its signature) and `redacted_thinking` block reaches the loop as a `thinking-block` provider event. The loop keeps them on the turn's assistant message (`ProviderMessage.thinkingBlocks`) and the adapter sends them back unmodified, ahead of the turn's `tool_use` blocks, as the API requires. They are opaque replay data, so they are not emitted as run events; `thinking-delta` events carry the readable text. A provider that does this declares `capabilities.thinkingBlocks: true`.
 - **Empty assistant turns:** an assistant turn with no text and no tool calls is left out of the request, because both APIs reject it. Adjacent messages from the same role are then merged so roles keep alternating.
 - **`fetch` option:** inject your own for proxies or tests.
 
@@ -109,7 +110,7 @@ describeProviderContract({
   name: 'my-provider',
   // Return a provider that reproduces `scenario` (text, thinking, length cut-off, parallel tool calls,
   // malformed args, HTTP error, truncated stream, mid-stream network error, slow text for abort) on its
-  // first `stream` call, e.g. with a fake `fetch`.
+  // first `stream` call, e.g. with a fake `fetch`. `thinking-round-trip` spans two calls (see below).
   create: scenario => myProvider({ fetch: fakeFetchFor(scenario) }),
   // Lets the suite check the response body is cancelled on abort and early break.
   observe: () => ({ isBodyCancelled: lastFakeBodyWasCancelled() }),
@@ -118,6 +119,8 @@ describeProviderContract({
 ```
 
 A wire-level fixture must stream tool arguments exactly as the scenario's `argumentFragments` / `rawArgsFragments` (one delta per fragment, calls interleaved), wait `delayMs` before each `slow-text` chunk, and deliver bodies in small byte chunks; `chunkBytes(text, size)` from the same entry does the last part.
+
+The suite also checks that `capabilities.supportedSettings` is an array of known setting keys (use `[]` for none). A provider declaring `capabilities.thinkingBlocks: true` must pass `thinking-round-trip`: the first call streams the scenario's thinking blocks and then its tool call, and the second call must be answered only when the request replays those blocks unmodified ahead of the tool call (a fixture answers HTTP 400 otherwise, as the Anthropic API does). Providers that do not declare it skip that test.
 
 ### Live tests
 

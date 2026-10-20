@@ -13,11 +13,22 @@ export interface ToolCall {
   args: unknown;
 }
 
+/**
+ * A completed reasoning block, kept so it can be sent back unmodified with the assistant turn it belongs to. Anthropic
+ * requires the last assistant turn's blocks (with their signature, or encrypted `data`) ahead of its `tool_use` blocks
+ * whenever thinking is on; anything else is rejected.
+ */
+export type ThinkingBlock =
+  | { type: 'thinking'; thinking: string; signature: string }
+  | { type: 'redacted-thinking'; data: string };
+
 export interface ProviderMessage {
   role: MessageRole;
   text?: string;
   /** Present on assistant messages that requested tools. */
   toolCalls?: ToolCall[];
+  /** On assistant messages: the turn's completed thinking blocks, in order, to be replayed verbatim. */
+  thinkingBlocks?: ThinkingBlock[];
   /** Present on tool messages: the call this result answers. */
   toolCallId?: string;
 }
@@ -58,6 +69,8 @@ export type FinishReason = 'stop' | 'tool_calls' | 'length';
 export type ProviderEvent =
   | { type: 'text-delta'; text: string }
   | { type: 'thinking-delta'; text: string }
+  /** A thinking block is complete (after its deltas); the run keeps it on the assistant message for replay. */
+  | { type: 'thinking-block'; block: ThinkingBlock }
   | { type: 'tool-call'; call: ToolCall }
   | { type: 'usage'; usage: Usage }
   | { type: 'done'; finishReason: FinishReason };
@@ -70,6 +83,11 @@ export interface ProviderCapabilities {
   vision: boolean;
   /** Published context window in tokens. */
   maxContextTokens: number;
+  /**
+   * True when the provider emits `thinking-block` events and replays `ProviderMessage.thinkingBlocks`; the contract
+   * suite then runs its `thinking-round-trip` scenario. Absent means false.
+   */
+  thinkingBlocks?: boolean;
   /** Settings this provider can map; the run warns about and leaves out any other setting before calling it. */
   supportedSettings: (keyof ProviderSettings)[];
 }

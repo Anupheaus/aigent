@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { isAigentError } from '../../core/aigent-error.js';
 import type { AigentError, AigentErrorCode } from '../../core/aigent-error.js';
-import type { FinishReason, Provider, ProviderEvent, ProviderRequest, ToolCall, Usage } from '../../providers/provider-types.js';
+import { PROVIDER_SETTING_KEYS } from '../../providers/provider-settings.js';
+import type { FinishReason, Provider, ProviderEvent, ProviderRequest, ThinkingBlock, ToolCall, Usage } from '../../providers/provider-types.js';
 
 /** A plain text answer. The subject should deliver `chunks` as separate text deltas. */
 export interface TextContractScenario {
@@ -41,6 +42,21 @@ export interface ThinkingContractScenario {
   kind: 'thinking';
   thinking: string[];
   chunks: string[];
+  usage: Usage;
+}
+
+/**
+ * Thinking that must survive a tool round trip; it runs only for providers declaring `capabilities.thinkingBlocks`.
+ * On its first `stream` call the subject streams `blocks` in order (a `thinking` block's text as deltas, then its
+ * signature; a `redacted-thinking` block's data whole), then `call`, finishing with `tool_calls`. On its second call it
+ * MUST answer with `answer` (one text delta per chunk) only when the request's assistant turn carries `blocks`
+ * unmodified ahead of its tool call, and fail with HTTP 400 otherwise, as the Anthropic Messages API does.
+ */
+export interface ThinkingRoundTripContractScenario {
+  kind: 'thinking-round-trip';
+  blocks: ThinkingBlock[];
+  call: ToolCall;
+  answer: string[];
   usage: Usage;
 }
 
@@ -85,6 +101,7 @@ export type ContractScenario =
   | ToolCallsContractScenario
   | MalformedToolArgsContractScenario
   | ThinkingContractScenario
+  | ThinkingRoundTripContractScenario
   | LengthContractScenario
   | HttpErrorContractScenario
   | TruncatedStreamContractScenario
@@ -158,6 +175,18 @@ const THINKING_SCENARIO: ThinkingContractScenario = {
   usage: { inputTokens: 40, outputTokens: 22, cachedTokens: 0 },
 };
 
+const ROUND_TRIP_SCENARIO: ThinkingRoundTripContractScenario = {
+  kind: 'thinking-round-trip',
+  blocks: [
+    // Leading and trailing whitespace and a newline: a provider that trims or re-encodes the text breaks the signature.
+    { type: 'thinking', thinking: ' Look it up first.\nThen answer é. ', signature: 'EqQBCgIYAhIM1gbcDa9GJwZA2b3hGgx+/sig==' },
+    { type: 'redacted-thinking', data: 'EmwKAhgBEgy3va3pzix/LafPsn4aDFIT2Xlxh0L5L8rLVyIw==' },
+  ],
+  call: { id: 'call_lookup_1', name: 'search', args: { query: 'cats' } },
+  answer: ['Found ', 'them.'],
+  usage: { inputTokens: 60, outputTokens: 12, cachedTokens: 0 },
+};
+
 const LENGTH_SCENARIO: LengthContractScenario = {
   kind: 'length',
   chunks: ['This answer ', 'is cut ', 'off at the'],
@@ -204,11 +233,11 @@ interface StreamOutcome {
 }
 
 /** Consumes a whole stream, keeping every event seen before a rejection. */
-async function consume(params: { provider: Provider; signal?: AbortSignal }): Promise<StreamOutcome> {
-  const { provider, signal = new AbortController().signal } = params;
+async function consume(params: { provider: Provider; signal?: AbortSignal; request?: ProviderRequest }): Promise<StreamOutcome> {
+  const { provider, signal = new AbortController().signal, request = CONTRACT_REQUEST } = params;
   const events: ProviderEvent[] = [];
   try {
-    for await (const event of provider.stream(structuredClone(CONTRACT_REQUEST), signal)) events.push(event);
+    for await (const event of provider.stream(structuredClone(request), signal)) events.push(event);
     return { events };
   } catch (error) {
     return { events, error };
@@ -242,6 +271,23 @@ function expectSingleTerminalDone(params: { events: ProviderEvent[]; finishReaso
 
 function joinedText(params: { events: ProviderEvent[]; type: 'text-delta' | 'thinking-delta' }): string {
   return eventsOfType(params).map(({ text }) => text).join('');
+}
+
+/** The contract conversation continued with the round trip's assistant turn (its blocks as streamed) and the tool result. */
+function roundTripReplay(blocks: ThinkingBlock[]): ProviderRequest {
+  const { call } = ROUND_TRIP_SCENARIO;
+  return {
+    ...CONTRACT_REQUEST,
+    messages: [
+      ...CONTRACT_REQUEST.messages,
+      { role: 'assistant', text: '', toolCalls: [call], thinkingBlocks: blocks },
+      { role: 'tool', toolCallId: call.id, text: JSON.stringify({ id: call.id, tool: call.name, ok: true, result: 'two cats' }) },
+    ],
+  };
+}
+
+function thinkingTextOf(blocks: ThinkingBlock[]): string {
+  return blocks.map(block => (block.type === 'thinking' ? block.thinking : '')).join('');
 }
 
 /** Only checked when the subject can observe its response body. */
@@ -282,8 +328,33 @@ async function abortWhileWaiting(provider: Provider): Promise<TimedAbortOutcome>
 export function describeProviderContract(subject: ContractSubject): void {
   const { name, create, skip = [], observe } = subject;
   const testFor = (kind: ContractScenarioKind): ContractTest => (skip.includes(kind) ? it.skip : it);
+  const roundTripTest = skip.includes('thinking-round-trip') ? it.skip : it;
 
   describe(`provider contract: ${name}`, () => {
+    it('declares capabilities.supportedSettings as a list of known setting keys', () => {
+      const { supportedSettings } = create(structuredClone(TEXT_SCENARIO)).capabilities;
+      expect(Array.isArray(supportedSettings), 'capabilities.supportedSettings must be an array (use [] for none)').toBe(true);
+      expect(supportedSettings.filter(key => !PROVIDER_SETTING_KEYS.includes(key)), 'unknown setting keys').toEqual([]);
+    });
+
+    roundTripTest('emits completed thinking blocks before the tool call and replays them verbatim on the next request', async context => {
+      const provider = create(structuredClone(ROUND_TRIP_SCENARIO));
+      // Only providers that declare thinking blocks promise to round-trip them.
+      if (provider.capabilities.thinkingBlocks !== true) { context.skip(); return; }
+      const first = expectCompleted(await consume({ provider }));
+      const blocks = eventsOfType({ events: first, type: 'thinking-block' }).map(({ block }) => block);
+      expect(blocks).toEqual(ROUND_TRIP_SCENARIO.blocks);
+      expect(joinedText({ events: first, type: 'thinking-delta' })).toBe(thinkingTextOf(ROUND_TRIP_SCENARIO.blocks));
+      expect(eventsOfType({ events: first, type: 'tool-call' }).map(({ call }) => call)).toEqual([ROUND_TRIP_SCENARIO.call]);
+      const lastBlockAt = first.map(({ type }) => type).lastIndexOf('thinking-block');
+      expect(lastBlockAt, 'thinking blocks must be emitted before the tool call').toBeLessThan(first.findIndex(({ type }) => type === 'tool-call'));
+      expectSingleTerminalDone({ events: first, finishReason: 'tool_calls' });
+
+      const second = expectCompleted(await consume({ provider, request: roundTripReplay(blocks) }));
+      expect(joinedText({ events: second, type: 'text-delta' })).toBe(ROUND_TRIP_SCENARIO.answer.join(''));
+      expectSingleTerminalDone({ events: second, finishReason: 'stop' });
+    });
+
     testFor('text')('streams text deltas that concatenate to the answer, one usage event, then done(stop)', async () => {
       const events = expectCompleted(await consume({ provider: create(structuredClone(TEXT_SCENARIO)) }));
       const text = eventsOfType({ events, type: 'text-delta' }).map(event => event.text).join('');

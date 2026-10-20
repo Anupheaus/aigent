@@ -3,6 +3,7 @@ import { anthropic } from '../../providers/anthropic.js';
 import { anthropicScenarioResponse } from '../../providers/anthropic-fixtures.test-support.js';
 import { createFakeFetch } from '../../providers/fake-fetch.test-support.js';
 import type { FakeBody, FakeResponseSpec } from '../../providers/fake-fetch.test-support.js';
+import type { ScenarioExchange } from '../../providers/anthropic-fixtures.test-support.js';
 import { openAiCompatible } from '../../providers/openai-compatible.js';
 import { openAiScenarioResponse } from '../../providers/openai-fixtures.test-support.js';
 import type { Provider, ProviderEvent } from '../../providers/provider-types.js';
@@ -40,7 +41,8 @@ function fakeTurnFor(scenario: ContractScenario): FakeTurn {
     case 'http-error':
     case 'truncated-stream':
     case 'network-error':
-      // Skipped below: the fake has no HTTP layer and plays scripted events verbatim.
+    case 'thinking-round-trip':
+      // Skipped below: the fake has no HTTP layer, plays scripted events verbatim and does not declare thinking blocks.
       throw createAigentError({ code: 'invalid_input', message: `FakeProvider cannot model contract scenario '${scenario.kind}'` });
   }
 }
@@ -48,7 +50,7 @@ function fakeTurnFor(scenario: ContractScenario): FakeTurn {
 describeProviderContract({
   name: 'FakeProvider',
   create: (scenario): Provider => createFakeProvider({ turns: [fakeTurnFor(scenario)] }),
-  skip: ['http-error', 'truncated-stream', 'network-error'],
+  skip: ['http-error', 'truncated-stream', 'network-error', 'thinking-round-trip'],
 });
 
 interface ObservedHttpSubject {
@@ -58,14 +60,19 @@ interface ObservedHttpSubject {
 }
 
 /** Remembers the last streamed body served, so the suite can check the provider cancelled it. */
-function observedHttp(respond: (scenario: ContractScenario) => FakeResponseSpec): ObservedHttpSubject {
+function observedHttp(respond: (scenario: ContractScenario, exchange: ScenarioExchange) => FakeResponseSpec): ObservedHttpSubject {
   let lastBody: FakeBody | undefined;
   return {
-    fetchFor: scenario => createFakeFetch(() => {
-      const spec = respond(scenario);
-      lastBody = typeof spec.body === 'string' ? undefined : spec.body;
-      return spec;
-    }).fetch,
+    fetchFor: scenario => {
+      // Counted per provider, so a scenario spanning several requests can answer each one.
+      let callIndex = 0;
+      return createFakeFetch(request => {
+        const spec = respond(scenario, { request, callIndex });
+        callIndex += 1;
+        lastBody = typeof spec.body === 'string' ? undefined : spec.body;
+        return spec;
+      }).fetch;
+    },
     observe: () => ({ isBodyCancelled: lastBody?.isCancelled() ?? false }),
   };
 }

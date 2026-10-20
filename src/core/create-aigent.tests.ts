@@ -56,6 +56,19 @@ describe('agent.task', () => {
     expect(provider.requests[0]?.tools.map(tool => tool.name)).toEqual(['aigent_multi', 'echo']);
   });
 
+  it('keeps completed thinking blocks on the assistant message it replays, without emitting them to the consumer', async () => {
+    const thinking: ProviderEvent = { type: 'thinking-block', block: { type: 'thinking', thinking: 'echo it', signature: 'sig-1' } };
+    const redacted: ProviderEvent = { type: 'thinking-block', block: { type: 'redacted-thinking', data: 'opaque' } };
+    const call = { id: 'c1', name: 'echo', args: { text: 'a' } };
+    const { agent, provider } = setup({ turns: [{ events: [thinking, redacted, ...toolTurn([call]).events] }, textTurn('done')] });
+    const events = await collect(agent.task({ task: 'Echo' }));
+    expect(provider.requests[1]?.messages[2]).toEqual({
+      role: 'assistant', text: '', toolCalls: [call],
+      thinkingBlocks: [{ type: 'thinking', thinking: 'echo it', signature: 'sig-1' }, { type: 'redacted-thinking', data: 'opaque' }],
+    });
+    expect(events.map(({ type }) => type)).not.toContain('thinking-block');
+  });
+
   it('marks aigent_multi as the only non-strict tool in the provider request', async () => {
     const { agent, provider } = setup({ turns: [textTurn('ok')] });
     await agent.task({ task: 'x' });

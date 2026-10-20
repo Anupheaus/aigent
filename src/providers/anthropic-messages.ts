@@ -1,6 +1,6 @@
 import { toAnthropicSettingsFields } from './anthropic-settings.js';
 import type { AnthropicSettingsFields } from './anthropic-settings.js';
-import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall } from './provider-types.js';
+import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ThinkingBlock, ToolCall } from './provider-types.js';
 
 /** Wire shapes of the Anthropic Messages API request (only the fields we send). */
 export interface AnthropicCacheControl {
@@ -28,8 +28,19 @@ export interface AnthropicToolResultBlock {
   is_error?: true;
 }
 
+export interface AnthropicThinkingBlock {
+  type: 'thinking';
+  thinking: string;
+  signature: string;
+}
+
+export interface AnthropicRedactedThinkingBlock {
+  type: 'redacted_thinking';
+  data: string;
+}
+
 export type AnthropicUserBlock = AnthropicTextBlock | AnthropicToolResultBlock;
-export type AnthropicAssistantBlock = AnthropicTextBlock | AnthropicToolUseBlock;
+export type AnthropicAssistantBlock = AnthropicThinkingBlock | AnthropicRedactedThinkingBlock | AnthropicTextBlock | AnthropicToolUseBlock;
 
 export type AnthropicMessage =
   | { role: 'user'; content: string | AnthropicUserBlock[] }
@@ -128,15 +139,24 @@ function hasVisibleText(text: string): boolean {
   return text.trim() !== '';
 }
 
+/** Copied field for field, never trimmed or re-encoded: the signature covers the exact text. */
+function toThinkingWireBlock(block: ThinkingBlock): AnthropicThinkingBlock | AnthropicRedactedThinkingBlock {
+  if (block.type === 'redacted-thinking') return { type: 'redacted_thinking', data: block.data };
+  const { thinking, signature } = block;
+  return { type: 'thinking', thinking, signature };
+}
+
 /**
  * Undefined for an assistant turn that said nothing and called no tools: the API rejects `content: []` (except as the
  * final prefill message) and whitespace-only text, so such a turn is dropped rather than padded with invented text.
+ * Thinking blocks go first, as the API requires them ahead of the turn's `tool_use` blocks when thinking is on.
  */
 function toAssistantMessage(message: ProviderMessage): AnthropicMessage | undefined {
-  const { text = '', toolCalls = [] } = message;
+  const { text = '', toolCalls = [], thinkingBlocks = [] } = message;
   const textBlocks: AnthropicTextBlock[] = hasVisibleText(text) ? [{ type: 'text', text }] : [];
-  const content = [...textBlocks, ...toolCalls.map(toToolUseBlock)];
-  return content.length === 0 ? undefined : { role: 'assistant', content };
+  const answer = [...textBlocks, ...toolCalls.map(toToolUseBlock)];
+  if (answer.length === 0) return undefined;
+  return { role: 'assistant', content: [...thinkingBlocks.map(toThinkingWireBlock), ...answer] };
 }
 
 interface WireMessageParams {

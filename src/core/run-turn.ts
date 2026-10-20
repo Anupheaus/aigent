@@ -1,6 +1,6 @@
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, ProviderMessage, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, ProviderMessage, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
@@ -56,6 +56,8 @@ export interface TurnStreamResult {
   visible: string;
   /** Tool calls in the order the model made them. */
   calls: ToolCall[];
+  /** Completed thinking blocks in order; replayed verbatim on the turn's assistant message. */
+  thinkingBlocks: ThinkingBlock[];
   finishReason?: FinishReason;
 }
 
@@ -146,6 +148,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   const { runId, routing, showThinking, registry, signal, messages, totals, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
+  const thinkingBlocks: ThinkingBlock[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
@@ -165,6 +168,8 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       switch (event.type) {
         case 'text-delta': visible += emitParsed(parser.push(event.text), emit); break;
         case 'thinking-delta': if (showThinking) emit(event); break;
+        // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
+        case 'thinking-block': thinkingBlocks.push(event.block); break;
         case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
         case 'usage': addUsage(totals, event.usage); emit(event); break;
         case 'done': finishReason = event.finishReason; break;
@@ -175,5 +180,5 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     if (isAbandoned) stopStream(iterator);
   }
   visible += emitParsed(parser.end(), emit);
-  return { visible, calls, finishReason };
+  return { visible, calls, thinkingBlocks, finishReason };
 }

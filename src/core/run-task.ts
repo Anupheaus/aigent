@@ -85,10 +85,15 @@ function toolCallsPerTurn(totals: RunTotals): number {
   return turns === 0 ? 0 : toolCalls / turns;
 }
 
-/** The assistant message (with its tool calls) followed by one tool message per call, in call order. */
+/** The assistant message (with its tool calls and thinking blocks) followed by one tool message per call, in call order. */
 function turnMessages(params: TurnMessagesParams): ProviderMessage[] {
-  const { turn: { visible, calls }, executed } = params;
-  const assistant: ProviderMessage = calls.length > 0 ? { role: 'assistant', text: visible, toolCalls: calls } : { role: 'assistant', text: visible };
+  const { turn: { visible, calls, thinkingBlocks }, executed } = params;
+  const assistant: ProviderMessage = {
+    role: 'assistant',
+    text: visible,
+    ...(calls.length > 0 ? { toolCalls: calls } : {}),
+    ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}),
+  };
   const toolResults = executed.map(({ envelope }): ProviderMessage => ({ role: 'tool', toolCallId: envelope.id, text: JSON.stringify(envelope) }));
   return [assistant, ...toolResults];
 }

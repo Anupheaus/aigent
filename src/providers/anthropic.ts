@@ -50,6 +50,7 @@ export function anthropic(options: AnthropicOptions): Provider {
     promptCaching,
     vision: false,
     maxContextTokens,
+    thinkingBlocks: true,
     supportedSettings: [...ANTHROPIC_SUPPORTED_SETTINGS],
   };
 

@@ -110,6 +110,9 @@ function chunkedResponse(text: string): FakeResponseSpec {
 /** Converts a contract scenario into the HTTP response an OpenAI-compatible server would send for it. */
 export function openAiScenarioResponse(scenario: ContractScenario): FakeResponseSpec {
   switch (scenario.kind) {
+    case 'thinking-round-trip':
+      // The adapter does not declare thinking blocks, so the suite skips this scenario before any request is made.
+      throw new Error('openAiCompatible has no thinking-round-trip fixture: it does not declare capabilities.thinkingBlocks');
     case 'text': {
       const { chunks, usage } = scenario;
       return chunkedResponse(sseBody([...chunks.map(textChunk), finishChunk('stop'), usageChunk(toOpenAiUsage(usage))]));

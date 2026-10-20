@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createAigentError } from '../core/aigent-error.js';
 import type { AigentError } from '../core/aigent-error.js';
-import type { FinishReason, ProviderEvent, ToolCall, Usage } from './provider-types.js';
+import type { FinishReason, ProviderEvent, ThinkingBlock, ToolCall, Usage } from './provider-types.js';
 import type { SseMessage } from './sse-parser.js';
 
 /** A `tool_use` content block being assembled from `input_json_delta` fragments. */
@@ -23,6 +23,8 @@ export interface AnthropicStreamState {
   providerId: string;
   /** Open `tool_use` blocks by content block index. */
   toolBlocks: Map<number, ToolUseDraft>;
+  /** Open `thinking` / `redacted_thinking` blocks by content block index, assembled from deltas and emitted whole at their stop. */
+  thinkingBlocks: Map<number, ThinkingBlock>;
   inputUsage: InputUsage;
   outputTokens: number;
   /** False until the server reports any usage; without it no `usage` event is emitted rather than invented zeros. */
@@ -46,6 +48,8 @@ const RETRYABLE_ERROR_TYPES: readonly string[] = ['overloaded_error', 'api_error
 const UNKNOWN_ERROR_TYPE = 'unknown_error';
 const NO_ERROR_MESSAGE = 'no message';
 const TOOL_USE_BLOCK_TYPE = 'tool_use';
+const THINKING_BLOCK_TYPE = 'thinking';
+const REDACTED_THINKING_BLOCK_TYPE = 'redacted_thinking';
 /** Longest slice of a bad payload quoted in an error message. */
 const MAX_QUOTED_PAYLOAD_CHARS = 200;
 
@@ -61,11 +65,19 @@ const eventSchema = z.object({
   type: z.string().nullish(),
   index: z.number().int().nonnegative().nullish(),
   message: z.object({ usage: usageSchema.nullish() }).nullish(),
-  content_block: z.object({ type: z.string(), id: z.string().nullish(), name: z.string().nullish() }).nullish(),
+  content_block: z.object({
+    type: z.string(),
+    id: z.string().nullish(),
+    name: z.string().nullish(),
+    thinking: z.string().nullish(),
+    signature: z.string().nullish(),
+    data: z.string().nullish(),
+  }).nullish(),
   delta: z.object({
     type: z.string().nullish(),
     text: z.string().nullish(),
     thinking: z.string().nullish(),
+    signature: z.string().nullish(),
     partial_json: z.string().nullish(),
     stop_reason: z.string().nullish(),
   }).nullish(),
@@ -79,6 +91,7 @@ export function createAnthropicStreamState(providerId: string): AnthropicStreamS
   return {
     providerId,
     toolBlocks: new Map(),
+    thinkingBlocks: new Map(),
     inputUsage: { inputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
     outputTokens: 0,
     hasUsage: false,
@@ -135,9 +148,28 @@ function rememberInputUsage(params: { state: AnthropicStreamState; event: Anthro
 function startBlock(params: { state: AnthropicStreamState; event: AnthropicEvent }): void {
   const { state, event } = params;
   const { index, content_block: block } = event;
-  // Text and thinking blocks need no state: their deltas are emitted as they arrive.
-  if (index == null || block?.type !== TOOL_USE_BLOCK_TYPE) return;
-  state.toolBlocks.set(index, { id: block.id ?? '', name: block.name ?? '', json: '' });
+  // Text blocks need no state: their deltas are emitted as they arrive.
+  if (index == null || block == null) return;
+  switch (block.type) {
+    case TOOL_USE_BLOCK_TYPE:
+      state.toolBlocks.set(index, { id: block.id ?? '', name: block.name ?? '', json: '' });
+      return;
+    case THINKING_BLOCK_TYPE:
+      state.thinkingBlocks.set(index, { type: 'thinking', thinking: block.thinking ?? '', signature: block.signature ?? '' });
+      return;
+    case REDACTED_THINKING_BLOCK_TYPE:
+      state.thinkingBlocks.set(index, { type: 'redacted-thinking', data: block.data ?? '' });
+      return;
+  }
+}
+
+/** Thinking text and the signature are kept exactly as streamed: the API rejects a replayed block that differs. */
+function appendThinking(params: { state: AnthropicStreamState; index: number | undefined; thinking?: string; signature?: string }): void {
+  const { state, index, thinking, signature } = params;
+  const draft = index == null ? undefined : state.thinkingBlocks.get(index);
+  if (draft?.type !== 'thinking') return;
+  if (thinking != null) draft.thinking += thinking;
+  if (signature != null) draft.signature += signature;
 }
 
 function appendToolJson(params: { state: AnthropicStreamState; index: number | undefined; partialJson: string }): void {
@@ -151,8 +183,11 @@ function applyDelta(params: { state: AnthropicStreamState; event: AnthropicEvent
   const { state, event } = params;
   const { index, delta } = event;
   if (delta == null) return [];
-  const { text, thinking, partial_json: partialJson } = delta;
+  const { text, thinking, signature, partial_json: partialJson } = delta;
   if (partialJson != null) appendToolJson({ state, index: index ?? undefined, partialJson });
+  if (thinking != null || signature != null) {
+    appendThinking({ state, index: index ?? undefined, ...(thinking == null ? {} : { thinking }), ...(signature == null ? {} : { signature }) });
+  }
   const events: ProviderEvent[] = [];
   if (thinking != null && thinking !== '') events.push({ type: 'thinking-delta', text: thinking });
   if (text != null && text !== '') events.push({ type: 'text-delta', text });
@@ -175,12 +210,21 @@ function toToolCallEvent(draft: ToolUseDraft): ProviderEvent {
   return { type: 'tool-call', call };
 }
 
-/** A tool call is complete once its block stops, so it is emitted right away rather than at the end of the turn. */
+/**
+ * A tool call or thinking block is complete once its block stops, so it is emitted right away rather than at the end
+ * of the turn.
+ */
 function stopBlock(params: { state: AnthropicStreamState; event: AnthropicEvent }): ProviderEvent[] {
   const { state, event } = params;
   const { index } = event;
-  const draft = index == null ? undefined : state.toolBlocks.get(index);
-  if (index == null || draft == null) return [];
+  if (index == null) return [];
+  const thinking = state.thinkingBlocks.get(index);
+  if (thinking != null) {
+    state.thinkingBlocks.delete(index);
+    return [{ type: 'thinking-block', block: thinking }];
+  }
+  const draft = state.toolBlocks.get(index);
+  if (draft == null) return [];
   state.toolBlocks.delete(index);
   return [toToolCallEvent(draft)];
 }
@@ -205,12 +249,15 @@ function resolveFinishReason(state: AnthropicStreamState): FinishReason {
   return stopReason == null ? 'stop' : FINISH_REASONS.get(stopReason) ?? 'stop';
 }
 
-/** Ends the turn: flushes any tool block the server never stopped, then one `usage` and `done`. */
+/** Ends the turn: flushes any thinking or tool block the server never stopped (in block order), then one `usage` and `done`. */
 function stopMessage(state: AnthropicStreamState): ProviderEvent[] {
-  const unstopped = [...state.toolBlocks.entries()]
+  const thinking = [...state.thinkingBlocks.entries()].map(([index, block]): [number, ProviderEvent] => [index, { type: 'thinking-block', block }]);
+  const tools = [...state.toolBlocks.entries()].map(([index, draft]): [number, ProviderEvent] => [index, toToolCallEvent(draft)]);
+  const unstopped = [...thinking, ...tools]
     .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
-    .map(([, draft]) => toToolCallEvent(draft));
+    .map(([, unstoppedEvent]) => unstoppedEvent);
   state.toolBlocks.clear();
+  state.thinkingBlocks.clear();
   state.isComplete = true;
   const usageEvents: ProviderEvent[] = state.hasUsage ? [{ type: 'usage', usage: totalUsage(state) }] : [];
   return [...unstopped, ...usageEvents, { type: 'done', finishReason: resolveFinishReason(state) }];

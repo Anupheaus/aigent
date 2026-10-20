@@ -5,7 +5,7 @@ import { anthropic } from './anthropic.js';
 import type { AnthropicOptions } from './anthropic.js';
 import {
   anthropicSse, blockStop, errorEvent, inputJsonDelta, interleavedToolUseBlocks, messageDelta, messageStart, messageStop, ping, textBlock,
-  textBlockStart, textDelta, thinkingBlockStart, thinkingDelta, toolUseBlockStart,
+  redactedThinkingBlock, textBlockStart, textDelta, thinkingBlock, thinkingBlockStart, thinkingDelta, toolUseBlockStart,
 } from './anthropic-fixtures.test-support.js';
 import type { AnthropicEventFixture } from './anthropic-fixtures.test-support.js';
 import { byteChunks, createFakeBody, createFakeFetch, encodeText } from './fake-fetch.test-support.js';
@@ -249,6 +249,34 @@ describe('anthropic request', () => {
     ]);
   });
 
+  // With thinking on, the API rejects a tool_use turn whose thinking blocks are missing, reordered or altered.
+  it('replays thinking and redacted thinking blocks verbatim, ahead of the text and tool_use blocks', async () => {
+    const body = await bodyFor({
+      request: {
+        ...REQUEST,
+        messages: [
+          { role: 'user', text: 'go' },
+          {
+            role: 'assistant',
+            text: 'Calling.',
+            toolCalls: [{ id: 't1', name: 'echo', args: { text: 'x' } }],
+            thinkingBlocks: [{ type: 'thinking', thinking: '  Need echo.\n', signature: 'sig-abc==' }, { type: 'redacted-thinking', data: 'ENCRYPTED==' }],
+          },
+          { role: 'tool', toolCallId: 't1', text: '{"ok":true}' },
+        ],
+      },
+    });
+    expect((body.messages as unknown[])[1]).toEqual({
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: '  Need echo.\n', signature: 'sig-abc==' },
+        { type: 'redacted_thinking', data: 'ENCRYPTED==' },
+        { type: 'text', text: 'Calling.' },
+        { type: 'tool_use', id: 't1', name: 'echo', input: { text: 'x' } },
+      ],
+    });
+  });
+
   it('omits a whitespace-only text block before tool calls', async () => {
     const body = await bodyFor({
       request: {
@@ -325,7 +353,7 @@ describe('anthropic streaming', () => {
     ]);
   });
 
-  it('turns thinking deltas into thinking events', async () => {
+  it('turns thinking deltas into thinking events, then the completed block', async () => {
     const events = await streaming([
       messageStart(),
       thinkingBlockStart(0),
@@ -339,9 +367,50 @@ describe('anthropic streaming', () => {
     expect(events).toEqual([
       { type: 'thinking-delta', text: 'hmm ' },
       { type: 'thinking-delta', text: 'ok' },
+      { type: 'thinking-block', block: { type: 'thinking', thinking: 'hmm ok', signature: '' } },
       { type: 'text-delta', text: 'Hi' },
       ZERO_USAGE,
       DONE_STOP,
+    ]);
+  });
+
+  it('emits each thinking block with its signature and each redacted block with its data, before the tool calls', async () => {
+    const events = await streaming([
+      messageStart(),
+      ...thinkingBlock({ index: 0, chunks: ['Need ', 'echo.'], signature: 'sig-abc==' }),
+      ...redactedThinkingBlock({ index: 1, data: 'ENCRYPTED==' }),
+      toolUseBlockStart({ index: 2, id: 't1', name: 'echo' }),
+      inputJsonDelta({ index: 2, partialJson: '{}' }),
+      blockStop(2),
+      messageDelta({ stopReason: 'tool_use', outputTokens: 0 }),
+      messageStop(),
+    ]).events();
+    expect(events).toEqual([
+      { type: 'thinking-delta', text: 'Need ' },
+      { type: 'thinking-delta', text: 'echo.' },
+      { type: 'thinking-block', block: { type: 'thinking', thinking: 'Need echo.', signature: 'sig-abc==' } },
+      { type: 'thinking-block', block: { type: 'redacted-thinking', data: 'ENCRYPTED==' } },
+      { type: 'tool-call', call: { id: 't1', name: 'echo', args: {} } },
+      ZERO_USAGE,
+      { type: 'done', finishReason: 'tool_calls' },
+    ]);
+  });
+
+  it('flushes thinking and tool blocks the server never stopped, in block order', async () => {
+    const events = await streaming([
+      messageStart(),
+      thinkingBlockStart(0),
+      thinkingDelta({ index: 0, thinking: 'hmm' }),
+      toolUseBlockStart({ index: 1, id: 't1', name: 'echo' }),
+      messageDelta({ stopReason: 'tool_use', outputTokens: 0 }),
+      messageStop(),
+    ]).events();
+    expect(events).toEqual([
+      { type: 'thinking-delta', text: 'hmm' },
+      { type: 'thinking-block', block: { type: 'thinking', thinking: 'hmm', signature: '' } },
+      { type: 'tool-call', call: { id: 't1', name: 'echo', args: {} } },
+      ZERO_USAGE,
+      { type: 'done', finishReason: 'tool_calls' },
     ]);
   });
 
@@ -556,7 +625,7 @@ describe('anthropic capabilities', () => {
     const provider = anthropic({ apiKey: API_KEY });
     expect(provider.id).toBe('anthropic');
     expect(provider.capabilities).toEqual({
-      streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: true, vision: false, maxContextTokens: 200_000,
+      streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: true, vision: false, maxContextTokens: 200_000, thinkingBlocks: true,
       supportedSettings: ['maxOutputTokens', 'temperature', 'topP', 'thinking', 'effort', 'promptCaching', 'stop', 'providerOptions'],
     });
   });

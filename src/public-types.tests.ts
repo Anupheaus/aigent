@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
-  RunRecord, Sleeper, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
+  RunRecord, Sleeper, ThinkingBlock, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
   QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
@@ -24,6 +24,7 @@ describe('public types', () => {
     const providerSettings: ProviderSettings = { temperature: 0.5, stop: ['END'] };
     const recordSettings: RunRecord['settings'] = modelSettings;
     const resilience: Partial<ResiliencePolicy> = { maxRetries: 1, firstEventTimeoutMs: 10_000 };
+    const thinkingBlocks: ThinkingBlock[] = [{ type: 'thinking', thinking: 't', signature: 's' }, { type: 'redacted-thinking', data: 'd' }];
     const sleep: Sleeper = async () => undefined;
     const random: RandomSource = () => 0.5;
     const clock: Clock = { now: () => 0 };
@@ -41,6 +42,6 @@ describe('public types', () => {
     const usageReport: UsageReport = { key: 'anthropic', tokens: 1 };
     const leaseRequest: LeaseRequest = { key: 'anthropic:m', estimatedTokens: 1, priority, agentName: 'a', signal: new AbortController().signal };
     const scheduler: Scheduler = { acquire: async () => lease, reportRateLimit: () => undefined, reportUsage: () => undefined, snapshot: () => schedulerSnapshot };
-    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
+    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });
