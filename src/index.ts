@@ -58,3 +58,17 @@ export type { ShapedStepRecord } from './telemetry/run-record.js';
 export type { TimeGranularity, VolatileOptions } from './context/volatile-block.js';
 export type { PlanItem, PlanItemState, PlanStatus, TodoItem } from './planning/plan-schema.js';
 export type { StoredPlanItem, StoredTodoItem } from './telemetry/run-record.js';
+export { reduceConversation } from './chat/reduce-conversation.js';
+export { createConversationStore } from './chat/conversation-store.js';
+export type { ConversationStore } from './chat/conversation-store.js';
+export { createEmptyConversation, ROOT_BRANCH_ID } from './chat/conversation.js';
+export type {
+  Branch, ConversationState, ConversationStatus, ConversationUsage, EmptyConversationParams, ForkOrigin, OpenQuestion, QueuedMessage, Thread,
+} from './chat/conversation.js';
+export type { MessageChanges, Patch, PatchBody, PatchType } from './chat/patches.js';
+export { QUESTION_TYPES } from './chat/message.js';
+export type {
+  DeliveryMode, JsonValue, Message, MessageAttachment, MessageDelivery, MessageKind, MessageMeta, ChatRole, MessageState, MessageTiming, MessageTokens, Part, Question, QuestionMeta,
+  QuestionOption, QuestionType,
+} from './chat/message.js';
+export type { ActivityPhase, ActivityProgress, ActivityToolCall, ActivityUpdate } from './core/activity-update.js';

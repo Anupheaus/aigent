@@ -11,6 +11,9 @@ import type {
   CacheEntry, CacheEntryStats, CacheOptions, ContentKind, DeterministicCandidate, Fidelity, FrequentInvalidation, HotCacheEntry, ShapedStepRecord, ShapersSetting, ShapingNote, TimeGranularity, VolatileOptions,
   PlanItem, PlanItemState, PlanStatus, StoredPlanItem, StoredTodoItem, TodoItem,
 } from './index.js';
+import type {
+  ActivityPhase, ActivityUpdate, Branch, ChatRole, ConversationState, DeliveryMode, JsonValue, Message, MessageKind, Part, Patch, PatchBody, Question, QueuedMessage, Thread,
+} from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
 // Compile-time check: every type that appears in a public signature can be named by consumers.
@@ -143,5 +146,24 @@ describe('public types', () => {
     const storedPlan: StoredPlanItem = { id: 'p1', status };
     const storedTodo: StoredTodoItem = { id: 't1', status: 'pending' };
     expect({ state, todo, storedPlan, storedTodo }).toMatchObject({ state: { status: 'done' } });
+  });
+
+  it('lets consumers name the conversation model types', () => {
+    const data: JsonValue = { nested: [1, 'two', null] };
+    const part: Part = { type: 'card', data };
+    const role: ChatRole = 'agent';
+    const kind: MessageKind = 'statement';
+    const mode: DeliveryMode = 'steer';
+    const message: Message = { id: 'm1', seq: 1, role, kind, parts: [part], branchId: 'main', state: 'complete', createdAt: 1, pinned: false, compactable: true, meta: {}, delivery: { mode } };
+    const body: PatchBody = { type: 'message-added', message };
+    const patch: Patch = { ...body, seq: 1, at: 1 };
+    const question: Question = { id: 'q1', text: 'Name?', type: 'text', required: true };
+    const queued: QueuedMessage = { id: 'u1', text: 'later', queuedAt: 1 };
+    const thread: Thread = { id: 'm1', rootMessageId: 'm1', messageIds: [], updatedAt: 1 };
+    const branch: Branch = { id: 'main', reason: 'root', createdAt: 0 };
+    const phase: ActivityPhase = 'thinking';
+    const activity: ActivityUpdate = { seq: 1, runId: 'r', phase, statusText: 'Thinking', elapsedMs: 0, tokens: { input: 0, output: 0 }, costUsd: 0, heartbeat: false };
+    const state: Pick<ConversationState, 'messages' | 'queue' | 'threads' | 'branches' | 'activity'> = { messages: [message], queue: [queued], threads: [thread], branches: [branch], activity };
+    expect({ patch, question, state }).toMatchObject({ patch: { seq: 1 } });
   });
 });
