@@ -69,6 +69,15 @@ describe('the streamed answer agrees with the output guardrails', () => {
   });
 });
 
+describe('stream checks that are not synchronous', () => {
+  it('warns once per run, not once per released segment', async () => {
+    const slow = defineGuardrail({ name: 'slow', stage: 'stream', check: async () => ({ action: 'allow' }) });
+    const { agent } = setup({ turns: [textTurn('x'.repeat(400), SMALL_CHUNKS)], guardrails: { custom: [slow], failMode: 'open' } });
+    const events = await collect(agent.task({ task: 'talk' }));
+    expect(events.filter(event => event.type === 'warning' && event.message.includes('must be synchronous'))).toHaveLength(1);
+  });
+});
+
 describe('reasoning and stored transcripts', () => {
   it('a chat message shows the settled answer after a retraction', async () => {
     const noPrices = defineGuardrail({ name: 'no-prices', stage: 'output', check: value => (typeof value === 'string' && value.includes('$') ? { action: 'rewrite', value: value.replace(/\$\d+/g, '[price]'), note: 'prices hidden' } : { action: 'allow' }) });

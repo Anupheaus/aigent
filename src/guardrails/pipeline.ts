@@ -50,6 +50,22 @@ function checked(value: unknown): Outcome {
   return isDecision(value) ? value : { action: 'error', code: 'guardrail_error', message: `The check returned no valid decision: ${JSON.stringify(value)}` };
 }
 
+/** What a rewrite at each stage must produce: text, or a call or result of the same shape. */
+const STAGE_SHAPES: Record<GuardrailStage, { describe: string; fits(value: unknown): boolean }> = {
+  input: { describe: 'text', fits: value => typeof value === 'string' },
+  output: { describe: 'text', fits: value => typeof value === 'string' },
+  stream: { describe: 'text', fits: value => typeof value === 'string' },
+  toolCall: { describe: 'a { tool, args } call', fits: value => typeof value === 'object' && value !== null && 'args' in value },
+  toolResult: { describe: 'a { tool, result } value', fits: value => typeof value === 'object' && value !== null && 'result' in value },
+};
+
+/** A rewrite whose value does not fit the stage would break what comes after it: it counts as a failing check. */
+function fitted(params: { outcome: Outcome; stage: GuardrailStage }): Outcome {
+  const { outcome, stage } = params;
+  if (outcome.action !== 'rewrite' || STAGE_SHAPES[stage].fits(outcome.value)) return outcome;
+  return { action: 'error', code: 'guardrail_error', message: `The check's rewrite does not fit the ${stage} stage (expected ${STAGE_SHAPES[stage].describe})` };
+}
+
 /** Settles with the decision, or a timeout outcome after `timeoutMs`; never leaves its timer behind. */
 function bounded(params: { pending: Promise<unknown>; timeoutMs: number }): Promise<Outcome> {
   const { pending, timeoutMs } = params;
@@ -76,8 +92,9 @@ export function createGuardrailPipeline(params: CreateGuardrailPipelineParams): 
     const base = { stage, ...(context.callId == null ? {} : { callId: context.callId }) };
 
     /** Applies one outcome; a result when the pipeline is done, else the value to continue with. */
-    const apply = (guardrail: Guardrail, outcome: Outcome, value: GuardrailValue): { result?: PipelineResult; value: GuardrailValue } => {
+    const apply = (guardrail: Guardrail, checkedOutcome: Outcome, value: GuardrailValue): { result?: PipelineResult; value: GuardrailValue } => {
       const { name } = guardrail;
+      const outcome = fitted({ outcome: checkedOutcome, stage });
       if (outcome.action === 'allow') return { value };
       if (outcome.action === 'rewrite') {
         onDecision({ guardrail: name, ...base, action: 'rewrite', message: outcome.note });

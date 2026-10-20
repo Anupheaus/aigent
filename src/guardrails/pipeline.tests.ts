@@ -25,6 +25,16 @@ describe('defineGuardrail', () => {
 });
 
 describe('guardrail pipeline', () => {
+  it('treats a rewrite whose value does not fit the stage as a failing check', () => {
+    const { records, onDecision } = record();
+    const objectForText = defineGuardrail({ name: 'object-for-text', stage: 'output', check: () => ({ action: 'rewrite', value: { not: 'text' }, note: 'oops' }) });
+    const textForResult = defineGuardrail({ name: 'text-for-result', stage: 'toolResult', check: () => ({ action: 'rewrite', value: 'just text', note: 'oops' }) });
+    const pipeline = createGuardrailPipeline({ custom: [objectForText, textForResult], onDecision });
+    expect(pipeline.run({ stage: 'output', value: 'hello', context: RUN })).toMatchObject({ action: 'block', code: 'guardrail_error', reason: expect.stringMatching(/output.*text/) });
+    expect(pipeline.run({ stage: 'toolResult', value: { tool: 't', result: 1 }, context: RUN })).toMatchObject({ action: 'block', code: 'guardrail_error' });
+    expect(records.map(({ guardrail, action }) => [guardrail, action])).toEqual([['object-for-text', 'error'], ['text-for-result', 'error']]);
+  });
+
   it('runs built-ins before custom guardrails, chains rewrites in order and records each', async () => {
     const { records, onDecision } = record();
     const pipeline = createGuardrailPipeline({ builtins: [upper], custom: [exclaim], onDecision });

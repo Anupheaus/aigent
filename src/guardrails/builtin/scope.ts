@@ -1,3 +1,4 @@
+import { MULTI_TOOL_NAME } from '../../tools/multi-tool.js';
 import type { Guardrail, GuardrailRunContext, ScopeOptions } from '../guardrail-types.js';
 
 /** Keeps planned calls inside the configured tools and the task's scope, and flags forbidden terms in the output. */
@@ -12,7 +13,8 @@ export function scopeGuardrails(params: { options: ScopeOptions; run: GuardrailR
       const { tool } = value;
       const suggestion = 'Use another tool or do without it.';
       if (denied.has(tool)) return { action: 'block', code: 'tool_out_of_scope', reason: `Tool '${tool}' is denied for this agent. ${suggestion}` };
-      if (allowTools != null && !allowTools.includes(tool)) return { action: 'block', code: 'tool_out_of_scope', reason: `Tool '${tool}' is not among the allowed tools: ${allowTools.join(', ')}. ${suggestion}` };
+      // aigent_multi only carries calls, and each inner call is checked against the list itself.
+      if (allowTools != null && tool !== MULTI_TOOL_NAME && !allowTools.includes(tool)) return { action: 'block', code: 'tool_out_of_scope', reason: `Tool '${tool}' is not among the allowed tools: ${allowTools.join(', ')}. ${suggestion}` };
       if (outOfScopeTools.has(tool)) return { action: 'block', code: 'tool_out_of_scope', reason: `Tool '${tool}' is out of scope for this task. ${suggestion}` };
       return { action: 'allow' };
     },

@@ -20,6 +20,11 @@ describe('scope guardrail', () => {
     expect(call!.check({ tool: 'send_email', args: {} }, callContext)).toMatchObject({ action: 'block', reason: expect.stringMatching(/out of scope for this task/) });
   });
 
+  it('lets aigent_multi through an allow list (its inner calls are checked one by one)', () => {
+    const [call] = scopeGuardrails({ options: { allowTools: ['read'] }, run: {} });
+    expect(call!.check({ tool: 'aigent_multi', args: { calls: [] } }, context('toolCall').context)).toEqual({ action: 'allow' });
+  });
+
   it('warns when the output mentions a forbidden term', () => {
     const output = scopeGuardrails({ options: { forbiddenTerms: ['Project X'] }, run: {} }).find(({ stage }) => stage === 'output')!;
     const { warnings, context: outputContext } = context('output');

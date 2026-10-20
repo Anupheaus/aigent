@@ -97,12 +97,14 @@ export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuard
     return guarded === content ? executed : { ...executed, envelope: { ...envelope, error: withErrorTexts({ error: envelope.error, guarded }) } };
   };
 
+  let hasWarnedAsyncStream = false;
   /** A released stream segment through the `stream` checks; a check that is not synchronous fails per `failMode`. */
   const releaseSegment = (segment: string): string => {
     const result = pipeline.run({ stage: 'stream', value: segment, context: ids });
     if (result instanceof Promise) {
       void result.catch(() => undefined);
-      emit({ type: 'warning', message: 'A stream guardrail returned a promise; stream checks must be synchronous' });
+      if (!hasWarnedAsyncStream) emit({ type: 'warning', message: `A stream guardrail returned a promise; stream checks must be synchronous (failMode '${failMode}': ${failMode === 'closed' ? 'streamed text is withheld' : 'streamed text is shown unchecked'})` });
+      hasWarnedAsyncStream = true;
       return failMode === 'closed' ? '' : segment;
     }
     return result.action === 'block' ? '' : String(result.value);
