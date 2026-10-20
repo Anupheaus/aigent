@@ -211,6 +211,32 @@ describe('agent.task tool failure containment', () => {
 });
 
 describe('agent.task run control', () => {
+  it('finishes the run with a warning when a tool renderer never settles', async () => {
+    const tool = defineTool({
+      name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
+      describeActivity: () => new Promise(() => undefined), run: async args => args.text,
+    });
+    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('done')], [tool]);
+    const run = agent.task({ task: 'x' });
+    const events = await collect(run);
+    expect((await run).status).toBe('completed');
+    expect(events).toContainEqual({ type: 'warning', message: expect.stringMatching(/activity.*did not settle/) });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+  });
+
+  it('cancel settles the run even when a renderer never settles', async () => {
+    const tool = defineTool({
+      name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
+      describeActivity: async function* () { yield { title: 'waiting forever' }; await new Promise(() => undefined); },
+      run: () => new Promise(() => undefined),
+    });
+    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('never')], [tool]);
+    const run = agent.task({ task: 'x' });
+    setTimeout(() => run.cancel(), 20);
+    const result = await run;
+    expect(result.status).toBe('cancelled');
+  });
+
   it('settles as cancelled when aborted while tools run after the stream finished', async () => {
     const slowTool = defineTool({
       name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,

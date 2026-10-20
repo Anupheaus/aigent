@@ -7,6 +7,7 @@ import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResult } from './agent-types.js';
 import { runTurn } from './run-turn.js';
+import { settleActivities } from './settle-activities.js';
 import type { RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
 import type { Clock } from './runtime-services.js';
 import { buildSystemPrompt } from './system-prompt.js';
@@ -40,6 +41,15 @@ export interface RunTaskParams {
   emit(event: AigentEvent): void;
 }
 
+interface DrainWorkParams {
+  work: TurnWork;
+  signal: AbortSignal;
+  emit(event: AigentEvent): void;
+}
+
+/** How long a turn waits, after its tools finished, for activity renderers to settle before abandoning them. */
+const ACTIVITY_SETTLE_GRACE_MS = 1_000;
+
 interface TurnMessagesParams {
   turn: TurnStreamResult;
   executed: ExecutedToolCall[];
@@ -66,10 +76,20 @@ function turnMessages(params: TurnMessagesParams): ProviderMessage[] {
   return [assistant, ...toolResults];
 }
 
-/** Waits for everything a turn started; executions race the run's signal, so after an abort this settles promptly. */
-async function drainWork(work: TurnWork): Promise<ExecutedToolCall[]> {
-  const executed = await Promise.all(work.executions);
-  await Promise.all(work.activities);
+/**
+ * Waits for everything a turn started. Executions race the run's signal and activity renderers are bounded by
+ * `settleActivities`, so this always settles promptly, even after an abort or with a renderer that never finishes.
+ */
+async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
+  const { work, signal, emit } = params;
+  const { executions, activities, activityController } = work;
+  const executed = await Promise.all(executions);
+  const isSettled = await settleActivities({ activities, signal, graceMs: ACTIVITY_SETTLE_GRACE_MS });
+  if (!isSettled) {
+    activityController.abort();
+    // After an abort, cutting renderers off is expected rather than a problem worth reporting.
+    if (!signal.aborted) emit({ type: 'warning', message: `Tool activity renderers for this turn (${activities.length} started) did not settle within ${ACTIVITY_SETTLE_GRACE_MS} ms after their tools finished; their activity updates were stopped` });
+  }
   return executed;
 }
 
@@ -93,7 +113,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
     if (totals.turns >= limits.maxTurns) { status = 'limit_reached'; break; }
     totals.turns += 1;
 
-    const work: TurnWork = { executions: [], activities: [] };
+    const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
     try {
       turn = await runTurn({ runId, agentName, instanceId, model, provider, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, emit });
@@ -107,11 +127,11 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
         // Tools dispatched mid-stream must not outlive a failed run.
         abortController.abort();
       }
-      errors.push(...failedDetails(await drainWork(work)));
+      errors.push(...failedDetails(await drainWork({ work, signal, emit })));
       break;
     }
 
-    const executed = await drainWork(work);
+    const executed = await drainWork({ work, signal, emit });
     messages.push(...turnMessages({ turn, executed }));
     errors.push(...failedDetails(executed));
     if (turn.calls.length === 0) {

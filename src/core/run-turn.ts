@@ -22,6 +22,8 @@ export interface RunTotals {
 export interface TurnWork {
   executions: Promise<ExecutedToolCall>[];
   activities: Promise<void>[];
+  /** Aborted when the turn stops waiting for its activity renderers, so abandoned renderers emit nothing more. */
+  activityController: AbortController;
 }
 
 export interface RunTurnParams {
@@ -97,7 +99,7 @@ function dispatchToolCall(params: DispatchParams): void {
   const parsed = parseToolArgs(tool.argsSchema, args);
   if (!parsed.ok) return;
   const outcome = execution.then(executed => executed.outcome);
-  work.activities.push(startToolActivity({ tool, args: parsed.value, callId, outcome, emit }));
+  work.activities.push(startToolActivity({ tool, args: parsed.value, callId, outcome, signal: work.activityController.signal, emit }));
 }
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
