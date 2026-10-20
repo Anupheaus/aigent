@@ -112,8 +112,17 @@ export function createChat(params: CreateChatParams): Chat {
     engine.close();
     await engine.idle();
     await Promise.all([...sideWork]);
-    writer?.snapshot(log.state());
-    await writer?.flush();
+    if (writer == null) return;
+    // Never a snapshot ahead of patches that are not stored: the writer refuses it after a failure.
+    writer.snapshot(log.state());
+    const failures = await writer.flush();
+    const failedSeqs = writer.failedSeqs();
+    if (failedSeqs.length > 0) {
+      throw createAigentError({
+        code: 'store_failed', message: `Chat session '${sessionId}' closed with ${failedSeqs.length} patch(es) not stored (seqs ${failedSeqs[0]}-${failedSeqs.at(-1)}): ${failures.join('; ')}`,
+        details: { sessionId, agentName: agent.name, failedSeqs, failures },
+      });
+    }
   }
 
   const unregister = registerCloser(() => close());

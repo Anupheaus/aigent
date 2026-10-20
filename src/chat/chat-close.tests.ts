@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createInMemoryStore } from '../store/in-memory-store.js';
+import type { Store } from '../store/store-types.js';
 import { textTurn, toolTurn } from '../testing/fake-provider.js';
 import { chatSetup, delay } from './chat.test-support.js';
 
@@ -72,4 +74,36 @@ describe('chat.close()', () => {
     expect(() => chat.fork()).toThrow(/is closed/);
     expect(chat.conversation().seq).toBe(seq);
   });
+
+  it('rejects with the session and the unstored seqs when chat writes failed, and the reopened session stays gapless', async () => {
+    const failing = { isOn: false };
+    const store = chunkFailingStore(failing);
+    const { agent } = chatSetup({ turns: [textTurn('one'), textTurn('two'), textTurn('three')], store });
+    const chat = agent.chat({ sessionId: 's-fail' });
+    await chat.send('first');
+    failing.isOn = true;
+    await chat.send('second');
+    failing.isOn = false;
+    await expect(chat.close()).rejects.toMatchObject({ code: 'store_failed', message: expect.stringMatching(/session 's-fail'.*not stored/), details: { sessionId: 's-fail', failedSeqs: expect.arrayContaining([expect.any(Number)]) } });
+    const reopened = agent.chat({ sessionId: 's-fail' });
+    await reopened.ready;
+    const seqs: number[] = [];
+    reopened.subscribe(patch => seqs.push(patch.seq), { fromSeq: 1 });
+    await delay(5);
+    expect(seqs).toEqual(Array.from({ length: reopened.conversation().seq }, (_unused, index) => index + 1));
+    await reopened.send('third');
+    await reopened.close();
+  });
 });
+
+/** Chat chunk writes fail while `failing.isOn`. */
+function chunkFailingStore(failing: { isOn: boolean }): Store {
+  const store = createInMemoryStore();
+  return {
+    ...store,
+    compareAndSet: async params => {
+      if (failing.isOn && params.collection === 'chats' && /:\d+$/.test(params.key)) throw new Error('disk full');
+      return store.compareAndSet(params);
+    },
+  };
+}

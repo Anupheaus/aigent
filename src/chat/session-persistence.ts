@@ -1,3 +1,4 @@
+import { createAigentError } from '../core/aigent-error.js';
 import type { Store } from '../store/store-types.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { ConversationState } from './conversation.js';
@@ -68,7 +69,26 @@ export async function loadSession(params: { store: Store; key: SessionKey }): Pr
     if (record == null) break;
     patches.push(...record.value.patches);
   }
+  requireGapless({ key, record: stored.value, patches });
   return { record: stored.value, patches };
+}
+
+/** A hole would replay as a broken (non-gapless) stream: it is an explicit error, never a silent skip. */
+function requireGapless(params: { key: SessionKey; record: ChatSessionRecord; patches: Patch[] }): void {
+  const { key, record, patches } = params;
+  const first = patches[0]?.seq;
+  if (first == null) return;
+  // Without a snapshot the history starts at 1; with one, it must reach back at least to the patch right after it.
+  let expected = record.snapshot == null ? 1 : Math.min(first, record.seq + 1);
+  for (const { seq } of patches) {
+    if (seq !== expected) {
+      throw createAigentError({
+        code: 'store_failed', message: `Stored chat session '${sessionRecordKey(key)}' has a hole: patch ${expected} is missing (found ${seq}); it cannot be replayed gaplessly`,
+        details: { sessionId: key.sessionId, agentName: key.agentName, missingSeq: expected, foundSeq: seq },
+      });
+    }
+    expected += 1;
+  }
 }
 
 export interface SessionWriter {
@@ -78,6 +98,11 @@ export interface SessionWriter {
   snapshot(state: ConversationState): void;
   /** Resolves when every write so far has settled; resolves with the failures (as messages). */
   flush(): Promise<string[]>;
+  /**
+   * Seqs of patches that are not stored, in order. After the first failed write nothing more is written (later
+   * patches and snapshots too), so the store never holds a hole or a snapshot ahead of its patches.
+   */
+  failedSeqs(): number[];
 }
 
 interface PendingChunk {
@@ -94,20 +119,39 @@ export function createSessionWriter(params: { writer: RecordWriter; key: Session
   const queueKey = `chat:${agentName}:${sessionId}`;
   const writes = new Set<Promise<unknown>>();
   const failures: string[] = [];
+  const failed: number[] = [];
   let pending: PendingChunk | undefined;
 
-  function track(write: Promise<unknown>): void {
-    const settled = write.then(() => undefined, (error: unknown) => { failures.push(error instanceof Error ? error.message : String(error)); });
+  /**
+   * The failure is recorded before the next queued write runs (this handler is attached right after the write was
+   * queued, ahead of that write's start), so every later write sees it.
+   */
+  function track(params: { write: Promise<unknown>; seqs(): number[] }): void {
+    const { write, seqs } = params;
+    const settled = write.then(() => undefined, (error: unknown) => {
+      failures.push(error instanceof Error ? error.message : String(error));
+      failed.push(...seqs());
+    });
     writes.add(settled);
     void settled.then(() => writes.delete(settled));
   }
 
+  /** Thrown inside a queued write once an earlier one failed: writing on would leave a hole. */
+  function refuseAfterFailure(what: string): void {
+    const [first] = failed;
+    if (first != null) throw createAigentError({ code: 'store_failed', message: `${what} of chat session '${sessionRecordKey(key)}' not written: patch ${first} was not stored`, details: { sessionId, firstFailedSeq: first } });
+  }
+
   function snapshot(state: ConversationState): void {
-    const value = (): ChatSessionRecord => ({ schemaVersion: CHAT_SCHEMA_VERSION, sessionId, agentName, instanceId, seq: state.seq, snapshot: state });
-    track(writer.update<ChatSessionRecord, ChatSessionRecord>({ queueKey, collection: CHATS_COLLECTION, key: sessionRecordKey(key), patch: value, merge: ({ patch }) => patch }));
+    const value = (): ChatSessionRecord => {
+      refuseAfterFailure(`Snapshot at seq ${state.seq}`);
+      return { schemaVersion: CHAT_SCHEMA_VERSION, sessionId, agentName, instanceId, seq: state.seq, snapshot: state };
+    };
+    track({ write: writer.update<ChatSessionRecord, ChatSessionRecord>({ queueKey, collection: CHATS_COLLECTION, key: sessionRecordKey(key), patch: value, merge: ({ patch }) => patch }), seqs: () => [] });
   }
 
   function append(patch: Patch, state: ConversationState): void {
+    if (failed.length > 0) { failed.push(patch.seq); return; }
     const chunk = chunkOf(patch.seq);
     if (pending != null && pending.chunk === chunk && !pending.isTaken) {
       pending.patches.push(patch);
@@ -116,11 +160,12 @@ export function createSessionWriter(params: { writer: RecordWriter; key: Session
       pending = batch;
       // The session record exists from the first patch, so a reopen finds the chunks.
       if (patch.seq === 1) snapshot(state);
-      track(writer.update<ChatChunkRecord, Patch[]>({
+      const write = writer.update<ChatChunkRecord, Patch[]>({
         queueKey, collection: CHATS_COLLECTION, key: chunkKey({ key, chunk }),
-        patch: () => { batch.isTaken = true; return batch.patches; },
+        patch: () => { batch.isTaken = true; refuseAfterFailure(`Patches ${batch.patches[0]?.seq ?? '?'}-${batch.patches.at(-1)?.seq ?? '?'}`); return batch.patches; },
         merge: ({ current, patch: added }) => ({ schemaVersion: CHAT_SCHEMA_VERSION, sessionId, agentName, chunk, patches: [...(current?.patches ?? []), ...added] }),
-      }));
+      });
+      track({ write, seqs: () => batch.patches.map(({ seq }) => seq) });
     }
     // Queued after the chunk write that holds this patch, so the snapshot never runs ahead of the patches.
     if (patch.seq % PATCHES_PER_CHUNK === 0) snapshot(state);
@@ -131,5 +176,5 @@ export function createSessionWriter(params: { writer: RecordWriter; key: Session
     return failures.splice(0);
   }
 
-  return { append, snapshot, flush };
+  return { append, snapshot, flush, failedSeqs: () => [...new Set(failed)].sort((left, right) => left - right) };
 }

@@ -6,6 +6,8 @@ export type AigentErrorCode =
   | 'provider_failed'
   | 'aborted'
   | 'store_conflict'
+  /** A store write failed, so data is missing from the store (details name what was not stored). */
+  | 'store_failed'
   /** Another live owner holds the agent instance's lease (details carry its `ownerId` and `expiresAt`). */
   | 'instance_locked'
   /** The prompt cannot fit the context window even after compaction (details carry the sizes). */

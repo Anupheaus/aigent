@@ -111,11 +111,14 @@ export function createAigent(options: AigentOptions): Aigent {
   const chatClosers = new Set<() => Promise<void>>();
 
   async function close(): Promise<void> {
-    await Promise.all([...chatClosers].map(closeChat => closeChat()));
+    // Every chat is closed even when one fails (e.g. its writes did not reach the store); the first failure is reported last.
+    const closed = await Promise.allSettled([...chatClosers].map(closeChat => closeChat()));
     // Loop because a run or feedback call may be started while we wait for the earlier ones.
     while (activeWork.size > 0) await Promise.all([...activeWork]);
     await services.writeQueue.flush();
     await resume?.close();
+    const failed = closed.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
+    if (failed != null) throw failed.reason;
   }
 
   const agentContext: AgentResolutionContext = {
