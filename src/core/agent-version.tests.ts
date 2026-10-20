@@ -88,6 +88,7 @@ describe('computeAgentVersion', () => {
     ['tool hasSideEffects', { ...BASE, tools: [{ ...searchTool, hasSideEffects: true }, writeTool] }],
     ['tool timeoutMs', { ...BASE, tools: [{ ...searchTool, timeoutMs: 1 }, writeTool] }],
     ['tool maxResultTokens', { ...BASE, tools: [searchTool, { ...writeTool, maxResultTokens: 501 }] }],
+    ['tool version', { ...BASE, tools: [{ ...searchTool, version: '2' }, writeTool] }],
     ['fallbacks', { ...BASE, fallbacks: [{ model: 'openai:gpt-test' }] }],
     ['a fallback model', { ...BASE, fallbacks: [{ model: 'openai:gpt-other' }] }],
     ['resilience', { ...BASE, resilience: { maxRetries: 0 } }],

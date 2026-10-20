@@ -1,6 +1,8 @@
+import { isCacheable } from '../cache/is-cacheable.js';
+import type { CacheLookup, ToolCache } from '../cache/cache-types.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import { parseToolArgs } from './parse-tool-args.js';
-import { describeThrown } from './tool-error-detail.js';
+import { runTool } from './run-tool.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
@@ -19,6 +21,10 @@ export interface ExecutedToolCall {
   nested: ToolErrorDetail[];
   /** Batch item totals, when the tool reports them. */
   items?: ItemCounts;
+  /** Set for cacheable tools when a cache is in use: true when the result was served from it. */
+  cacheHit?: boolean;
+  /** On a cache hit: how long the original call took. */
+  savedMs?: number;
 }
 
 export interface ExecuteToolCallParams {
@@ -27,11 +33,9 @@ export interface ExecuteToolCallParams {
   /** The run's context; the call's own id is added as `callId`. */
   context: Omit<ToolContext, 'callId'>;
   now(): number;
+  /** Looked up before a cacheable tool runs and filled after it succeeds. */
+  cache?: ToolCache;
 }
-
-const TIMEOUT_MARKER = Symbol('tool-timeout');
-const ABORT_MARKER = Symbol('tool-abort');
-type Marker = typeof TIMEOUT_MARKER | typeof ABORT_MARKER;
 
 interface FailedCallParams {
   call: ToolCall;
@@ -39,17 +43,19 @@ interface FailedCallParams {
   durationMs: number;
 }
 
-interface RaceWithLimitsParams {
-  work: Promise<unknown>;
-  timeoutMs: number;
-  signal: AbortSignal;
-}
-
 interface SucceededCallParams {
   call: ToolCall;
   tool: Tool;
   result: unknown;
   durationMs: number;
+}
+
+interface ValidatedCallParams {
+  call: ToolCall;
+  tool: Tool;
+  args: unknown;
+  context: ToolContext;
+  elapsed(): number;
 }
 
 function failedCall(params: FailedCallParams): ExecutedToolCall {
@@ -86,34 +92,33 @@ export function rejectToolCall(params: { call: ToolCall; error: ToolErrorDetail 
   return failedCall({ call, error, durationMs: 0 });
 }
 
-/** Races the tool against its timeout and the run's abort signal, always cleaning up the timer and listener. */
-function raceWithLimits(params: RaceWithLimitsParams): Promise<unknown> {
-  const { work, timeoutMs, signal } = params;
-  // An abandoned (timed out / aborted) tool may reject later; that must not become an unhandled rejection.
-  work.catch(() => undefined);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let onAbort: (() => void) | undefined;
-  const limits = new Promise<Marker>(resolve => {
-    timer = setTimeout(() => resolve(TIMEOUT_MARKER), timeoutMs);
-    if (signal.aborted) resolve(ABORT_MARKER);
-    onAbort = () => resolve(ABORT_MARKER);
-    signal.addEventListener('abort', onAbort, { once: true });
-  });
-  return Promise.race([work, limits]).finally(() => {
-    if (timer != null) clearTimeout(timer);
-    if (onAbort != null) signal.removeEventListener('abort', onAbort);
-  });
+async function executeValidated(params: ValidatedCallParams): Promise<ExecutedToolCall> {
+  const { call, tool, args, context, elapsed } = params;
+  const outcome = await runTool({ tool, args, context });
+  if (!outcome.ok) return failedCall({ call, error: outcome.error, durationMs: elapsed() });
+  return succeededCall({ call, tool, result: outcome.result, durationMs: elapsed() });
 }
 
-/** The run sets a readable `signal.reason` (stopped, timed out, provider failed); anything else is reported generically. */
-function abortReasonText(signal: AbortSignal): string {
-  const { reason } = signal;
-  return typeof reason === 'string' && reason !== '' ? reason : 'its run signal was aborted';
+/** Serves a hit, or runs the call and stores its full result; failures are never stored. */
+async function executeCached(params: ValidatedCallParams & { cache: ToolCache }): Promise<ExecutedToolCall> {
+  const { call, tool, args, context, elapsed, cache } = params;
+  const lookup: CacheLookup = { tool, args, context };
+  const hit = await cache.lookup(lookup);
+  if (hit != null) return { ...succeededCall({ call, tool, result: hit.value, durationMs: elapsed() }), cacheHit: true, savedMs: hit.savedMs };
+  const outcome = await runTool({ tool, args, context });
+  if (!outcome.ok) {
+    cache.abandon(lookup);
+    return { ...failedCall({ call, error: outcome.error, durationMs: elapsed() }), cacheHit: false };
+  }
+  const executed = succeededCall({ call, tool, result: outcome.result, durationMs: elapsed() });
+  const { durationMs, size: { resultBytes, resultTokens } } = executed;
+  await cache.store({ lookup, value: outcome.result, durationMs, bytes: resultBytes, resultTokens });
+  return { ...executed, cacheHit: false };
 }
 
 /** Executes one tool call. Never rejects: every failure becomes a structured envelope. */
 export async function executeToolCall(params: ExecuteToolCallParams): Promise<ExecutedToolCall> {
-  const { registry, call, now } = params;
+  const { registry, call, now, cache } = params;
   const context: ToolContext = { ...params.context, callId: call.id };
   const startedAt = now();
   const elapsed = () => now() - startedAt;
@@ -142,18 +147,8 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
       durationMs: elapsed(),
     });
   }
-  try {
-    // Wrapped so a plain return value (JavaScript consumers, casts) still counts as success and a synchronous throw becomes a rejection.
-    const work = new Promise<unknown>(resolve => resolve(tool.run(parsed.value, context)));
-    const result = await raceWithLimits({ work, timeoutMs: tool.timeoutMs, signal: context.signal });
-    if (result === TIMEOUT_MARKER) {
-      return failedCall({ call, error: { category: 'timeout', code: 'tool_timeout', retryable: true, message: `Tool '${tool.name}' did not finish within ${tool.timeoutMs} ms` }, durationMs: elapsed() });
-    }
-    if (result === ABORT_MARKER) {
-      return failedCall({ call, error: { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${tool.name}' was aborted because ${abortReasonText(context.signal)}` }, durationMs: elapsed() });
-    }
-    return succeededCall({ call, tool, result, durationMs: elapsed() });
-  } catch (error) {
-    return failedCall({ call, error: describeThrown(error), durationMs: elapsed() });
-  }
+  const validated: ValidatedCallParams = { call, tool, args: parsed.value, context, elapsed };
+  // Uncached tools take the synchronous path, so `run` starts before this returns and calls start in arrival order.
+  if (cache == null || !isCacheable(tool)) return executeValidated(validated);
+  return executeCached({ ...validated, cache });
 }

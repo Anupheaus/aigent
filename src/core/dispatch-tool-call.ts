@@ -53,7 +53,7 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
 export function dispatchToolCall(params: DispatchParams): void {
   const { turn } = params;
-  const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, telemetry, emit } = turn;
+  const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, telemetry, cache, emit } = turn;
   const call = withoutPrevious(params);
   const { id: callId, name, args } = call;
   emit({ type: 'tool-call', callId, name, args });
@@ -89,7 +89,7 @@ export function dispatchToolCall(params: DispatchParams): void {
     totals.toolCalls += 1;
   }
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
-  const execution = executeToolCall({ registry, call, context, now: () => clock.now() })
+  const execution = executeToolCall({ registry, call, context, now: () => clock.now(), ...(cache == null ? {} : { cache }) })
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
 
   const tool = registry.get(name);

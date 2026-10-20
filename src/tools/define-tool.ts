@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hashSchema } from '../cache/cache-key.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
@@ -18,6 +19,8 @@ interface ToolBaseInput {
   cache: boolean;
   /** Required when `cache` is true and `deterministic` is false. */
   cacheTtlMs?: number;
+  /** Contract version label; bump it to invalidate cached results. */
+  version?: string;
   hasSideEffects?: boolean;
   timeoutMs?: number;
   maxResultTokens?: number;
@@ -31,22 +34,49 @@ interface ToolBaseInput {
 
 export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
   args: TSchema;
+  /** Cached tools only: normalises the arguments into the cache key (default: the arguments). */
+  cacheKey?(args: z.infer<TSchema>): unknown;
+  /** Cached tools only: a token that changes when the data behind a result changes (e.g. mtime + size). */
+  validity?(args: z.infer<TSchema>, context: ToolContext): Promise<string>;
   describeActivity: DescribeActivity<z.infer<TSchema>>;
   run(args: z.infer<TSchema>, context: ToolContext): Promise<unknown>;
 }
 
 export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
   item: TItem;
+  /** Cached tools only: normalises the arguments into the cache key (default: the arguments). */
+  cacheKey?(args: BatchArgs<TItem>): unknown;
+  /** Cached tools only: a token that changes when the data behind a result changes. */
+  validity?(args: BatchArgs<TItem>, context: ToolContext): Promise<string>;
   maxItems: number;
   describeActivity: DescribeActivity<{ items: z.infer<TItem>[] }>;
   runItem(item: z.infer<TItem>, context: ToolContext): Promise<unknown>;
+}
+
+/** The arguments of a batch tool. */
+export interface BatchArgs<TItem extends z.ZodType> {
+  items: z.infer<TItem>[];
+}
+
+/** The cache fields every tool input may carry, checked without their argument types. */
+interface CacheFieldsInput {
+  cacheKey?: unknown;
+  validity?: unknown;
 }
 
 function invalid(toolName: string, message: string): never {
   throw createAigentError({ code: 'invalid_definition', message: `Tool '${toolName}': ${message}`, details: { tool: toolName } });
 }
 
-function validateBase(input: ToolBaseInput & { describeActivity: unknown }): void {
+function validateCacheFields(input: ToolBaseInput & CacheFieldsInput): void {
+  const { name, cache, version, cacheKey, validity } = input;
+  if (version !== undefined && (typeof version !== 'string' || version === '')) invalid(name, `version must be a non-empty string, got ${JSON.stringify(version)}`);
+  if (cacheKey !== undefined && typeof cacheKey !== 'function') invalid(name, 'cacheKey must be a function of the arguments');
+  if (validity !== undefined && typeof validity !== 'function') invalid(name, 'validity must be a function returning a promise of a token');
+  if (!cache && (cacheKey !== undefined || validity !== undefined)) invalid(name, 'cacheKey and validity only apply to cached tools (cache: true)');
+}
+
+function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown }): void {
   const { name, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
   if (typeof deterministic !== 'boolean') invalid(name, 'deterministic must be declared explicitly (true or false)');
@@ -55,6 +85,7 @@ function validateBase(input: ToolBaseInput & { describeActivity: unknown }): voi
   if (hasSideEffects === true && (cache || deterministic)) invalid(name, 'a tool with side effects cannot be cached or deterministic');
   if (cache && !deterministic && (cacheTtlMs == null || cacheTtlMs <= 0)) invalid(name, 'a cached non-deterministic tool needs a positive cacheTtlMs');
   if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
+  validateCacheFields(input);
 }
 
 function isPositiveInteger(value: unknown): boolean {
@@ -63,16 +94,21 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
     description,
     argsSchema: args,
-    jsonSchema: strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args),
+    jsonSchema,
+    schemaHash: hashSchema(jsonSchema),
     strict: strictSchema,
     deterministic,
     cache,
     cacheTtlMs,
+    ...(version == null ? {} : { version }),
+    ...(cacheKey == null ? {} : { cacheKey: (cacheArgs: unknown) => cacheKey(cacheArgs as z.infer<TSchema>) }),
+    ...(validity == null ? {} : { validity: (validityArgs: unknown, context: ToolContext) => validity(validityArgs as z.infer<TSchema>, context) }),
     hasSideEffects,
     timeoutMs,
     maxResultTokens,
@@ -106,13 +142,15 @@ function batchFailures(result: unknown): ToolErrorDetail[] {
 }
 
 export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
-  const { item, maxItems, runItem, describeActivity, ...base } = input;
+  const { item, maxItems, runItem, describeActivity, cacheKey, validity, ...base } = input;
   // An array schema with min 1 and max below 1 could never be satisfied.
   if (!isPositiveInteger(maxItems)) invalid(base.name, `maxItems must be a positive integer, got ${String(maxItems)}`);
   const argsSchema = z.object({ items: z.array(item).min(1).max(maxItems) }).strict();
   const tool = defineTool({
     ...base,
     args: argsSchema,
+    ...(cacheKey == null ? {} : { cacheKey: (batchArgs: z.infer<typeof argsSchema>) => cacheKey(batchArgs as BatchArgs<TItem>) }),
+    ...(validity == null ? {} : { validity: (batchArgs: z.infer<typeof argsSchema>, context: ToolContext) => validity(batchArgs as BatchArgs<TItem>, context) }),
     describeActivity: describeActivity as DescribeActivity<z.infer<typeof argsSchema>>,
     // Items are independent, so they run in parallel; each failure is isolated into its own entry.
     run: async (parsed, context) => Promise.all(parsed.items.map(async (batchItem, index) => {

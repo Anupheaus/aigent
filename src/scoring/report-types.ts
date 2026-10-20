@@ -1,4 +1,7 @@
+import type { CacheFindings } from '../cache/cache-types.js';
 import type { AgentFeedbackKind } from '../feedback/feedback-records.js';
+
+export type { CacheFindings };
 
 /** Which runs `ai.report()` covers. Every given field must match. */
 export interface ReportFilter {
@@ -106,13 +109,6 @@ export interface Finding {
   evidence: Record<string, unknown>;
 }
 
-/** Filled by the tool-result cache slice; empty until then. */
-export interface CacheFindings {
-  hottestEntries: Finding[];
-  hitRates: Finding[];
-  deterministicCandidates: Finding[];
-  frequentInvalidations: Finding[];
-}
 
 /** Medians compared across two versions; null where a side has no data (e.g. no pricing). */
 export interface ComparisonMetrics {

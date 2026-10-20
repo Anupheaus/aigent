@@ -23,8 +23,24 @@ describe('buildReport', () => {
   it('reports nothing, safely, for no runs', () => {
     expect(buildReport({ traces: [], filter: {}, generatedAt: GENERATED_AT })).toEqual({
       generatedAt: GENERATED_AT, filter: { minRuns: 5 }, runCount: 0, agents: [], findings: [], requests: [], toolSuggestions: [], agentFeedback: [],
-      cache: { hottestEntries: [], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] },
+      cache: { hottest: [], hitRateByTool: {}, hitRateByAgent: {}, worthMarkingDeterministic: [], frequentlyInvalidated: [] },
     });
+  });
+
+  it('fills cache findings from the stored entries and the selected runs\' repeated uncached calls', () => {
+    const repeated = [{ tool: 'lookup', argsHash: 'h' }, { tool: 'lookup', argsHash: 'h' }, { tool: 'lookup', argsHash: 'h' }];
+    const traces = [fixtureTrace({ run: { startedAt: 1 }, steps: repeated }), fixtureTrace({ run: { startedAt: 2 }, steps: repeated })];
+    const stats = { firstStoredBy: { agentName: 'helper', runId: 'r' }, totalHits: 2, hitsByAgent: { helper: 2 }, missesByAgent: { helper: 1 }, lastRequestedAt: 0, missCount: 1, invalidationCount: 0, savedMs: 30, savedTokens: 4 };
+    const cacheEntries = [{ key: 'global:k', value: { schemaVersion: 1 as const, namespace: 'global', tool: 'read', storedAt: 0, value: 'x', bytes: 3, originalDurationMs: 15, resultTokens: 2, stats } }];
+    const { cache } = buildReport({ traces, cacheEntries, filter: {}, generatedAt: GENERATED_AT });
+    expect(cache).toEqual({
+      hottest: [{ tool: 'read', key: 'global:k', hits: 2, savedMs: 30 }],
+      hitRateByTool: { read: 2 / 3 },
+      hitRateByAgent: { helper: 2 / 3 },
+      worthMarkingDeterministic: [{ tool: 'lookup', repeatedIdenticalCalls: 6 }],
+      frequentlyInvalidated: [],
+    });
+    expect(buildReport({ traces, cacheEntries, filter: { since: 2 }, generatedAt: GENERATED_AT }).cache.worthMarkingDeterministic).toEqual([]);
   });
 
   it('summarises each agent version: totals, medians, p90s and scores', () => {

@@ -7,6 +7,7 @@ import type {
   RunMetrics, Score, ScoreLabel, ToolSuggestion, VersionComparison, VersionSide, WastedStepReason, ToolUse,
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
+import type { CacheEntry, CacheEntryStats, CacheOptions, DeterministicCandidate, FrequentInvalidation, HotCacheEntry } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
 // Compile-time check: every type that appears in a public signature can be named by consumers.
@@ -83,7 +84,7 @@ describe('public types', () => {
     const findingKind: FindingKind = 'slow-tool';
     const severity: FindingSeverity = 'warn';
     const finding: Finding = { id: 'slow-tool:a:read', kind: findingKind, severity, label: 'slow', agentName: 'a', subject: 'read', message: 'm', evidence: {} };
-    const cache: CacheFindings = { hottestEntries: [finding], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] };
+    const cache: CacheFindings = { hottest: [{ tool: 'read', key: 'global:k', hits: 2, savedMs: 10 }], hitRateByTool: { read: 0.5 }, hitRateByAgent: { a: 0.5 }, worthMarkingDeterministic: [{ tool: 'search', repeatedIdenticalCalls: 6 }], frequentlyInvalidated: [{ tool: 'read', invalidations: 3, lookups: 4 }] };
     const comparisonMetrics: ComparisonMetrics = { durationMs: 1, tokens: null, turns: null, toolCallsPerTurn: null, costUsd: null, reliability: null };
     const side: VersionSide = { version: 'v', runs: 1, medians: comparisonMetrics };
     const comparison: VersionComparison = { before: side, after: side, deltas: comparisonMetrics };
@@ -102,5 +103,17 @@ describe('public types', () => {
     expect({ pricing, report, toolUse }).toMatchObject({ report: { runCount: 1 } });
     expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts, feedbackRecord, outcomeSummary }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
+  });
+
+  it('lets consumers name the tool-result cache types', () => {
+    const options: CacheOptions = { maxEntries: 10, maxBytes: 1_000, maxEntryBytes: 100 };
+    const stats: CacheEntryStats = {
+      firstStoredBy: { agentName: 'a', runId: 'r' }, totalHits: 1, hitsByAgent: { a: 1 }, missesByAgent: {}, lastRequestedAt: 0, missCount: 1, invalidationCount: 0, savedMs: 1, savedTokens: 1,
+    };
+    const entry: CacheEntry = { schemaVersion: 1, namespace: 'global', tool: 'read', storedAt: 0, value: 'x', bytes: 3, originalDurationMs: 1, resultTokens: 1, stats };
+    const hot: HotCacheEntry = { tool: 'read', key: 'global:k', hits: 1, savedMs: 1 };
+    const candidate: DeterministicCandidate = { tool: 'search', repeatedIdenticalCalls: 3 };
+    const invalidation: FrequentInvalidation = { tool: 'read', invalidations: 3, lookups: 4 };
+    expect({ options, entry, hot, candidate, invalidation }).toMatchObject({ entry: { tool: 'read' } });
   });
 });

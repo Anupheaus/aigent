@@ -67,7 +67,8 @@ describe('ai.report', () => {
     // sequence can be mined, but the back-to-back reads still show as unbatched.
     expect(report.requests).toEqual([expect.objectContaining({ runs: RUNS, successfulRuns: 0, wastedSteps: expect.arrayContaining([{ runId: results[0]?.runId, stepIndex: 1, reason: 'unbatched' }]) })]);
     expect(report.toolSuggestions).toEqual([]);
-    expect(report.cache).toEqual({ hottestEntries: [], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] });
+    // The reads use different paths and the tool is not cached: nothing to report.
+    expect(report.cache).toEqual({ hottest: [], hitRateByTool: {}, hitRateByAgent: {}, worthMarkingDeterministic: [], frequentlyInvalidated: [] });
   });
 
   it('leaves out disableTelemetry runs, filters, and compares versions', async () => {

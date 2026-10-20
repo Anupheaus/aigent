@@ -76,6 +76,7 @@ export const traceStepSchema = z.object({
   itemFailures: count.optional(),
   itemTotal: count.optional(),
   cacheHit: z.boolean().optional(),
+  savedMs: durationMs.optional(),
   resultBytes: count,
   resultTokens: count,
   truncated: z.boolean(),

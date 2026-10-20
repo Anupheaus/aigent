@@ -1,4 +1,6 @@
 import { analyseRequest } from '../analysis/request-efficiency.js';
+import { findCacheFindings, findDeterministicCandidates } from '../cache/cache-findings.js';
+import type { KeyedCacheEntry } from '../cache/cache-findings.js';
 import { mineSequences } from '../analysis/sequence-mining.js';
 import { suggestTools } from '../analysis/tool-suggestions.js';
 import { groupSimilarTasks } from '../analysis/trace-group.js';
@@ -10,7 +12,7 @@ import { compareVersions } from './compare-versions.js';
 import { groupSorted } from './finding-rules.js';
 import { findFindings } from './findings.js';
 import { matchesFilter, parseReportFilter } from './report-filter.js';
-import type { CacheFindings, Pricing, Report, ReportFilter } from './report-types.js';
+import type { Pricing, Report, ReportFilter } from './report-types.js';
 import { DEFAULT_MIN_RUNS } from './score.js';
 
 export interface BuildReportParams {
@@ -18,15 +20,12 @@ export interface BuildReportParams {
   traces: RunTrace[];
   /** Stored `aigent_feedback` entries; only those of the report's runs are summarised. */
   agentFeedback?: AgentFeedbackRecord[];
+  /** Stored tool-result cache entries (shared by every agent, so not filtered). */
+  cacheEntries?: KeyedCacheEntry[];
   /** Validated here (it comes from the consumer); `undefined` means no filter. */
   filter: ReportFilter | undefined;
   generatedAt: number;
   pricing?: Pricing;
-}
-
-/** Placeholder until the tool-result cache slice records cache statistics. */
-function emptyCacheFindings(): CacheFindings {
-  return { hottestEntries: [], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] };
 }
 
 /** Agent name and version, the grouping for scores and baselines. */
@@ -37,7 +36,7 @@ function versionKey(run: RunRecord): string {
 
 /** Turns stored runs and traces into scores, findings and an optional version comparison. Pure. */
 export function buildReport(params: BuildReportParams): Report {
-  const { traces, agentFeedback = [], generatedAt, pricing } = params;
+  const { traces, agentFeedback = [], cacheEntries = [], generatedAt, pricing } = params;
   const filter = parseReportFilter(params.filter);
   const { minRuns = DEFAULT_MIN_RUNS, compareVersions: versions } = filter;
   const selected = traces.filter(({ run }) => matchesFilter({ run, filter }));
@@ -56,7 +55,7 @@ export function buildReport(params: BuildReportParams): Report {
     requests: groupSimilarTasks(selected).map(analyseRequest),
     toolSuggestions: suggestTools(mineSequences(selected), selected),
     agentFeedback: summariseAgentFeedback({ records: agentFeedback, runIds: new Set(selected.map(({ run: { runId } }) => runId)) }),
-    cache: emptyCacheFindings(),
+    cache: { ...findCacheFindings(cacheEntries), worthMarkingDeterministic: findDeterministicCandidates(selected) },
     ...(versions == null ? {} : { comparison: compareVersions({ runs: comparisonRuns, versions, ...(pricing == null ? {} : { pricing }) }) }),
   };
 }

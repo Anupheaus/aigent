@@ -1,3 +1,4 @@
+import type { ToolCache } from '../cache/cache-types.js';
 import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import { createFeedbackTool } from '../feedback/feedback-tool.js';
 import { PREVIOUS_FIELD } from '../feedback/previous-outcome.js';
@@ -15,6 +16,8 @@ export interface BuildAgentRegistryParams {
   tools: Tool[];
   /** Present when feedback is enabled: receives `aigent_feedback` entries. */
   feedbackCollector?: FeedbackCollector;
+  /** The runtime's tool-result cache, used by `aigent_multi` inner calls too. */
+  cache?: ToolCache;
   now(): number;
 }
 
@@ -38,8 +41,8 @@ function rejectReservedArguments(params: { agentName: string; tool: Tool }): voi
  * carry `previous` and a user tool named like a built-in is a duplicate.
  */
 export function buildAgentRegistry(params: BuildAgentRegistryParams): ToolRegistry {
-  const { agentName, tools, feedbackCollector, now } = params;
-  const multiTool = createMultiTool({ registry: createToolRegistry(tools), now });
+  const { agentName, tools, feedbackCollector, cache, now } = params;
+  const multiTool = createMultiTool({ registry: createToolRegistry(tools), now, ...(cache == null ? {} : { cache }) });
   if (feedbackCollector == null) return createToolRegistry([...tools, multiTool]);
   for (const tool of tools) rejectReservedArguments({ agentName, tool });
   return createToolRegistry([...[...tools, multiTool].map(withFeedbackFields), createFeedbackTool({ collector: feedbackCollector })]);

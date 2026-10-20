@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ToolCache } from '../cache/cache-types.js';
 import { defineTool } from './define-tool.js';
 import { executeToolCall, rejectToolCall } from './execute-tool-call.js';
 import type { ExecutedToolCall } from './execute-tool-call.js';
@@ -34,6 +35,8 @@ export interface CreateMultiToolOptions {
   registry: ToolRegistry;
   /** The run's clock, so inner call timings come from the same injected time source. */
   now(): number;
+  /** The runtime's tool-result cache, so inner calls are cached like top-level ones. */
+  cache?: ToolCache;
 }
 
 interface InnerCallParams {
@@ -71,7 +74,7 @@ function refused(call: MultiCall, error: ToolErrorDetail): ExecutedToolCall {
 
 /** Built-in tool that runs several different tools in one model call, returning one envelope per call. */
 export function createMultiTool(options: CreateMultiToolOptions): Tool {
-  const { registry, now } = options;
+  const { registry, now, cache } = options;
   /** The executed inner calls behind each result this tool returned, so nested failures come from full, untruncated results. */
   const executedByResult = new WeakMap<object, ExecutedToolCall[]>();
 
@@ -84,7 +87,7 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     if (!reserveToolCall()) {
       return refused(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
     }
-    return executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now });
+    return executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now, ...(cache == null ? {} : { cache }) });
   }
 
   /** Traced as it starts (so the trace keeps call order, even though calls finish in any order) and when it finishes. */

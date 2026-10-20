@@ -1,3 +1,4 @@
+import type { ToolCache } from '../cache/cache-types.js';
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
 import type { FinishReason, ProviderMessage, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
@@ -54,6 +55,8 @@ export interface RunTurnParams {
   totals: RunTotals;
   work: TurnWork;
   telemetry: RunTelemetry;
+  /** The runtime's tool-result cache; absent when caching is off. */
+  cache?: ToolCache;
   emit(event: AigentEvent): void;
 }
 

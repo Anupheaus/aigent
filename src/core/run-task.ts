@@ -1,3 +1,4 @@
+import type { ToolCache } from '../cache/cache-types.js';
 import type { ProviderMessage } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { addErrorDetails } from '../tools/tool-error-detail.js';
@@ -42,6 +43,8 @@ export interface RunTaskParams {
   clock: Clock;
   control: RunControl;
   telemetry: RunTelemetry;
+  /** The runtime's tool-result cache; absent when caching is off. */
+  cache?: ToolCache;
   emit(event: AigentEvent): void;
 }
 
@@ -116,7 +119,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, emit } = params;
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
@@ -138,7 +141,10 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     let turn: TurnStreamResult;
     const endTurn = telemetry.timer.startTurn();
     try {
-      turn = await runTurn({ runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit });
+      turn = await runTurn({
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit,
+        ...(cache == null ? {} : { cache }),
+      });
       endTurn();
     } catch (error) {
       endTurn();

@@ -1,8 +1,12 @@
+import { createToolCache } from '../cache/tool-cache.js';
+import type { CacheOptions, ToolCache } from '../cache/cache-types.js';
 import type { Provider } from '../providers/provider-types.js';
 import { createScheduler } from '../scheduler/scheduler.js';
 import type { Scheduler, SchedulerOptions } from '../scheduler/scheduler-types.js';
+import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { PurgeFilter, Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
+import type { WriteQueue } from '../store/write-queue.js';
 import { purgeRecords } from '../telemetry/purge-records.js';
 import { readTrace } from '../telemetry/read-trace.js';
 import { createRecordWriter } from '../telemetry/record-writer.js';
@@ -69,6 +73,12 @@ export interface AigentOptions {
   enableFeedback?: boolean;
   /** Model prices keyed `provider:model`, so `ai.report()` can score cost; cost is null without them. */
   pricing?: Pricing;
+  /**
+   * The tool-result cache for tools declared `cache: true` (on by default): limits, or false to turn it off. Entries go
+   * to the runtime `store` (collection `toolcache`); without a store, or with `captureContent: false`, to a private
+   * in-memory store, so tool results never reach a store whose owner asked for no content.
+   */
+  cache?: CacheOptions | false;
 }
 
 export interface Aigent {
@@ -125,6 +135,22 @@ function parseProviderModelSettings(params: { settings: Record<string, ModelSett
   }));
 }
 
+interface ResolveToolCacheParams {
+  cache: CacheOptions | false | undefined;
+  store: Store | undefined;
+  captureContent: boolean;
+  writeQueue: WriteQueue;
+  clock: Clock;
+}
+
+/** The runtime's cache, kept out of the consumer's store when there is none or content capture is off. */
+function resolveToolCache(params: ResolveToolCacheParams): ToolCache | undefined {
+  const { cache, store, captureContent, writeQueue, clock } = params;
+  if (cache === false) return undefined;
+  const cacheStore = store != null && captureContent ? store : createInMemoryStore();
+  return createToolCache({ store: cacheStore, writeQueue, now: () => clock.now(), ...(cache == null ? {} : { options: cache }) });
+}
+
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
 }
@@ -144,11 +170,15 @@ export function createAigent(options: AigentOptions): Aigent {
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
   const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
   const writeQueue = createWriteQueue();
+  const toolCache = resolveToolCache({ cache: options.cache, store, captureContent, writeQueue, clock });
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   // result.feedback goes through the same tracked path as ai.feedback.
-  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler };
+  const services: RuntimeServices = {
+    clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler,
+    ...(toolCache == null ? {} : { cache: toolCache }),
+  };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
 
@@ -197,7 +227,11 @@ export function createAigent(options: AigentOptions): Aigent {
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const instanceId = definition.instanceId ?? ids.next('agent');
     const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
-    const registry = buildAgentRegistry({ agentName: name, tools, now: () => clock.now(), ...(feedbackCollector == null ? {} : { feedbackCollector }) });
+    const registry = buildAgentRegistry({
+      agentName: name, tools, now: () => clock.now(),
+      ...(feedbackCollector == null ? {} : { feedbackCollector }),
+      ...(toolCache == null ? {} : { cache: toolCache }),
+    });
     const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
     // A fallback's provider layer can differ from the primary's, so each fallback's own effective settings are hashed.
     const fallbacks = fallbackTargets.map(({ reference, providerSettings }) => ({

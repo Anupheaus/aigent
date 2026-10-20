@@ -1,3 +1,4 @@
+import { hashSchema } from '../cache/cache-key.js';
 import type { JsonSchema } from '../providers/provider-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import { PREVIOUS_FIELD } from './previous-outcome.js';
@@ -28,6 +29,8 @@ export function withFeedbackFields(tool: Tool): Tool {
   const required = (jsonSchema.required ?? []) as string[];
   return {
     ...tool,
+    // The hash of the schema as defined, so adding `previous` never changes the tool's cache keys.
+    schemaHash: tool.schemaHash ?? hashSchema(jsonSchema),
     jsonSchema: {
       ...jsonSchema,
       properties: { ...properties, [PREVIOUS_FIELD]: PREVIOUS_JSON_SCHEMA },

@@ -68,6 +68,17 @@ export interface Tool {
   /** Whether results may be cached (scope follows `deterministic`). */
   cache: boolean;
   cacheTtlMs?: number;
+  /** Normalises arguments into the cache key (default: the arguments themselves), e.g. to ignore a formatting option. */
+  cacheKey?(args: unknown): unknown;
+  /**
+   * A token that changes whenever the data behind a result changes (e.g. mtime + size, or a content hash). An entry is
+   * served only while its stored token still matches.
+   */
+  validity?(args: unknown, context: ToolContext): Promise<string>;
+  /** Contract version label; bump it to invalidate cached results. Part of the cache key and the agent version. */
+  version?: string;
+  /** Hash of the argument schema as defined (set by `defineTool`), so schema wrappers never change cache keys. */
+  schemaHash?: string;
   hasSideEffects: boolean;
   timeoutMs: number;
   maxResultTokens?: number;

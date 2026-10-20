@@ -291,7 +291,7 @@ A strict schema cannot describe every inner tool's arguments, so `aigent_multi` 
 With a `store`, every run writes two records through the agent's write queue before `done` is emitted:
 
 - `runs/<runId>`: the run record. It holds `schemaVersion` (currently `RUN_RECORD_SCHEMA_VERSION`, 1), `runId`, `responseId`, `agentName`, `instanceId`, `mode` (`'task'`), `agentVersion` and `version`, `label`, `scope` (stored untouched), `model`, the settings as sent (see [Agent versions](#agent-versions)), `unattended`, `status` and `usage`. It also holds `timings` (`startedAt`, `firstTokenMs`, `durationMs`, `modelMs` streaming time without queueing, `toolMs` summed over top-level calls, `queuedMs` waiting for the scheduler), `stepCount`, `failureCount`, and, when content capture is on, the `task` text and final `answer`.
-- `traces/<runId>`: the same identity fields plus `steps`, one per tool call in start order. A step has `index`, `turn`, `callId`, `parentCallId` (inner `aigent_multi` calls), `tool`, `argsSummary` (the first 120 characters of the arguments' canonical JSON), `args` (content capture only), `ok`, `errorCategory` / `errorCode`, `itemFailures` / `itemTotal` for batch calls, `resultBytes` and `resultTokens` (estimated as characters / 4) of the full result, `truncated`, `durationMs` and `startedAtMs`. Refused calls (unknown tool, invalid arguments, over `maxToolCalls`) are steps too, so every failure is recorded.
+- `traces/<runId>`: the same identity fields plus `steps`, one per tool call in start order. A step has `index`, `turn`, `callId`, `parentCallId` (inner `aigent_multi` calls), `tool`, `argsSummary` (the first 120 characters of the arguments' canonical JSON), `args` (content capture only), `ok`, `errorCategory` / `errorCode`, `itemFailures` / `itemTotal` for batch calls, `resultBytes` and `resultTokens` (estimated as characters / 4) of the full result, `truncated`, `durationMs`, `startedAtMs`, and `cacheHit` / `savedMs` for cacheable tools (see [Tool-result cache](#tool-result-cache)). Refused calls (unknown tool, invalid arguments, over `maxToolCalls`) are steps too, so every failure is recorded.
 
 Each step may also carry the agent's `outcome` (`{ success, answer, source }`, see [Agent feedback](#agent-feedback-enablefeedback)), and the run record sums them in `outcomeSummary` (`claimedSuccess`, `claimedFailure`).
 
@@ -322,6 +322,33 @@ Traces can contain sensitive content (task text, answers, tool arguments). Conte
 ### Large tool results
 
 A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
+
+## Tool-result cache
+
+Results of tools declared `cache: true` are cached, so a repeated call is served without running the tool again. It is on by default; `createAigent({ cache: false })` turns it off and `cache: { maxEntries, maxBytes, maxEntryBytes }` sets its limits (defaults 1,000 entries, 64 MiB, 256 KiB per result; each must be a positive integer, otherwise `invalid_definition`).
+
+```ts
+const readFile = defineTool({
+  name: 'read_file', description: 'Read a file', args: z.object({ path: z.string() }).strict(),
+  deterministic: true, cache: true,
+  version: '2',                                          // bump to invalidate old results
+  cacheKey: ({ path }) => ({ path: normalisePath(path) }), // what identifies a call (default: the arguments)
+  validity: async ({ path }) => { const { mtimeMs, size } = await stat(path); return `${mtimeMs}:${size}`; },
+  describeActivity: ({ path }) => ({ title: `Reading ${path}` }),
+  run: async ({ path }) => readFile(path, 'utf8'),
+});
+```
+
+- **Key:** a sha-256 of the canonical JSON of the tool name, its `version`, a hash of its argument schema and the normalised arguments. Argument key order never matters, `previous` and alias tokens are removed or expanded before the key is computed, and a changed schema or version never collides with older entries.
+- **Scope:** results of `deterministic` tools are shared by every agent and instance using the store (namespace `global`). A cached non-deterministic tool must declare `cacheTtlMs`, and its results stay private to the agent instance that produced them (`instance:<instanceId>`). Entries expire after `cacheTtlMs` when it is set, measured with the injected clock.
+- **Validity:** when a tool defines `validity`, the token is computed before every lookup and stored with the entry. An entry whose token changed is never served: the call runs again, replaces the entry and counts as an invalidation. A `validity` or `cacheKey` that throws makes that call run uncached.
+- **Never cached:** failed calls (including timeouts and aborts), results larger than `maxEntryBytes`, and tools with side effects.
+- **Copies:** results are deep-copied when stored and when served, so mutating a result never changes a later hit. The cache holds the full result; `maxResultTokens` truncation applies to each served copy.
+- **Single-flight:** identical calls that arrive while the first is still running wait for it and are then served from the cache, so the tool runs once. If the first call fails, the waiting calls run themselves.
+- **Eviction:** beyond `maxEntries` or `maxBytes` of live entries, the least recently requested entries are evicted. An evicted entry keeps its statistics (its value is dropped), so findings still see its history.
+- **Storage:** entries live in the runtime `store`, collection `toolcache`, keyed `${namespace}:${key}`, as `{ schemaVersion, namespace, tool, storedAt, expiresAt?, validity?, value, bytes, originalDurationMs, resultTokens, evicted?, stats }`. `stats` holds `firstStoredBy`, `totalHits`, `hitsByAgent`, `missesByAgent`, `lastRequestedAt`, `missCount`, `invalidationCount`, `savedMs` and `savedTokens`, all updated through the keyed write queue so they are exact under concurrency. Without a store, or with `captureContent: false`, entries go to a private in-memory store instead, so tool results never reach a store whose owner asked for no content. Cache entries do not pass through `redact` (it could alter what is served back) and are not removed by `purge`.
+- **Telemetry:** a hit is still a normal tool call: the model receives the usual envelope, activity views are emitted and `usage.toolCalls` counts it. Its trace step has `cacheHit: true` and `savedMs` (the original call's duration); steps of cacheable tools that missed have `cacheHit: false`.
+- **Findings:** `report.cache` holds `hottest` (the 10 entries with most hits, with `savedMs`), `hitRateByTool` and `hitRateByAgent` (hits / lookups), `frequentlyInvalidated` (tools with at least 3 invalidations making up a quarter of their lookups) and `worthMarkingDeterministic`: uncached tools called 3 or more times with identical arguments within one run, in at least 2 of the report's runs.
 
 ## User feedback on responses
 
@@ -378,7 +405,7 @@ const report = await ai.report({ agentName: 'writer', since: Date.now() - 86_400
   | `claimed-success-user-incorrect` | the agent reported success but the user rated the answer incorrect |
   | `slow-run`, `expensive-run` | a run takes 3 times the agent's median duration or cost (tokens without pricing) |
 
-  `guardrail` is reserved for the guardrails slice, and `report.cache` stays empty until the tool-result cache slice.
+  `guardrail` is reserved for the guardrails slice. Cache findings are in `report.cache` (see [Tool-result cache](#tool-result-cache)).
 - **`compareVersions`** gives `comparison.before` and `comparison.after` (runs, and medians of duration, tokens, turns, tool calls per turn, cost and reliability) and their `deltas` (after minus before). Values are null where a side has no data.
 
 ### Request analysis and tool suggestions
@@ -425,8 +452,9 @@ Phase 1 foundation core, implemented in this slice:
 - User feedback on responses: `ai.feedback` / `result.feedback`, with amendable history and `userVerdict` on the run record
 - Scoring against rolling per-version baselines, findings, version comparison and `ai.report()`
 - Request analysis (similar-task groups, cheapest successful path, wasted steps) and tool suggestions from mined sequences
+- Tool-result cache with global and per-instance scopes, validity tokens, TTL, single-flight, LRU eviction and per-entry statistics
 
-Roadmap (later slices, each with its own spec): vision, chat sessions, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
+Roadmap (later slices, each with its own spec): vision, chat sessions, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
 ## License
 

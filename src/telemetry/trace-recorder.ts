@@ -60,11 +60,13 @@ export interface CreateTraceRecorderParams {
 const UNFINISHED_ERROR_CODE = 'step_unfinished';
 
 function finishedFields(executed: ExecutedToolCall): Partial<TraceStep> {
-  const { envelope, durationMs, size: { resultBytes, resultTokens, truncated }, items } = executed;
+  const { envelope, durationMs, size: { resultBytes, resultTokens, truncated }, items, cacheHit, savedMs } = executed;
   return {
     ok: envelope.ok,
     ...(envelope.ok ? {} : { errorCategory: envelope.error.category, errorCode: envelope.error.code }),
     ...(items == null ? {} : { itemFailures: items.failed, itemTotal: items.total }),
+    ...(cacheHit == null ? {} : { cacheHit }),
+    ...(savedMs == null ? {} : { savedMs }),
     resultBytes, resultTokens, truncated, durationMs,
   };
 }

@@ -58,6 +58,23 @@ describe('defineTool', () => {
   it('accepts a positive integer timeoutMs', () => {
     expect(defineTool({ ...BASE, timeoutMs: 120_000 }).timeoutMs).toBe(120_000);
   });
+
+  it('keeps the cache fields and records a hash of the argument schema', async () => {
+    const tool = defineTool({ ...BASE, version: '2', cacheKey: args => args.id.toLowerCase(), validity: async args => `v-${args.id}` });
+    expect(tool.version).toBe('2');
+    expect(tool.cacheKey?.({ id: 'ABC' })).toBe('abc');
+    await expect(tool.validity?.({ id: 'x' }, CONTEXT)).resolves.toBe('v-x');
+    expect(tool.schemaHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(defineTool({ ...BASE, args: z.object({ id: z.number() }).strict() }).schemaHash).not.toBe(tool.schemaHash);
+  });
+
+  it('rejects cache fields that cannot work', () => {
+    expect(() => defineTool({ ...BASE, version: '' })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('version') }));
+    expect(() => defineTool({ ...BASE, cacheKey: 'id' as unknown as () => unknown })).toThrow(/cacheKey must be a function/);
+    expect(() => defineTool({ ...BASE, validity: 1 as unknown as () => Promise<string> })).toThrow(/validity must be a function/);
+    expect(() => defineTool({ ...BASE, cache: false, cacheKey: args => args.id })).toThrow(/only apply to cached tools/);
+    expect(() => defineTool({ ...BASE, cache: false, validity: async () => 'v' })).toThrow(/only apply to cached tools/);
+  });
 });
 
 describe('defineBatchTool', () => {

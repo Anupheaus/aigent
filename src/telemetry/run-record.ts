@@ -79,8 +79,10 @@ export interface TraceStep {
   itemFailures?: number;
   /** Batch calls: items in the call. */
   itemTotal?: number;
-  /** Served from the tool-result cache (set by the cache slice). */
+  /** Set for cacheable tools while the cache is on: true when the result was served from the tool-result cache. */
   cacheHit?: boolean;
+  /** On a cache hit: the original call's duration, which the hit saved. */
+  savedMs?: number;
   /** UTF-8 bytes of the full result (or error), before truncation. */
   resultBytes: number;
   /** Estimated tokens of the full result (or error), before truncation. */

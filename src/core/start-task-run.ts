@@ -1,3 +1,4 @@
+import type { ToolCache } from '../cache/cache-types.js';
 import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import type { Provider } from '../providers/provider-types.js';
 import type { Scheduler } from '../scheduler/scheduler-types.js';
@@ -65,6 +66,8 @@ export interface RuntimeServices {
   sleep: Sleeper;
   random: RandomSource;
   scheduler: Scheduler;
+  /** The tool-result cache shared by every agent of the runtime; absent with `cache: false`. */
+  cache?: ToolCache;
 }
 
 export interface StartTaskRunParams {
@@ -139,6 +142,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
     try {
       resultData = await runTask({
         runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
+        ...(services.cache == null ? {} : { cache: services.cache }),
         routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
