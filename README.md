@@ -59,7 +59,7 @@ run.stop();                      // immediate (default): abort now (status 'canc
 run.cancel();                    // alias for stop({ mode: 'immediate' })
 ```
 
-Repeated calls, and calls after the run has settled, are no-ops. A task can also take `limits` (`maxTurns`, `maxToolCalls`, `timeoutMs`) and an `AbortSignal`; hitting a limit ends the run with status `limit_reached`.
+Repeated calls, and calls after the run has settled, are no-ops. A task can also take `limits` (`maxTurns`, `maxToolCalls`, `timeoutMs`) and an `AbortSignal`. Reaching `maxTurns` or `timeoutMs` ends the run with status `limit_reached`. `maxToolCalls` does not end the run: calls past it (including calls inside `aigent_multi`, which each count) are refused with a `tool_call_limit` envelope the model can see, and the run continues.
 
 ## Stream directives
 
