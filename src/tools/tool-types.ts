@@ -85,6 +85,12 @@ export interface Tool {
   /** Absent means `verbatim`: nothing may alter the result. `lossy-ok` lets shapers for its `contentKind` run. */
   fidelity?: Fidelity;
   hasSideEffects: boolean;
+  /**
+   * Opt-in: string arguments that are exactly an alias issued earlier in the run (`F1`...) are replaced by the text
+   * behind it before validation. Set it only for tools whose arguments are references the alias legend covers (paths,
+   * ids); never for tools whose arguments are literal values (keys, cells, content).
+   */
+  acceptsAliases?: boolean;
   timeoutMs: number;
   maxResultTokens?: number;
   describeActivity: DescribeActivity<unknown>;

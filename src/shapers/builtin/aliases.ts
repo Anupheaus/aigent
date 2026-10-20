@@ -27,7 +27,7 @@ function aliasable(params: { value: unknown; aliases: AliasTable }): string[] {
     .map(([text]) => text);
 }
 
-/** structured-data, search-hits: long repeated strings become aliases `F1`... that the model may also write in arguments. */
+/** structured-data, search-hits: long repeated strings become aliases `F1`... that the model may write back to tools declaring `acceptsAliases`. */
 export const aliasesShaper: Shaper = {
   name: 'aliases',
   appliesTo: ['structured-data', 'search-hits'],
@@ -37,6 +37,6 @@ export const aliasesShaper: Shaper = {
     if (texts.length === 0) return undefined;
     const replacements = new Map(texts.map(text => [text, aliases.aliasFor(text)]));
     const legend = [...replacements.entries()].map(([text, alias]) => `${alias} = ${JSON.stringify(text)}`).join('; ');
-    return { value: replaceStrings(value, replacements), note: `Aliases (usable in arguments): ${legend}` };
+    return { value: replaceStrings(value, replacements), note: `Aliases (usable as a whole argument value for tools that accept aliases): ${legend}` };
   },
 };

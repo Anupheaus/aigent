@@ -44,6 +44,12 @@ describe('defineTool', () => {
     }));
   });
 
+  it('leaves alias expansion off unless acceptsAliases is true, and rejects a non-boolean', () => {
+    expect(defineTool(BASE).acceptsAliases).toBeUndefined();
+    expect(defineTool({ ...BASE, acceptsAliases: true }).acceptsAliases).toBe(true);
+    expect(() => defineTool({ ...BASE, acceptsAliases: 'yes' as unknown as boolean })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('acceptsAliases must be a boolean, got yes') }));
+  });
+
   it('marks tools strict by default and still rejects non-strict argument objects', () => {
     expect(defineTool(BASE).strict).toBe(true);
     expect(() => defineTool({ ...BASE, args: z.object({ id: z.string() }) })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('.strict()') }));

@@ -28,6 +28,11 @@ interface ToolBaseInput {
   /** Default `verbatim`. `lossy-ok` (which needs `contentKind`) lets shapers for that kind shorten what the model sees. */
   fidelity?: Fidelity;
   hasSideEffects?: boolean;
+  /**
+   * Default false. True lets the model write an alias from a shaped result (`F1`) as a whole string argument, expanded
+   * to its text before validation. Only for arguments that are references (paths, ids), never literal values.
+   */
+  acceptsAliases?: boolean;
   timeoutMs?: number;
   maxResultTokens?: number;
   /**
@@ -90,13 +95,14 @@ function validateShapingFields(input: ToolBaseInput): void {
 }
 
 function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown }): void {
-  const { name, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, describeActivity } = input;
+  const { name, deterministic, cache, cacheTtlMs, hasSideEffects, acceptsAliases, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
   if (typeof deterministic !== 'boolean') invalid(name, 'deterministic must be declared explicitly (true or false)');
   if (typeof cache !== 'boolean') invalid(name, 'cache must be declared explicitly (true or false)');
   if (typeof describeActivity !== 'function') invalid(name, 'describeActivity is required so the UI can render each call');
   if (hasSideEffects === true && (cache || deterministic)) invalid(name, 'a tool with side effects cannot be cached or deterministic');
   if (cache && !deterministic && (cacheTtlMs == null || cacheTtlMs <= 0)) invalid(name, 'a cached non-deterministic tool needs a positive cacheTtlMs');
+  if (acceptsAliases !== undefined && typeof acceptsAliases !== 'boolean') invalid(name, `acceptsAliases must be a boolean, got ${String(acceptsAliases)}`);
   if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
   validateCacheFields(input);
   validateShapingFields(input);
@@ -108,7 +114,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -126,6 +132,7 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(cacheKey == null ? {} : { cacheKey: (cacheArgs: unknown) => cacheKey(cacheArgs as z.infer<TSchema>) }),
     ...(validity == null ? {} : { validity: (validityArgs: unknown, context: ToolContext) => validity(validityArgs as z.infer<TSchema>, context) }),
     hasSideEffects,
+    ...(acceptsAliases === true ? { acceptsAliases } : {}),
     timeoutMs,
     maxResultTokens,
     describeActivity: describeActivity as DescribeActivity<unknown>,

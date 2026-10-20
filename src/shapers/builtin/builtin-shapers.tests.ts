@@ -87,7 +87,7 @@ describe('aliases', () => {
     const shapingContext = context();
     const shaped = shape({ shaper: aliasesShaper, value: { hits: [{ path: long, line: 1 }, { path: long, line: 9 }, { path: 'short' }] }, kind: 'search-hits', context: shapingContext });
     expect(shaped?.value).toEqual({ hits: [{ path: 'F1', line: 1 }, { path: 'F1', line: 9 }, { path: 'short' }] });
-    expect(shaped?.note).toBe(`Aliases (usable in arguments): F1 = ${JSON.stringify(long)}`);
+    expect(shaped?.note).toBe(`Aliases (usable as a whole argument value for tools that accept aliases): F1 = ${JSON.stringify(long)}`);
     expect(shapingContext.aliases.valueOf('F1')).toBe(long);
   });
 

@@ -29,6 +29,13 @@ const shellTool = defineTool({
   contentKind: 'command-output', fidelity: 'lossy-ok', describeActivity: ({ command }) => ({ title: command }), run: async () => NOISY,
 });
 
+/** A lossy-ok search whose repeated long path becomes alias F1 in the run's table. */
+const aliasingSearch = defineTool({
+  name: 'search', description: 'Search', args: z.object({ query: z.string() }).strict(), deterministic: false, cache: false,
+  contentKind: 'search-hits', fidelity: 'lossy-ok', describeActivity: () => ({ title: 's' }),
+  run: async () => ({ hits: [{ path: LONG_PATH, line: 1 }, { path: LONG_PATH, line: 7 }] }),
+});
+
 /** The visible result of the tool message answering `callId` in a request. */
 function visibleResult(params: { provider: FakeProvider; request: number; callId: string }): unknown {
   const { provider, request, callId } = params;
@@ -93,7 +100,7 @@ describe('createAigent shaper pipeline', () => {
     expect(() => agent.task({ task: 'x', shapers: { allow: ['nope'] } })).toThrow(expect.objectContaining({ code: 'invalid_input' }));
   });
 
-  it('expands aliases the model writes in arguments before validation and execution', async () => {
+  it('expands aliases the model writes in arguments of a tool that accepts them, before validation and execution', async () => {
     const seenPaths: string[] = [];
     const search = defineTool({
       name: 'search', description: 'Search', args: z.object({ query: z.string() }).strict(), deterministic: false, cache: false,
@@ -101,7 +108,7 @@ describe('createAigent shaper pipeline', () => {
       run: async () => ({ hits: [{ path: LONG_PATH, line: 1 }, { path: LONG_PATH, line: 7 }] }),
     });
     const read = defineTool({
-      name: 'read', description: 'Read', args: z.object({ path: z.string() }).strict(), deterministic: false, cache: false, contentKind: 'file-content',
+      name: 'read', description: 'Read', args: z.object({ path: z.string() }).strict(), deterministic: false, cache: false, contentKind: 'file-content', acceptsAliases: true,
       describeActivity: () => ({ title: 'r' }), run: async ({ path }) => { seenPaths.push(path); return 'file'; },
     });
     const { agent, provider } = setup({
@@ -111,6 +118,63 @@ describe('createAigent shaper pipeline', () => {
     await agent.task({ task: 'find' });
     expect(visibleResult({ provider, request: 1, callId: 'c1' })).toMatchObject({ result: { hits: [{ path: 'F1', line: 1 }, { path: 'F1', line: 7 }] } });
     expect(seenPaths).toEqual([LONG_PATH]);
+  });
+
+  it('never expands an alias for a tool that did not opt in: press_key F1 gets F1 (review C2)', async () => {
+    const pressed: string[] = [];
+    const pressKey = defineTool({
+      name: 'press_key', description: 'Press a key', args: z.object({ key: z.string() }).strict(), deterministic: false, cache: false, hasSideEffects: true,
+      describeActivity: () => ({ title: 'k' }), run: async ({ key }) => { pressed.push(key); return 'ok'; },
+    });
+    const { agent } = setup({
+      tools: [aliasingSearch, pressKey],
+      turns: [toolTurn([{ id: 'c1', name: 'search', args: { query: 'x' } }]), toolTurn([{ id: 'c2', name: 'press_key', args: { key: 'F1' } }]), textTurn('done')],
+    });
+    await agent.task({ task: 'press' });
+    expect(pressed).toEqual(['F1']);
+  });
+
+  it('never expands an alias in plan_complete: plan item F1 is found (review C2)', async () => {
+    const { agent } = setup({
+      tools: [aliasingSearch],
+      turns: [
+        toolTurn([{ id: 'c1', name: 'search', args: { query: 'x' } }]),
+        toolTurn([{ id: 'c2', name: 'plan_complete', args: { updates: [{ id: 'F1', status: 'done', evidence: 'shipped' }] } }]),
+        textTurn('done'),
+      ],
+    });
+    const result = await agent.task({ task: 'plan', plan: [{ id: 'F1', label: 'Feature 1', description: 'Ship it', acceptanceCriteria: ['shipped'] }] });
+    expect(result.plan).toEqual([expect.objectContaining({ id: 'F1', status: 'done' })]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('expands only exact issued aliases, and inside aigent_multi only for inner tools that opt in (review C2)', async () => {
+    const seen: string[] = [];
+    const read = defineTool({
+      name: 'read', description: 'Read', args: z.object({ path: z.string() }).strict(), deterministic: false, cache: false, acceptsAliases: true,
+      describeActivity: () => ({ title: 'r' }), run: async ({ path }) => { seen.push(`read:${path}`); return 'file'; },
+    });
+    const note = defineTool({
+      name: 'note', description: 'Note', args: z.object({ text: z.string() }).strict(), deterministic: false, cache: false,
+      describeActivity: () => ({ title: 'n' }), run: async ({ text }) => { seen.push(`note:${text}`); return 'ok'; },
+    });
+    const { agent } = setup({
+      tools: [aliasingSearch, read, note],
+      turns: [
+        toolTurn([{ id: 'c1', name: 'search', args: { query: 'x' } }]),
+        toolTurn([{
+          id: 'm1', name: 'aigent_multi', args: { calls: [
+            { id: 'i1', tool: 'read', args: { path: 'F1' } },
+            { id: 'i2', tool: 'read', args: { path: 'F9' } },
+            { id: 'i3', tool: 'read', args: { path: 'see F1' } },
+            { id: 'i4', tool: 'note', args: { text: 'F1' } },
+          ] },
+        }]),
+        textTurn('done'),
+      ],
+    });
+    await agent.task({ task: 'multi' });
+    expect(seen.sort()).toEqual([`read:${LONG_PATH}`, 'read:F9', 'read:see F1', 'note:F1'].sort());
   });
 
   it('read-edit round trip: a verbatim file tool shows the model exactly the bytes on disk, and writing them back changes nothing', async () => {

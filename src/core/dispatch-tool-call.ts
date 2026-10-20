@@ -10,7 +10,7 @@ import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
 import { describeThrown } from '../tools/tool-error-detail.js';
 import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
-import { expandAliases } from '../shapers/alias-table.js';
+import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { shapeWith } from './run-shaping.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
@@ -66,8 +66,8 @@ export function dispatchToolCall(params: DispatchParams): void {
   const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, telemetry, cache, emit } = turn;
   const { shaping } = turn;
   const stripped = withoutPrevious(params);
-  // Aliases the model wrote are expanded before anything sees the arguments, so keys, validation and traces use the full text.
-  const call = shaping == null ? stripped : { ...stripped, args: expandAliases(stripped.args, shaping.state.aliases) };
+  // Aliases are expanded (for tools that accept them) before anything sees the arguments, so keys, validation and traces use the full text.
+  const call = shaping == null ? stripped : expandCallAliases({ call: stripped, registry, aliases: shaping.state.aliases });
   const { id: callId, name, args } = call;
   emit({ type: 'tool-call', callId, name, args });
   const finishStep: FinishStep = telemetry.recorder.begin({ turn: totals.turns, callId, tool: name, args });
