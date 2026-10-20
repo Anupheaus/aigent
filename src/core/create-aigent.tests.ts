@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createInMemoryStore } from '../store/in-memory-store.js';
+import type { Provider, ProviderEvent } from '../providers/provider-types.js';
 import type { Store } from '../store/store-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
 import type { FakeTurn } from '../testing/fake-provider.js';
@@ -338,6 +339,47 @@ describe('agent.task run control', () => {
     expect(result.errors).toEqual([expect.objectContaining({ category: 'aborted' })]);
     expect(provider.requests).toHaveLength(1);
     expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+  });
+
+  describe('with a provider that ignores the abort signal', () => {
+    // Yields one chunk, then hangs forever without looking at the signal: a contract breach the run must survive.
+    function stubbornProvider() {
+      const returnSpy = vi.fn(async (): Promise<IteratorResult<ProviderEvent>> => ({ done: true, value: undefined }));
+      let nextCount = 0;
+      const provider: Provider = {
+        id: 'stubborn',
+        capabilities: { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000 },
+        stream: () => ({
+          [Symbol.asyncIterator]: () => ({
+            next: (): Promise<IteratorResult<ProviderEvent>> => {
+              nextCount += 1;
+              return nextCount === 1 ? Promise.resolve({ done: false, value: { type: 'text-delta', text: 'partial' } }) : new Promise(() => undefined);
+            },
+            return: returnSpy,
+          }),
+        }),
+      };
+      const agent = createAigent({ providers: [provider], clock, ids: sequentialIds() }).agent({ name: 'helper', model: 'stubborn:m' });
+      return { agent, returnSpy };
+    }
+
+    it('cancel still settles the run as cancelled and asks the stream to return', async () => {
+      const { agent, returnSpy } = stubbornProvider();
+      const run = agent.task({ task: 'x' });
+      setTimeout(() => run.cancel(), 20);
+      const events = await collect(run);
+      expect((await run).status).toBe('cancelled');
+      expect(returnSpy).toHaveBeenCalledTimes(1);
+      expect(events).toContainEqual({ type: 'text-delta', text: 'partial' });
+      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+    });
+
+    it('timeoutMs still ends the run with limit_reached', async () => {
+      const { agent, returnSpy } = stubbornProvider();
+      const result = await agent.task({ task: 'x', limits: { timeoutMs: 20 } });
+      expect(result.status).toBe('limit_reached');
+      expect(returnSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('reports limit_reached when timeoutMs elapses', async () => {

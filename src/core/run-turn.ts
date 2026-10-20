@@ -1,6 +1,6 @@
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, Provider, ProviderMessage, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, Provider, ProviderEvent, ProviderMessage, ToolCall, Usage } from '../providers/provider-types.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
@@ -9,7 +9,9 @@ import { describeThrown } from '../tools/tool-error-detail.js';
 import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
+import { createAigentError } from './aigent-error.js';
 import type { AigentEvent } from './aigent-events.js';
+import { raceSignal } from './race-signal.js';
 import type { Clock } from './runtime-services.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
@@ -125,22 +127,44 @@ function dispatchToolCall(params: DispatchParams): void {
   work.activities.push(startToolActivity({ tool, args: parsed.value, callId, outcome, signal: work.activityController.signal, emit }));
 }
 
+/** Asks an abandoned provider stream to finish. Not awaited: a stream stuck mid-await may never complete `return()`. */
+function stopStream(iterator: AsyncIterator<ProviderEvent>): void {
+  Promise.resolve()
+    .then(() => iterator.return?.())
+    .catch(() => undefined); // the stream is being abandoned; its clean-up errors have nowhere useful to go
+}
+
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { model, provider, registry, signal, messages, totals, emit } = params;
+  const { runId, model, provider, registry, signal, messages, totals, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
-  for await (const event of provider.stream({ model, messages: [...messages], tools: registry.specs() }, signal)) {
-    switch (event.type) {
-      case 'text-delta': visible += emitParsed(parser.push(event.text), emit); break;
-      case 'thinking-delta': emit(event); break;
-      case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
-      case 'usage': addUsage(totals, event.usage); emit(event); break;
-      case 'done': finishReason = event.finishReason; break;
+  const iterator = provider.stream({ model, messages: [...messages], tools: registry.specs() }, signal)[Symbol.asyncIterator]();
+  let isAbandoned = false;
+  try {
+    for (;;) {
+      // Raced so stop() and timeoutMs work even against a provider that ignores the signal (a Provider contract breach).
+      const raced = await raceSignal({ work: iterator.next(), signal });
+      if (raced.isAborted) {
+        isAbandoned = true;
+        throw createAigentError({ code: 'aborted', message: `Run '${runId}' was aborted while streaming from provider '${provider.id}'` });
+      }
+      if (raced.value.done === true) break;
+      const event = raced.value.value;
+      switch (event.type) {
+        case 'text-delta': visible += emitParsed(parser.push(event.text), emit); break;
+        case 'thinking-delta': emit(event); break;
+        case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
+        case 'usage': addUsage(totals, event.usage); emit(event); break;
+        case 'done': finishReason = event.finishReason; break;
+      }
     }
+  } finally {
+    // A stream that ended or threw is already finished; only one we walked away from needs to be told to stop.
+    if (isAbandoned) stopStream(iterator);
   }
   visible += emitParsed(parser.end(), emit);
   return { visible, calls, finishReason };
