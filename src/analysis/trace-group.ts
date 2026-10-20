@@ -65,21 +65,29 @@ function fallbackKey(trace: RunTrace): { groupId: string; sampleTask: string } {
  */
 export function groupSimilarTasks(traces: RunTrace[], options: GroupSimilarTasksOptions = { threshold: DEFAULT_SIMILARITY }): TaskGroup[] {
   const { threshold } = options;
-  const groups: OpenGroup[] = [];
+  // All groups in creation order (the output order); label and lone-run groups are also indexed by id, and only text
+  // groups are compared for similarity, so runs without task text cost O(1) each instead of a scan of every group.
+  const groups: TaskGroup[] = [];
+  const fallbackGroups = new Map<string, TaskGroup>();
+  const textGroups: OpenGroup[] = [];
   const sorted = [...traces].sort((left, right) => compareRunOrder(left.run, right.run));
   for (const trace of sorted) {
     const { run: { task } } = trace;
     if (task == null) {
       const { groupId, sampleTask } = fallbackKey(trace);
-      const existing = groups.find(({ group }) => group.groupId === groupId);
-      if (existing != null) existing.group.traces.push(trace);
-      else groups.push({ group: { groupId, sampleTask, traces: [trace] } });
+      const existing = fallbackGroups.get(groupId);
+      if (existing != null) { existing.traces.push(trace); continue; }
+      const group = { groupId, sampleTask, traces: [trace] };
+      fallbackGroups.set(groupId, group);
+      groups.push(group);
       continue;
     }
     const words = new Set(normaliseTask(task));
-    const similar = groups.find(open => open.words != null && jaccard(open.words, words) >= threshold);
+    const similar = textGroups.find(open => open.words != null && jaccard(open.words, words) >= threshold);
     if (similar != null) { similar.group.traces.push(trace); continue; }
-    groups.push({ group: { groupId: `task:${hashOf([...words].join(' '))}`, sampleTask: task, traces: [trace] }, words });
+    const group = { groupId: `task:${hashOf([...words].join(' '))}`, sampleTask: task, traces: [trace] };
+    textGroups.push({ group, words });
+    groups.push(group);
   }
-  return groups.map(({ group }) => group);
+  return groups;
 }

@@ -34,7 +34,10 @@ export function groupSorted<T>(params: { items: T[]; keyOf(item: T): string }): 
   const groups = new Map<string, T[]>();
   for (const entry of items) {
     const key = keyOf(entry);
-    groups.set(key, [...groups.get(key) ?? [], entry]);
+    // Pushed in place: copying the group on every insert made grouping quadratic on large stores.
+    const group = groups.get(key);
+    if (group == null) groups.set(key, [entry]);
+    else group.push(entry);
   }
   return [...groups.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
 }

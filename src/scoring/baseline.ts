@@ -10,15 +10,35 @@ export function compareRunOrder(left: RunRecord, right: RunRecord): number {
   return left.runId < right.runId ? -1 : left.runId > right.runId ? 1 : 0;
 }
 
-export interface RollingBaselineParams {
-  run: RunRecord;
-  /** Runs of the same agent version, in any order; the run itself may be among them. */
+export interface RollingBaselinesParams {
+  /** The runs to find baselines for, in any order. */
+  runs: RunRecord[];
+  /** Runs of the same agent version, in any order; the runs themselves may be among them. */
   pool: RunRecord[];
 }
 
-/** The up to `BASELINE_SIZE` runs that came just before `run`, oldest first. */
-export function rollingBaseline(params: RollingBaselineParams): RunRecord[] {
-  const { run, pool } = params;
-  const earlier = pool.filter(candidate => compareRunOrder(candidate, run) < 0).sort(compareRunOrder);
-  return earlier.slice(-BASELINE_SIZE);
+/** Index of the first pool run that does not come before `run` (binary search over the sorted pool). */
+function firstNotBefore(params: { sortedPool: RunRecord[]; run: RunRecord }): number {
+  const { sortedPool, run } = params;
+  let low = 0;
+  let high = sortedPool.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compareRunOrder(sortedPool[middle] as RunRecord, run) < 0) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+/**
+ * For each run (same order as `runs`), the up to `BASELINE_SIZE` pool runs that came just before it, oldest first.
+ * The pool is sorted once and each baseline is a slice of it, so this stays O(n log n) on large stores.
+ */
+export function rollingBaselines(params: RollingBaselinesParams): RunRecord[][] {
+  const { runs, pool } = params;
+  const sortedPool = [...pool].sort(compareRunOrder);
+  return runs.map(run => {
+    const end = firstNotBefore({ sortedPool, run });
+    return sortedPool.slice(Math.max(0, end - BASELINE_SIZE), end);
+  });
 }

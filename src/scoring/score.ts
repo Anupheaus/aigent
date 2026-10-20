@@ -1,5 +1,5 @@
 import type { RunRecord } from '../telemetry/run-record.js';
-import { BASELINE_SIZE, compareRunOrder, rollingBaseline } from './baseline.js';
+import { BASELINE_SIZE, compareRunOrder, rollingBaselines } from './baseline.js';
 import { costOfRun } from './pricing.js';
 import type { AgentScores, Pricing, Score } from './report-types.js';
 import { itemsPerCall, nonRepeatShare, weightedTokens } from './run-metrics.js';
@@ -148,7 +148,7 @@ function unpricedCost(params: { runs: RunRecord[]; pricing?: Pricing }): Score |
 export function scoreRuns(params: ScoreRunsParams): AgentScores {
   const { baseline, minRuns = DEFAULT_MIN_RUNS, pricing } = params;
   const runs = [...params.runs].sort(compareRunOrder);
-  const baselines = runs.map(run => rollingBaseline({ run, pool: baseline }));
+  const baselines = rollingBaselines({ runs, pool: baseline });
   const specs = metricSpecs(pricing);
   const score = (spec: MetricSpec): Score => scoreMetric({ spec, runs, baselines, minRuns });
   return {
