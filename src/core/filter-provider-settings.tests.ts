@@ -60,6 +60,19 @@ describe('filterProviderSettings', () => {
     expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { p: {} } } })).toEqual({ warnings: [] });
   });
 
+  it('treats a provider without capabilities.supportedSettings as supporting none, warning once instead of throwing', () => {
+    const { supportedSettings: _omitted, ...withoutSettings } = CAPABILITIES;
+    const legacy = { ...providerWith(), capabilities: withoutSettings as ProviderCapabilities };
+    expect(filterProviderSettings({ provider: legacy, model: MODEL, settings: { temperature: 1, seed: 2 } })).toEqual({
+      warnings: [
+        "Provider 'p' declares no capabilities.supportedSettings, so it is treated as supporting no settings",
+        "Provider 'p' does not support setting 'temperature'; ignored",
+        "Provider 'p' does not support setting 'seed'; ignored",
+      ],
+    });
+    expect(filterProviderSettings({ provider: legacy, model: MODEL, settings: { contextSize: 10 } })).toEqual({ warnings: [] });
+  });
+
   it('does not warn about undefined settings', () => {
     expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [] });
   });

@@ -37,17 +37,23 @@ function providerFacing(params: { settings: ModelSettings; providerId: string })
  * come the provider's own `settingsWarnings` about what it keeps.
  */
 export function filterProviderSettings(params: FilterProviderSettingsParams): FilteredProviderSettings {
-  const { provider: { id, capabilities: { supportedSettings }, unsupportedSettings, settingsWarnings }, model, settings } = params;
+  const { provider: { id, capabilities, unsupportedSettings, settingsWarnings }, model, settings } = params;
   const context: SettingsContext = { model };
   const facing = providerFacing({ settings, providerId: id });
   const present = Object.keys(facing) as (keyof ProviderSettings)[];
+  // A JavaScript or older custom provider may not declare the list; it is then trusted with nothing rather than crashing.
+  const declared: readonly (keyof ProviderSettings)[] | undefined = Array.isArray(capabilities.supportedSettings) ? capabilities.supportedSettings : undefined;
+  const supportedSettings = declared ?? [];
+  const undeclaredWarnings = declared == null && present.length > 0
+    ? [`Provider '${id}' declares no capabilities.supportedSettings, so it is treated as supporting no settings`]
+    : [];
   const unsupported = new Set(present.filter(key => !supportedSettings.includes(key)));
   const conflicting = new Set((unsupportedSettings?.(facing, context) ?? []).filter(key => present.includes(key) && !unsupported.has(key)));
-  const dropWarnings = present.flatMap(key => {
+  const dropWarnings = [...undeclaredWarnings, ...present.flatMap(key => {
     if (unsupported.has(key)) return [`Provider '${id}' does not support setting '${key}'; ignored`];
     if (conflicting.has(key)) return [`Provider '${id}' cannot honour setting '${key}' together with the other settings of this request; ignored`];
     return [];
-  });
+  })];
   const kept = Object.fromEntries(Object.entries(facing).filter(([key]) => !unsupported.has(key as keyof ProviderSettings) && !conflicting.has(key as keyof ProviderSettings)));
   if (Object.keys(kept).length === 0) return { warnings: dropWarnings };
   const keptSettings = kept as ProviderSettings;
