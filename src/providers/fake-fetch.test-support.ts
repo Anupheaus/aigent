@@ -1,4 +1,5 @@
 // Test-only HTTP doubles for provider adapters. Excluded from the build (see tsconfig.build.json) and never exported.
+import { chunkBytes } from '../testing/contract/index.js';
 
 /** One call the fake `fetch` received. */
 export interface RecordedRequest {
@@ -49,10 +50,7 @@ export function encodeText(text: string): Uint8Array {
 /** Splits text into network chunks of `size` bytes, so lines and multi-byte characters are cut mid-way. */
 export function byteChunks(params: { text: string; size: number }): Uint8Array[] {
   const { text, size } = params;
-  const bytes = encodeText(text);
-  const chunks: Uint8Array[] = [];
-  for (let start = 0; start < bytes.length; start += size) chunks.push(bytes.slice(start, start + size));
-  return chunks;
+  return chunkBytes(text, size);
 }
 
 export function createFakeBody(options: FakeBodyOptions): FakeBody {

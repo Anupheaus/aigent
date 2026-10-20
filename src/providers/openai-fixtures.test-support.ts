@@ -1,7 +1,8 @@
 // Test-only builders for OpenAI-style `chat.completion.chunk` SSE bodies. Excluded from the build; never exported.
+import { chunkBytes } from '../testing/contract/index.js';
 import type { ContractScenario } from '../testing/contract/index.js';
 import type { ToolCall, Usage } from './provider-types.js';
-import { byteChunks, createFakeBody, encodeText } from './fake-fetch.test-support.js';
+import { createFakeBody, encodeText } from './fake-fetch.test-support.js';
 import type { FakeResponseSpec } from './fake-fetch.test-support.js';
 
 export interface ToolCallDeltaFixture {
@@ -23,7 +24,6 @@ const DONE_DATA = '[DONE]';
 const NETWORK_CHUNK_BYTES = 7;
 /** Characters per `arguments` fragment, so every call's JSON spans many SSE messages. */
 const ARGUMENT_FRAGMENT_LENGTH = 3;
-const SLOW_CHUNK_DELAY_MS = 20;
 const HTTP_ERROR_BODY = '{"error":{"message":"contract failure"}}';
 const MALFORMED_CALL_ID = 'call_malformed';
 
@@ -84,8 +84,14 @@ function fragments(text: string): string[] {
  * fragments of all calls are interleaved round-robin, one SSE message per fragment.
  */
 export function interleavedToolCallChunks(calls: ToolCall[]): string[] {
-  const openings = calls.map(({ id, name }, index) => toolCallChunk([{ index, id, name, arguments: '' }]));
   const argumentFragments = calls.map(({ args }) => fragments(typeof args === 'string' ? args : JSON.stringify(args)));
+  return interleavedFragmentChunks({ calls, argumentFragments });
+}
+
+/** Same as `interleavedToolCallChunks`, with each call's argument fragments given (e.g. by a contract scenario). */
+export function interleavedFragmentChunks(params: { calls: ToolCall[]; argumentFragments: string[][] }): string[] {
+  const { calls, argumentFragments } = params;
+  const openings = calls.map(({ id, name }, index) => toolCallChunk([{ index, id, name, arguments: '' }]));
   const longest = Math.max(0, ...argumentFragments.map(callFragments => callFragments.length));
   const interleaved: string[] = [];
   for (let position = 0; position < longest; position += 1) {
@@ -98,7 +104,7 @@ export function interleavedToolCallChunks(calls: ToolCall[]): string[] {
 }
 
 function chunkedResponse(text: string): FakeResponseSpec {
-  return { body: createFakeBody({ chunks: byteChunks({ text, size: NETWORK_CHUNK_BYTES }) }) };
+  return { body: createFakeBody({ chunks: chunkBytes(text, NETWORK_CHUNK_BYTES) }) };
 }
 
 /** Converts a contract scenario into the HTTP response an OpenAI-compatible server would send for it. */
@@ -109,20 +115,35 @@ export function openAiScenarioResponse(scenario: ContractScenario): FakeResponse
       return chunkedResponse(sseBody([...chunks.map(textChunk), finishChunk('stop'), usageChunk(toOpenAiUsage(usage))]));
     }
     case 'tool-calls': {
-      const { calls, usage } = scenario;
-      return chunkedResponse(sseBody([...interleavedToolCallChunks(calls), finishChunk('tool_calls'), usageChunk(toOpenAiUsage(usage))]));
+      const { calls, argumentFragments, usage } = scenario;
+      return chunkedResponse(sseBody([...interleavedFragmentChunks({ calls, argumentFragments }), finishChunk('tool_calls'), usageChunk(toOpenAiUsage(usage))]));
     }
     case 'malformed-tool-args': {
-      const { name, rawArgs } = scenario;
-      return chunkedResponse(sseBody([...interleavedToolCallChunks([{ id: MALFORMED_CALL_ID, name, args: rawArgs }]), finishChunk('tool_calls')]));
+      const { name, rawArgs, rawArgsFragments } = scenario;
+      const calls = [{ id: MALFORMED_CALL_ID, name, args: rawArgs }];
+      return chunkedResponse(sseBody([...interleavedFragmentChunks({ calls, argumentFragments: [rawArgsFragments] }), finishChunk('tool_calls')]));
+    }
+    case 'thinking': {
+      const { thinking, chunks, usage } = scenario;
+      const reasoning = thinking.map(text => reasoningChunk({ field: 'reasoning_content', text }));
+      return chunkedResponse(sseBody([...reasoning, ...chunks.map(textChunk), finishChunk('stop'), usageChunk(toOpenAiUsage(usage))]));
+    }
+    case 'length': {
+      const { chunks, usage } = scenario;
+      return chunkedResponse(sseBody([...chunks.map(textChunk), finishChunk('length'), usageChunk(toOpenAiUsage(usage))]));
     }
     case 'http-error':
       return { status: scenario.status, body: HTTP_ERROR_BODY };
     case 'truncated-stream':
       return chunkedResponse(sseBodyWithoutDone([textChunk('cut '), textChunk('short')]));
+    case 'network-error': {
+      const text = sseBodyWithoutDone(scenario.chunks.map(textChunk));
+      return { body: createFakeBody({ chunks: chunkBytes(text, NETWORK_CHUNK_BYTES), ending: 'error' }) };
+    }
     case 'slow-text': {
-      const events = sseBody([...scenario.chunks.map(textChunk), finishChunk('stop')]).split(/(?<=\n\n)/);
-      return { body: createFakeBody({ chunks: events.map(encodeText), delayMs: SLOW_CHUNK_DELAY_MS }) };
+      const { chunks, delayMs } = scenario;
+      const events = sseBody([...chunks.map(textChunk), finishChunk('stop')]).split(/(?<=\n\n)/);
+      return { body: createFakeBody({ chunks: events.map(encodeText), delayMs }) };
     }
   }
 }

@@ -16,6 +16,6 @@ describe('public API', () => {
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {
-    expect(Object.keys(contract).sort()).toEqual(['describeProviderContract']);
+    expect(Object.keys(contract).sort()).toEqual(['chunkBytes', 'describeProviderContract']);
   });
 });

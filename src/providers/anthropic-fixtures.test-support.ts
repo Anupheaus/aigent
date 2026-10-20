@@ -1,6 +1,7 @@
 // Test-only builders for Anthropic Messages API SSE bodies. Excluded from the build; never exported.
+import { chunkBytes } from '../testing/contract/index.js';
 import type { ContractScenario } from '../testing/contract/index.js';
-import { byteChunks, createFakeBody, encodeText } from './fake-fetch.test-support.js';
+import { createFakeBody, encodeText } from './fake-fetch.test-support.js';
 import type { FakeResponseSpec } from './fake-fetch.test-support.js';
 import type { ToolCall, Usage } from './provider-types.js';
 
@@ -21,7 +22,6 @@ export interface AnthropicUsageFixture {
 const NETWORK_CHUNK_BYTES = 7;
 /** Characters per `partial_json` fragment, so every call's JSON spans many SSE messages. */
 const JSON_FRAGMENT_LENGTH = 3;
-const SLOW_CHUNK_DELAY_MS = 20;
 const HTTP_ERROR_BODY = '{"type":"error","error":{"type":"api_error","message":"contract failure"}}';
 const MALFORMED_CALL_ID = 'toolu_malformed';
 const ZERO_INPUT_USAGE: AnthropicUsageFixture = { input_tokens: 0, output_tokens: 0 };
@@ -105,14 +105,20 @@ function fragments(text: string): string[] {
   return pieces;
 }
 
+export interface ToolUseBlocksParams {
+  calls: ToolCall[];
+  firstIndex: number;
+  /** Each call's `partial_json` fragments; split into `JSON_FRAGMENT_LENGTH` pieces when omitted. */
+  jsonFragments?: string[][];
+}
+
 /**
  * Opens one `tool_use` block per call (block indexes from `firstIndex`), interleaves every block's `partial_json`
  * fragments round-robin, then stops the blocks in order. Stronger than the API's sequential blocks on purpose.
  */
-export function interleavedToolUseBlocks(params: { calls: ToolCall[]; firstIndex: number }): AnthropicEventFixture[] {
-  const { calls, firstIndex } = params;
+export function interleavedToolUseBlocks(params: ToolUseBlocksParams): AnthropicEventFixture[] {
+  const { calls, firstIndex, jsonFragments = calls.map(({ args }) => fragments(typeof args === 'string' ? args : JSON.stringify(args))) } = params;
   const openings = calls.map(({ id, name }, offset) => toolUseBlockStart({ index: firstIndex + offset, id, name }));
-  const jsonFragments = calls.map(({ args }) => fragments(typeof args === 'string' ? args : JSON.stringify(args)));
   const longest = Math.max(0, ...jsonFragments.map(callFragments => callFragments.length));
   const interleaved: AnthropicEventFixture[] = [];
   for (let position = 0; position < longest; position += 1) {
@@ -132,7 +138,7 @@ export function textBlock(params: { index: number; chunks: string[] }): Anthropi
 }
 
 function chunkedResponse(events: AnthropicEventFixture[]): FakeResponseSpec {
-  return { body: createFakeBody({ chunks: byteChunks({ text: anthropicSse(events), size: NETWORK_CHUNK_BYTES }) }) };
+  return { body: createFakeBody({ chunks: chunkBytes(anthropicSse(events), NETWORK_CHUNK_BYTES) }) };
 }
 
 /** Converts a contract scenario into the HTTP response the Anthropic Messages API would send for it. */
@@ -146,26 +152,48 @@ export function anthropicScenarioResponse(scenario: ContractScenario): FakeRespo
       ]);
     }
     case 'tool-calls': {
-      const { calls, usage } = scenario;
+      const { calls, argumentFragments, usage } = scenario;
       return chunkedResponse([
-        messageStart(toAnthropicUsage(usage)), ...interleavedToolUseBlocks({ calls, firstIndex: 0 }),
+        messageStart(toAnthropicUsage(usage)), ...interleavedToolUseBlocks({ calls, firstIndex: 0, jsonFragments: argumentFragments }),
         messageDelta({ stopReason: 'tool_use', outputTokens: usage.outputTokens }), messageStop(),
       ]);
     }
     case 'malformed-tool-args': {
-      const { name, rawArgs } = scenario;
+      const { name, rawArgs, rawArgsFragments } = scenario;
+      const calls = [{ id: MALFORMED_CALL_ID, name, args: rawArgs }];
       return chunkedResponse([
-        messageStart(), ...interleavedToolUseBlocks({ calls: [{ id: MALFORMED_CALL_ID, name, args: rawArgs }], firstIndex: 0 }),
+        messageStart(), ...interleavedToolUseBlocks({ calls, firstIndex: 0, jsonFragments: [rawArgsFragments] }),
         messageDelta({ stopReason: 'tool_use', outputTokens: 0 }), messageStop(),
+      ]);
+    }
+    case 'thinking': {
+      const { thinking, chunks, usage } = scenario;
+      return chunkedResponse([
+        messageStart(toAnthropicUsage(usage)),
+        thinkingBlockStart(0), ...thinking.map(text => thinkingDelta({ index: 0, thinking: text })), blockStop(0),
+        ...textBlock({ index: 1, chunks }),
+        messageDelta({ stopReason: 'end_turn', outputTokens: usage.outputTokens }), messageStop(),
+      ]);
+    }
+    case 'length': {
+      const { chunks, usage } = scenario;
+      return chunkedResponse([
+        messageStart(toAnthropicUsage(usage)), ...textBlock({ index: 0, chunks }),
+        messageDelta({ stopReason: 'max_tokens', outputTokens: usage.outputTokens }), messageStop(),
       ]);
     }
     case 'http-error':
       return { status: scenario.status, body: HTTP_ERROR_BODY };
     case 'truncated-stream':
       return chunkedResponse([messageStart(), textBlockStart(0), textDelta({ index: 0, text: 'cut ' }), textDelta({ index: 0, text: 'short' })]);
+    case 'network-error': {
+      const events = [messageStart(), textBlockStart(0), ...scenario.chunks.map(text => textDelta({ index: 0, text }))];
+      return { body: createFakeBody({ chunks: chunkBytes(anthropicSse(events), NETWORK_CHUNK_BYTES), ending: 'error' }) };
+    }
     case 'slow-text': {
-      const events = [messageStart(), ...textBlock({ index: 0, chunks: scenario.chunks }), messageDelta({ stopReason: 'end_turn', outputTokens: 1 }), messageStop()];
-      return { body: createFakeBody({ chunks: events.map(event => encodeText(anthropicSse([event]))), delayMs: SLOW_CHUNK_DELAY_MS }) };
+      const { chunks, delayMs } = scenario;
+      const events = [messageStart(), ...textBlock({ index: 0, chunks }), messageDelta({ stopReason: 'end_turn', outputTokens: 1 }), messageStop()];
+      return { body: createFakeBody({ chunks: events.map(event => encodeText(anthropicSse([event]))), delayMs }) };
     }
   }
 }
