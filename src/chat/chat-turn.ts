@@ -53,13 +53,22 @@ export interface StartChatTurnParams {
   interruptedBy(): string | undefined;
   /** Continues a turn suspended before a restart instead of answering `history`. */
   restore?: RunRestore;
+  /** Told when one of the turn's calls starts waiting for an approval, and when that request is decided. */
+  onApproval?(change: ApprovalChange): void;
+}
+
+/** A turn's approval request started waiting (`pending`) or was decided. */
+export interface ApprovalChange {
+  kind: 'pending' | 'decided';
+  requestId: string;
+  callId: string;
 }
 
 const EMPTY_TASK_TEXT = '(no text)';
 
 /** Starts the agent's reply: creates its message, runs the loop over the history and mirrors the run into patches. */
 export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
-  const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy, restore } = params;
+  const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy, restore, onApproval } = params;
   const { clock, ids } = services;
   const now = (): number => clock.now();
   const { context, constraints, unattended, dryRun, modelSettings, signal } = settings;
@@ -78,7 +87,11 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
   const recorder = createTurnRecorder({ log, ids, messageId, replyTo, branchId, now, ...(threadId == null ? {} : { threadId }) });
 
   const reply = (async () => {
-    for await (const event of run) recorder.observe({ event, runId: run.runId });
+    for await (const event of run) {
+      recorder.observe({ event, runId: run.runId });
+      if (event.type === 'approval-request') onApproval?.({ kind: 'pending', requestId: event.requestId, callId: event.callId });
+      if (event.type === 'approval-decision') onApproval?.({ kind: 'decided', requestId: event.requestId, callId: event.callId });
+    }
     const result: TaskResult = await run;
     recorder.close();
     const by = interruptedBy();

@@ -4,7 +4,7 @@ import { createAskUserTool } from './ask-user-tool.js';
 import { closedError } from './chat-closed.js';
 import { createEngineQuestions } from './engine-questions.js';
 import type { ChatQuestions } from './chat-questions.js';
-import type { ChatRuntime, ChatSettings } from './chat-turn.js';
+import type { ApprovalChange, ChatRuntime, ChatSettings } from './chat-turn.js';
 import { startChatTurn } from './chat-turn.js';
 import type { QueuedMessage } from './conversation.js';
 import { routeDelivery } from './delivery.js';
@@ -36,6 +36,8 @@ interface ActiveTurn {
   interruptedBy?: string;
   /** Stopped through its handle (not by an interrupt or close): `onStop` applies. */
   isStoppedByUser: boolean;
+  /** Approval requests the turn is waiting on: nobody may answer them while the chat closes. */
+  pendingApprovals: Set<string>;
 }
 
 export interface ChatEngineParams {
@@ -97,7 +99,16 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     const replyTo = last.user?.id ?? last.replyTo ?? '';
     const { branchId } = log.state();
     if (threadId != null) log.append({ type: 'thread-updated', thread: threadWith({ state: log.state(), rootMessageId: threadId, messageIds: [...entries.flatMap(({ user }) => (user == null ? [] : [user.id])), agentMessageId], at: now() }) });
-    const turn: { control?: TurnRunControl } = {};
+    const turn: { control?: TurnRunControl; current?: ActiveTurn } = {};
+    const onApproval = (change: ApprovalChange): void => {
+      const { current } = turn;
+      if (current == null) return;
+      if (change.kind === 'decided') { current.pendingApprovals.delete(change.requestId); return; }
+      current.pendingApprovals.add(change.requestId);
+      // The request survives a restart: a reopened session restores it and continues the turn once it is decided.
+      suspended?.suspend({ runId: current.control.streamId ?? current.control.runId, callId: change.callId, agentMessageId, approvalRequestId: change.requestId, patchSeq: log.state().seq });
+      if (isClosing) current.control.stop({ mode: 'immediate' });
+    };
     const inbox = createSteerInbox<PendingTurn>({
       toMessage: pending => ({ role: 'user', text: pending.user?.modelText ?? pending.taskText }),
       onDeliver: delivered => { if (turn.control != null) recordSteered({ log, now, control: turn.control, agentMessageId, delivered }); },
@@ -109,7 +120,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       const tools = settings.unattended === true ? [] : [createAskUserTool(questions.askFor({ agentMessageId, branchId, ...(threadId == null ? {} : { threadId }) }))];
       control = startChatTurn({
         runtime, log, settings, messageId: agentMessageId, replyTo, branchId, history, taskText, tools, steer: inbox, ...(threadId == null ? {} : { threadId }),
-        interruptedBy: () => active?.interruptedBy, ...(last.restore == null ? {} : { restore: last.restore }),
+        interruptedBy: () => active?.interruptedBy, ...(last.restore == null ? {} : { restore: last.restore }), onApproval,
       });
     } catch (error) {
       // The turn could not start (e.g. invalid settings): its callers hear why, the queue moves on.
@@ -117,7 +128,8 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       finished(false);
       return;
     }
-    const current: ActiveTurn = { control, handleControl: control, steered: new Set(), agentMessageId, inbox, isStoppedByUser: false, ...(threadId == null ? {} : { threadId }) };
+    const current: ActiveTurn = { control, handleControl: control, steered: new Set(), agentMessageId, inbox, isStoppedByUser: false, pendingApprovals: new Set(), ...(threadId == null ? {} : { threadId }) };
+    turn.current = current;
     const userStop: TurnRunControl = {
       ...control,
       stop: options => {
@@ -226,7 +238,9 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       isClosing = true;
       // Without a running turn nothing calls finished(): the queue is settled here.
       if (active == null) settleQueue();
-      else if (log.state().status === 'waiting_for_user') active.control.stop({ mode: 'immediate' });
+      // A turn waiting for a person (questions or approvals) would hold close open forever: it is stopped, and stays
+      // suspended in its checkpoints when the session is stored.
+      else if (log.state().status === 'waiting_for_user' || active.pendingApprovals.size > 0) active.control.stop({ mode: 'immediate' });
     },
     idle: () => (active == null && queue.length === 0 ? Promise.resolve() : new Promise(resolve => idleWaiters.push(resolve))),
   };

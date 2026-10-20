@@ -102,8 +102,11 @@ export interface SessionState {
   agentName: string;
   /** Seq of the last patch at the checkpoint. */
   patchSeq: number;
-  /** The turn suspended in `ask_user` (or an approval), resumed when its questions are answered. */
-  suspended?: { runId: string; callId: string; agentMessageId: string };
+  /**
+   * The turn suspended in `ask_user` (resumed when its questions are answered) or waiting for an approval
+   * (`approvalRequestId`, resumed when `agent.approve` decides it after a restart).
+   */
+  suspended?: { runId: string; callId: string; agentMessageId: string; approvalRequestId?: string };
 }
 
 /** One checkpoint record. */

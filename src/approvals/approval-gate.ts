@@ -41,6 +41,8 @@ export interface ApprovalCenter {
   pending(runId?: string): PendingApprovalState[];
   /** Requests a restored run still waits on, so `approve` before `resume` is accepted. */
   restorePending(params: { runId: string; states: readonly PendingApprovalState[] }): void;
+  /** Called once when a restored request (no live run waiting on it) is decided, e.g. to continue its chat turn. */
+  onDecided(requestId: string, listener: () => void): void;
 }
 
 export interface CreateApprovalCenterParams {
@@ -90,6 +92,7 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
   const waiters = new Map<string, Waiter>();
   const restored = new Map<string, PendingApprovalState & { runId: string }>();
   const decided = new Map<string, ApprovalDecision>();
+  const decidedListeners = new Map<string, () => void>();
 
   const record = (entry: { requestId: string; runId: string; tool: string; args: unknown; decision: ApprovalAuditRecord['decision']; by: ApprovalAuditRecord['by']; note?: string }): Promise<void> => {
     const { args, ...rest } = entry;
@@ -159,12 +162,20 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
     restored.delete(requestId);
     if (waiter == null) decided.set(requestId, decision);
     else { waiters.delete(requestId); waiter.resolve(decision); }
-    await record({ requestId, runId: state.runId, tool: state.tool, args: state.args, decision: decision.decision, by: 'user', ...(decision.note == null ? {} : { note: decision.note }) });
+    const listener = decidedListeners.get(requestId);
+    decidedListeners.delete(requestId);
+    try {
+      await record({ requestId, runId: state.runId, tool: state.tool, args: state.args, decision: decision.decision, by: 'user', ...(decision.note == null ? {} : { note: decision.note }) });
+    } finally {
+      // Only a restored request has nobody waiting: its listener continues the work that asked.
+      if (waiter == null) listener?.();
+    }
   }
 
   return {
     gate, approve,
     pending: runId => [...waiters.values()].filter(({ state }) => runId == null || state.runId === runId).map(({ state: { runId: _runId, ...rest } }) => rest),
     restorePending: ({ runId, states }) => { for (const state of states) restored.set(state.requestId, { ...state, runId }); },
+    onDecided: (requestId, listener) => { decidedListeners.set(requestId, listener); },
   };
 }
