@@ -71,11 +71,12 @@ export interface TurnStreamResult {
 /** Emits parsed text, directives and warnings, recording outcome directives on the trace; returns the visible text. */
 function emitParsed(output: ParseOutput, turn: RunTurnParams): string {
   const { text, directives, warnings } = output;
-  const { emit, telemetry: { recorder } } = turn;
+  const { emit, totals: { turns }, telemetry: { recorder } } = turn;
   if (text !== '') emit({ type: 'text-delta', text });
   for (const directive of directives) {
-    // A directive reports on every step started so far, so it attaches to the latest one.
-    if (directive.type === 'outcome') recorder.attachOutcome({ outcome: directive.data, source: 'directive' });
+    // A directive reports on results the model has seen: the last step of an earlier turn, even when it arrives after
+    // this turn's own tool calls.
+    if (directive.type === 'outcome') recorder.attachOutcome({ outcome: directive.data, source: 'directive', turn: turns });
     emit({ type: 'directive', directive });
   }
   for (const message of warnings) emit({ type: 'warning', message });

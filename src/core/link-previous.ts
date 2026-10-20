@@ -21,24 +21,24 @@ export interface LinkPreviousParams {
 }
 
 /**
- * Takes `previous` out of a call's arguments before anything else sees them and records it against the step started
- * before this call. A missing `previous` is a soft omission: the call still runs, and the run warns once when a step
+ * Takes `previous` out of a call's arguments before anything else sees them and records it against the last step of an
+ * earlier turn (see `TraceRecorder.attachOutcome`). A missing `previous` is a soft omission: the call still runs, and the run warns once when a step
  * from an earlier turn is left without an outcome. Returns the arguments without `previous`.
  */
 export function linkPrevious(params: LinkPreviousParams): unknown {
   const { call: { id: callId, name, args: rawArgs }, turn, recorder, feedback, emit } = params;
   const { args, previous } = splitPrevious(rawArgs);
   if (previous.kind === 'reported') {
-    recorder.attachOutcome({ outcome: previous.outcome, source: 'previous' });
+    recorder.attachOutcome({ outcome: previous.outcome, source: 'previous', turn });
     return args;
   }
   if (previous.kind === 'invalid') {
     emit({ type: 'warning', message: `Ignored invalid previous on call '${callId}' to '${name}': ${previous.reason}` });
     return args;
   }
-  const target = recorder.outcomeTarget();
+  const target = recorder.outcomeTarget(turn);
   // Calls in the run's first tool turn have nothing to report, and a directive may already have covered the step.
-  const isExpected = target != null && target.turn < turn && !target.hasOutcome;
+  const isExpected = target != null && !target.hasOutcome;
   if (isExpected && !feedback.hasWarnedMissing) {
     feedback.hasWarnedMissing = true;
     emit({ type: 'warning', message: `"previous" was missing on tool call '${callId}' to '${name}'; report how the previous tool step went on every call after the first (warned once per run)` });

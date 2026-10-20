@@ -155,12 +155,12 @@ describe('enableFeedback on', () => {
     expect((await store.get<RunRecord>('runs', result.runId))?.value.outcomeSummary).toEqual({ claimedSuccess: 1, claimedFailure: 0 });
   });
 
-  it('attaches previous in a parallel turn to the step started just before the reporting call', async () => {
+  it('attaches previous in a parallel turn to the last step of the earlier turn, never to a sibling the model has not seen', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [
       toolTurn([{ id: 'a', name: 'echo', args: { text: '1', previous: null } }, { id: 'b', name: 'echo', args: { text: '2', previous: null } }]),
       toolTurn([
         { id: 'c', name: 'echo', args: { text: '3', previous: { success: true, answer: 'b done' } } },
-        { id: 'd', name: 'echo', args: { text: '4', previous: { success: false, answer: 'c pending' } } },
+        { id: 'd', name: 'echo', args: { text: '4', previous: { success: false, answer: 'also about b' } } },
       ]),
       textTurn('::aigent outcome {"success":true,"answer":"d done"}\nAll done'),
     ] });
@@ -168,9 +168,24 @@ describe('enableFeedback on', () => {
     expect(result.answer).toBe('All done');
     const { steps } = await storedTrace(store, result.runId);
     expect(steps.map(({ callId, outcome }) => [callId, outcome?.answer, outcome?.source])).toEqual([
-      ['a', undefined, undefined], ['b', 'b done', 'previous'], ['c', 'c pending', 'previous'], ['d', 'd done', 'directive'],
+      ['a', undefined, undefined], ['b', 'b done', 'previous'], ['c', undefined, undefined], ['d', 'd done', 'directive'],
     ]);
-    expect((await store.get<RunRecord>('runs', result.runId))?.value.outcomeSummary).toEqual({ claimedSuccess: 2, claimedFailure: 1 });
+    expect((await store.get<RunRecord>('runs', result.runId))?.value.outcomeSummary).toEqual({ claimedSuccess: 2, claimedFailure: 0 });
+  });
+
+  it('attaches a directive that follows the turn\'s own tool calls to the earlier turn\'s step', async () => {
+    const { agent, store } = setup({ enableFeedback: true, turns: [
+      toolTurn([{ id: 'a', name: 'echo', args: { text: '1', previous: null } }]),
+      { events: [
+        { type: 'tool-call', call: { id: 'b', name: 'echo', args: { text: '2' } } },
+        { type: 'text-delta', text: '::aigent outcome {"success":false,"answer":"a was empty"}\n' },
+        { type: 'usage', usage: USAGE }, { type: 'done', finishReason: 'tool_calls' },
+      ] },
+      textTurn('done'),
+    ] });
+    const result = await agent.task({ task: 'x' });
+    const { steps } = await storedTrace(store, result.runId);
+    expect(steps.map(({ callId, outcome }) => [callId, outcome?.answer])).toEqual([['a', 'a was empty'], ['b', undefined]]);
   });
 
   it('carries previous on aigent_multi at the top level only', async () => {

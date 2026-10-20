@@ -19,8 +19,8 @@ export type FinishStep = (executed: ExecutedToolCall) => void;
 export interface AttachOutcomeParams {
   outcome: Omit<StepOutcome, 'source'>;
   source: OutcomeSource;
-  /** The reporting call's own step index; absent for a directive, which reports on every step started so far. */
-  beforeIndex?: number;
+  /** The model request the report came from: it can only be about results the model saw, i.e. steps of earlier turns. */
+  turn: number;
 }
 
 /** The step a report would attach to. */
@@ -34,12 +34,13 @@ export interface TraceRecorder {
   /** Starts a step (its index is its start order) and returns the function that finishes it. */
   begin(params: BeginStepParams): FinishStep;
   /**
-   * Attaches the agent's verdict to the last top-level step started before the report. A step keeps one outcome: a
-   * directive replaces a `previous` report, but never the other way round.
+   * Attaches the agent's verdict to the last top-level work step of an earlier turn than the report's (steps of the
+   * report's own turn, e.g. parallel siblings, have results the model has not seen). A step keeps one outcome: the
+   * first `previous` report wins over later ones, and a directive replaces a `previous` report but never the other way round.
    */
   attachOutcome(params: AttachOutcomeParams): void;
-  /** The step a report made before `beforeIndex` (default: now) would attach to, if any. */
-  outcomeTarget(beforeIndex?: number): OutcomeTarget | undefined;
+  /** The step a report from `turn` would attach to, if any. */
+  outcomeTarget(turn: number): OutcomeTarget | undefined;
   /** Every step so far in start order; a step still running is reported as aborted. */
   steps(): TraceStep[];
 }
@@ -73,25 +74,26 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
   const skipped = new Set(nonOutcomeTools);
 
   /** Inner aigent_multi calls are part of their parent step, which is what the model reports on. */
-  function findTarget(beforeIndex: number): TraceStep | undefined {
-    // Walks back from the report, so the most recently started eligible step wins.
-    for (let stepIndex = Math.min(beforeIndex, recorded.length) - 1; stepIndex >= 0; stepIndex -= 1) {
+  function findTarget(turn: number): TraceStep | undefined {
+    // Walks back from the newest step, so the most recently started eligible step of an earlier turn wins.
+    for (let stepIndex = recorded.length - 1; stepIndex >= 0; stepIndex -= 1) {
       const step = recorded[stepIndex] as TraceStep;
-      if (step.parentCallId == null && !skipped.has(step.tool)) return step;
+      if (step.turn < turn && step.parentCallId == null && !skipped.has(step.tool)) return step;
     }
     return undefined;
   }
 
   function attachOutcome(outcomeParams: AttachOutcomeParams): void {
-    const { outcome: { success, answer }, source, beforeIndex = recorded.length } = outcomeParams;
-    const target = findTarget(beforeIndex);
+    const { outcome: { success, answer }, source, turn } = outcomeParams;
+    const target = findTarget(turn);
     if (target == null) return;
-    if (target.outcome?.source === 'directive' && source === 'previous') return;
+    // Only a directive may replace an existing outcome, and only one that came from previous.
+    if (target.outcome != null && !(source === 'directive' && target.outcome.source === 'previous')) return;
     target.outcome = { success, answer: captureContent ? answer : '', source };
   }
 
-  function outcomeTarget(beforeIndex = recorded.length): OutcomeTarget | undefined {
-    const target = findTarget(beforeIndex);
+  function outcomeTarget(turn: number): OutcomeTarget | undefined {
+    const target = findTarget(turn);
     return target == null ? undefined : { index: target.index, turn: target.turn, hasOutcome: target.outcome != null };
   }
 

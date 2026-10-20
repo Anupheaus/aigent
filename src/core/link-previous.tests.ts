@@ -26,7 +26,7 @@ describe('linkPrevious', () => {
     expect(link('a', { text: 'x', previous: null }, 1)).toEqual({ text: 'x' });
     recorder.begin({ turn: 1, callId: 'a', tool: 'echo', args: {} });
     expect(link('b', { text: 'y' }, 1)).toEqual({ text: 'y' });
-    recorder.attachOutcome({ outcome: { success: true, answer: 'ok' }, source: 'directive' });
+    recorder.attachOutcome({ outcome: { success: true, answer: 'ok' }, source: 'directive', turn: 2 });
     link('c', { text: 'z' }, 2);
     expect(events).toEqual([]);
   });
