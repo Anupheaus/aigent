@@ -1,5 +1,5 @@
 import { toOpenAiSettingsFields } from './openai-settings.js';
-import type { OpenAiSettingsFields } from './openai-settings.js';
+import type { OpenAiSettingsFields, OpenAiTokenLimitField } from './openai-settings.js';
 import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall } from './provider-types.js';
 
 /** Wire shapes of the OpenAI Chat Completions request (only the fields we send). */
@@ -82,16 +82,22 @@ function toOpenAiTool(tool: ProviderToolSpec): OpenAiTool {
   return { type: 'function', function: { name, description, parameters, strict } };
 }
 
+/** How this server wants some settings sent. */
+export interface OpenAiRequestSettings {
+  tokenLimitField: OpenAiTokenLimitField;
+}
+
 /** Translates a normalised request into the OpenAI streaming Chat Completions body; `providerOptions` are merged last. */
-export function toOpenAiChatRequest(request: ProviderRequest): OpenAiChatBody {
+export function toOpenAiChatRequest(request: ProviderRequest, adapterSettings: OpenAiRequestSettings): OpenAiChatBody {
   const { model, messages, tools, settings = {} } = request;
+  const { tokenLimitField } = adapterSettings;
   return {
     model,
     messages: toOpenAiMessages(messages),
     stream: true,
     stream_options: { include_usage: true },
     ...(tools.length === 0 ? {} : { tools: tools.map(toOpenAiTool) }),
-    ...toOpenAiSettingsFields(settings),
+    ...toOpenAiSettingsFields({ settings, tokenLimitField }),
     ...settings.providerOptions,
   };
 }

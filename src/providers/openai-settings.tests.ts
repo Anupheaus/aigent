@@ -61,4 +61,34 @@ describe('openAiCompatible settings', () => {
     expect(provider.unsupportedSettings?.({ effort: 'high' }, CONTEXT)).toEqual([]);
     expect(provider.unsupportedSettings?.({ thinking: 'off' }, CONTEXT)).toEqual([]);
   });
+
+  // Reasoning models reject non-default sampling settings and stop sequences.
+  it('treats temperature, topP and stop as unusable when reasoning_effort is sent and no model matcher is given', () => {
+    const { provider } = createProvider();
+    expect(provider.unsupportedSettings?.({ effort: 'high', temperature: 0.2, topP: 0.9, stop: ['x'] }, CONTEXT)).toEqual(['temperature', 'topP', 'stop']);
+    expect(provider.unsupportedSettings?.({ temperature: 0.2, topP: 0.9, stop: ['x'] }, CONTEXT)).toEqual([]);
+    expect(provider.unsupportedSettings?.({ effort: 'high', thinking: 'off', temperature: 0.2 }, CONTEXT)).toEqual(['effort']);
+  });
+
+  describe('with isReasoningModel', () => {
+    const provider = openAiCompatible({ id: 'test-llm', baseUrl: BASE_URL, isReasoningModel: model => model.startsWith('o') });
+
+    it('drops sampling settings and stop for reasoning models, even without effort', () => {
+      expect(provider.unsupportedSettings?.({ effort: 'low', temperature: 0.2, topP: 0.9, stop: ['x'], seed: 1 }, { model: 'o3' })).toEqual(['temperature', 'topP', 'stop']);
+      expect(provider.unsupportedSettings?.({ temperature: 0.2 }, { model: 'o3' })).toEqual(['temperature']);
+    });
+
+    it('drops effort for other models, keeping their sampling settings', () => {
+      expect(provider.unsupportedSettings?.({ effort: 'low', temperature: 0.2, topP: 0.9, stop: ['x'] }, { model: 'gpt-4o' })).toEqual(['effort']);
+    });
+  });
+
+  it('sends maxOutputTokens as max_completion_tokens when tokenLimitField says so', async () => {
+    const { fetch, requests } = createFakeFetch(() => ({ body: createFakeBody({ chunks: byteChunks({ text: sseBody([finishChunk('stop')]), size: 16 }) }) }));
+    const provider = openAiCompatible({ id: 'test-llm', baseUrl: BASE_URL, fetch, tokenLimitField: 'max_completion_tokens' });
+    for await (const _event of provider.stream({ ...REQUEST, settings: { maxOutputTokens: 500 } }, new AbortController().signal)) { /* drain */ }
+    const body = JSON.parse(String(requests[0]?.init.body)) as Record<string, unknown>;
+    expect(body.max_completion_tokens).toBe(500);
+    expect(body).not.toHaveProperty('max_tokens');
+  });
 });

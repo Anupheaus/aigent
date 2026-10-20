@@ -1,5 +1,6 @@
 import { toOpenAiChatRequest } from './openai-messages.js';
-import { OPENAI_SUPPORTED_SETTINGS, openAiUnsupportedSettings } from './openai-settings.js';
+import { createOpenAiUnsupportedSettings, OPENAI_SUPPORTED_SETTINGS } from './openai-settings.js';
+import type { OpenAiTokenLimitField, ReasoningModelMatcher } from './openai-settings.js';
 import { applyOpenAiData, createOpenAiStreamState, finishOpenAiStream } from './openai-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
 import { collectSecrets, redactingErrors } from './secret-redaction.js';
@@ -20,10 +21,19 @@ export interface OpenAiCompatibleOptions {
   maxContextTokens?: number;
   /** Whether the backend can return several tool calls in one turn (default true). */
   supportsParallelToolCalls?: boolean;
+  /** Body field for `maxOutputTokens` (default `max_tokens`; OpenAI's own API wants `max_completion_tokens`). */
+  tokenLimitField?: OpenAiTokenLimitField;
+  /**
+   * Which models are reasoning models: they get `reasoning_effort` and have `temperature`, `topP` and `stop` dropped
+   * with a warning; other models have `effort` dropped. Without it, a request that sends `reasoning_effort` is treated
+   * as a reasoning model.
+   */
+  isReasoningModel?: ReasoningModelMatcher;
 }
 
 const CHAT_COMPLETIONS_PATH = '/chat/completions';
 const DEFAULT_MAX_CONTEXT_TOKENS = 128_000;
+const DEFAULT_TOKEN_LIMIT_FIELD: OpenAiTokenLimitField = 'max_tokens';
 const TRAILING_SLASHES = /\/+$/;
 
 function buildHeaders(options: OpenAiCompatibleOptions): Record<string, string> {
@@ -37,7 +47,7 @@ function buildHeaders(options: OpenAiCompatibleOptions): Record<string, string> 
 
 /** A provider for any server speaking the OpenAI streaming Chat Completions API (OpenAI, DeepSeek, Ollama, vLLM, ...). */
 export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
-  const { id, baseUrl, fetch: fetchImpl = fetch, maxContextTokens = DEFAULT_MAX_CONTEXT_TOKENS, supportsParallelToolCalls = true } = options;
+  const { id, baseUrl, fetch: fetchImpl = fetch, maxContextTokens = DEFAULT_MAX_CONTEXT_TOKENS, supportsParallelToolCalls = true, tokenLimitField = DEFAULT_TOKEN_LIMIT_FIELD, isReasoningModel } = options;
   const url = `${baseUrl.replace(TRAILING_SLASHES, '')}${CHAT_COMPLETIONS_PATH}`;
   const capabilities: ProviderCapabilities = {
     streaming: true,
@@ -54,7 +64,7 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
 
   async function* streamEvents(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     const state = createOpenAiStreamState(id);
-    const init = { method: 'POST', headers, body: JSON.stringify(toOpenAiChatRequest(request)) };
+    const init = { method: 'POST', headers, body: JSON.stringify(toOpenAiChatRequest(request, { tokenLimitField })) };
     // One chunk can carry several events; re-check the signal before each so nothing is yielded after an abort.
     const emit = function* (events: ProviderEvent[]): Generator<ProviderEvent> {
       for (const event of events) {
@@ -72,5 +82,5 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     redactingErrors({ events: streamEvents(request, signal), secrets })
   );
 
-  return { id, capabilities, stream, unsupportedSettings: openAiUnsupportedSettings };
+  return { id, capabilities, stream, unsupportedSettings: createOpenAiUnsupportedSettings(isReasoningModel) };
 }

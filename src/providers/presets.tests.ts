@@ -45,6 +45,38 @@ describe.each([
   });
 });
 
+describe('token limit field', () => {
+  it.each([
+    { preset: openai, field: 'max_completion_tokens', other: 'max_tokens' },
+    { preset: deepseek, field: 'max_tokens', other: 'max_completion_tokens' },
+    { preset: ollama, field: 'max_tokens', other: 'max_completion_tokens' },
+  ])('sends maxOutputTokens as $field', async ({ preset, field, other }) => {
+    const { fetch, requests } = finishedFetch();
+    for await (const event of preset({ fetch }).stream({ ...REQUEST, settings: { maxOutputTokens: 300 } }, new AbortController().signal)) void event;
+    const body = JSON.parse(String(requests[0]?.init.body)) as Record<string, unknown>;
+    expect(body[field]).toBe(300);
+    expect(body).not.toHaveProperty(other);
+  });
+});
+
+describe('openai preset reasoning models', () => {
+  const provider = openai({});
+
+  it.each(['o1', 'o3-mini', 'o4-mini', 'gpt-5', 'gpt-5-mini'])('treats %s as a reasoning model: no temperature, topP or stop', model => {
+    expect(provider.unsupportedSettings?.({ effort: 'high', temperature: 0.2, topP: 0.5, stop: ['x'] }, { model })).toEqual(['temperature', 'topP', 'stop']);
+  });
+
+  it.each(['gpt-4o', 'gpt-4.1-mini'])('treats %s as a sampling model: no effort', model => {
+    expect(provider.unsupportedSettings?.({ effort: 'high', temperature: 0.2 }, { model })).toEqual(['effort']);
+  });
+
+  it('accepts its own isReasoningModel', () => {
+    const custom = openai({ isReasoningModel: model => model === 'my-reasoner' });
+    expect(custom.unsupportedSettings?.({ temperature: 0.2 }, { model: 'my-reasoner' })).toEqual(['temperature']);
+    expect(custom.unsupportedSettings?.({ effort: 'low' }, { model: 'gpt-5' })).toEqual(['effort']);
+  });
+});
+
 describe('ollama preset', () => {
   it('needs no api key and sends no authorization header', async () => {
     const { fetch, requests } = finishedFetch();

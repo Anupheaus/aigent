@@ -80,7 +80,9 @@ const local = aigent.agent({ name: 'helper', model: 'ollama:qwen2.5:14b' });
 - **`openAiCompatible(options)`** posts to `${baseUrl}/chat/completions`.
   - Required: `id` (the `provider:` prefix) and `baseUrl`.
   - Optional: `apiKey` (sent as a bearer token), extra `headers`, `fetch`, `maxContextTokens` (default 128,000) and `supportsParallelToolCalls`.
-- **Presets** are `openAiCompatible` with a fixed id and base URL. Each takes optional `apiKey`, `baseUrl` and `fetch`.
+  - `tokenLimitField`: the body field `maxOutputTokens` goes to, `max_tokens` (default) or `max_completion_tokens`.
+  - `isReasoningModel(model)`: says which models are reasoning models. They get `reasoning_effort` and have `temperature`, `topP` and `stop` dropped with a warning (they reject them); other models have `effort` dropped. Without it, a request that sends `reasoning_effort` is treated as one for a reasoning model.
+- **Presets** are `openAiCompatible` with a fixed id and base URL. Each takes optional `apiKey`, `baseUrl`, `fetch` and `isReasoningModel`. `openai()` sends `max_completion_tokens` and treats `o1`, `o3`, `o4-mini`, `gpt-5` and other `o<digit>` / `gpt-5` models as reasoning models.
 
   | Preset | Id | Default base URL |
   | --- | --- | --- |
@@ -152,11 +154,11 @@ agent.task({ task: 'Draft the summary', modelSettings: { temperature: 0.7, think
 
 | Setting | Values | OpenAI-compatible | Anthropic |
 | --- | --- | --- | --- |
-| `maxOutputTokens` | positive integer | `max_tokens` | `max_tokens` (default `defaultMaxTokens`) |
+| `maxOutputTokens` | positive integer | `max_tokens`, or `max_completion_tokens` (the `openai` preset) | `max_tokens` (default `defaultMaxTokens`) |
 | `temperature` | 0 to 2 | `temperature` | `temperature`, dropped while thinking is on (the API requires the default) |
 | `topP` | 0 to 1 | `top_p` | `top_p`, dropped when `temperature` is also set (current models reject both) and, while thinking is on, when below 0.95 |
 | `thinking` | `'off'`, `'on'`, `{ budgetTokens }` (at least 1024) | not supported | `'on'` uses a budget of `min(maxOutputTokens - 1, 8000)` (8000 when `maxOutputTokens` is unset, never below 1024) |
-| `effort` | `'low'`, `'medium'`, `'high'`, `'max'` | `reasoning_effort` (`max` sends `high`), not sent when `thinking` is `'off'` | a thinking budget of 2048, 8000, 16000 or 32000 when `thinking` is unset, lowered to `maxOutputTokens - 1` (never below 1024) when that is set |
+| `effort` | `'low'`, `'medium'`, `'high'`, `'max'` | `reasoning_effort` (`max` sends `high`), not sent when `thinking` is `'off'` or to a model `isReasoningModel` rejects; sending it drops `temperature`, `topP` and `stop` | a thinking budget of 2048, 8000, 16000 or 32000 when `thinking` is unset, lowered to `maxOutputTokens - 1` (never below 1024) when that is set |
 | `promptCaching` | boolean | not supported | overrides the adapter's `promptCaching` option |
 | `stop` | up to 4 non-empty strings | `stop` | `stop_sequences` |
 | `seed` | non-negative integer | `seed` | not supported |

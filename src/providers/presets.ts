@@ -1,4 +1,5 @@
 import { openAiCompatible } from './openai-compatible.js';
+import type { ReasoningModelMatcher } from './openai-settings.js';
 import type { Provider } from './provider-types.js';
 
 /** Options shared by the OpenAI-compatible presets. */
@@ -9,12 +10,20 @@ export interface PresetOptions {
   baseUrl?: string;
   /** HTTP implementation; defaults to the global `fetch`. */
   fetch?: typeof fetch;
+  /** Overrides the preset's reasoning-model test (see `OpenAiCompatibleOptions.isReasoningModel`). */
+  isReasoningModel?: ReasoningModelMatcher;
 }
 
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 /** Ollama's OpenAI-compatible endpoint on its default local port. */
 const OLLAMA_BASE_URL = 'http://localhost:11434/v1';
+/** OpenAI's reasoning families (o1, o3, o4-mini, gpt-5...), which reject sampling settings and take `reasoning_effort`. */
+const OPENAI_REASONING_MODEL = /^(o[0-9]|gpt-5)/;
+
+function isOpenAiReasoningModel(model: string): boolean {
+  return OPENAI_REASONING_MODEL.test(model);
+}
 
 /** DeepSeek's hosted API (`deepseek:<model>`). */
 export function deepseek(options: PresetOptions = {}): Provider {
@@ -24,8 +33,9 @@ export function deepseek(options: PresetOptions = {}): Provider {
 
 /** OpenAI's hosted API (`openai:<model>`). */
 export function openai(options: PresetOptions = {}): Provider {
-  const { baseUrl = OPENAI_BASE_URL, ...rest } = options;
-  return openAiCompatible({ id: 'openai', baseUrl, ...rest });
+  const { baseUrl = OPENAI_BASE_URL, isReasoningModel = isOpenAiReasoningModel, ...rest } = options;
+  // Current OpenAI models accept max_completion_tokens, and reasoning models reject max_tokens.
+  return openAiCompatible({ id: 'openai', baseUrl, tokenLimitField: 'max_completion_tokens', isReasoningModel, ...rest });
 }
 
 /** A local Ollama server (`ollama:<model>`); no API key needed. */
