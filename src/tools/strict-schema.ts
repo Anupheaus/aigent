@@ -18,11 +18,20 @@ function unsupported(pathLabel: string, keyword: string): never {
   });
 }
 
+/**
+ * Makes an optional property accept null (strict decoding requires every key, so models send null for "absent").
+ * Every constraining keyword must admit null, otherwise the schema contradicts itself and the model can never omit it:
+ * `type` widens to include 'null', `enum` gains null, and `const` becomes a two-value `enum`.
+ */
 function makeNullable(node: JsonSchema, pathLabel: string): JsonSchema {
-  const { type, enum: enumValues } = node;
-  if (Array.isArray(enumValues)) return { ...node, enum: [...enumValues, null] };
-  if (typeof type === 'string') return { ...node, type: [type, NULL_TYPE] };
-  return unsupported(pathLabel, 'optional without a simple type');
+  const { type, enum: enumValues, const: constValue, ...rest } = node;
+  const hasConst = 'const' in node;
+  if (typeof type !== 'string' && !Array.isArray(enumValues) && !hasConst) return unsupported(pathLabel, 'optional without a simple type');
+  const nullable: JsonSchema = { ...rest };
+  if (typeof type === 'string') nullable.type = [type, NULL_TYPE];
+  if (Array.isArray(enumValues)) nullable.enum = [...enumValues, null];
+  else if (hasConst) nullable.enum = [constValue, null];
+  return nullable;
 }
 
 function strictify(node: JsonSchema, pathLabel: string): JsonSchema {
