@@ -11,6 +11,11 @@ export interface RunControl {
    */
   sideEffectSignal: AbortSignal;
   isGracefulStopRequested(): boolean;
+  /**
+   * Aborts on any stop, graceful included: waits that only a person can end (pending approvals) give up on it, so a
+   * graceful stop never hangs on an undecided request.
+   */
+  stopSignal: AbortSignal;
   /** Why the run was aborted, set before aborting. */
   abortReason(): AbortReason | undefined;
   /** Stops the run from inside (e.g. its instance lost its lease), as `run.stop` does. */
@@ -45,6 +50,9 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
   const { signal, timeoutMs } = params;
   const abortController = new AbortController();
   const sideEffectController = new AbortController();
+  const stopController = new AbortController();
+  const onRunAbort = (): void => { stopController.abort(abortController.signal.reason); };
+  abortController.signal.addEventListener('abort', onRunAbort, { once: true });
   let isGracefulStopRequested = false;
   let abortReason: AbortReason | undefined;
   let isDisposed = false;
@@ -60,7 +68,11 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
   function stop(options: StopOptions = {}): void {
     const { mode = 'immediate', force = false } = options;
     if (isDisposed) return;
-    if (mode === 'graceful') { isGracefulStopRequested = true; return; }
+    if (mode === 'graceful') {
+      isGracefulStopRequested = true;
+      if (!stopController.signal.aborted) stopController.abort('the run was stopped');
+      return;
+    }
     abortWith('user');
     if (force && !sideEffectController.signal.aborted) sideEffectController.abort(FORCED_REASON_TEXT);
   }
@@ -74,11 +86,13 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
     isDisposed = true;
     if (timer != null) clearTimeout(timer);
     signal?.removeEventListener('abort', onExternalAbort);
+    abortController.signal.removeEventListener('abort', onRunAbort);
   }
 
   const control: RunControl = {
     abortController,
     sideEffectSignal: sideEffectController.signal,
+    stopSignal: stopController.signal,
     isGracefulStopRequested: () => isGracefulStopRequested,
     abortReason: () => abortReason,
     stop: options => stop(options),

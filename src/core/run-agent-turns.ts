@@ -120,7 +120,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   const isUnattended = params.isUnattended ?? false;
   const approvals = params.approvals;
   const gate = approvals == null ? undefined : (call: { call: ToolCall; tool: Tool; context: ToolContext; force?: { reason: string } }) => approvals.gate({
-    runId: approvalRunId, ...call, isUnattended, signal, emit,
+    // Any stop ends the wait, a graceful one too: nobody may be there to decide.
+    runId: approvalRunId, ...call, isUnattended, signal: control.stopSignal, emit,
     // The pending request is checkpointed; the turn's request was sent, but only a recorded response counts it.
     onPending: async () => { await checkpointer.at({ boundary: 'approval', ...(inFlightRound == null ? { turnsDone: totals.turns - 1 } : { inFlight: inFlightRound }) }); },
   });
