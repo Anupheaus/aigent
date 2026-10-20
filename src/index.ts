@@ -95,3 +95,5 @@ export type {
   LoopGuardOptions, OutputSchemaOptions, PiiMode, PiiOptions, ScopeOptions, SecretsOptions, ToolCallValue, ToolResultValue,
 } from './guardrails/guardrail-types.js';
 export type { DryRunOutput, PlannedEffect, PlannedEffectInput, SimulatedResult } from './effects/planned-effects.js';
+export { EFFECTS_COLLECTION } from './effects/undo-types.js';
+export type { CapturedEffect, EffectLogEntry, EffectStatus, UndoContext, UndoDescriptor, UndoOptions, UndoOutcome, UndoReport, UndoResult, UndoResultStatus, UndoTarget } from './effects/undo-types.js';

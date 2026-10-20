@@ -9,6 +9,7 @@ import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
+import type { UndoReport, UndoTarget } from '../effects/undo-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
@@ -195,6 +196,12 @@ export interface Agent {
    * Resolves once the decision is in the audit trail; rejects `invalid_input` for an unknown request.
    */
   approve(requestId: string, decision: ApprovalDecision): Promise<void>;
+  /**
+   * Reverses this agent's recorded effects (one call's, a run's, or every one since a time) newest first through their
+   * tools' `applyUndo`, with one result per effect: `undone`, `failed` (the rest still run), `unavailable` (the tool
+   * cannot undo it), `already_undone` or `expired` (past `undo.retentionMs`). Each undo is itself recorded.
+   */
+  undo(target: UndoTarget): Promise<UndoReport>;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

@@ -11,6 +11,7 @@ import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types
 import { validateApprovalFields, validateEffectFields, validateResumeFields } from './tool-policies.js';
 import { batchDryRun } from './batch-dry-run.js';
 import type { DryRunOutput } from '../effects/planned-effects.js';
+import type { UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-types.js';
 import type { DescribeActivity, Tool, ToolContext, ToolResumePolicy, ToolVerifyResult } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
@@ -83,6 +84,10 @@ export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
   verify?(args: z.infer<TSchema>, context: ToolContext): Promise<ToolVerifyResult>;
   /** Tools with side effects: what the call would do, without doing it (dry runs refuse mutating tools without it). */
   dryRun?(args: z.infer<TSchema>, context: ToolContext): Promise<DryRunOutput>;
+  /** Tools with side effects: after a successful call, the plain-JSON data that reverses it (with `applyUndo`). */
+  undo?(args: z.infer<TSchema>, result: unknown, context: ToolContext): Promise<UndoDescriptor | undefined>;
+  /** Reverses one recorded call from its descriptor (`agent.undo`). */
+  applyUndo?(descriptor: UndoDescriptor, context: UndoContext): Promise<UndoOutcome>;
 }
 
 export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
@@ -133,7 +138,7 @@ function validateShapingFields(input: ToolBaseInput): void {
   if (fidelity === 'lossy-ok' && contentKind === undefined) invalid(name, "fidelity 'lossy-ok' needs a contentKind, so only shapers declared for that kind can run");
 }
 
-function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown; dryRun?: unknown }): void {
+function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown; dryRun?: unknown; undo?: unknown; applyUndo?: unknown }): void {
   const { name, deterministic, cache, cacheTtlMs, hasSideEffects, acceptsAliases, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
   if (typeof deterministic !== 'boolean') invalid(name, 'deterministic must be declared explicitly (true or false)');
@@ -163,7 +168,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk, dryRun } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk, dryRun, undo, applyUndo } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -192,6 +197,8 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(risk == null ? {} : { risk }),
     ...(verify == null ? {} : { verify: (verifyArgs: unknown, context: ToolContext) => verify(verifyArgs as z.infer<TSchema>, context) }),
     ...(dryRun == null ? {} : { dryRun: (dryArgs: unknown, context: ToolContext) => dryRun(dryArgs as z.infer<TSchema>, context) }),
+    ...(undo == null ? {} : { undo: (undoArgs: unknown, result: unknown, context: ToolContext) => undo(undoArgs as z.infer<TSchema>, result, context) }),
+    ...(applyUndo == null ? {} : { applyUndo }),
     timeoutMs,
     maxResultTokens,
     describeActivity: describeActivity as DescribeActivity<unknown>,

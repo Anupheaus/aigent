@@ -69,6 +69,8 @@ function finishedFields(executed: ExecutedToolCall): Partial<TraceStep> {
     ...(cacheHit == null ? {} : { cacheHit }),
     ...(savedMs == null ? {} : { savedMs }),
     ...(shaped == null ? {} : { shaped }),
+    // This call's own effect (an aigent_multi step's inner effects belong to the inner steps).
+    ...(executed.effects?.some(({ callId, descriptor }) => callId === envelope.id && descriptor != null) === true ? { undoable: true } : {}),
     resultBytes, resultTokens, truncated, durationMs,
   };
 }

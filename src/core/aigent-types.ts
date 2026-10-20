@@ -13,6 +13,7 @@ import type { ActivityOptions } from './activity.js';
 import type { ResumeOptions } from '../resume/instance-runtime.js';
 import type { ApprovalOptions } from '../approvals/approval-types.js';
 import type { GuardrailOptions } from '../guardrails/guardrail-types.js';
+import type { UndoOptions } from '../effects/undo-types.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -78,6 +79,11 @@ export interface AigentOptions {
    * scope, loop-guard, output-schema) are on unless set to false; `custom` ones run after them.
    */
   guardrails?: GuardrailOptions;
+  /**
+   * The effect log behind `agent.undo`: every call of a tool with side effects is recorded (collection `effects`, in
+   * the store, or in memory without one) with its tool's undo data, honoured for `retentionMs` (default: forever).
+   */
+  undo?: UndoOptions;
 }
 
 export interface Aigent {

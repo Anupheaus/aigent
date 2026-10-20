@@ -51,14 +51,22 @@ export interface EffectFieldsInput {
   name: string;
   hasSideEffects?: boolean;
   dryRun?: unknown;
+  undo?: unknown;
+  applyUndo?: unknown;
 }
 
-/** Throws `invalid_definition` for a non-function `dryRun`, or one on a tool without side effects (it would never be used). */
+/**
+ * Throws `invalid_definition` for non-function `dryRun`, `undo` or `applyUndo`, for `undo` without `applyUndo` (or the
+ * reverse), and for any of them on a tool without side effects (they would never be used).
+ */
 export function validateEffectFields(input: EffectFieldsInput): void {
-  const { name, hasSideEffects = false, dryRun } = input;
-  if (dryRun === undefined) return;
-  if (typeof dryRun !== 'function') invalid({ name, message: 'dryRun must be a function of the arguments and context' });
-  if (!hasSideEffects) invalid({ name, message: 'dryRun only applies to tools with side effects (hasSideEffects: true); other tools run normally in a dry run' });
+  const { name, hasSideEffects = false, dryRun, undo, applyUndo } = input;
+  for (const [field, value] of [['dryRun', dryRun], ['undo', undo], ['applyUndo', applyUndo]] as const) {
+    if (value !== undefined && typeof value !== 'function') invalid({ name, message: `${field} must be a function` });
+  }
+  if ((undo === undefined) !== (applyUndo === undefined)) invalid({ name, message: 'undo and applyUndo go together: undo captures what applyUndo needs to reverse a call' });
+  if (dryRun !== undefined && !hasSideEffects) invalid({ name, message: 'dryRun only applies to tools with side effects (hasSideEffects: true); other tools run normally in a dry run' });
+  if (undo !== undefined && !hasSideEffects) invalid({ name, message: 'undo only applies to tools with side effects (hasSideEffects: true)' });
 }
 
 /** The tool's declared policy, else `rerun` for read-only tools and `ask` for tools with side effects. */

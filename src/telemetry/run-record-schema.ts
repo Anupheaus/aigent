@@ -110,6 +110,7 @@ export const traceStepSchema = z.object({
   startedAtMs: z.number(),
   outcome: z.object({ success: z.boolean(), answer: z.string(), source: z.enum(['directive', 'previous']) }).optional(),
   guardrails: guardrailsSchema,
+  undoable: z.boolean().optional(),
 });
 
 export const traceRecordSchema = z.object({ ...recordMetaShape, steps: z.array(traceStepSchema) });

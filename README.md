@@ -673,6 +673,22 @@ result.plannedEffects; // [{ tool, callId, kind, target, summary, before?, after
 
 With `dryRun: true` nothing changes: read-only tools run normally, a tool with side effects is asked for `dryRun(args, ctx)` instead of `run` (it returns the effects, or `{ result, effects }`), and the model sees a clearly marked simulated result `{ simulated: true, result?, effects }`. A mutating tool without `dryRun` is refused (`denied` / `dry_run_unsupported`) and never runs. Batch tools declare `dryRunItem`, and calls inside `aigent_multi` are simulated one by one. The volatile block tells the model it is a dry run; simulated calls skip approvals, are never cached and never shaped. Each call's effects arrive as a `planned-effects` event, all of them in `result.plannedEffects`, and the run record gets `dryRun: true` and `plannedEffects` (`before`/`after` bounded to 2000 characters; targets and texts only with content capture on). Only tools with side effects may declare `dryRun`.
 
+## Undo
+
+```ts
+const writeFile = defineTool({
+  name: 'write_file', /* ... */ hasSideEffects: true,
+  run: async ({ path, content }) => { const previous = await readIfExists(path); await fs.writeFile(path, content); return { previous }; },
+  undo: async ({ path }, result) => ({ path, previous: result.previous }),      // plain JSON, captured right after the call
+  applyUndo: async ({ path, previous }) => { await restore(path, previous); return { ok: true }; },
+});
+const ai = createAigent({ providers, store, undo: { retentionMs: 7 * 24 * 60 * 60_000 } });
+const report = await agent.undo({ runId }); // or { callId } or { since: epochMs }
+report.results; // newest first: [{ effectId, callId, tool, status: 'undone' | 'failed' | 'unavailable' | 'already_undone' | 'expired', message? }]
+```
+
+Every successful call of a tool with side effects is appended to the effect log (collection `effects` in the runtime store, in memory without one; through the keyed write queue and `redact`), with the descriptor its `undo(args, result, ctx)` returned, or as not undoable. `undo` and `applyUndo` are declared together, on tools with side effects only. `agent.undo(target)` reverses the matching effects of that agent newest first through `applyUndo(descriptor, ctx)` (bounded by the tool's timeout): a failing undo is reported and the rest still run, an effect already undone is `already_undone`, one whose tool records no undo data (or is not the agent's any more) is `unavailable`, and one past `undo.retentionMs` is `expired`. Each applied undo is recorded in the log too (`kind: 'undo'`), concurrent undos of one agent are serialised, and descriptors survive the store, so a fresh runtime with the same agent and tools can undo. Trace steps whose call can be undone have `undoable: true`. Calls inside `aigent_multi` are recorded as well; dry runs and `persistence: 'memory'` chats record nothing.
+
 ## Human approvals
 
 ```ts
@@ -754,9 +770,11 @@ Phase 1 foundation core, implemented in this slice:
 - Consumer plans (`plan_complete`), the agent's todo list (`todo`), pinned definitions and plan/todo directives
 - Context layout, compaction and the pluggable `Compressor` interface
 - Activity updates shared by tasks and chats, run callbacks and `task.steer`
+- Resumable instances (checkpoints, call ledger, fenced leases) and human approvals
+- Guardrails (secrets, PII, injection, scope, loop and output-schema built-ins plus custom ones), dry runs with planned effects, and the effect log with `agent.undo`
 - `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
 
-Roadmap (later slices, each with its own spec): vision, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
+Roadmap (later slices, each with its own spec): vision, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
 
 ## License
 

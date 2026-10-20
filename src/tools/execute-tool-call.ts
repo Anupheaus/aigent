@@ -4,6 +4,8 @@ import type { ToolCall } from '../providers/provider-types.js';
 import type { ShapedStep } from '../shapers/shaper-types.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import { simulateCall } from '../effects/dry-run.js';
+import { captureEffect } from '../effects/capture-effect.js';
+import type { CapturedEffect } from '../effects/undo-types.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
 import { boundedLookup } from './bounded-lookup.js';
 import { parseToolArgs } from './parse-tool-args.js';
@@ -37,6 +39,8 @@ export interface ExecutedToolCall {
   guardrails?: GuardrailDecisionRecord[];
   /** Dry runs: what the call (or the calls inside it) would have done. */
   plannedEffects?: PlannedEffect[];
+  /** Calls with side effects that ran (this one, or the ones inside it), with their undo data. */
+  effects?: CapturedEffect[];
 }
 
 /** What the model should see of a successful result (the original, or its shaped form), and what shaping did. */
@@ -107,6 +111,7 @@ function succeededCall(params: SucceededCallParams): ExecutedToolCall {
   const { result: visible, size: { truncated } } = truncateResult({ result: shapedValue.value, maxResultTokens: tool.maxResultTokens });
   const items = tool.countItems?.(result);
   const planned = tool.plannedEffects?.(result) ?? [];
+  const inner = tool.capturedEffects?.(result) ?? [];
   return {
     envelope: { id: call.id, tool: call.name, ok: true, result: visible },
     outcome: tool.summarise?.(result) ?? { success: true, reason: 'completed' },
@@ -116,6 +121,7 @@ function succeededCall(params: SucceededCallParams): ExecutedToolCall {
     ...(items == null ? {} : { items }),
     ...(shapedValue.shaped.length === 0 ? {} : { shaped: shapedValue.shaped }),
     ...(planned.length === 0 ? {} : { plannedEffects: planned }),
+    ...(inner.length === 0 ? {} : { effects: inner }),
   };
 }
 
@@ -125,7 +131,7 @@ async function executeSimulated(params: ValidatedCallParams): Promise<ExecutedTo
   const simulated = await simulateCall({ tool, args, context });
   if (!simulated.ok) return failedCall({ call, error: simulated.error, durationMs: elapsed() });
   // The tool's own result helpers describe real results, not simulated ones.
-  const { summarise: _summarise, nestedFailures: _nested, countItems: _count, plannedEffects: _planned, ...plain } = tool;
+  const { summarise: _summarise, nestedFailures: _nested, countItems: _count, plannedEffects: _planned, capturedEffects: _captured, ...plain } = tool;
   const executed = succeededCall({ call, tool: { ...plain, summarise: () => ({ success: true, reason: 'simulated (dry run)' }) }, result: simulated.simulated, durationMs: elapsed() });
   return { ...executed, plannedEffects: simulated.simulated.effects };
 }
@@ -140,7 +146,11 @@ async function executeValidated(params: ValidatedCallParams): Promise<ExecutedTo
   const { call, tool, args, context, elapsed, shape } = params;
   const outcome = await runTool({ tool, args, context });
   if (!outcome.ok) return failedCall({ call, error: outcome.error, durationMs: elapsed() });
-  return succeededCall({ call, tool, result: outcome.result, durationMs: elapsed(), shape });
+  const executed = succeededCall({ call, tool, result: outcome.result, durationMs: elapsed(), shape });
+  if (!tool.hasSideEffects) return executed;
+  // The effect happened: it is recorded (with undo data from the full result) before the model is told.
+  const effect = await captureEffect({ tool, args, result: outcome.result, context });
+  return { ...executed, effects: [effect, ...executed.effects ?? []] };
 }
 
 /** Serves a hit, or runs the call and stores its full result; failures are never stored. */

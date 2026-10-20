@@ -6,7 +6,7 @@ import * as testing from './testing/index.js';
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
     expect(Object.keys(api).sort()).toEqual([
-      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'defineBatchTool', 'defineGuardrail', 'defineTool',
+      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'EFFECTS_COLLECTION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'defineBatchTool', 'defineGuardrail', 'defineTool',
       'isAigentError', 'ollama', 'openAiCompatible', 'openai', 'reduceConversation', 'toolFailure', 'updateRecord',
     ]);
   });

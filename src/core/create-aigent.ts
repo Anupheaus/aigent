@@ -45,6 +45,8 @@ import { parseChatOptions } from '../chat/chat-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { parseActivityOptions } from './activity-options.js';
 import { parseGuardrailOptions } from '../guardrails/guardrail-options.js';
+import { createRuntimeEffectLog } from '../effects/runtime-effect-log.js';
+import { parseUndoTarget, undoEffects } from '../effects/undo.js';
 import type { ActivityOptions } from './activity.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
@@ -76,6 +78,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const isPrefixMonitorEnabled = volatile.warnOnPrefixChange ?? !isProduction;
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper(), ownerId: ids.next('owner') });
+  const effectLog = createRuntimeEffectLog({ store, writeQueue, ...(redact == null ? {} : { redact }), clock, ids, options: options.undo });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   // result.feedback goes through the same tracked path as ai.feedback.
@@ -87,6 +90,7 @@ export function createAigent(options: AigentOptions): Aigent {
     ...(toolCache == null ? {} : { cache: toolCache }),
     ...(resume == null ? {} : { resume }),
     guardrails: parseGuardrailOptions(options.guardrails),
+    effects: effectLog,
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -148,6 +152,7 @@ export function createAigent(options: AigentOptions): Aigent {
       agentVersion,
       ready: restore.ready,
       approve: (requestId, decision) => resolved.approvals.approve(requestId, decision),
+      undo: async target => undoEffects({ log: effectLog, registry: resolved.registry, agent: { name, instanceId }, target: parseUndoTarget(target), clock, writeQueue }),
       resume: resumeOptions => { const run = restore.resume(resumeOptions); return run == null ? undefined : track(run); },
       task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),

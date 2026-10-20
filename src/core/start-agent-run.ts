@@ -106,7 +106,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const answerShape = { ...(input.outOfScope == null ? {} : { outOfScope: input.outOfScope }), ...(input.output == null ? {} : { output: input.output }), ...(input.outputFormat == null ? {} : { outputFormat: input.outputFormat }) };
   const guardrails = createRunGuardrails({ options: services.guardrails, ids: { runId, agentName }, run: answerShape, emit });
   const isDryRun = input.dryRun === true;
-  const effects = createRunEffects({ dryRun: isDryRun, emit });
+  const effects = createRunEffects({ dryRun: isDryRun, ...(services.effects == null ? {} : { log: services.effects }), ids: { agentName, instanceId, runId }, emit });
   const outputOptions = services.guardrails.builtins?.['output-schema'];
   const outputRetries = outputOptions === false ? 0 : outputOptions?.retries ?? DEFAULT_OUTPUT_RETRIES;
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;
@@ -155,6 +155,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     })();
     if (guardrails.decisions.length > 0) resultData.guardrails = [...guardrails.decisions];
     if (isDryRun) resultData.plannedEffects = [...effects.planned];
+    await effects.flush();
     emitter.endThinking();
     const undelivered = taskInbox.drain().length;
     if (undelivered > 0) emit({ type: 'warning', message: `${undelivered} steering message(s) arrived after the run's last model request and were not delivered` });

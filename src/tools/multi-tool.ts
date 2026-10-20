@@ -6,6 +6,7 @@ import type { ExecutedToolCall } from './execute-tool-call.js';
 import { addErrorDetails } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
+import type { CapturedEffect } from '../effects/undo-types.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
 import type { FinishInnerCall, InnerCall, InnerCallVerdict, MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
@@ -144,5 +145,10 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     const executedCalls = typeof result === 'object' && result !== null ? executedByResult.get(result) : undefined;
     return executedCalls?.flatMap(executed => executed.plannedEffects ?? []) ?? [];
   };
-  return { ...tool, summarise: summariseMulti, nestedFailures, plannedEffects };
+  /** The effects of the inner calls with side effects behind a result this tool returned. */
+  const capturedEffects = (result: unknown): CapturedEffect[] => {
+    const executedCalls = typeof result === 'object' && result !== null ? executedByResult.get(result) : undefined;
+    return executedCalls?.flatMap(executed => executed.effects ?? []) ?? [];
+  };
+  return { ...tool, summarise: summariseMulti, nestedFailures, plannedEffects, capturedEffects };
 }

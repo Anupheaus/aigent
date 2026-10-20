@@ -108,6 +108,8 @@ export interface TraceStep {
   outcome?: StepOutcome;
   /** Guardrail decisions about this call and its result (messages only with content capture on). */
   guardrails?: GuardrailDecisionRecord[];
+  /** The call changed something that `agent.undo` can reverse (its undo data is in the effect log). */
+  undoable?: boolean;
 }
 
 /** Where a run's time went, in milliseconds. */

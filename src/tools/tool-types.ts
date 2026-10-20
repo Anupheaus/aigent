@@ -5,6 +5,7 @@ import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types
 import type { ExecutedToolCall } from './execute-tool-call.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { DryRunOutput, PlannedEffect } from '../effects/planned-effects.js';
+import type { CapturedEffect, UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-types.js';
 
 export interface ToolContext {
   agentName: string;
@@ -163,4 +164,13 @@ export interface Tool {
   dryRun?(args: unknown, context: ToolContext): Promise<DryRunOutput>;
   /** Effects planned inside a result (the dry-run calls inside an `aigent_multi` result). */
   plannedEffects?(result: unknown): PlannedEffect[];
+  /**
+   * Tools with side effects: right after a successful call, the plain-JSON data `applyUndo` needs to reverse it (e.g. a
+   * path and its prior content), or undefined when this call cannot be undone. Declared together with `applyUndo`.
+   */
+  undo?(args: unknown, result: unknown, context: ToolContext): Promise<UndoDescriptor | undefined>;
+  /** Reverses one recorded call from its descriptor (`agent.undo`). */
+  applyUndo?(descriptor: UndoDescriptor, context: UndoContext): Promise<UndoOutcome>;
+  /** Effects recorded inside a result (the calls inside an `aigent_multi` result). */
+  capturedEffects?(result: unknown): CapturedEffect[];
 }
