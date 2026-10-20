@@ -81,6 +81,11 @@ describe('computeCacheKey', () => {
     expect(computeCacheKey({ tool: withFeedbackFields(tool), args })).toBe(computeCacheKey({ tool, args }));
   });
 
+  it.each([['a Set', new Set(['a'])], ['a Date', new Date(0)], ['a Map', new Map([['a', 1]])]])('throws for %s in the normalised key instead of colliding as {} (review M7)', (_label, value) => {
+    const tool = readTool({ cacheKey: () => ({ paths: value }) });
+    expect(() => computeCacheKey({ tool, args: { path: 'a', options: { encoding: 'utf8', limit: 1 } } })).toThrow(expect.objectContaining({ code: 'invalid_input', message: expect.stringContaining('key.paths') }));
+  });
+
   it('keeps tools of different names apart', () => {
     const args = { path: 'a', options: { encoding: 'utf8', limit: 1 } };
     const other = defineTool({ name: 'stat', description: 'Read a file', args: readArgs, deterministic: true, cache: true, describeActivity: () => ({ title: 's' }), run: async () => 1 });
