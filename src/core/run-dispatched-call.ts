@@ -43,13 +43,15 @@ function budgetError(params: { call: ToolCall; parentCallId?: string }): ToolErr
  * Runs the call, recorded in the ledger first when there is one: the `started` entry is stored before the tool runs,
  * so a resumed run never runs a finished call again. A call whose start cannot be recorded is not run.
  */
-async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; ledgerId: string; parentCallId?: string; turn: RunTurnParams; gate?(): Promise<GateOutcome> }): Promise<ExecutedToolCall> {
-  const { execute, ledger, ledgerId, parentCallId, turn, gate } = params;
+async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; ledgerId: string; parentCallId?: string; turn: RunTurnParams; gate?(): Promise<GateOutcome>; guard?(executed: ExecutedToolCall): Promise<ExecutedToolCall> }): Promise<ExecutedToolCall> {
+  const { execute, ledger, ledgerId, parentCallId, turn, gate, guard } = params;
+  // The toolResult checks run before the ledger keeps the result, so nothing unguarded is stored or restored later.
+  const run = async (): Promise<ExecutedToolCall> => { const executed = await executeToolCall(execute); return guard == null ? executed : guard(executed); };
   const { call } = execute;
   // Approval comes first: a refused call never starts, so it is never in the ledger.
   const approval = await gate?.();
   if (approval?.isAllowed === false) return rejectToolCall({ call, error: approval.error });
-  if (ledger == null) return executeToolCall(execute);
+  if (ledger == null) return run();
   try {
     const { thinkingBlocks } = turn.work.partial;
     await ledger.begin({
@@ -61,7 +63,7 @@ async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: Ca
   } catch (error) {
     return rejectToolCall({ call, error: { category: 'denied', code: 'ledger_unavailable', retryable: true, message: `The call was not run because its start could not be recorded: ${describeError(error)}` } });
   }
-  const executed = await executeToolCall(execute);
+  const executed = await run();
   // The effect happened either way; a lost `done` only means a resume treats the call by its resume policy.
   await ledger.complete(ledgerId, executed.envelope).catch(() => undefined);
   return executed;
@@ -79,6 +81,10 @@ export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolC
   const isRunnable = tool != null && parsed != null && parsed.ok;
   const isDryRun = effects?.dryRun === true;
   const ledger = isLedgered ? turn.ledger : undefined;
+  // Guardrails see work calls only (bookkeeping tools change run state, nothing else); a block means the call never runs.
+  const isGuarded = guardrails != null && isRunnable && !isCommentary;
+  // An aigent_multi result is checked call by call as its inner calls finish, so it is not checked again as a whole.
+  const guard = isGuarded && call.name !== MULTI_TOOL_NAME ? guardrails.checkToolResult : undefined;
   const start = (verdict: CallVerdict): Promise<ExecutedToolCall> => {
     if ('error' in verdict) return Promise.resolve(rejectToolCall({ call, error: verdict.error }));
     const checked = verdict.call;
@@ -97,16 +103,11 @@ export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolC
         // Inner results reach the model inside their wrapper's result, which is shaped as a whole.
         ...(shaping == null || parentCallId != null ? {} : { shape: shapeWith(shaping) }),
       },
-      ledgerId, turn, ...(parentCallId == null ? {} : { parentCallId }), ...(ledger == null ? {} : { ledger }),
+      ledgerId, turn, ...(parentCallId == null ? {} : { parentCallId }), ...(ledger == null ? {} : { ledger }), ...(guard == null ? {} : { guard }),
     });
   };
-  // Guardrails see work calls only (bookkeeping tools change run state, nothing else); a block means the call never runs.
-  const isGuarded = guardrails != null && isRunnable && !isCommentary;
   const verdict: CallVerdict | Promise<CallVerdict> = isGuarded ? guardrails.checkToolCall(call) : { call };
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
-  // An aigent_multi result is checked call by call as its inner calls finish, so it is not checked again as a whole.
-  const checksResult = isGuarded && call.name !== MULTI_TOOL_NAME;
   return (verdict instanceof Promise ? verdict.then(start) : start(verdict))
-    .then(executed => (checksResult ? guardrails.checkToolResult(executed) : executed))
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
 }

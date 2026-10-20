@@ -47,6 +47,8 @@ export interface ReconcileParams {
   gate?: ReconcileGate;
   /** The run is a dry run: (re-)run calls are simulated like any of its calls, and need no approval. */
   dryRun?: boolean;
+  /** The run's toolResult checks for a settled call's result (restored or run again) before the model sees it. */
+  guard?(executed: ExecutedToolCall): Promise<ExecutedToolCall>;
   /** Takes what each settled call did or would have done (the run's effect log and planned effects). */
   record?(executed: ExecutedToolCall): void;
 }

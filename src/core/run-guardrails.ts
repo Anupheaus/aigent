@@ -52,6 +52,26 @@ export function guardrailError(params: { blocked: Blocked; subject: 'call' | 're
   };
 }
 
+/** The parts of a failure that may carry text from outside: what the toolResult checks see of a failed call. */
+interface ErrorTexts {
+  message: string;
+  suggestion?: string;
+  details?: Record<string, unknown>;
+}
+
+function errorTextsOf(error: ToolErrorDetail): ErrorTexts {
+  const { message, suggestion, details } = error;
+  return { message, ...(suggestion == null ? {} : { suggestion }), ...(details == null ? {} : { details }) };
+}
+
+/** The failure with its guarded texts; a check that turned them into one text (a quarantine) makes that the message. */
+function withErrorTexts(params: { error: ToolErrorDetail; guarded: unknown }): ToolErrorDetail {
+  const { error, guarded } = params;
+  const { suggestion: _suggestion, details: _details, ...kept } = error;
+  if (typeof guarded !== 'object' || guarded === null || typeof (guarded as ErrorTexts).message !== 'string') return { ...kept, message: typeof guarded === 'string' ? guarded : JSON.stringify(guarded) };
+  return { ...kept, ...(guarded as ErrorTexts) };
+}
+
 export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuardrails {
   const { options: { builtins = {}, custom = [], failMode = 'closed', timeoutMs }, ids, run, emit } = params;
   const decisions: GuardrailDecisionRecord[] = [];
@@ -74,11 +94,14 @@ export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuard
 
   const checkToolResult = async (executed: ExecutedToolCall): Promise<ExecutedToolCall> => {
     const { envelope } = executed;
-    if (!envelope.ok || !pipeline.has('toolResult')) return executed;
-    const result = await pipeline.run({ stage: 'toolResult', value: { tool: envelope.tool, result: envelope.result }, context: { ...ids, callId: envelope.id } });
-    return result.action === 'block'
-      ? { ...executed, envelope: { id: envelope.id, tool: envelope.tool, ok: false, error: guardrailError({ blocked: result, subject: 'result' }) } }
-      : { ...executed, envelope: { ...envelope, result: (result.value as ToolResultValue).result } };
+    if (!pipeline.has('toolResult')) return executed;
+    // A failure's texts are untrusted too (a driver error carries its DSN, an HTTP error its body): guarded like a result.
+    const content = envelope.ok ? envelope.result : errorTextsOf(envelope.error);
+    const result = await pipeline.run({ stage: 'toolResult', value: { tool: envelope.tool, result: content }, context: { ...ids, callId: envelope.id } });
+    if (result.action === 'block') return { ...executed, envelope: { id: envelope.id, tool: envelope.tool, ok: false, error: guardrailError({ blocked: result, subject: 'result' }) } };
+    const guarded = (result.value as ToolResultValue).result;
+    if (envelope.ok) return { ...executed, envelope: { ...envelope, result: guarded } };
+    return guarded === content ? executed : { ...executed, envelope: { ...envelope, error: withErrorTexts({ error: envelope.error, guarded }) } };
   };
 
   /** A released stream segment through the `stream` checks; a check that is not synchronous fails per `failMode`. */

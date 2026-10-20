@@ -35,6 +35,9 @@ import { abortedStatus, buildTurnsResult } from './turns-result.js';
 import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import { settleAnswer } from './settle-answer.js';
+import { COMMENTARY_TOOLS } from './dispatch-tool-call.js';
+import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
+import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { RunEffects } from './run-effects.js';
 import type { RunDelegation } from './delegation-types.js';
 
@@ -91,6 +94,11 @@ export interface RunAgentTurnsParams {
   /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
   delegation?: RunDelegation;
   emit(event: AigentEvent): void;
+}
+
+/** A settled call's result through the toolResult checks; bookkeeping results and aigent_multi wrappers (whose inner calls were checked) pass as they are. */
+function guardSettled(checks: RunGuardrails): (executed: ExecutedToolCall) => Promise<ExecutedToolCall> {
+  return async executed => (COMMENTARY_TOOLS.has(executed.envelope.tool) || executed.envelope.tool === MULTI_TOOL_NAME ? executed : checks.checkToolResult(executed));
 }
 
 /** `signal.reason` when the run aborts its own tools because the provider failed. */
@@ -157,11 +165,11 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   };
 
   let isReady = true;
-  const { effects } = params;
+  const { effects, guardrails } = params;
   if (restore != null) {
     const round = await reconcileInterruptedRound({
       restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
-      ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }),
+      ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }), ...(guardrails == null ? {} : { guard: guardSettled(guardrails.checks) }),
       ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),
     });
     // Not reported through onCommit: a chat already holds this round (the cut-short reply), so its history is not repeated.

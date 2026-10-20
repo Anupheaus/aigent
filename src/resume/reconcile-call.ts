@@ -56,6 +56,11 @@ function contextOf(params: ReconcileCallParams & { tool?: Tool }): ToolContext {
   return { ...ids, callId: call.id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ids.runId, callId: ledgerId }), ...(dryRun === true ? { dryRun: true } : {}) };
 }
 
+/** The result through the run's toolResult checks, as a live call's result is, before it is stored or seen. */
+function guarded(params: ReconcileCallParams, executed: ExecutedToolCall): Promise<ExecutedToolCall> {
+  return params.guard == null ? Promise.resolve(executed) : params.guard(executed);
+}
+
 /** Runs a call (again), recorded in the ledger first like any call. */
 async function execute(params: ReconcileCallParams & { tool?: Tool }): Promise<ExecutedToolCall> {
   const { call, ledgerId, parentCallId, registry, ledger, now, emit, restored } = params;
@@ -65,7 +70,7 @@ async function execute(params: ReconcileCallParams & { tool?: Tool }): Promise<E
   } catch (error) {
     return unavailable({ call, what: 'recording its start', error });
   }
-  const executed = await executeToolCall({ registry, call, context: contextOf(params), now });
+  const executed = await guarded(params, await executeToolCall({ registry, call, context: contextOf(params), now }));
   await ledger?.complete(ledgerId, executed.envelope).catch(() => undefined);
   return executed;
 }
@@ -92,8 +97,9 @@ export async function reconcileCall(params: ReconcileCallParams): Promise<Execut
   const override = overrides?.get(ledgerId);
   if (override != null) return restoredCall(override);
   const entry = ledger.find(({ callId }) => callId === ledgerId);
-  // Finished calls are never executed again: the model gets what they returned.
-  if (entry?.envelope != null && entry.status !== 'started') return restoredCall({ ...entry.envelope, id: call.id });
+  // Finished calls are never executed again: the model gets what they returned (checked again: a ledger written before
+  // results were guarded there may hold one raw).
+  if (entry?.envelope != null && entry.status !== 'started') return guarded(params, restoredCall({ ...entry.envelope, id: call.id }));
   const tool = registry.get(call.name);
   // Never started (begin is written before a tool runs), or a tool that no longer exists: run it as a new call.
   if (entry == null || tool == null) return gated({ ...params, ...(tool == null ? {} : { tool }) });
@@ -107,9 +113,9 @@ export async function reconcileCall(params: ReconcileCallParams): Promise<Execut
       return unavailable({ call, what: 'its verify', error });
     }
     if (verified.done) {
-      const envelope: ToolEnvelope = { id: call.id, tool: call.name, ok: true, result: verified.result ?? null };
-      await params.ledger?.complete(ledgerId, envelope).catch(() => undefined);
-      return restoredCall(envelope);
+      const checked = await guarded(params, restoredCall({ id: call.id, tool: call.name, ok: true, result: verified.result ?? null }));
+      await params.ledger?.complete(ledgerId, checked.envelope).catch(() => undefined);
+      return checked;
     }
     return gated({ ...params, tool });
   }
