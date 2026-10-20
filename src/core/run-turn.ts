@@ -26,7 +26,8 @@ import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import type { RunEffects } from './run-effects.js';
-import type { StreamHoldback } from '../guardrails/stream-holdback.js';
+import { createTurnStreamGuard, flushThinking } from './turn-stream-guard.js';
+import type { TurnStreamGuard } from './turn-stream-guard.js';
 import type { DelegatedUsage, RunDelegation } from './delegation-types.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
@@ -50,7 +51,10 @@ export interface RunTelemetry {
 
 /** What a turn has streamed so far; kept by the caller so a cut-short turn can still be recorded. */
 export interface PartialTurn {
+  /** The text as shown, after the stream guardrails: what history, checkpoints and transcripts keep. */
   visible: string;
+  /** The text as the model wrote it (directive lines removed); kept in memory only, to settle the final answer. */
+  raw: string;
   calls: ToolCall[];
   thinkingBlocks: ThinkingBlock[];
 }
@@ -109,8 +113,10 @@ export interface RunTurnParams {
 }
 
 export interface TurnStreamResult {
-  /** Assistant text with directive lines removed. */
+  /** Assistant text with directive lines removed, as shown (after the stream guardrails); what is stored. */
   visible: string;
+  /** The same text as the model wrote it, before the stream guardrails; never stored. */
+  raw: string;
   /** Tool calls in the order the model made them. */
   calls: ToolCall[];
   /** Completed thinking blocks in order; replayed verbatim on the turn's assistant message. */
@@ -118,12 +124,13 @@ export interface TurnStreamResult {
   finishReason?: FinishReason;
 }
 
-
-/** Emits parsed text (through the stream guardrails), directives and warnings, recording outcome directives on the trace; returns the visible text. */
-function emitParsed(output: ParseOutput, turn: RunTurnParams & { stream?: StreamHoldback }): string {
+/** Emits parsed text (through the stream guardrails), directives and warnings, recording outcome directives on the trace and the text on the partial turn. */
+function emitParsed(output: ParseOutput, turn: RunTurnParams & { guard: TurnStreamGuard }): void {
   const { text, directives, warnings } = output;
-  const { emit, totals: { turns }, telemetry: { recorder }, planning, stream } = turn;
-  const shown = stream == null || text === '' ? text : stream.push(text);
+  const { emit, totals: { turns }, telemetry: { recorder }, planning, guard, work: { partial } } = turn;
+  const shown = guard.text(text);
+  partial.raw += text;
+  partial.visible += shown;
   if (shown !== '') emit({ type: 'text-delta', text: shown });
   for (const directive of directives) {
     // A directive reports on results the model has seen: the last step of an earlier turn, even when it arrives after
@@ -134,8 +141,8 @@ function emitParsed(output: ParseOutput, turn: RunTurnParams & { stream?: Stream
     applyPlanningDirective({ planning, directive, emit });
   }
   for (const message of warnings) emit({ type: 'warning', message });
-  return text;
 }
+
 
 function addUsage(totals: RunTotals, usage: Usage): void {
   totals.usage.inputTokens += usage.inputTokens;
@@ -148,9 +155,9 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   const { runId, routing, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, usableBudget, emit, work: { partial } } = params;
   const parser = createDirectiveParser();
   const { calls, thinkingBlocks } = partial;
-  // Held-back text a guardrail may still change before it is shown; what the model said is kept as said in `visible`.
-  const stream = params.guardrails?.stream();
-  const parse = { ...params, ...(stream == null ? {} : { stream }) };
+  // Held-back text (answer and reasoning) a guardrail may still change before it is shown; the raw answer stays in memory.
+  const guard = createTurnStreamGuard(params.guardrails);
+  const parse = { ...params, guard };
   let finishReason: FinishReason | undefined;
 
   const { request, estimatedTokens } = buildTurnRequest({
@@ -170,10 +177,11 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       if (raced.value.done === true) break;
       const event = raced.value.value;
       if (event.type === 'text-delta' || event.type === 'thinking-delta' || event.type === 'tool-call') timer.markFirstToken();
+      if (event.type !== 'thinking-delta') flushThinking({ guard, emit });
       switch (event.type) {
-        case 'text-delta': partial.visible += emitParsed(parser.push(event.text), parse); break;
-        // Always emitted: the run's emitter decides whether the user's stream shows it (`onThinking` always gets it).
-        case 'thinking-delta': emit(event); break;
+        case 'text-delta': emitParsed(parser.push(event.text), parse); break;
+        // Always emitted (guarded like the answer): the run's emitter decides whether the user's stream shows it (`onThinking` always gets it).
+        case 'thinking-delta': { const shown = guard.thinking(event.text); if (shown !== '') emit({ type: 'thinking-delta', text: shown }); break; }
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
         case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
@@ -186,8 +194,10 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     if (isAbandoned) stopStream(iterator);
   }
   recordPromptSize({ context, estimatedTokens, ...(reportedTokens == null ? {} : { reportedTokens }) });
-  partial.visible += emitParsed(parser.end(), parse);
-  const held = stream?.end() ?? '';
-  if (held !== '') params.emit({ type: 'text-delta', text: held });
-  return { visible: partial.visible, calls, thinkingBlocks, finishReason };
+  flushThinking({ guard, emit });
+  emitParsed(parser.end(), parse);
+  const held = guard.endText();
+  partial.visible += held;
+  if (held !== '') emit({ type: 'text-delta', text: held });
+  return { visible: partial.visible, raw: partial.raw, calls, thinkingBlocks, finishReason };
 }

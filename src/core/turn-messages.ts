@@ -5,7 +5,8 @@ import type { NewContextMessage } from './run-context.js';
 import type { TurnStreamResult } from './run-turn.js';
 
 export interface TurnMessagesParams {
-  turn: TurnStreamResult;
+  /** The round's response as stored: its guarded text, calls and thinking. */
+  turn: Pick<TurnStreamResult, 'visible' | 'calls' | 'thinkingBlocks'>;
   executed: ExecutedToolCall[];
   /** Resolves each result's tool; one with `compactable: false` keeps its result and the round's call verbatim. */
   registry: ToolRegistry;

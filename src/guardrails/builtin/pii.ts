@@ -74,8 +74,12 @@ function checkFor(params: { stage: GuardrailStage; mode: PiiMode }): Guardrail['
   };
 }
 
-/** PII per stage: `warn` (output default), `redact`, or `off` (tool results default). */
+/**
+ * PII per stage: `warn` (output default), `redact`, or `off` (tool results default). Redacted output is redacted in
+ * the stream too, so the streamed text never shows what the answer hides.
+ */
 export function piiGuardrails(options: PiiOptions): Guardrail[] {
-  const modes: [GuardrailStage, PiiMode][] = [['output', options.output ?? 'warn'], ['toolResult', options.toolResult ?? 'off']];
+  const output = options.output ?? 'warn';
+  const modes: [GuardrailStage, PiiMode][] = [['output', output], ['toolResult', options.toolResult ?? 'off'], ['stream', output === 'redact' ? 'redact' : 'off']];
   return modes.filter(([, mode]) => mode !== 'off').map(([stage, mode]) => ({ name: 'pii', stage, check: checkFor({ stage, mode }) }));
 }

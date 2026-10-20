@@ -54,10 +54,20 @@ export function createTurnRecorder(params: TurnRecorderParams): TurnRecorder {
     return id;
   }
 
+  /** The withdrawn text (the end of the reply's text) becomes its replacement, so the stored reply is the settled answer. */
+  function retract(event: Extract<AigentEvent, { type: 'text-retracted' }>): void {
+    const { text, replacement = '' } = event;
+    const message = find(log, messageId);
+    const [first, ...rest] = message?.parts ?? [];
+    if (first?.type !== 'text' || !first.text.endsWith(text)) return;
+    log.append({ type: 'message-updated', messageId, set: { parts: [{ ...first, text: first.text.slice(0, first.text.length - text.length) + replacement }, ...rest] } });
+  }
+
   function observe(observed: { event: AigentEvent; runId: string }): void {
     const { event, runId } = observed;
     switch (event.type) {
       case 'text-delta': log.append({ type: 'message-updated', messageId, partIndex: 0, delta: event.text }); break;
+      case 'text-retracted': retract(event); break;
       case 'thinking-done': addParts({ id: messageId, parts: [{ type: 'thinking', text: event.text }] }); break;
       case 'tool-call': addParts({ id: toolRow(runId), parts: [{ type: 'tool_call', callId: event.callId, name: event.name, argsSummary: summariseArgs({ args: event.args, captureContent: true }) }] }); break;
       case 'tool-result': {

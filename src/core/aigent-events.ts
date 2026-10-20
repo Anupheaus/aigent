@@ -22,6 +22,11 @@ export type AigentEvent =
   | { type: 'thinking-delta'; text: string }
   /** A model turn's streamed reasoning ended; `text` is all of it (emitted only after `thinking-delta` events). */
   | { type: 'thinking-done'; text: string }
+  /**
+   * The text the last model turn streamed (`text`, exactly as its `text-delta` events gave it) is withdrawn: the answer
+   * was sent back to be fixed (no `replacement`), or the output guardrails changed it (`replacement` is the answer).
+   */
+  | { type: 'text-retracted'; text: string; replacement?: string; reason: string }
   /** What the agent is doing now: derived from these events, throttled, with heartbeats; the terminal update comes just before `done`. */
   | { type: 'activity'; update: ActivityUpdate }
   | { type: 'tool-call'; callId: string; name: string; args: unknown }

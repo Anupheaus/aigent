@@ -1,4 +1,5 @@
 import { findSecrets, openSecretStart } from '../guardrails/builtin/secrets.js';
+import { findPii } from '../guardrails/builtin/pii.js';
 import { defaultGuardrails } from '../guardrails/builtin/index-builtins.js';
 import { OUTPUT_SCHEMA_NAME } from '../guardrails/builtin/output-schema.js';
 import type { GuardrailDecisionRecord, GuardrailOptions, GuardrailRunContext, ToolCallValue, ToolResultValue } from '../guardrails/guardrail-types.js';
@@ -75,6 +76,7 @@ export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuard
   const pipeline = createGuardrailPipeline({ builtins: all.filter(({ name }) => name !== OUTPUT_SCHEMA_NAME), custom, ...settings });
   const structure = createGuardrailPipeline({ builtins: all.filter(({ name }) => name === OUTPUT_SCHEMA_NAME), ...settings });
   const secrets = builtins.secrets === false ? undefined : builtins.secrets ?? {};
+  const isPiiStreamed = builtins.pii !== false && builtins.pii?.output === 'redact';
 
   const checkToolCall = (call: ToolCall): CallVerdict | Promise<CallVerdict> => {
     const toVerdict = (result: PipelineResult): CallVerdict => (result.action === 'block' ? { error: guardrailError({ blocked: result, subject: 'call' }) } : { call: { ...call, args: (result.value as ToolCallValue).args } });
@@ -129,7 +131,9 @@ export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuard
       if (!pipeline.has('stream')) return undefined;
       return createStreamHoldback({
         ...(secrets?.holdBackChars == null ? {} : { holdBackChars: secrets.holdBackChars }),
-        ...(secrets == null ? {} : { openStart: openSecretStart, spans: findSecrets }),
+        ...(secrets == null ? {} : { openStart: openSecretStart }),
+        // A complete secret or piece of personal data is released whole, so its check sees all of it.
+        spans: text => [...(secrets == null ? [] : findSecrets(text)), ...(isPiiStreamed ? findPii(text).map(({ start, end }) => ({ matchStart: start, matchEnd: end })) : [])],
         release: releaseSegment,
       });
     },

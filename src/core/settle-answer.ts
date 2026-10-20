@@ -12,6 +12,8 @@ export type SettledAnswer =
 export interface SettleAnswerParams {
   /** The final answer as the model wrote it. */
   text: string;
+  /** What the turn streamed of it (after the stream guardrails); withdrawn when the settled answer differs. */
+  streamed?: string;
   guardrails?: RunGuardrails;
   /** The task's structured output, when it has one. */
   structured: GuardrailRunContext;
@@ -34,6 +36,17 @@ function withheld(verdict: Extract<AnswerVerdict, { blocked: unknown }>): string
  * always the rewritten (redacted) one, never the raw text.
  */
 export async function settleAnswer(params: SettleAnswerParams): Promise<SettledAnswer> {
+  const { streamed = '', emit } = params;
+  const settled = await settle(params);
+  if (settled.kind === 'retry') {
+    if (streamed !== '') emit({ type: 'text-retracted', text: streamed, reason: 'output_invalid: the answer was sent back to be fixed' });
+  } else if (settled.answer !== streamed.trim()) {
+    emit({ type: 'text-retracted', text: streamed, replacement: settled.answer, reason: 'the output guardrails changed the answer' });
+  }
+  return settled;
+}
+
+async function settle(params: SettleAnswerParams): Promise<SettledAnswer> {
   const { text, guardrails, structured: { output: schema, outputFormat = 'json' }, retriesLeft, emit } = params;
   const structure = guardrails == null ? VALID : await guardrails.checkStructure(text);
   if (!structure.ok && retriesLeft > 0) return { kind: 'retry', feedback: `Your answer was not accepted: ${structure.reason}. Reply again with only the corrected answer.` };

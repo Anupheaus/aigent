@@ -16,7 +16,7 @@ export interface DrainWorkParams {
 
 /** A turn's work with nothing dispatched yet. */
 export function createTurnWork(): TurnWork {
-  return { partial: { visible: '', calls: [], thinkingBlocks: [] }, executions: [], activities: [], activityController: new AbortController() };
+  return { partial: { visible: '', raw: '', calls: [], thinkingBlocks: [] }, executions: [], activities: [], activityController: new AbortController() };
 }
 
 /**
