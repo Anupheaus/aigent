@@ -37,6 +37,13 @@ import { parseAgentLimits, parseTaskInput } from './task-input.js';
 import { parseAgentShapers } from '../shapers/shapers-setting.js';
 import { parseVolatileOptions } from '../context/volatile-block.js';
 import { parseCompactionPolicy } from '../context/compaction-policy.js';
+import { createCompressionCache } from '../compression/compression-cache.js';
+import { compressionVersionInput, parseCompressionOptions } from '../compression/compression-options.js';
+import { evalCompression } from '../compression/eval-compression.js';
+import type { CompressionEvalReport, EvalCompressionParams } from '../compression/eval-compression.js';
+import { createInMemoryStore } from '../store/in-memory-store.js';
+import { previewPrompt } from './preview.js';
+import { memoiseStaticPrompt } from './static-prompt.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 
 export interface AigentOptions {
@@ -114,6 +121,11 @@ export interface Aigent {
    * stored runs that match `filter`. Rejects with `invalid_input` for an invalid filter; empty without a store.
    */
   report(filter?: ReportFilter): Promise<Report>;
+  /**
+   * Runs each task with the agent as defined but without compression, then with `compressor`, through the agent's own
+   * provider and with telemetry off, and compares status, answer, plan outcome, input tokens and time.
+   */
+  evalCompression(params: Omit<EvalCompressionParams, 'createAgent'>): Promise<CompressionEvalReport>;
 }
 
 function indexProviders(providers: Provider[]): Map<string, Provider> {
@@ -163,6 +175,9 @@ export function createAigent(options: AigentOptions): Aigent {
   const writeQueue = createWriteQueue();
   const toolCache = resolveToolCache({ cache: options.cache, store, captureContent, isRedacted: redact != null, ...(expiresInMs == null ? {} : { expiresInMs }), writeQueue, clock });
   const volatile = parseVolatileOptions(options.volatile);
+  // Compressed text is content: like the tool cache, it stays in memory when the store's owner asked for no content.
+  const compressionStore = store != null && captureContent && redact == null ? store : createInMemoryStore();
+  const compressionCache = createCompressionCache({ store: compressionStore, writeQueue });
   // process is absent outside Node (e.g. edge runtimes); without it no NODE_ENV is set.
   const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
   const isPrefixMonitorEnabled = volatile.warnOnPrefixChange ?? !isProduction;
@@ -171,7 +186,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   // result.feedback goes through the same tracked path as ai.feedback.
   const services: RuntimeServices = {
-    clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler, volatile, isPrefixMonitorEnabled,
+    clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler, volatile, isPrefixMonitorEnabled, compressionCache,
     ...(toolCache == null ? {} : { cache: toolCache }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
@@ -223,6 +238,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const compaction = parseCompactionPolicy({ agentName: name, policy: definition.compaction });
     const compactionTarget = definition.compactionModel == null ? undefined : resolveTarget(definition.compactionModel);
+    const compression = parseCompressionOptions({ agentName: name, options: definition.compression });
     const instanceId = definition.instanceId ?? ids.next('agent');
     const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
     const registry = buildAgentRegistry({
@@ -239,19 +255,24 @@ export function createAigent(options: AigentOptions): Aigent {
     const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }), ...(definition.todo === false ? { todo: false } : {}),
       ...(definition.compaction == null ? {} : { compaction }),
       ...(compactionTarget == null ? {} : { compactionModel: compactionTarget.reference }),
+      ...(compression == null ? {} : { compression: compressionVersionInput(compression) }),
     });
-    const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context, enableFeedback }, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
+    const prompt = { persona, skillset, context, enableFeedback };
+    const staticPrompt = memoiseStaticPrompt({ prompt, context: { cache: compressionCache, now: () => clock.now(), ...(compression == null ? {} : { compression }) } });
+    const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt, staticPrompt, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
       ...(feedbackCollector == null ? {} : { feedbackCollector }),
       ...(shapers == null ? {} : { shapers }),
       isTodoEnabled: definition.todo !== false,
       compaction,
       ...(compactionTarget == null ? {} : { compactionTarget }),
+      ...(compression == null ? {} : { compression }),
     };
     return {
       name,
       instanceId,
       agentVersion,
       task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
+      preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
     };
   }
 
@@ -261,6 +282,7 @@ export function createAigent(options: AigentOptions): Aigent {
     trace: runId => readTrace({ store, runId }),
     purge: async filter => purgeRecords({ store, filter }),
     feedback,
+    evalCompression: async params => evalCompression({ ...params, createAgent: agent }),
     report: async filter => readReport({ store, filter, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) }),
   };
 }

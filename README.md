@@ -380,6 +380,43 @@ ai.agent({
 - **Failures:** if the summary call fails, the run stubs every eligible result instead and emits a `warning`. If the prompt still does not fit after every stage, the run fails with `context_overflow` (sizes in `details`) rather than sending an oversized request. If the non-compactable messages alone exceed 60% of the budget the run warns once; above 90% it fails with `context_overflow` ("Non-compactable context too large").
 - **Events and usage:** one `{ type: 'compaction', stage: 'stubbed' | 'deduped' | 'summarised', tokensBefore, tokensAfter, messagesAffected, summaryTokens? }` event per stage applied. `TaskResult.usage` (and the run record) carries `compactions`, `compactionTokens` (the summariser's input plus output tokens, also counted in `inputTokens`/`outputTokens`) and `compactionTokensSaved`. `ai.report()` adds a `frequent-compaction` finding for runs that compacted more than once every five turns.
 
+## Prompt compression (pluggable `Compressor`)
+
+An agent can compress its prompt text with a `Compressor`. **No compressor ships with the library**: a learned compressor such as LLMLingua-2 needs a model download, so it belongs in a plugin you install and approve yourself. Without `compression` nothing changes.
+
+```ts
+interface Compressor {
+  id: string;      // part of the cache key and the agent version
+  version: string; // bump when output for the same input could change
+  compress(input: { text: string; targetRatio: number; protect: string[]; signal?: AbortSignal }): Promise<{ text: string }>;
+}
+
+ai.agent({
+  name: 'researcher', model: 'anthropic:claude-sonnet-5-5', context: longEnvironmentNotes,
+  compression: {
+    compressor,
+    targetRatio: 0.5,     // keep about half (default)
+    minTokens: 200,       // leave shorter texts alone (default)
+    fields: { persona: false, skillset: false, context: true, task: true, references: true, examples: true }, // the defaults
+    applyTo: ['toolResults'], // default; still needs the tool's `compressible`
+    forceKeep: ['ThemeProvider'],
+  },
+});
+```
+
+- **Static text** (agent `persona`, `skillset`, `context`; task `task`, `context` and each reference's content) is compressed on the agent's first `task()` or `preview()` and memoised on the agent; scope lists, constraints and acceptance criteria are never compressed. Results are cached in the store's `compressed` collection under sha-256(source, compressor id and version, parameters), so the same input always gives byte-identical text, later agents and other runtimes on the same store reuse it, and the prompt prefix stays stable across turns. `persona` and `skillset` are off by default until an evaluation shows compressing them is safe. With `captureContent: false` or a `redact` hook the cache stays in memory, like the tool-result cache.
+- **Tool results:** a tool declared `compressible: true` has its successful string results compressed when they are committed to history (the compressed text is stored and sent from then on; the original is kept under a `result_original` handle and named in a note after the text). Results that look like code, diffs or JSON are left alone unless the tool says `compressible: 'allow-code'`. The `tool-result` event always carries the original. `applyTo` also accepts `'history'` and `'retrieval'`, which nothing produces yet.
+- **Protected content:** negations and modals (not, never, no, must, only, don't, shall, cannot...), numbers with units, file paths, identifiers (camelCase, PascalCase, snake_case), quoted strings, URLs, code spans and fenced blocks, JSON objects, `::aigent` directive lines and every `forceKeep` entry are passed as `protect` and checked afterwards, as whole words and by count. Output that lost any of them is rejected: the original is used and the run warns `Compression of <field> dropped protected content and was ignored`. A compressor that throws is ignored the same way, with a warning. Questions and answers, plan, todo and directive records, the library's own instructions and tool schemas are never compressed.
+- **Agent version:** the compressor's id and version and every setting are hashed into `agentVersion`, so before/after comparisons in `ai.report()` work.
+- **Telemetry:** each compression a run used is stored on its run record as `{ field, originalTokens, compressedTokens, ratio, latencyMs, cacheHit }` (no text). `ai.report()` adds `compression-net-negative` when the agent's runs with compression succeed less often than its runs without (at least three on each side), or the compressor took longer than 1 ms per saved token.
+- **A/B evaluation:** `await ai.evalCompression({ agent: definition, tasks, compressor })` runs each task without and then with the compressor through the agent's own provider (telemetry off) and reports, per task and in total, whether status, answer and plan outcome matched, the input tokens saved and the time difference.
+- **Testing:** `fakeCompressor({ dropEvery })` (removes every Nth unprotected word, deterministic) and `createBrokenCompressor()` (drops negations, to see the rejection) are exported from `@anupheaus/aigent/testing`.
+- **Writing an LLMLingua-2 plugin:** wrap a token-classification model (for example the community `@atjsh/llmlingua-2` port, or an HTTP sidecar running Microsoft's Python library) in `compress`: keep the tokens it scores highest until `targetRatio` of the text remains, always keep every `protect` substring, and run it deterministically (fixed model weights, no sampling). Give it a stable `id` and bump `version` whenever the model or its settings change, since cached results are keyed by both.
+
+## Previewing the prompt
+
+`await agent.preview(input?)` returns `{ system, brief, tools, fields, totalTokens }`: the exact system prompt, task brief and tool specs a task with that input would start with, compression applied, plus every compressible field with its original and final text and token counts. It calls no provider; it is built by the same code as a run's first request. Without an input the brief is empty.
+
 ## Plan and todo
 
 A task may bring a **plan**; every agent also keeps its own **todo list**.

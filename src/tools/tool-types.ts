@@ -109,6 +109,11 @@ export interface Tool {
   maxResultTokens?: number;
   /** False keeps this tool's results out of compaction: never stubbed, deduplicated or summarised. Absent means true. */
   compactable?: boolean;
+  /**
+   * Lets a configured compressor shorten this tool's prose results when they are committed to history (original kept
+   * by handle). `'allow-code'` also allows results that look like code, diffs or JSON. Absent means not compressible.
+   */
+  compressible?: boolean | 'allow-code';
   describeActivity: DescribeActivity<unknown>;
   run(args: unknown, context: ToolContext): Promise<unknown>;
   /** Optional aggregate outcome for the activity renderer; default is success. */

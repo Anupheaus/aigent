@@ -10,7 +10,7 @@ import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskLimits } from './task-input.js';
 
 /** The tool fields that change how an agent behaves; code (`run`, renderers) is not hashable and is left out. */
-export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity' | 'acceptsAliases' | 'cacheNamespace' | 'sharedCache' | 'compactable'>;
+export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity' | 'acceptsAliases' | 'cacheNamespace' | 'sharedCache' | 'compactable' | 'compressible'>;
 
 /** A fallback model and the settings it would be sent. */
 export interface AgentVersionFallback {
@@ -48,14 +48,16 @@ export interface AgentVersionInput {
   compaction?: CompactionPolicy;
   /** `compactionModel`, when set. */
   compactionModel?: string;
+  /** The resolved compression settings (compressor by id and version), when the agent compresses. */
+  compression?: Record<string, unknown>;
 }
 
 const HASH_ALGORITHM = 'sha256';
 
 function versionTool(tool: AgentVersionTool): AgentVersionTool {
-  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable } = tool;
+  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible } = tool;
   // The newer fields are undefined unless set, and undefined fields are not hashed, so earlier versions are unchanged.
-  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable };
+  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -95,7 +97,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel, compression } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -109,6 +111,7 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     ...(todo ? {} : { todo }),
     ...(compaction == null ? {} : { compaction }),
     ...(compactionModel == null ? {} : { compactionModel }),
+    ...(compression == null ? {} : { compression }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

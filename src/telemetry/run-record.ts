@@ -4,6 +4,7 @@ import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderSettings } from '../providers/provider-types.js';
 import type { UserRating } from '../feedback/feedback-records.js';
 import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
+import type { CompressionRecord } from '../compression/compressor-types.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
 export const RUN_RECORD_SCHEMA_VERSION = 1;
@@ -196,6 +197,8 @@ export interface RunRecord extends RecordMeta {
   plan?: StoredPlanItem[];
   /** The agent's todo list at the end, when it kept one. */
   todo?: StoredTodoItem[];
+  /** Every compression the run used (prompt fields and tool results), when the agent compresses. Sizes only, no text. */
+  compression?: CompressionRecord[];
 }
 
 /** One document in the `traces` collection, keyed by run id. */

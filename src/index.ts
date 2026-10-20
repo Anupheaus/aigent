@@ -3,6 +3,10 @@ export type { Aigent, AigentOptions } from './core/create-aigent.js';
 export type { Agent, AgentDefinition, StopOptions, TaskResult, TaskRun, TaskUsage } from './core/agent-types.js';
 export type { AigentEvent, CompactionStage, TaskStatus } from './core/aigent-events.js';
 export type { CompactionPolicy } from './context/compaction-policy.js';
+export type {
+  CompressedText, CompressionField, CompressionOptions, CompressionRecord, CompressionTarget, Compressor, CompressorInput, PromptPreview, PromptPreviewField,
+} from './compression/compressor-types.js';
+export type { CompressionEvalReport, CompressionEvalResult, CompressionEvalSide, EvalCompressionParams } from './compression/eval-compression.js';
 export type { TaskInput, TaskLimits } from './core/task-input.js';
 export type { ModelSettings } from './core/model-settings.js';
 export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';

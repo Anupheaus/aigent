@@ -2,6 +2,7 @@ import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
+import type { CompressionOptions, PromptPreview } from '../compression/compressor-types.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -52,6 +53,11 @@ export interface AgentDefinition {
   compaction?: Partial<CompactionPolicy>;
   /** `provider:model` that writes compaction summaries (default: the agent's own model and fallbacks). */
   compactionModel?: string;
+  /**
+   * Prompt compression with a pluggable `Compressor` (none ships with the library). Static fields are compressed once
+   * and cached; `compressible` tool results as they are committed. Part of the agent version.
+   */
+  compression?: CompressionOptions;
 }
 
 export interface TaskUsage extends Usage {
@@ -139,6 +145,11 @@ export interface Agent {
   agentVersion: string;
   /** Validates `input` synchronously (throws `invalid_input`), then runs the task in the background. */
   task(input: TaskInput): TaskRun;
+  /**
+   * The exact system prompt, brief and tools a task with `input` would start with (compression applied), and every
+   * compressed field before and after. Calls no provider. Rejects with `invalid_input` for an invalid input.
+   */
+  preview(input?: TaskInput): Promise<PromptPreview>;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

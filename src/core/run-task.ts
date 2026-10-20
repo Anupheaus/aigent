@@ -21,10 +21,8 @@ import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
 import type { RunTelemetry, RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
 import type { Clock } from './runtime-services.js';
-import { buildSystemPrompt } from './system-prompt.js';
-import type { PromptPersona } from './system-prompt.js';
-import { buildTaskBrief } from './task-brief.js';
-import type { TaskInput } from './task-input.js';
+import { compressCommitted } from './run-compression.js';
+import type { RunCompression } from './run-compression.js';
 
 export type AbortReason = 'user' | 'timeout';
 
@@ -45,8 +43,12 @@ export interface RunTaskParams {
   routing: TurnRouting;
   /** Whether `thinking-delta` events are emitted. */
   showThinking: boolean;
-  prompt: PromptPersona;
-  input: TaskInput;
+  /** The system prompt as sent (compression applied). */
+  systemPrompt: string;
+  /** The task brief as sent (compression applied). */
+  brief: string;
+  /** Present when the agent compresses; tool results are compressed as they are committed. */
+  compression?: RunCompression;
   registry: ToolRegistry;
   limits: { maxTurns: number; maxToolCalls: number };
   clock: Clock;
@@ -127,14 +129,14 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, limits, clock, control, telemetry, cache, shaping, planning, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, systemPrompt, brief, limits, clock, control, telemetry, cache, shaping, planning, emit } = params;
   const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
   const context = createRunContext({
     runId, createdAt: startedAt,
-    initial: [{ kind: 'system', message: { role: 'system', text: buildSystemPrompt(prompt) } }, { kind: 'brief', message: { role: 'user', text: buildTaskBrief(input) } }],
+    initial: [{ kind: 'system', message: { role: 'system', text: systemPrompt } }, { kind: 'brief', message: { role: 'user', text: brief } }],
   });
   const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0, compactionTokens: 0 };
   const originals = createRunOriginals({ registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }) });
@@ -189,7 +191,8 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
       break;
     }
 
-    const executed = await drainWork({ work, signal, emit });
+    const drained = await drainWork({ work, signal, emit });
+    const executed = await compressCommitted({ executed: drained, originals, clock, signal, emit, ...(params.compression == null ? {} : { compression: params.compression }) });
     appendContextMessages({ context, messages: turnMessages({ turn, executed, registry }), createdAt: clock.now() });
     errors.push(...failedDetails(executed));
     if (turn.calls.length === 0) {

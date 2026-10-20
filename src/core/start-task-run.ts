@@ -11,9 +11,8 @@ import { DEFAULT_LIMITS } from './agent-types.js';
 import type { TaskResult, TaskResultData, TaskRun } from './agent-types.js';
 import type { UserFeedback } from '../feedback/feedback-records.js';
 import { createEventStream } from './event-stream.js';
-import { filterProviderSettings } from './filter-provider-settings.js';
 import type { ModelSettings } from './model-settings.js';
-import type { ProviderTarget, TurnRouting } from './open-turn-stream.js';
+import type { TurnRouting } from './open-turn-stream.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
@@ -21,8 +20,12 @@ import { setUpRunShaping } from './run-shaping.js';
 import { setUpRunPlanning } from './run-planning-setup.js';
 import { createStabilityMonitor } from '../context/stability-monitor.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
-import { resolveContextBudget } from '../context/context-budget.js';
-import type { RunCompactionSettings } from './run-compaction.js';
+import type { CompressedPart } from '../compression/compress-prompt.js';
+import type { CompressionCache } from '../compression/compression-cache.js';
+import type { ResolvedCompression } from '../compression/compression-options.js';
+import { buildPromptTexts } from './prompt-texts.js';
+import { compactionSettings, promptCompressionContext, toProviderTarget } from './run-settings.js';
+import type { RunCompression } from './run-compression.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { runTask } from './run-task.js';
 import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
@@ -68,6 +71,10 @@ export interface ResolvedAgent {
   compaction: CompactionPolicy;
   /** `compactionModel`, when the definition sets one. */
   compactionTarget?: ModelTarget;
+  /** The agent's compression settings, when it compresses. */
+  compression?: ResolvedCompression;
+  /** The persona fields as sent, compressed once per agent and memoised (lazily, on the first task or preview). */
+  staticPrompt(): Promise<CompressedPart<PromptPersona>>;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -88,6 +95,8 @@ export interface RuntimeServices {
   volatile: VolatileOptions;
   /** Whether runs warn when their prompt prefix changes between turns. */
   isPrefixMonitorEnabled: boolean;
+  /** Compressed texts, shared by every agent of the runtime (and other runtimes on the same store). */
+  compressionCache: CompressionCache;
 }
 
 export interface StartTaskRunParams {
@@ -112,38 +121,6 @@ function resolveLimits(taskLimits: TaskLimits | undefined, agentLimits: TaskLimi
   };
 }
 
-interface ProviderTargetParams {
-  target: ModelTarget;
-  agent: ResolvedAgent;
-  input: TaskInput;
-}
-
-/** Resolves the run's settings for one model (its provider's layer differs) and filters them for that provider. */
-function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
-  const { target: { reference, provider, model, providerSettings }, agent: { agentSettings, runtimeSettings }, input } = params;
-  const settings = resolveModelSettings({ task: input.modelSettings, agent: agentSettings, runtime: runtimeSettings, provider: providerSettings });
-  const filtered = filterProviderSettings({ provider, model, settings });
-  const { warnings, dropped } = filtered;
-  return { label: reference, provider, model, warnings, dropped, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
-}
-
-interface CompactionSettingsParams {
-  agent: ResolvedAgent;
-  input: TaskInput;
-  routing: TurnRouting;
-  /** The run's resolved settings (`contextSize` and `maxOutputTokens` size the budget). */
-  settings: ModelSettings;
-}
-
-/** The run's usable budget (from the primary model) and its summariser: `compactionModel`, else the run's own models. */
-function compactionSettings(params: CompactionSettingsParams): RunCompactionSettings {
-  const { agent, input, routing, settings: { contextSize, maxOutputTokens } } = params;
-  const { compaction: policy, compactionTarget, targets: [{ provider }] } = agent;
-  const { usable } = resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) });
-  const summariser: TurnRouting = compactionTarget == null ? routing : { ...routing, targets: [toProviderTarget({ target: compactionTarget, agent, input })] };
-  return { policy, usableBudget: usable, summariser };
-}
-
 /** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
 function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: RuntimeServices['submitFeedback'] }): TaskResult {
   const { result, submitFeedback } = params;
@@ -155,7 +132,7 @@ function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: 
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
-  const { name: agentName, instanceId, targets, resilience, prompt, agentVersion, version } = agent;
+  const { name: agentName, instanceId, targets, resilience, agentVersion, version } = agent;
   const { clock, ids, sleep, random, scheduler } = services;
   const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
@@ -179,9 +156,14 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   async function execute(): Promise<void> {
     for (const message of primary.warnings) emit({ type: 'warning', message });
     let resultData: TaskResultData;
+    let compression: RunCompression | undefined;
     try {
+      const texts = await buildPromptTexts({ staticPrompt: agent.staticPrompt, input, context: promptCompressionContext({ agent, services }) });
+      for (const message of texts.warnings) emit({ type: 'warning', message });
+      compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts.records] };
       resultData = await runTask({
-        runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
+        runId, responseId, agentName, instanceId, systemPrompt: texts.system, brief: texts.brief, registry, clock, control, telemetry, emit,
+        ...(compression == null ? {} : { compression }),
         ...(services.cache == null ? {} : { cache: services.cache }),
         ...(shaping == null ? {} : { shaping }),
         volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
@@ -201,7 +183,10 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
       const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
       const warning = await persistRunTelemetry({
         now: () => clock.now(), telemetry, settings: services.telemetry, feedback,
-        run: { input, result: resultData, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings } },
+        run: {
+          input, result: resultData, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings },
+          ...(compression == null || compression.log.length === 0 ? {} : { compression: compression.log }),
+        },
       });
       if (warning != null) emit({ type: 'warning', message: warning });
     }

@@ -94,6 +94,8 @@ export type FindingKind =
   | 'net-negative-shaper'
   /** A run that compacted its history more than once every five turns: its window is too small for its results. */
   | 'frequent-compaction'
+  /** Prompt compression that succeeded less often than the agent's uncompressed runs, or cost more time than it saved. */
+  | 'compression-net-negative'
   /** Reserved for the guardrails slice. */
   | 'guardrail';
 

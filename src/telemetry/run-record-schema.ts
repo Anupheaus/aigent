@@ -69,6 +69,10 @@ export const runRecordSchema = z.object({
     acceptanceCriteria: z.array(z.string()).optional(), evidence: z.string().optional(),
   })).optional(),
   todo: z.array(z.object({ id: z.string(), status: z.enum(PLAN_STATUSES), label: z.string().optional(), description: z.string().optional() })).optional(),
+  compression: z.array(z.object({
+    field: z.enum(['persona', 'skillset', 'context', 'task', 'references', 'examples', 'toolResult']),
+    originalTokens: count, compressedTokens: count, ratio: z.number().nonnegative(), latencyMs: durationMs, cacheHit: z.boolean(),
+  })).optional(),
 });
 
 export const traceStepSchema = z.object({

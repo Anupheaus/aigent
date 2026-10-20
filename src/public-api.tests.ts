@@ -12,7 +12,7 @@ describe('public API', () => {
   });
 
   it('exports test helpers separately', () => {
-    expect(Object.keys(testing).sort()).toEqual(['createFakeProvider', 'textTurn', 'toolTurn']);
+    expect(Object.keys(testing).sort()).toEqual(['createBrokenCompressor', 'createFakeProvider', 'fakeCompressor', 'textTurn', 'toolTurn']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {

@@ -48,6 +48,22 @@ describe('findFindings', () => {
     })]);
   });
 
+  it('flags compression that succeeds less often than the agent\'s runs without it, or costs more time than it saves', () => {
+    const record = { field: 'context' as const, originalTokens: 1_000, compressedTokens: 500, ratio: 0.5, latencyMs: 10, cacheHit: false };
+    const withCompression = (startedAt: number, status: 'completed' | 'failed', latencyMs = 10) => {
+      const trace = fixtureTrace({ run: { startedAt, status } });
+      return { ...trace, run: { ...trace.run, compression: [{ ...record, latencyMs }] } };
+    };
+    const unreliable = [70, 71, 72].map(startedAt => withCompression(startedAt, startedAt === 70 ? 'completed' : 'failed'));
+    expect(findingsFor(unreliable).filter(({ kind }) => kind === 'compression-net-negative')).toEqual([expect.objectContaining({
+      id: 'compression-net-negative:helper:helper', severity: 'warn', evidence: expect.objectContaining({ runsWithCompression: 3, runsWithout: 6, tokensSaved: 1_500 }),
+    })]);
+    const slow = [withCompression(80, 'completed', 5_000)];
+    expect(findingsFor(slow).filter(({ kind }) => kind === 'compression-net-negative')).toHaveLength(1);
+    const healthy = [80, 81, 82].map(startedAt => withCompression(startedAt, 'completed'));
+    expect(findingsFor(healthy).filter(({ kind }) => kind === 'compression-net-negative')).toEqual([]);
+  });
+
   it('flags a tool much slower than the agent\'s other calls', () => {
     const slow = fixtureTrace({ run: { startedAt: 50 }, steps: repeated(3, { tool: 'read', durationMs: 5_000, argsSummary: '{"path":"a"}', turn: 1 }).map((step, turn) => ({ ...step, turn: turn + 1 })) });
     expect(findingsFor([slow])).toContainEqual(expect.objectContaining({
