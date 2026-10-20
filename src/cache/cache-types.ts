@@ -38,7 +38,10 @@ export interface CacheEntryStats {
 /** One stored cache entry (`toolcache/<namespace>:<cacheKey>`). */
 export interface CacheEntry {
   schemaVersion: typeof CACHE_ENTRY_SCHEMA_VERSION;
-  /** `global` for deterministic tools, `instance:<instanceId>` otherwise. */
+  /**
+   * Deterministic tools: `agent:<agentName>:<version>` by default, `ns:<cacheNamespace>` or `global` (`sharedCache`) when
+   * the tool opts in. Otherwise `instance:<instanceId>`, with the tool's definition id in the key.
+   */
   namespace: string;
   /** Tool name. */
   tool: string;

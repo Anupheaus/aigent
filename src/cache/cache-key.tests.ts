@@ -37,13 +37,24 @@ describe('computeCacheKey', () => {
     }));
   });
 
-  it('changes with the argument values and the validity token', () => {
+  it('changes with the argument values (the validity token is kept on the entry, not in the key)', () => {
     const tool = readTool();
     const args = { path: 'a', options: { encoding: 'utf8', limit: 1 } };
     const base = computeCacheKey({ tool, args });
     expect(computeCacheKey({ tool, args: { ...args, path: 'b' } })).not.toBe(base);
-    expect(computeCacheKey({ tool, args, validity: 'mtime-1' })).not.toBe(base);
-    expect(computeCacheKey({ tool, args, validity: 'mtime-2' })).not.toBe(computeCacheKey({ tool, args, validity: 'mtime-1' }));
+  });
+
+  it('changes with the description, so a tool documented as doing something else never shares entries', () => {
+    const args = { path: 'a', options: { encoding: 'utf8', limit: 1 } };
+    expect(computeCacheKey({ tool: readTool({ description: 'Read a file from repo B' }), args })).not.toBe(computeCacheKey({ tool: readTool(), args }));
+  });
+
+  it('separates two definitions of the same tool only when definition scoped (instance entries)', () => {
+    const args = { path: 'a', options: { encoding: 'utf8', limit: 1 } };
+    const [first, second] = [readTool(), readTool()];
+    expect(computeCacheKey({ tool: first!, args })).toBe(computeCacheKey({ tool: second!, args }));
+    expect(computeCacheKey({ tool: first!, args, isDefinitionScoped: true })).not.toBe(computeCacheKey({ tool: second!, args, isDefinitionScoped: true }));
+    expect(computeCacheKey({ tool: withFeedbackFields(first!), args, isDefinitionScoped: true })).toBe(computeCacheKey({ tool: first!, args, isDefinitionScoped: true }));
   });
 
   it('applies the cacheKey normaliser', () => {

@@ -11,6 +11,10 @@ import type { DescribeActivity, Tool, ToolContext } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
+const DEFINITION_ID_PREFIX = 'tooldef-';
+
+/** Counts definitions made in this process, for `Tool.definitionId`. */
+let definitionCount = 0;
 
 interface ToolBaseInput {
   name: string;
@@ -23,6 +27,13 @@ interface ToolBaseInput {
   cacheTtlMs?: number;
   /** Contract version label; bump it to invalidate cached results. */
   version?: string;
+  /**
+   * Deterministic cached tools only: entries are shared with every tool using the same namespace (and name, version,
+   * schema and description), in any agent or runtime on the same store. Default: the requesting agent's own namespace.
+   */
+  cacheNamespace?: string;
+  /** Deterministic cached tools only: true shares entries with every agent in the `global` namespace. Default false. */
+  sharedCache?: boolean;
   /** What the result contains (`file-content`, `web-page`, `command-output`...). */
   contentKind?: ContentKind;
   /** Default `verbatim`. `lossy-ok` (which needs `contentKind`) lets shapers for that kind shorten what the model sees. */
@@ -80,11 +91,16 @@ function invalid(toolName: string, message: string): never {
 }
 
 function validateCacheFields(input: ToolBaseInput & CacheFieldsInput): void {
-  const { name, cache, version, cacheKey, validity } = input;
+  const { name, cache, deterministic, version, cacheKey, validity, cacheNamespace, sharedCache } = input;
   if (version !== undefined && (typeof version !== 'string' || version === '')) invalid(name, `version must be a non-empty string, got ${JSON.stringify(version)}`);
   if (cacheKey !== undefined && typeof cacheKey !== 'function') invalid(name, 'cacheKey must be a function of the arguments');
   if (validity !== undefined && typeof validity !== 'function') invalid(name, 'validity must be a function returning a promise of a token');
   if (!cache && (cacheKey !== undefined || validity !== undefined)) invalid(name, 'cacheKey and validity only apply to cached tools (cache: true)');
+  if (cacheNamespace !== undefined && (typeof cacheNamespace !== 'string' || cacheNamespace === '')) invalid(name, `cacheNamespace must be a non-empty string, got ${JSON.stringify(cacheNamespace)}`);
+  if (sharedCache !== undefined && typeof sharedCache !== 'boolean') invalid(name, `sharedCache must be a boolean, got ${String(sharedCache)}`);
+  if ((cacheNamespace !== undefined || sharedCache !== undefined) && !(cache && deterministic)) {
+    invalid(name, 'cacheNamespace and sharedCache only apply to deterministic cached tools (deterministic: true, cache: true); other cached results stay private to their instance');
+  }
 }
 
 function validateShapingFields(input: ToolBaseInput): void {
@@ -114,7 +130,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -127,6 +143,9 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     cache,
     cacheTtlMs,
     ...(version == null ? {} : { version }),
+    ...(cacheNamespace == null ? {} : { cacheNamespace }),
+    ...(sharedCache === true ? { sharedCache } : {}),
+    definitionId: `${DEFINITION_ID_PREFIX}${(definitionCount += 1)}`,
     ...(contentKind == null ? {} : { contentKind }),
     ...(fidelity == null ? {} : { fidelity }),
     ...(cacheKey == null ? {} : { cacheKey: (cacheArgs: unknown) => cacheKey(cacheArgs as z.infer<TSchema>) }),

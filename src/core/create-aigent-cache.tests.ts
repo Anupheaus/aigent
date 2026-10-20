@@ -25,7 +25,8 @@ function sequentialIds(): IdGenerator {
 function countingReadTool(): { tool: Tool; runs(): number } {
   let runs = 0;
   const tool = defineTool({
-    name: 'read', description: 'Read a file', args: z.object({ path: z.string() }).strict(), deterministic: true, cache: true,
+    // Shared, so agents 'one' and 'two' meet in one entry; the default (per-agent) namespace is tested below.
+    name: 'read', description: 'Read a file', args: z.object({ path: z.string() }).strict(), deterministic: true, cache: true, sharedCache: true,
     describeActivity: ({ path }) => ({ title: `Reading ${path}` }),
     run: async ({ path }) => { runs += 1; return { path, text: `contents of ${path}` }; },
   });
@@ -148,6 +149,22 @@ describe('createAigent tool-result cache', () => {
     const second = await agent.task({ task: 'graph again', limits: { timeoutMs: 2_000 } });
     expect(first.status).toBe('completed');
     expect(second.status).toBe('completed');
+    await ai.close();
+  });
+
+  it('keeps two agents’ same-named, unshared deterministic tools apart, even on one store (review I1)', async () => {
+    const store = createInMemoryStore();
+    const boundTo = (root: string) => defineTool({
+      name: 'read_file', description: 'Read a file', args: z.object({ path: z.string() }).strict(), deterministic: true, cache: true,
+      describeActivity: ({ path }) => ({ title: path }), run: async ({ path }) => `${root}/${path}`,
+    });
+    const turn = toolTurn([{ id: 'c1', name: 'read_file', args: { path: 'x' } }]);
+    const provider = createFakeProvider({ turns: [turn, textTurn('a'), turn, textTurn('b')] });
+    const ai = createAigent({ providers: [provider], clock: tickingClock(), ids: sequentialIds(), enableFeedback: false, store });
+    await ai.agent({ name: 'agent-a', model: 'fake:m', tools: [boundTo('/repoA')] }).task({ task: 'read' });
+    await ai.agent({ name: 'agent-b', model: 'fake:m', tools: [boundTo('/repoB')] }).task({ task: 'read' });
+    const toolMessage = provider.requests[3]!.messages.find(({ role }) => role === 'tool');
+    expect(JSON.parse(toolMessage!.text!)).toMatchObject({ ok: true, result: '/repoB/x' });
     await ai.close();
   });
 

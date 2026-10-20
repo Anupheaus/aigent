@@ -44,6 +44,15 @@ describe('defineTool', () => {
     }));
   });
 
+  it('accepts cacheNamespace and sharedCache only on deterministic cached tools, and gives each definition its own id', () => {
+    const cached = { ...BASE, deterministic: true, cache: true };
+    expect(defineTool({ ...cached, cacheNamespace: 'repo-a' }).cacheNamespace).toBe('repo-a');
+    expect(defineTool({ ...cached, sharedCache: true }).sharedCache).toBe(true);
+    expect(() => defineTool({ ...cached, cacheNamespace: '' })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('cacheNamespace must be a non-empty string') }));
+    expect(() => defineTool({ ...BASE, deterministic: false, cache: true, cacheTtlMs: 1_000, sharedCache: true })).toThrow(expect.objectContaining({ message: expect.stringContaining('only apply to deterministic cached tools') }));
+    expect(defineTool(BASE).definitionId).not.toBe(defineTool(BASE).definitionId);
+  });
+
   it('leaves alias expansion off unless acceptsAliases is true, and rejects a non-boolean', () => {
     expect(defineTool(BASE).acceptsAliases).toBeUndefined();
     expect(defineTool({ ...BASE, acceptsAliases: true }).acceptsAliases).toBe(true);

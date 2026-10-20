@@ -80,6 +80,20 @@ export interface Tool {
   version?: string;
   /** Hash of the argument schema as defined (set by `defineTool`), so schema wrappers never change cache keys. */
   schemaHash?: string;
+  /**
+   * Deterministic cached tools: the namespace whose entries this tool shares. Every tool (in any agent or runtime on
+   * the same store) with the same namespace, name, version, schema and description serves the others' results, so
+   * use it only when same arguments really give the same bytes for all of them. Default: the requesting agent's own
+   * namespace (`agent:<agentName>:<version>`), so same-named tools of different agents never collide.
+   */
+  cacheNamespace?: string;
+  /** Deterministic cached tools: true shares entries in the `global` namespace with every agent (unless `cacheNamespace` is set). */
+  sharedCache?: boolean;
+  /**
+   * Identity of this definition (set by `defineTool`, unique per process), part of the cache key of instance-scoped
+   * (non-deterministic) entries so two definitions bound to different data never share results. Wrappers keep it.
+   */
+  definitionId?: string;
   /** What the result contains; shapers declare the kinds they may touch. */
   contentKind?: ContentKind;
   /** Absent means `verbatim`: nothing may alter the result. `lossy-ok` lets shapers for its `contentKind` run. */

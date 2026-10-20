@@ -35,15 +35,27 @@ type Decision = { isHit: true; entry: CacheEntry } | { isHit: false; isMissCount
 const GLOBAL_NAMESPACE = 'global';
 
 /**
- * Deterministic results are shared by every agent; others stay private to the instance that produced them. The
- * validity token is kept on the entry rather than in its key, so a changed token finds (and replaces) the stale entry
- * and is counted as an invalidation instead of leaving it behind under an orphaned key.
+ * Non-deterministic results stay private to the instance (and definition) that produced them. Deterministic ones are
+ * shared within the requesting agent's namespace by default, so two agents whose same-named tools are bound to
+ * different data never see each other's results; `cacheNamespace` or `sharedCache` widen that explicitly.
+ */
+function namespaceOf(request: CacheLookup): string {
+  const { tool: { deterministic, cacheNamespace, sharedCache, version }, context: { agentName, instanceId } } = request;
+  if (!deterministic) return `instance:${instanceId}`;
+  if (cacheNamespace != null) return `ns:${cacheNamespace}`;
+  if (sharedCache === true) return GLOBAL_NAMESPACE;
+  return `agent:${agentName}:${version ?? ''}`;
+}
+
+/**
+ * The validity token is kept on the entry rather than in its key, so a changed token finds (and replaces) the stale
+ * entry and is counted as an invalidation instead of leaving it behind under an orphaned key.
  */
 async function addressOf(request: CacheLookup): Promise<EntryAddress> {
   const { tool, args, context } = request;
   const validity = tool.validity == null ? undefined : await tool.validity(args, context);
-  const namespace = tool.deterministic ? GLOBAL_NAMESPACE : `instance:${context.instanceId}`;
-  const cacheKey = computeCacheKey({ tool, args });
+  const namespace = namespaceOf(request);
+  const cacheKey = computeCacheKey({ tool, args, isDefinitionScoped: !tool.deterministic });
   return { namespace, storeKey: `${namespace}:${cacheKey}`, ...(validity == null ? {} : { validity }) };
 }
 

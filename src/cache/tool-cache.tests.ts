@@ -25,26 +25,59 @@ describe('createToolCache: hits and scopes', () => {
     expect(second.savedMs).toBe(first.durationMs);
   });
 
-  it('stores entries in the toolcache collection under the global namespace for deterministic tools', async () => {
+  it('stores deterministic entries in the toolcache collection under the requesting agent namespace by default', async () => {
     const harness = cacheHarness();
     const { tool } = countedTool({});
     await callTool({ harness, tool, path: 'a.txt', agentName: 'writer', runId: 'run-9' });
     const [entry] = await storedEntries(harness.store);
-    expect(entry?.key).toMatch(/^global:[0-9a-f]{64}$/);
+    expect(entry?.key).toMatch(/^agent:writer::[0-9a-f]{64}$/);
     expect(entry?.value).toMatchObject({
-      schemaVersion: 1, namespace: 'global', tool: 'read', storedAt: 1_000, value: 'contents of a.txt', bytes: 19, resultTokens: 5,
+      schemaVersion: 1, namespace: 'agent:writer:', tool: 'read', storedAt: 1_000, value: 'contents of a.txt', bytes: 19, resultTokens: 5,
       stats: { firstStoredBy: { agentName: 'writer', runId: 'run-9' }, totalHits: 0, missCount: 1 },
     });
     expect(entry?.value.expiresAt).toBeUndefined();
   });
 
-  it('shares global entries between agents and instances', async () => {
+  it('shares deterministic entries between instances of one agent, but not with other agents by default (review I1)', async () => {
     const harness = cacheHarness();
     const { tool, runs } = countedTool({});
     await callTool({ harness, tool, path: 'a.txt', agentName: 'one', instanceId: 'i1' });
-    const other = await callTool({ harness, tool, path: 'a.txt', agentName: 'two', instanceId: 'i2' });
-    expect(other.cacheHit).toBe(true);
-    expect(runs()).toBe(1);
+    const sameAgent = await callTool({ harness, tool, path: 'a.txt', agentName: 'one', instanceId: 'i2' });
+    const otherAgent = await callTool({ harness, tool, path: 'a.txt', agentName: 'two', instanceId: 'i3' });
+    expect(sameAgent.cacheHit).toBe(true);
+    expect(otherAgent.cacheHit).toBe(false);
+    expect(runs()).toBe(2);
+  });
+
+  it('never serves one agent same-named tool bound to other data to another agent (review E4)', async () => {
+    const harness = cacheHarness();
+    const repoA = countedTool({ result: path => `/repoA/${path}` });
+    const repoB = countedTool({ result: path => `/repoB/${path}` });
+    await callTool({ harness, tool: repoA.tool, path: 'x', agentName: 'agent-a' });
+    const fromB = await callTool({ harness, tool: repoB.tool, path: 'x', agentName: 'agent-b' });
+    expect(fromB.envelope).toMatchObject({ ok: true, result: '/repoB/x' });
+  });
+
+  it('shares deterministic entries between agents only when the tool opts in with sharedCache or a common cacheNamespace', async () => {
+    const harness = cacheHarness();
+    const shared = countedTool({ overrides: { sharedCache: true } });
+    await callTool({ harness, tool: shared.tool, path: 'a.txt', agentName: 'one' });
+    expect((await callTool({ harness, tool: shared.tool, path: 'a.txt', agentName: 'two' })).cacheHit).toBe(true);
+    const namespaced = countedTool({ overrides: { cacheNamespace: 'repo-a' } });
+    const otherNamespace = countedTool({ overrides: { cacheNamespace: 'repo-b' } });
+    await callTool({ harness, tool: namespaced.tool, path: 'b.txt', agentName: 'one' });
+    expect((await callTool({ harness, tool: namespaced.tool, path: 'b.txt', agentName: 'two' })).cacheHit).toBe(true);
+    expect((await callTool({ harness, tool: otherNamespace.tool, path: 'b.txt', agentName: 'one' })).cacheHit).toBe(false);
+    const keys = (await storedEntries(harness.store)).map(({ key }) => key.split(':')[0]).sort();
+    expect(keys).toEqual(['global', 'ns', 'ns']);
+  });
+
+  it('keeps two definitions of a non-deterministic tool apart within one instance', async () => {
+    const harness = cacheHarness();
+    const first = countedTool({ result: () => 'first', overrides: { deterministic: false, cacheTtlMs: TTL_MS } });
+    const second = countedTool({ result: () => 'second', overrides: { deterministic: false, cacheTtlMs: TTL_MS } });
+    await callTool({ harness, tool: first.tool, path: 'a.txt' });
+    expect((await callTool({ harness, tool: second.tool, path: 'a.txt' })).envelope).toMatchObject({ result: 'second' });
   });
 
   it('keeps a non-deterministic cached result private to its instance, even for the same agent name', async () => {
@@ -149,7 +182,8 @@ describe('createToolCache: validity, failures and copies', () => {
 describe('createToolCache: concurrency and eviction', () => {
   it('executes identical concurrent calls once and counts every hit exactly, per agent', async () => {
     const harness = cacheHarness();
-    const { tool, runs } = countedTool({ result: async path => { await delay(SLOW_TOOL_MS); return path; } });
+    // Shared, so the requesters of every agent meet in one entry.
+    const { tool, runs } = countedTool({ result: async path => { await delay(SLOW_TOOL_MS); return path; }, overrides: { sharedCache: true } });
     const calls = Array.from({ length: PARALLEL_REQUESTERS }, (_unused, requester) => callTool({ harness, tool, path: 'a.txt', agentName: `agent-${requester % AGENTS}` }));
     const executed = await Promise.all(calls);
     expect(runs()).toBe(1);
@@ -207,7 +241,7 @@ describe('createToolCache: concurrency and eviction', () => {
 describe('createToolCache.findings', () => {
   it('reports the hottest entries and hit rates per tool and agent', async () => {
     const harness = cacheHarness();
-    const { tool } = countedTool({});
+    const { tool } = countedTool({ overrides: { sharedCache: true } });
     await callTool({ harness, tool, path: 'hot', agentName: 'one' });
     for (let repeat = 0; repeat < 3; repeat += 1) await callTool({ harness, tool, path: 'hot', agentName: 'two' });
     await callTool({ harness, tool, path: 'cold', agentName: 'one' });
