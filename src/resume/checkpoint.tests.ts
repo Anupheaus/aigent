@@ -46,9 +46,11 @@ describe('checkpoint writer and reader', () => {
       messages.push(message(index));
       await writer.write({ boundary: 'turn-complete', state: runState([...messages]) });
     }
-    const seqs = (await counted.store.list<{ seq: number }>(CHECKPOINTS_COLLECTION)).map(({ value: { seq } }) => seq);
+    const stored = await counted.store.list<{ seq?: number; isDeleted?: boolean }>(CHECKPOINTS_COLLECTION);
     // Snapshots at 1, 6, 11, 16, 21: the last two are kept with what follows them.
-    expect(seqs).toEqual([16, 17, 18, 19, 20, 21, 22, 23]);
+    expect(stored.filter(({ value }) => value.isDeleted !== true).map(({ value: { seq } }) => seq)).toEqual([16, 17, 18, 19, 20, 21, 22, 23]);
+    // Pruned records keep no content: a store delete cannot be conditional, so the fenced store leaves a tombstone.
+    expect(stored.filter(({ value }) => value.isDeleted === true).map(({ value }) => Object.keys(value).sort())).toEqual(Array.from({ length: 15 }, () => ['isDeleted', 'leaseFence']));
     const head = await counted.store.get<CheckpointHead>(CHECKPOINT_HEADS_COLLECTION, 'inst:run1');
     expect(head?.value.snapshots).toEqual([16, 21]);
     const before = counted.reads();

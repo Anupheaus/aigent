@@ -53,9 +53,9 @@ describe('acquireLease', () => {
     expect(second.fence).toBe(2);
     await expect(first.renew()).rejects.toMatchObject({ code: 'store_conflict', details: { fenced: true } });
     const stale = createFencedStore({ store, instanceId: 'inst', fence: () => first.fence });
-    await expect(stale.compareAndSet({ collection: 'checkpoints', key: 'k', expectedVersion: undefined, value: 1 })).rejects.toMatchObject({ code: 'store_conflict', details: { fenced: true } });
+    await expect(stale.compareAndSet({ collection: 'checkpoints', key: 'k', expectedVersion: undefined, value: { n: 1 } })).rejects.toMatchObject({ code: 'store_conflict', details: { fenced: true } });
     const current = createFencedStore({ store, instanceId: 'inst', fence: () => second.fence });
-    expect(await current.compareAndSet({ collection: 'checkpoints', key: 'k', expectedVersion: undefined, value: 1 })).toBe(true);
+    expect(await current.compareAndSet({ collection: 'checkpoints', key: 'k', expectedVersion: undefined, value: { n: 1 } })).toBe(true);
     await first.release();
     await second.release();
   });
