@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createAigentError } from '../core/aigent-error.js';
 import { canonicalJson } from '../core/canonical-json.js';
 import type { Clock } from '../core/runtime-services.js';
+import type { ThinkingBlock } from '../providers/provider-types.js';
 import type { Store } from '../store/store-types.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
@@ -19,6 +20,13 @@ export interface LedgerEntry {
   idempotencyKey: string;
   /** The turn whose model response made the call. */
   turn: number;
+  /** `aigent_multi` inner calls: the wrapper call they belong to (their own `callId` is `<parentCallId>:<innerId>`). */
+  parentCallId?: string;
+  /**
+   * The response's thinking blocks streamed before this call (top-level calls only, when there were any), so a round
+   * rebuilt from the ledger after a crash still starts with the signed thinking a provider may require.
+   */
+  thinkingBlocks?: ThinkingBlock[];
   status: 'started' | 'done' | 'failed';
   /** What the model was (or will be) given for the call, once it finished. */
   envelope?: ToolEnvelope;
@@ -38,6 +46,8 @@ export interface BeginCallParams {
   args: unknown;
   argsHash: string;
   turn: number;
+  parentCallId?: string;
+  thinkingBlocks?: ThinkingBlock[];
 }
 
 /** The run's record of every call, so a resumed run never executes a finished call again. */
@@ -63,6 +73,11 @@ export interface CreateCallLedgerParams {
 /** sha-256 of the arguments' canonical JSON, so a ledger entry can be matched without comparing values. */
 export function hashArgs(args: unknown): string {
   return createHash('sha256').update(canonicalJson(args ?? null)).digest('hex');
+}
+
+/** The id an `aigent_multi` inner call has in the ledger and approvals: unique across wrappers, whose inner ids may repeat. */
+export function innerLedgerId(params: { parentCallId: string; innerId: string }): string {
+  return `${params.parentCallId}:${params.innerId}`;
 }
 
 export function idempotencyKeyOf(params: { runId: string; callId: string }): string {
@@ -101,8 +116,11 @@ export function createCallLedger(params: CreateCallLedgerParams): CallLedger {
   }
 
   return {
-    begin: async ({ callId, tool, args, argsHash, turn }) => {
-      const entry: LedgerEntry = { callId, tool, args, argsHash, idempotencyKey: idempotencyKeyOf({ runId, callId }), turn, status: 'started', startedAt: clock.now() };
+    begin: async ({ callId, tool, args, argsHash, turn, parentCallId, thinkingBlocks }) => {
+      const entry: LedgerEntry = {
+        callId, tool, args, argsHash, idempotencyKey: idempotencyKeyOf({ runId, callId }), turn, status: 'started', startedAt: clock.now(),
+        ...(parentCallId == null ? {} : { parentCallId }), ...(thinkingBlocks == null ? {} : { thinkingBlocks }),
+      };
       await store(entry);
       return entry;
     },

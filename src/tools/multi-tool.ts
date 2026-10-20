@@ -9,7 +9,7 @@ import type { PlannedEffect } from '../effects/planned-effects.js';
 import type { CapturedEffect } from '../effects/undo-types.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
-import type { FinishInnerCall, InnerCall, InnerCallVerdict, MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import type { MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
@@ -41,14 +41,6 @@ export interface CreateMultiToolOptions {
   cache?: ToolCache;
 }
 
-interface InnerCallParams {
-  call: MultiCall;
-  context: ToolContext;
-  reserveToolCall(): boolean;
-  traceInnerCall?(call: InnerCall): FinishInnerCall;
-  checkInnerCall?(call: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict>;
-}
-
 function envelopesOf(result: unknown): ToolEnvelope[] {
   return Array.isArray(result) ? result as ToolEnvelope[] : [];
 }
@@ -60,15 +52,13 @@ function summariseMulti(result: unknown): ToolOutcome {
   return { success: false, reason: `${failed} of ${envelopes.length} calls failed` };
 }
 
-function hasCallBudget(context: ToolContext): context is MultiToolContext {
-  return typeof (context as Partial<MultiToolContext>).reserveToolCall === 'function';
+function hasDispatcher(context: ToolContext): context is MultiToolContext {
+  return typeof (context as Partial<MultiToolContext>).runInnerCall === 'function';
 }
 
-/** Inner tools get the plain public context; the budget and tracer are only for this tool. Without a budget (direct use) calls are unlimited. */
-function splitContext(context: ToolContext): Omit<InnerCallParams, 'call'> {
-  if (!hasCallBudget(context)) return { context, reserveToolCall: () => true };
-  const { reserveToolCall, traceInnerCall, checkInnerCall, ...publicContext } = context;
-  return { context: publicContext, reserveToolCall, ...(traceInnerCall == null ? {} : { traceInnerCall }), ...(checkInnerCall == null ? {} : { checkInnerCall }) };
+/** `aigent_multi` cannot call itself: one level of batching is enough, and nesting would hide calls from the budget. */
+export function nestedMultiError(): ToolErrorDetail {
+  return { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' };
 }
 
 function refused(call: MultiCall, error: ToolErrorDetail): ExecutedToolCall {
@@ -81,30 +71,18 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
   /** The executed inner calls behind each result this tool returned, so nested failures come from full, untruncated results. */
   const executedByResult = new WeakMap<object, ExecutedToolCall[]>();
 
-  async function executeInnerCall(params: InnerCallParams): Promise<ExecutedToolCall> {
-    const { context, reserveToolCall, checkInnerCall } = params;
-    let { call } = params;
-    if (call.tool === MULTI_TOOL_NAME) {
-      return refused(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
-    }
-    // An inner call meets the same guardrails as a top-level one: wrapping a call never gets it past them.
-    const verdict = await checkInnerCall?.({ id: call.id, tool: call.tool, args: call.args });
-    if (verdict != null && 'error' in verdict) return refused(call, verdict.error);
-    if (verdict != null) call = { ...call, args: verdict.args as MultiCall['args'] };
-    // Each inner call is a real tool call, so it takes from the run's maxToolCalls budget like a top-level call.
-    if (!reserveToolCall()) {
-      return refused(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
+  /**
+   * Without a run (direct use) nothing can gate a call or record it, so inner calls to tools that need approval are
+   * refused rather than run unchecked.
+   */
+  function runDirectly(params: { call: MultiCall; context: ToolContext }): Promise<ExecutedToolCall> {
+    const { call, context } = params;
+    if (call.tool === MULTI_TOOL_NAME) return Promise.resolve(refused(call, nestedMultiError()));
+    const requiresApproval = registry.get(call.tool)?.requiresApproval;
+    if (requiresApproval != null && requiresApproval !== false) {
+      return Promise.resolve(refused(call, { category: 'denied', code: 'approval_required', retryable: false, message: `Inner call '${call.id}' to '${call.tool}' needs approval, which only a run can ask for`, suggestion: `Call '${call.tool}' directly.` }));
     }
     return executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now, ...(cache == null ? {} : { cache }) });
-  }
-
-  /** Traced as it starts (so the trace keeps call order, even though calls finish in any order) and when it finishes. */
-  async function runInnerCall(params: InnerCallParams): Promise<ExecutedToolCall> {
-    const { call: { id, tool, args }, traceInnerCall } = params;
-    const finish = traceInnerCall?.({ id, tool, args });
-    const executed = await executeInnerCall(params);
-    finish?.(executed);
-    return executed;
   }
 
   /** Each envelope's own failures, read from the result's envelopes when this tool did not produce it. */
@@ -133,8 +111,8 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     timeoutMs: slowestInnerTimeoutMs + MULTI_TIMEOUT_MARGIN_MS,
     describeActivity: args => ({ title: `Running ${args.calls.length} tool calls`, detail: args.calls.map(call => call.tool).join(', ') }),
     run: async (args, context) => {
-      const split = splitContext(context);
-      const executedCalls = await Promise.all(args.calls.map(call => runInnerCall({ call, ...split })));
+      // In a run, each inner call takes the dispatcher's path; the inner tools only ever see the public context.
+      const executedCalls = await Promise.all(args.calls.map(call => (hasDispatcher(context) ? context.runInnerCall(call) : runDirectly({ call, context }))));
       const envelopes = executedCalls.map(({ envelope }) => envelope);
       executedByResult.set(envelopes, executedCalls);
       return envelopes;

@@ -1,18 +1,17 @@
 import type { AigentEvent } from '../core/aigent-events.js';
 import type { NewContextMessage } from '../core/run-context.js';
 import { turnMessages } from '../core/turn-messages.js';
-import type { ToolCall } from '../providers/provider-types.js';
-import { executeToolCall } from '../tools/execute-tool-call.js';
+import type { ThinkingBlock, ToolCall } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
+import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
-import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
-import { resumePolicyOf } from '../tools/tool-policies.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
-import type { Tool, ToolContext } from '../tools/tool-types.js';
+import type { Tool } from '../tools/tool-types.js';
 import type { GateOutcome } from '../approvals/approval-gate.js';
-import { hashArgs, idempotencyKeyOf } from './call-ledger.js';
 import type { CallLedger, LedgerEntry } from './call-ledger.js';
 import type { RunState } from './checkpoint-types.js';
+import { reconcileCall } from './reconcile-call.js';
+import { reconcileMulti } from './reconcile-multi.js';
 
 /** What a resumed run starts from: the latest checkpoint, the ledger and results that replace a call's own. */
 export interface RestoredRun {
@@ -31,9 +30,6 @@ export interface ReconciledRound {
 /** The approval gate for calls a resumed run (re-)runs; `force` asks even when the tool does not require approval. */
 export type ReconcileGate = (params: { call: ToolCall; tool: Tool; force?: { reason: string } }) => Promise<GateOutcome>;
 
-/** Why an interrupted call with side effects needs approval before it runs again. */
-const RERUN_REASON = 'The call was interrupted by a restart and may already have had its effect; running it again could repeat it';
-
 export interface ReconcileParams {
   restored: RestoredRun;
   registry: ToolRegistry;
@@ -41,109 +37,55 @@ export interface ReconcileParams {
   ledger?: CallLedger;
   ids: { runId: string; agentName: string; instanceId: string };
   signal: AbortSignal;
+  /** Given to tools with side effects instead of `signal`, as in a live run (see `RunControl.sideEffectSignal`). */
+  sideEffectSignal?: AbortSignal;
   isUnattended: boolean;
   now(): number;
   emit(event: AigentEvent): void;
   gate?: ReconcileGate;
 }
 
-function restoredCall(envelope: ToolEnvelope): ExecutedToolCall {
-  return { envelope, outcome: { success: envelope.ok, reason: 'restored from the call ledger' }, durationMs: 0, size: { resultBytes: 0, resultTokens: 0, truncated: false }, nested: [] };
-}
-
-function refused(params: { call: ToolCall; error: ToolErrorDetail }): ExecutedToolCall {
-  const { call: { id, name }, error } = params;
-  return restoredCall({ id, tool: name, ok: false, error });
-}
-
-function skippedError(call: ToolCall): ToolErrorDetail {
-  return { category: 'denied', code: 'skipped', retryable: false, message: `Call '${call.id}' to '${call.name}' was interrupted by a restart and not run again (resume: skip)`, suggestion: 'Check whether its effect happened before relying on it, or call it again' };
-}
-
-function deniedError(call: ToolCall): ToolErrorDetail {
-  return {
-    category: 'denied', code: 'approval_denied', retryable: false,
-    message: `Call '${call.id}' to '${call.name}' was interrupted by a restart and may already have had its effect; running it again needs approval, which was not given`,
-    suggestion: 'Check whether the effect happened (e.g. read the target) before calling it again',
-  };
-}
-
-/** The calls of the round the run was in when it stopped: its response's calls, else the ledger's uncommitted ones. */
+/**
+ * The top-level calls of the round the run was in when it stopped: its response's calls when a checkpoint recorded
+ * it, else the ledger's calls from the request that was in flight (later than every counted turn). Older ledger
+ * entries belong to rounds already committed, or summarised away by a compaction, and are never replayed.
+ */
 function interruptedCalls(restored: RestoredRun): ToolCall[] {
-  const { state: { inFlight, context: { messages } }, ledger } = restored;
+  const { state: { inFlight, totals, context: { messages } }, ledger } = restored;
   const committed = new Set(messages.flatMap(({ message: { toolCallId } }) => (toolCallId == null ? [] : [toolCallId])));
-  const calls = inFlight?.assistant.toolCalls ?? ledger.map(({ callId, tool, args }) => ({ id: callId, name: tool, args }));
+  const fromLedger = (): ToolCall[] => ledger
+    .filter(({ parentCallId, turn }) => parentCallId == null)
+    .map(({ callId, tool, args }) => ({ id: callId, name: tool, args }));
+  const calls = inFlight?.assistant.toolCalls ?? fromLedger();
   return calls.filter(({ id }) => !committed.has(id));
 }
 
-/** Runs a call (again), recorded in the ledger first like any call. */
-async function execute(params: ReconcileParams & { call: ToolCall }): Promise<ExecutedToolCall> {
-  const { call, registry, ledger, ids, signal, now, emit, restored } = params;
-  const turn = restored.state.totals.turns;
-  emit({ type: 'tool-call', callId: call.id, name: call.name, args: call.args });
-  const context: ToolContext = { ...ids, callId: call.id, signal, idempotencyKey: idempotencyKeyOf({ runId: ids.runId, callId: call.id }) };
-  await ledger?.begin({ callId: call.id, tool: call.name, args: call.args, argsHash: hashArgs(call.args), turn });
-  const executed = await executeToolCall({ registry, call, context, now });
-  await ledger?.complete(call.id, executed.envelope).catch(() => undefined);
-  return executed;
-}
-
-/** Runs the call (again) once the approval gate allows it; refused calls get the gate's result. */
-async function gated(params: ReconcileParams & { call: ToolCall; tool?: Tool; force?: { reason: string } }): Promise<ExecutedToolCall> {
-  const { call, tool, force, gate } = params;
-  if (tool != null && gate != null) {
-    const outcome = await gate({ call, tool, ...(force == null ? {} : { force }) });
-    if (!outcome.isAllowed) return refused({ call, error: outcome.error });
-  } else if (force != null) {
-    // No gate (or no user in an unattended run): nobody can approve running it again.
-    return refused({ call, error: deniedError(call) });
-  }
-  return execute(params);
-}
-
-/** One interrupted call, by its ledger state and the tool's resume policy. */
-async function reconcileCall(params: ReconcileParams & { call: ToolCall }): Promise<ExecutedToolCall> {
-  const { call, restored: { ledger, overrides }, registry, ids, signal } = params;
-  const override = overrides?.get(call.id);
-  if (override != null) return restoredCall(override);
-  const entry = ledger.find(({ callId }) => callId === call.id);
-  // Finished calls are never executed again: the model gets what they returned.
-  if (entry?.envelope != null && entry.status !== 'started') return restoredCall(entry.envelope);
-  const tool = registry.get(call.name);
-  // Never started (begin is written before a tool runs), or a tool that no longer exists: run it as a new call.
-  if (entry == null || tool == null) return gated({ ...params, ...(tool == null ? {} : { tool }) });
-  const policy = resumePolicyOf(tool);
-  if (policy === 'skip') return refused({ call, error: skippedError(call) });
-  if (policy === 'verify' && tool.verify != null) {
-    const verified = await tool.verify(call.args, { ...ids, callId: call.id, signal, idempotencyKey: entry.idempotencyKey });
-    if (verified.done) {
-      const envelope: ToolEnvelope = { id: call.id, tool: call.name, ok: true, result: verified.result ?? null };
-      await params.ledger?.complete(call.id, envelope).catch(() => undefined);
-      return restoredCall(envelope);
-    }
-    return gated({ ...params, tool });
-  }
-  return gated({ ...params, tool, ...(policy === 'ask' ? { force: { reason: RERUN_REASON } } : {}) });
+/** The thinking that opened the interrupted response: from the checkpoint, else as the ledger recorded it. */
+function thinkingOf(params: { restored: RestoredRun; ids: ReadonlySet<string> }): ThinkingBlock[] {
+  const { restored: { state: { inFlight }, ledger }, ids } = params;
+  if (inFlight != null) return inFlight.assistant.thinkingBlocks ?? [];
+  return [];
 }
 
 /**
  * The messages that complete the round a run was interrupted in: its assistant message (from the checkpoint, or
  * rebuilt from the ledger) and one result per call. Finished calls reuse their recorded result; started ones follow
- * their tool's `resume` policy. Empty when the round was already committed.
+ * their tool's `resume` policy, and an `aigent_multi` call is settled call by call. Empty when the round was committed.
  */
 export async function reconcileInterruptedRound(params: ReconcileParams): Promise<ReconciledRound> {
-  const { restored: { state: { inFlight, totals }, ledger }, registry, emit } = params;
-  const calls = interruptedCalls(params.restored);
+  const { restored, registry, emit } = params;
+  const { state: { inFlight, totals }, ledger } = restored;
+  const calls = interruptedCalls(restored);
   if (calls.length === 0) return { messages: [], turn: totals.turns };
   const executed: ExecutedToolCall[] = [];
   for (const call of calls) {
-    const result = await reconcileCall({ ...params, call });
+    const result = call.name === MULTI_TOOL_NAME ? await reconcileMulti({ ...params, call }) : await reconcileCall({ ...params, call, ledgerId: call.id });
     emit({ type: 'tool-result', callId: call.id, envelope: result.envelope });
     executed.push(result);
   }
-  const { text = '', thinkingBlocks = [] } = inFlight?.assistant ?? {};
   const ids = new Set(calls.map(({ id }) => id));
+  const text = inFlight?.assistant.text ?? '';
   // The interrupted request counts as a turn even when no checkpoint recorded its response.
   const turn = Math.max(totals.turns, inFlight?.turn ?? 0, ...ledger.filter(({ callId }) => ids.has(callId)).map(({ turn: entryTurn }) => entryTurn));
-  return { messages: turnMessages({ turn: { visible: text, calls, thinkingBlocks }, executed, registry }), turn };
+  return { messages: turnMessages({ turn: { visible: text, calls, thinkingBlocks: thinkingOf({ restored, ids }) }, executed, registry }), turn };
 }

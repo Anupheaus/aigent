@@ -5,14 +5,17 @@ import { toolFailure } from './tool-failure.js';
 import { executeToolCall } from './execute-tool-call.js';
 import { createMultiTool } from './multi-tool.js';
 import { createToolRegistry } from './tool-registry.js';
-import type { MultiToolContext, ToolContext } from './tool-types.js';
+import type { InnerCall, MultiToolContext, ToolContext } from './tool-types.js';
+import type { ExecutedToolCall } from './execute-tool-call.js';
+import { rejectToolCall } from './execute-tool-call.js';
 
 const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', callId: 'm', signal: new AbortController().signal };
 const now = (): number => 0;
 
-function contextWithBudget(budget: number): MultiToolContext {
-  let remaining = budget;
-  return { ...CONTEXT, reserveToolCall: () => { if (remaining === 0) return false; remaining -= 1; return true; } };
+/** A run's dispatcher as `aigent_multi` sees it: records each inner call it is handed, and runs it (or refuses it). */
+function dispatchingContext(params: { handed: string[]; run(call: InnerCall): Promise<ExecutedToolCall> }): MultiToolContext {
+  const { handed, run } = params;
+  return { ...CONTEXT, runInnerCall: call => { handed.push(`${call.id}:${call.tool}:${JSON.stringify(call.args)}`); return run(call); } };
 }
 
 describe('aigent_multi', () => {
@@ -37,25 +40,28 @@ describe('aigent_multi', () => {
     expect(multi.summarise?.(result)).toEqual({ success: false, reason: '3 of 4 calls failed' });
   });
 
-  it('takes each inner call from the run budget and refuses calls past it with tool_call_limit', async () => {
-    let echoRuns = 0;
-    const counted = defineTool({ name: 'echo', description: 'echo', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
-    const multi = createMultiTool({ registry: createToolRegistry([counted]), now });
-    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', args: { text: 'x' } }));
-    const result = await multi.run({ calls }, contextWithBudget(2));
-    expect(echoRuns).toBe(2);
+  // The run budget, approvals, the ledger and guardrails belong to the dispatcher (see core/multi-dispatch.tests.ts):
+  // in a run, aigent_multi hands every inner call to it and returns what it produced.
+  it('hands every inner call to the run dispatcher in call order and returns its results', async () => {
+    const handed: string[] = [];
+    const registry = createToolRegistry([echo]);
+    const multi = createMultiTool({ registry, now });
+    const run = async (call: InnerCall): Promise<ExecutedToolCall> => (call.id === 'b'
+      ? rejectToolCall({ call: { id: call.id, name: call.tool, args: call.args }, error: { category: 'denied', code: 'tool_call_limit', retryable: false, message: 'limit' } })
+      : executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context: CONTEXT, now }));
+    const result = await multi.run({ calls: [{ id: 'a', tool: 'echo', args: { text: 'x' } }, { id: 'b', tool: 'echo', args: { text: 'y' } }] }, dispatchingContext({ handed, run }));
+    expect(handed).toEqual(['a:echo:{"text":"x"}', 'b:echo:{"text":"y"}']);
     expect(result).toEqual([
       { id: 'a', tool: 'echo', ok: true, result: 'x' },
-      { id: 'b', tool: 'echo', ok: true, result: 'x' },
-      expect.objectContaining({ id: 'c', ok: false, error: expect.objectContaining({ category: 'denied', code: 'tool_call_limit' }) }),
+      expect.objectContaining({ id: 'b', ok: false, error: expect.objectContaining({ code: 'tool_call_limit' }) }),
     ]);
   });
 
-  it('does not pass the run budget on to the inner tools', async () => {
+  it('gives inner tools the public context when used directly', async () => {
     let seenContext: ToolContext | undefined;
     const spy = defineTool({ name: 'spy', description: 'spy', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 's' }), run: async (_args, context) => { seenContext = context; return 1; } });
     const multi = createMultiTool({ registry: createToolRegistry([spy]), now });
-    await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, contextWithBudget(1));
+    await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, CONTEXT);
     expect(seenContext).toEqual({ ...CONTEXT, callId: 'a' });
   });
 
@@ -125,40 +131,7 @@ describe('aigent_multi', () => {
   });
 });
 
-describe('aigent_multi inner call tracing', () => {
-  const echo = defineTool({ name: 'echo', description: 'echo', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => args.text });
-
-  function tracingContext(begun: string[], finished: string[]): MultiToolContext {
-    return {
-      ...contextWithBudget(1),
-      traceInnerCall: ({ id, tool, args }) => {
-        begun.push(`${id}:${tool}:${JSON.stringify(args)}`);
-        return executed => { finished.push(`${id}:${executed.envelope.ok ? 'ok' : 'failed'}:${executed.size.resultBytes}`); };
-      },
-    };
-  }
-
-  it('reports every inner call, refused ones included, in call order and with its executed result', async () => {
-    const begun: string[] = [];
-    const finished: string[] = [];
-    const multi = createMultiTool({ registry: createToolRegistry([echo]), now });
-    await multi.run({ calls: [
-      { id: 'a', tool: 'echo', args: { text: 'hi' } },
-      { id: 'b', tool: 'echo', args: { text: 'over budget' } },
-      { id: 'c', tool: 'aigent_multi', args: {} },
-    ] }, tracingContext(begun, finished));
-    expect(begun).toEqual(['a:echo:{"text":"hi"}', 'b:echo:{"text":"over budget"}', 'c:aigent_multi:{}']);
-    expect(finished.sort()).toEqual(['a:ok:4', expect.stringMatching(/^b:failed:\d+$/), expect.stringMatching(/^c:failed:\d+$/)]);
-  });
-
-  it('does not hand the tracer on to inner tools', async () => {
-    let seenContext: ToolContext | undefined;
-    const spy = defineTool({ name: 'spy', description: 'spy', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 's' }), run: async (_args, context) => { seenContext = context; return 1; } });
-    const multi = createMultiTool({ registry: createToolRegistry([spy]), now });
-    await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, tracingContext([], []));
-    expect(seenContext).toEqual({ ...CONTEXT, callId: 'a' });
-  });
-
+describe('aigent_multi nested results', () => {
   it('keeps failed items of an inner batch tool whose visible result was truncated', async () => {
     const batch = defineBatchTool({ name: 'batch', description: 'b', item: z.object({ id: z.string() }).strict(), maxItems: 3, deterministic: true, cache: false, maxResultTokens: 1, describeActivity: () => ({ title: 'b' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('bad item'); return batchItem.id.repeat(40); } });
     const multi = createMultiTool({ registry: createToolRegistry([batch]), now });

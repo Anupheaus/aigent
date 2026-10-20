@@ -40,21 +40,14 @@ export interface InnerCall {
   args: unknown;
 }
 
-/** Called once an inner call has finished (or was refused), with what it produced. */
-export type FinishInnerCall = (executed: ExecutedToolCall) => void;
-
-/** Run-internal context given only to `aigent_multi`, so its inner calls share the run's `maxToolCalls` budget. */
+/** Run-internal context given only to `aigent_multi`, so its inner calls take the run's dispatch path. */
 export interface MultiToolContext extends ToolContext {
-  /** Takes one call from the run's budget; false once the budget is spent. */
-  reserveToolCall(): boolean;
-  /** Called as each inner call starts, in call order, so the run can trace it; returns its finisher. */
-  traceInnerCall?(call: InnerCall): FinishInnerCall;
-  /** The run's `toolCall` guardrails for an inner call: its (possibly rewritten) arguments, or why it must not run. */
-  checkInnerCall?(call: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict>;
+  /**
+   * Runs one inner call exactly like a top-level call (guardrails, the `maxToolCalls` budget, approvals, the ledger
+   * with its own idempotency key, the cache, dry runs and tracing). Never rejects.
+   */
+  runInnerCall(call: InnerCall): Promise<ExecutedToolCall>;
 }
-
-/** An inner call's guardrail verdict. */
-export type InnerCallVerdict = { args: unknown } | { error: ToolErrorDetail };
 
 /** How many items a batch call carried and how many of them failed. */
 export interface ItemCounts {

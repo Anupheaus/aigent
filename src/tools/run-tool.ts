@@ -30,7 +30,8 @@ function raceWithLimits(params: RaceWithLimitsParams): Promise<unknown> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let onAbort: (() => void) | undefined;
   const limits = new Promise<Marker>(resolve => {
-    timer = setTimeout(() => resolve(TIMEOUT_MARKER), timeoutMs);
+    // An unbounded call (an aigent_multi wrapper whose inner calls enforce their own timeouts) has no timer.
+    if (Number.isFinite(timeoutMs)) timer = setTimeout(() => resolve(TIMEOUT_MARKER), timeoutMs);
     if (signal.aborted) resolve(ABORT_MARKER);
     onAbort = () => resolve(ABORT_MARKER);
     signal.addEventListener('abort', onAbort, { once: true });

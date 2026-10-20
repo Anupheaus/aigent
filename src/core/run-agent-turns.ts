@@ -151,7 +151,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   let isReady = true;
   if (restore != null) {
     const round = await reconcileInterruptedRound({
-      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, isUnattended, now: () => clock.now(), emit,
+      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
       ...(ledger == null ? {} : { ledger }),
       ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),
     });

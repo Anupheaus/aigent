@@ -4,23 +4,17 @@ import { PLAN_COMPLETE_TOOL_NAME } from '../planning/plan-complete-tool.js';
 import { TODO_TOOL_NAME } from '../planning/todo-tool.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { FinishStep } from '../telemetry/trace-recorder.js';
-import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
+import { rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
-import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
+import { MULTI_TOOL_NAME, nestedMultiError } from '../tools/multi-tool.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
-import { describeThrown } from '../tools/tool-error-detail.js';
-import type { InnerCall, InnerCallVerdict, MultiToolContext, ToolContext } from '../tools/tool-types.js';
-import { hashArgs, idempotencyKeyOf } from '../resume/call-ledger.js';
-import type { CallLedger } from '../resume/call-ledger.js';
-import type { ExecuteToolCallParams } from '../tools/execute-tool-call.js';
-import type { GateOutcome } from '../approvals/approval-gate.js';
-import { describeError } from './describe-value.js';
+import type { InnerCall, MultiToolContext, ToolContext } from '../tools/tool-types.js';
+import { idempotencyKeyOf, innerLedgerId } from '../resume/call-ledger.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
-import { shapeWith } from './run-shaping.js';
+import { runDispatchedCall } from './run-dispatched-call.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
-import type { CallVerdict } from './run-guardrails.js';
 
 /**
  * Bookkeeping, not work: `aigent_feedback`, `plan_complete`, `todo` and `ask_user` are never refused for the budget,
@@ -63,50 +57,32 @@ function reserveToolCall(params: ReserveToolCallParams): boolean {
   return true;
 }
 
-/** The aigent_multi context: inner calls share the run's call budget and are traced as steps of their own. */
-function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; parentCallId: string }): MultiToolContext {
-  const { context, turn: { totals, maxToolCalls, telemetry: { recorder }, guardrails }, parentCallId } = params;
-  const toInner = (verdict: CallVerdict): InnerCallVerdict => ('error' in verdict ? verdict : { args: verdict.call.args });
-  return {
-    ...context,
-    reserveToolCall: () => reserveToolCall({ totals, maxToolCalls }),
-    traceInnerCall: ({ id, tool, args }) => recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args }),
-    ...(guardrails == null ? {} : {
-      checkInnerCall: ({ id, tool, args }: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict> => {
-        const verdict = guardrails.checkToolCall({ id, name: tool, args });
-        return verdict instanceof Promise ? verdict.then(toInner) : toInner(verdict);
-      },
-    }),
-  };
-}
-
 /**
- * Runs the call, recorded in the ledger first when there is one: the `started` entry is stored before the tool runs,
- * so a resumed run never runs a finished call again. A call whose start cannot be recorded is not run.
+ * The aigent_multi context: each inner call takes the same path as a top-level call (guardrails, the shared budget,
+ * approvals, its own ledger entry and idempotency key, the cache, dry runs) and is traced as a step of its own.
  */
-async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; turn: number; gate?(): Promise<GateOutcome> }): Promise<ExecutedToolCall> {
-  const { execute, ledger, turn, gate } = params;
-  const { call } = execute;
-  // Approval comes first: a refused call never starts, so it is never in the ledger.
-  const approval = await gate?.();
-  if (approval?.isAllowed === false) return rejectToolCall({ call, error: approval.error });
-  if (ledger == null) return executeToolCall(execute);
-  try {
-    await ledger.begin({ callId: call.id, tool: call.name, args: call.args, argsHash: hashArgs(call.args), turn });
-  } catch (error) {
-    return rejectToolCall({ call, error: { category: 'denied', code: 'ledger_unavailable', retryable: true, message: `The call was not run because its start could not be recorded: ${describeError(error)}` } });
-  }
-  const executed = await executeToolCall(execute);
-  // The effect happened either way; a lost `done` only means a resume treats the call by its resume policy.
-  await ledger.complete(call.id, executed.envelope).catch(() => undefined);
-  return executed;
+function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; parentCallId: string }): MultiToolContext {
+  const { context, turn, parentCallId } = params;
+  const { totals, maxToolCalls, telemetry: { recorder }, registry, signal, sideEffectSignal } = turn;
+  const runInnerCall = async ({ id, tool, args }: InnerCall): Promise<ExecutedToolCall> => {
+    const call = { id, name: tool, args };
+    const finish = recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args });
+    const ledgerId = innerLedgerId({ parentCallId, innerId: id });
+    const toolSignal = registry.get(tool)?.hasSideEffects === true ? sideEffectSignal : signal;
+    const innerContext: ToolContext = { ...context, callId: id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? turn.runId, callId: ledgerId }) };
+    const executed = tool === MULTI_TOOL_NAME
+      ? rejectToolCall({ call, error: nestedMultiError() })
+      : await runDispatchedCall({ call, turn, context: innerContext, ledgerId, parentCallId, isCommentary: COMMENTARY_TOOLS.has(tool), isLedgered: true, reserve: () => reserveToolCall({ totals, maxToolCalls }) });
+    finish(executed);
+    return executed;
+  };
+  return { ...context, runInnerCall };
 }
 
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
 export function dispatchToolCall(params: DispatchParams): void {
   const { turn } = params;
-  const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, telemetry, cache, emit } = turn;
-  const { shaping } = turn;
+  const { runId, agentName, instanceId, registry, maxToolCalls, signal, totals, work, telemetry, emit, shaping } = turn;
   const stripped = withoutPrevious(params);
   // Aliases are expanded (for tools that accept them) before anything sees the arguments, so keys, validation and traces use the full text.
   const call = shaping == null ? stripped : expandCallAliases({ call: stripped, registry, aliases: shaping.state.aliases });
@@ -144,9 +120,7 @@ export function dispatchToolCall(params: DispatchParams): void {
 
   // Side-effecting tools outlive an unforced immediate stop, so a write is never left half-done.
   const toolSignal = registry.get(name)?.hasSideEffects === true ? turn.sideEffectSignal : signal;
-  const ledgerRunId = turn.ledgerRunId ?? runId;
-  const isDryRun = effects?.dryRun === true;
-  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ledgerRunId, callId }), ...(isDryRun ? { dryRun: true } : {}) };
+  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? runId, callId }), ...(effects?.dryRun === true ? { dryRun: true } : {}) };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
@@ -156,31 +130,9 @@ export function dispatchToolCall(params: DispatchParams): void {
   }
   const tool = registry.get(name);
   const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, args);
-  const isRunnable = tool != null && parsed != null && parsed.ok;
-  const { approve } = turn;
-  // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
   // Bookkeeping tools only change run state, which the checkpoint holds; ask_user is ledgered so a suspended turn can resume.
-  const ledger = isCommentary && name !== ASK_USER_TOOL_NAME ? undefined : turn.ledger;
-  const start = (verdict: CallVerdict): Promise<ExecutedToolCall> => {
-    if ('error' in verdict) return Promise.resolve(rejectToolCall({ call, error: verdict.error }));
-    const checked = verdict.call;
-    return runLedgered({
-      // A simulated (or refused) call changes nothing, so there is nothing for a person to approve.
-      ...(approve == null || !isRunnable || (isDryRun && tool.hasSideEffects) ? {} : { gate: () => approve({ call: checked, tool, context }) }),
-      execute: {
-        registry, call: checked, context, now: () => clock.now(),
-        ...(cache == null ? {} : { cache }),
-        ...(shaping == null ? {} : { shape: shapeWith(shaping) }),
-      },
-      turn: totals.turns, ...(ledger == null ? {} : { ledger }),
-    });
-  };
-  // Guardrails see work calls only (bookkeeping tools change run state, nothing else); a block means the call never runs.
-  const isGuarded = guardrails != null && isRunnable && !isCommentary;
-  const verdict: CallVerdict | Promise<CallVerdict> = isGuarded ? guardrails.checkToolCall(call) : { call };
-  const execution = (verdict instanceof Promise ? verdict.then(start) : start(verdict))
-    .then(executed => (isGuarded ? guardrails.checkToolResult(executed) : executed))
-    .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
+  const isLedgered = !isCommentary || name === ASK_USER_TOOL_NAME;
+  const execution = runDispatchedCall({ call, turn, context, ledgerId: callId, isCommentary, isLedgered });
 
   if (tool == null || parsed == null || !parsed.ok) {
     // Unknown tool or invalid arguments: executeToolCall refuses it without running anything.

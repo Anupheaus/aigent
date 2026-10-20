@@ -62,6 +62,8 @@ export interface ExecuteToolCallParams {
   cache?: ToolCache;
   /** Applied to successful results after the cache stored them and before truncation. */
   shape?: ShapeResult;
+  /** Replaces the tool's own `timeoutMs` (`Infinity`: no timeout). */
+  timeoutMs?: number;
 }
 
 interface FailedCallParams {
@@ -184,11 +186,12 @@ function failOnThrow(params: { execution: Promise<ExecutedToolCall>; call: ToolC
 
 /** Executes one tool call. Never rejects: every failure becomes a structured envelope. */
 export async function executeToolCall(params: ExecuteToolCallParams): Promise<ExecutedToolCall> {
-  const { registry, call, now, cache, shape } = params;
+  const { registry, call, now, cache, shape, timeoutMs } = params;
   const context: ToolContext = { ...params.context, callId: call.id };
   const startedAt = now();
   const elapsed = () => now() - startedAt;
-  const tool = registry.get(call.name);
+  const registered = registry.get(call.name);
+  const tool = registered == null || timeoutMs == null ? registered : { ...registered, timeoutMs };
   if (tool == null) {
     return failedCall({
       call,
