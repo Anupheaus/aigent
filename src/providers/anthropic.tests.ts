@@ -355,6 +355,7 @@ describe('anthropic streaming', () => {
     ['stop_sequence', 'stop'],
     ['tool_use', 'tool_calls'],
     ['max_tokens', 'length'],
+    ['model_context_window_exceeded', 'length'],
     ['refusal', 'stop'],
   ])('maps stop_reason %s to %s', async (stopReason, finishReason) => {
     const events = await streaming([messageStart(), messageDelta({ stopReason, outputTokens: 0 }), messageStop()]).events();
@@ -400,6 +401,7 @@ describe('anthropic streaming', () => {
     const error = await streaming([messageStart(), ...textBlock({ index: 0, chunks: ['x'] }), messageDelta({ stopReason: 'end_turn', outputTokens: 1 })]).error();
     expect(error.code).toBe('provider_failed');
     expect(error.message).toContain('stream ended before completion');
+    expect(error.details).toMatchObject({ retryable: true });
   });
 
   it('fails when a payload is JSON but not an object', async () => {

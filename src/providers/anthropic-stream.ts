@@ -36,6 +36,8 @@ const FINISH_REASONS: ReadonlyMap<string, FinishReason> = new Map<string, Finish
   ['stop_sequence', 'stop'],
   ['tool_use', 'tool_calls'],
   ['max_tokens', 'length'],
+  // The answer was cut off by the context window rather than `max_tokens`; still incomplete.
+  ['model_context_window_exceeded', 'length'],
 ]);
 /** Streamed error types that describe a transient server condition rather than a bad request. */
 const RETRYABLE_ERROR_TYPES: readonly string[] = ['overloaded_error', 'api_error', 'rate_limit_error', 'timeout_error'];
@@ -254,5 +256,6 @@ export function applyAnthropicMessage(state: AnthropicStreamState, message: SseM
 
 /** Called once the body has ended; throws `provider_failed` when `message_stop` never arrived (a cut-off stream). */
 export function finishAnthropicStream(state: AnthropicStreamState): void {
-  if (!state.isComplete) throw streamError({ state, problem: 'stream ended before completion: no message_stop received' });
+  // A cut-off stream is a dropped connection that happened to close cleanly, so retrying is reasonable.
+  if (!state.isComplete) throw streamError({ state, problem: 'stream ended before completion: no message_stop received', details: { retryable: true } });
 }
