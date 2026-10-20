@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
@@ -43,6 +44,10 @@ export interface AgentVersionInput {
   shapers?: ShapersSetting;
   /** False when the built-in `todo` tool is turned off; absent means on. */
   todo?: boolean;
+  /** The effective compaction policy, only when the definition sets one (so versions without it are unchanged). */
+  compaction?: CompactionPolicy;
+  /** `compactionModel`, when set. */
+  compactionModel?: string;
 }
 
 const HASH_ALGORITHM = 'sha256';
@@ -90,7 +95,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -102,6 +107,8 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     ...(shapers == null ? {} : { shapers }),
     // Only the non-default value is hashed, so versions computed before the todo tool existed are unchanged.
     ...(todo ? {} : { todo }),
+    ...(compaction == null ? {} : { compaction }),
+    ...(compactionModel == null ? {} : { compactionModel }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

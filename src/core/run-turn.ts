@@ -28,6 +28,8 @@ export interface RunTotals extends ResilienceCounters {
   turns: number;
   /** Tool calls actually started. */
   toolCalls: number;
+  /** Input plus output tokens of compaction summaries (also included in `usage`). */
+  compactionTokens: number;
 }
 
 /** The run's telemetry collectors, shared by its turns. */

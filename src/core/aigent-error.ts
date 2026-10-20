@@ -5,7 +5,9 @@ export type AigentErrorCode =
   | 'unknown_provider'
   | 'provider_failed'
   | 'aborted'
-  | 'store_conflict';
+  | 'store_conflict'
+  /** The prompt cannot fit the context window even after compaction (details carry the sizes). */
+  | 'context_overflow';
 
 export interface AigentError extends Error {
   code: AigentErrorCode;

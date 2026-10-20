@@ -52,12 +52,17 @@ function visibleResult(params: { provider: FakeProvider; request: number; callId
   return (JSON.parse(message!.text!) as { result: unknown }).result;
 }
 
+/** A window large enough for the whole verbatim corpus several times over. */
+const CORPUS_CONTEXT_SIZE = 4_000_000;
+
 function setup(params: { turns: FakeTurn[]; tools: Tool[]; definition?: Partial<AgentDefinition> }) {
   const { turns, tools, definition = {} } = params;
   const provider = createFakeProvider({ turns });
   const store = createInMemoryStore();
   const ai = createAigent({ providers: [provider], clock: tickingClock(), ids: sequentialIds(), store, enableFeedback: false });
-  const agent = ai.agent({ name: 'shaper', model: 'fake:m', tools, ...definition });
+  // The corpus holds a 1 MiB file, sent twice (read, then written back): far beyond the fake provider's window, which
+  // compaction would rightly refuse with context_overflow. These tests are about bytes, not budgets.
+  const agent = ai.agent({ name: 'shaper', model: 'fake:m', tools, modelSettings: { contextSize: CORPUS_CONTEXT_SIZE }, ...definition });
   return { ai, agent, provider, store };
 }
 

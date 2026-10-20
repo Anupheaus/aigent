@@ -1,18 +1,21 @@
 import type { ToolCache } from '../cache/cache-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
-import { envelopeText } from '../tools/envelope-text.js';
 import { addErrorDetails } from '../tools/tool-error-detail.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
-import type { TaskResultData } from './agent-types.js';
+import type { TaskResultData, TaskUsage } from './agent-types.js';
+import type { Compactor } from '../context/compactor.js';
 import type { RunShaping } from './run-shaping.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { RunPlanning } from '../planning/run-planning.js';
 import { finalStatus, planningResult, syncPinned } from './run-planning-setup.js';
+import { createRunCompaction } from './run-compaction.js';
+import type { RunCompactionSettings } from './run-compaction.js';
 import { appendContextMessages, createRunContext } from './run-context.js';
-import type { NewContextMessage } from './run-context.js';
+import { createRunOriginals } from './run-originals.js';
+import { turnMessages } from './turn-messages.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -57,6 +60,8 @@ export interface RunTaskParams {
   volatile: Omit<RunVolatile, 'maxTurns'>;
   /** The run's plan and todo list. */
   planning: RunPlanning;
+  /** When and how the run compacts its history. */
+  compaction: RunCompactionSettings;
   emit(event: AigentEvent): void;
 }
 
@@ -71,13 +76,6 @@ const PROVIDER_FAILED_ABORT_REASON = 'the run failed because the provider failed
 
 /** How long a turn waits, after its tools finished, for activity renderers to settle before abandoning them. */
 const ACTIVITY_SETTLE_GRACE_MS = 1_000;
-
-interface TurnMessagesParams {
-  turn: TurnStreamResult;
-  executed: ExecutedToolCall[];
-  /** Resolves each result's tool, whose `compactable: false` keeps the result out of compaction. */
-  registry: ToolRegistry;
-}
 
 /** A run aborted by its timeout reached a limit; any other abort is a cancellation. */
 function abortedStatus(control: RunControl): TaskStatus {
@@ -101,26 +99,12 @@ function toolCallsPerTurn(totals: RunTotals): number {
   return turns === 0 ? 0 : toolCalls / turns;
 }
 
-/**
- * The assistant message (with its tool calls and thinking blocks) followed by one tool message per call, in call
- * order, all sharing the first call's id as `pairId` so compaction keeps them together.
- */
-function turnMessages(params: TurnMessagesParams): NewContextMessage[] {
-  const { turn: { visible, calls, thinkingBlocks }, executed, registry } = params;
-  const pairId = calls[0]?.id;
-  const paired = pairId == null ? {} : { pairId };
-  const assistant: NewContextMessage = {
-    kind: 'assistant',
-    message: { role: 'assistant', text: visible, ...(calls.length > 0 ? { toolCalls: calls } : {}), ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}) },
-    ...paired,
-  };
-  const toolResults = executed.map(({ envelope }): NewContextMessage => ({
-    kind: 'tool',
-    message: { role: 'tool', toolCallId: envelope.id, text: envelopeText(envelope) },
-    ...(registry.get(envelope.tool)?.compactable === false ? { flags: { compactable: false } } : {}),
-    ...paired,
-  }));
-  return [assistant, ...toolResults];
+/** The compaction figures for `TaskUsage`, only when the run compacted (or paid for a summary). */
+function compactionUsage(params: { compactor: Compactor; totals: RunTotals }): Pick<TaskUsage, 'compactions' | 'compactionTokens' | 'compactionTokensSaved'> {
+  const { compactor, totals: { compactionTokens } } = params;
+  const { compactions, tokensSaved } = compactor.stats();
+  if (compactions === 0 && compactionTokens === 0) return {};
+  return { compactions, compactionTokens, compactionTokensSaved: tokensSaved };
 }
 
 /**
@@ -143,7 +127,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, shaping, planning, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, limits, clock, control, telemetry, cache, shaping, planning, emit } = params;
   const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController } = control;
   const { signal } = abortController;
@@ -152,7 +136,9 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     runId, createdAt: startedAt,
     initial: [{ kind: 'system', message: { role: 'system', text: buildSystemPrompt(prompt) } }, { kind: 'brief', message: { role: 'user', text: buildTaskBrief(input) } }],
   });
-  const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0 };
+  const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0, compactionTokens: 0 };
+  const originals = createRunOriginals({ registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }) });
+  const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';
   let status: TaskStatus = 'completed';
@@ -165,6 +151,17 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     if (totals.turns >= limits.maxTurns) { status = 'limit_reached'; break; }
     totals.turns += 1;
     syncPinned({ context, planning, now: clock.now() });
+    try {
+      // A turn boundary: every result of the previous round is stored, so no call can be separated from its result.
+      await compactor.beforeTurn({ remainingTurns: limits.maxTurns - totals.turns + 1 });
+    } catch (error) {
+      if (signal.aborted) { status = abortedStatus(control); break; }
+      status = 'failed';
+      failure = describeError(error);
+      emit({ type: 'error', message: failure });
+      break;
+    }
+    const registry = originals.registry();
 
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
@@ -209,6 +206,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     usage: {
       ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt,
       ...(context.peakTokens > 0 ? { contextTokensPeak: context.peakTokens } : {}),
+      ...compactionUsage({ compactor, totals }),
     },
   };
   if (failure != null) result.failure = failure;

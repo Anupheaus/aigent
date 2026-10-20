@@ -31,7 +31,7 @@ function aigentWith(params: { providers: FakeProvider[]; options?: Partial<Aigen
 const SLOW_MS = 30;
 
 const PLAIN_CAPABILITIES: ProviderCapabilities = {
-  streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000, supportedSettings: [],
+  streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 128_000, supportedSettings: [],
 };
 
 interface SpyScheduler extends Scheduler {

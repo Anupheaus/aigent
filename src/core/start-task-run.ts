@@ -20,6 +20,9 @@ import { createRunControl } from './run-control.js';
 import { setUpRunShaping } from './run-shaping.js';
 import { setUpRunPlanning } from './run-planning-setup.js';
 import { createStabilityMonitor } from '../context/stability-monitor.js';
+import type { CompactionPolicy } from '../context/compaction-policy.js';
+import { resolveContextBudget } from '../context/context-budget.js';
+import type { RunCompactionSettings } from './run-compaction.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { runTask } from './run-task.js';
 import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
@@ -61,6 +64,10 @@ export interface ResolvedAgent {
   shapers?: ShapersSetting;
   /** The agent has the built-in `todo` tool (`todo` is not false). */
   isTodoEnabled: boolean;
+  /** The agent's compaction policy, defaults filled in. */
+  compaction: CompactionPolicy;
+  /** `compactionModel`, when the definition sets one. */
+  compactionTarget?: ModelTarget;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -120,6 +127,23 @@ function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
   return { label: reference, provider, model, warnings, dropped, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
 }
 
+interface CompactionSettingsParams {
+  agent: ResolvedAgent;
+  input: TaskInput;
+  routing: TurnRouting;
+  /** The run's resolved settings (`contextSize` and `maxOutputTokens` size the budget). */
+  settings: ModelSettings;
+}
+
+/** The run's usable budget (from the primary model) and its summariser: `compactionModel`, else the run's own models. */
+function compactionSettings(params: CompactionSettingsParams): RunCompactionSettings {
+  const { agent, input, routing, settings: { contextSize, maxOutputTokens } } = params;
+  const { compaction: policy, compactionTarget, targets: [{ provider }] } = agent;
+  const { usable } = resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) });
+  const summariser: TurnRouting = compactionTarget == null ? routing : { ...routing, targets: [toProviderTarget({ target: compactionTarget, agent, input })] };
+  return { policy, usableBudget: usable, summariser };
+}
+
 /** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
 function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: RuntimeServices['submitFeedback'] }): TaskResult {
   const { result, submitFeedback } = params;
@@ -163,6 +187,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
         volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
         planning,
         routing,
+        compaction: compactionSettings({ agent, input, routing, settings }),
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
       });

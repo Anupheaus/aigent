@@ -10,6 +10,9 @@ export const TASK_STATUSES = ['completed', 'incomplete', 'failed', 'cancelled', 
 
 export type TaskStatus = typeof TASK_STATUSES[number];
 
+/** The stages of a compaction, in the order they run. */
+export type CompactionStage = 'stubbed' | 'deduped' | 'summarised';
+
 export type AigentEvent =
   | { type: 'text-delta'; text: string }
   | { type: 'thinking-delta'; text: string }
@@ -29,6 +32,11 @@ export type AigentEvent =
   | { type: 'plan-update'; items: PlanItemState[]; changed: string[] }
   /** The agent's todo list changed; `items` is the whole list, `changed` the ids that changed. */
   | { type: 'todo-update'; items: TodoItem[]; changed: string[] }
+  /**
+   * One compaction stage was applied: stale tool results stubbed, duplicates replaced, or old turns summarised.
+   * Token figures are calibrated estimates of the whole prompt; `summaryTokens` is the new summary's size.
+   */
+  | { type: 'compaction'; stage: CompactionStage; tokensBefore: number; tokensAfter: number; messagesAffected: number; summaryTokens?: number; costUsd?: number }
   | { type: 'error'; message: string }
   /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
   | { type: 'done'; status: TaskStatus; responseId: string };

@@ -1,6 +1,7 @@
 import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
+import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -44,6 +45,13 @@ export interface AgentDefinition {
   shapers?: ShapersSetting;
   /** False removes the built-in `todo` tool (the agent's own todo list). Default true. */
   todo?: boolean;
+  /**
+   * When the run compacts its history (fractions of the usable prompt budget): defaults
+   * `{ compactAt: 0.75, compactTo: 0.45, keepRecent: 4, minSavingTokens: 500 }`. Validated at `ai.agent`.
+   */
+  compaction?: Partial<CompactionPolicy>;
+  /** `provider:model` that writes compaction summaries (default: the agent's own model and fallbacks). */
+  compactionModel?: string;
 }
 
 export interface TaskUsage extends Usage {
@@ -70,6 +78,12 @@ export interface TaskUsage extends Usage {
    * calibrated estimate otherwise. Absent when the run made no request.
    */
   contextTokensPeak?: number;
+  /** Compactions the run made; absent when it made none. */
+  compactions?: number;
+  /** Input plus output tokens spent writing compaction summaries (already included in `inputTokens`/`outputTokens`). */
+  compactionTokens?: number;
+  /** Estimated prompt tokens removed by the run's compactions. */
+  compactionTokensSaved?: number;
 }
 
 export interface TaskResult {

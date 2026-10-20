@@ -1,5 +1,5 @@
 import { assembleRequest } from '../context/assemble-request.js';
-import { calibrate, estimatePromptTokens } from '../context/estimate-prompt-tokens.js';
+import { calibrate, estimateMessageTokens, estimatePromptTokens } from '../context/estimate-prompt-tokens.js';
 import type { ProviderToolSpec } from '../providers/provider-types.js';
 import type { ProviderTarget, TurnRequest } from './open-turn-stream.js';
 import type { RunContext } from './run-context.js';
@@ -29,8 +29,10 @@ export interface BuiltTurnRequest {
  * boundaries. The stable part is checked for prefix stability against the previous request.
  */
 export function buildTurnRequest(params: BuildTurnRequestParams): BuiltTurnRequest {
-  const { context: { state }, tools, volatile, clock, target: { model, settings }, progress } = params;
+  const { context, tools, volatile, clock, target: { model, settings }, progress } = params;
+  const { state } = context;
   const text = volatileText({ volatile, clock, progress });
+  context.volatileTokens = text == null ? 0 : estimateMessageTokens({ role: 'user', text });
   const { request, prefixLength } = assembleRequest({ state, tools, model, ...(settings == null ? {} : { settings }), ...(text == null ? {} : { volatile: text }) });
   const { messages, cacheBreakpoints } = request;
   volatile.monitor.observe({ messages: messages.slice(0, prefixLength), tools });

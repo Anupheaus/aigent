@@ -60,6 +60,11 @@ describe('resolveContextBudget', () => {
   it('uses contextSize, else the provider window, less the output reserve', () => {
     expect(resolveContextBudget({ maxContextTokens: 128_000 })).toEqual({ contextSize: 128_000, usable: 128_000 - 4096 });
     expect(resolveContextBudget({ contextSize: 10_000, maxContextTokens: 128_000, maxOutputTokens: 1_000 })).toEqual({ contextSize: 10_000, usable: 9_000 });
-    expect(resolveContextBudget({ contextSize: 100, maxContextTokens: 128_000 }).usable).toBe(0);
+    expect(resolveContextBudget({ contextSize: 100, maxContextTokens: 128_000, maxOutputTokens: 200 }).usable).toBe(0);
+  });
+
+  it('caps the default reserve at a quarter of a small window', () => {
+    expect(resolveContextBudget({ maxContextTokens: 1_000 })).toEqual({ contextSize: 1_000, usable: 750 });
+    expect(resolveContextBudget({ contextSize: 16_384, maxContextTokens: 128_000 }).usable).toBe(16_384 - 4096);
   });
 });

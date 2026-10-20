@@ -39,6 +39,15 @@ describe('findFindings', () => {
     })]);
   });
 
+  it('flags runs that compacted often for their length, and not a long run that compacted twice', () => {
+    const frequent = fixtureTrace({ run: { startedAt: 60, turns: 10, compactions: 4 } });
+    const rare = fixtureTrace({ run: { startedAt: 61, turns: 30, compactions: 2 } });
+    const findings = findingsFor([frequent, rare]).filter(({ kind }) => kind === 'frequent-compaction');
+    expect(findings).toEqual([expect.objectContaining({
+      id: `frequent-compaction:helper:${frequent.run.runId}`, severity: 'warn', label: 'inefficient', evidence: { compactions: 4, turns: 10 },
+    })]);
+  });
+
   it('flags a tool much slower than the agent\'s other calls', () => {
     const slow = fixtureTrace({ run: { startedAt: 50 }, steps: repeated(3, { tool: 'read', durationMs: 5_000, argsSummary: '{"path":"a"}', turn: 1 }).map((step, turn) => ({ ...step, turn: turn + 1 })) });
     expect(findingsFor([slow])).toContainEqual(expect.objectContaining({

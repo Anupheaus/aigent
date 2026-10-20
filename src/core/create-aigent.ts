@@ -36,6 +36,7 @@ import type { ModelTarget, ResolvedAgent, RuntimeServices } from './start-task-r
 import { parseAgentLimits, parseTaskInput } from './task-input.js';
 import { parseAgentShapers } from '../shapers/shapers-setting.js';
 import { parseVolatileOptions } from '../context/volatile-block.js';
+import { parseCompactionPolicy } from '../context/compaction-policy.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 
 export interface AigentOptions {
@@ -220,6 +221,8 @@ export function createAigent(options: AigentOptions): Aigent {
     const shapers = parseAgentShapers({ agentName: name, shapers: definition.shapers });
     const target = resolveTarget(definition.model);
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
+    const compaction = parseCompactionPolicy({ agentName: name, policy: definition.compaction });
+    const compactionTarget = definition.compactionModel == null ? undefined : resolveTarget(definition.compactionModel);
     const instanceId = definition.instanceId ?? ids.next('agent');
     const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
     const registry = buildAgentRegistry({
@@ -233,11 +236,16 @@ export function createAigent(options: AigentOptions): Aigent {
       model: reference,
       modelSettings: resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: providerSettings }),
     }));
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }), ...(definition.todo === false ? { todo: false } : {}) });
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }), ...(definition.todo === false ? { todo: false } : {}),
+      ...(definition.compaction == null ? {} : { compaction }),
+      ...(compactionTarget == null ? {} : { compactionModel: compactionTarget.reference }),
+    });
     const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context, enableFeedback }, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
       ...(feedbackCollector == null ? {} : { feedbackCollector }),
       ...(shapers == null ? {} : { shapers }),
       isTodoEnabled: definition.todo !== false,
+      compaction,
+      ...(compactionTarget == null ? {} : { compactionTarget }),
     };
     return {
       name,

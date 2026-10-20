@@ -26,6 +26,7 @@ export interface FixtureRunParams {
   userVerdict?: UserRating;
   toolUse?: RunRecord['toolUse'];
   task?: string;
+  compactions?: number;
 }
 
 const RUN_ID_WIDTH = 4;
@@ -35,12 +36,12 @@ export function fixtureRun(params: FixtureRunParams): RunRecord {
   const {
     startedAt, runId = `run_${String(startedAt).padStart(RUN_ID_WIDTH, '0')}`, agentName = 'helper', agentVersion = 'v1', version, instanceId = 'i1', model = 'fake:m',
     label, unattended = false, status = 'completed', durationMs = 1_000, inputTokens = 1_000, outputTokens = 0, cachedTokens = 0, turns = 2, toolCalls = 4,
-    retries = 0, failureCount = 0, claimedSuccess = 0, claimedFailure = 0, userVerdict, toolUse = { calls: toolCalls, items: toolCalls, repeats: 0 }, task,
+    retries = 0, failureCount = 0, claimedSuccess = 0, claimedFailure = 0, userVerdict, toolUse = { calls: toolCalls, items: toolCalls, repeats: 0 }, task, compactions,
   } = params;
   return {
     schemaVersion: 1, runId, responseId: `resp_${runId}`, agentName, instanceId, mode: 'task', agentVersion, recordedAt: startedAt + durationMs,
     ...(version == null ? {} : { version }), ...(label == null ? {} : { label }), model, settings: {}, unattended, status,
-    usage: { inputTokens, outputTokens, cachedTokens, turns, toolCalls, toolCallsPerTurn: turns === 0 ? 0 : toolCalls / turns, retries, fallbacks: 0, durationMs },
+    usage: { inputTokens, outputTokens, cachedTokens, turns, toolCalls, toolCallsPerTurn: turns === 0 ? 0 : toolCalls / turns, retries, fallbacks: 0, durationMs, ...(compactions == null ? {} : { compactions }) },
     timings: { startedAt, durationMs, modelMs: durationMs, toolMs: 0, queuedMs: 0 },
     stepCount: toolUse.calls, failureCount, outcomeSummary: { claimedSuccess, claimedFailure }, toolUse,
     ...(userVerdict == null ? {} : { userVerdict }), ...(task == null ? {} : { task }),

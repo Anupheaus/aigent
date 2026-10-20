@@ -30,6 +30,9 @@ const usageSchema = z.object({
   inputTokens: count, outputTokens: count, cachedTokens: count, turns: count, toolCalls: count,
   toolCallsPerTurn: z.number().nonnegative(), retries: count, fallbacks: count, durationMs,
   contextTokensPeak: count.optional(),
+  compactions: count.optional(),
+  compactionTokens: count.optional(),
+  compactionTokensSaved: count.optional(),
 });
 
 const timingsSchema = z.object({

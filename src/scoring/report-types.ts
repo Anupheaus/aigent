@@ -92,6 +92,8 @@ export type FindingKind =
   | 'truncation-frequent'
   /** A shaper whose output was not smaller than its input, summed over the agent's runs. */
   | 'net-negative-shaper'
+  /** A run that compacted its history more than once every five turns: its window is too small for its results. */
+  | 'frequent-compaction'
   /** Reserved for the guardrails slice. */
   | 'guardrail';
 

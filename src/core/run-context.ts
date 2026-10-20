@@ -12,6 +12,8 @@ export interface RunContext {
   ratio: number;
   /** Largest prompt of the run in tokens: reported by the provider when it did, estimated otherwise. */
   peakTokens: number;
+  /** Estimated tokens of the last request's volatile block, for estimates made between requests. */
+  volatileTokens: number;
   /** Messages created so far; ids are `<runId>:m<n>` for the n-th, so an id is never reused after a renumber. */
   created: number;
 }
@@ -43,7 +45,7 @@ function toContextMessage(params: { runId: string; seq: number; entry: NewContex
 
 export function createRunContext(params: CreateRunContextParams): RunContext {
   const { runId, createdAt, initial } = params;
-  return { runId, state: initial.map((entry, seq) => toContextMessage({ runId, seq, entry, createdAt })), ratio: 1, peakTokens: 0, created: initial.length };
+  return { runId, state: initial.map((entry, seq) => toContextMessage({ runId, seq, entry, createdAt })), ratio: 1, peakTokens: 0, volatileTokens: 0, created: initial.length };
 }
 
 /** A new message with the run's next id, not yet stored; its seq is set where it is placed. */
