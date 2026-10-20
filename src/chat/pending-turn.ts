@@ -3,6 +3,7 @@ import { createAigentError } from '../core/aigent-error.js';
 import type { ChatReply } from './chat-types.js';
 import type { DeliveryMode, MessageAttachment, MessageDelivery, Part } from './message.js';
 import type { RunRestore } from '../resume/prepare-run-resume.js';
+import { editQueued } from './message-queue.js';
 import type { TurnHandle } from './turn-handle.js';
 
 /** The user's message a turn answers, added when the turn starts. */
@@ -36,6 +37,18 @@ export interface PendingTurn {
   interrupted?: boolean;
   /** Continues a turn suspended before a restart (from its checkpoint) instead of starting a new one. */
   restore?: RunRestore;
+}
+
+/** What follows a queued message's own text in the model's view (its attachments), kept across an edit. */
+function modelSuffix(params: { queue: PendingTurn[]; id: string }): string {
+  const user = params.queue.find(entry => entry.user?.id === params.id)?.user;
+  return user == null ? '' : user.modelText.slice(user.text.length);
+}
+
+/** Replaces a queued message's text: what is shown, what the turn records as its task, and what the model is sent. */
+export function editPendingText(params: { queue: PendingTurn[]; id: string; text: string; startedIds: ReadonlySet<string> }): PendingTurn[] {
+  const { queue, id, text } = params;
+  return editQueued(params).map(entry => (entry.user?.id === id ? { ...entry, taskText: text, user: { ...entry.user, modelText: text + modelSuffix({ queue, id }) } } : entry));
 }
 
 const ZERO_USAGE: TaskUsage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, turns: 0, toolCalls: 0, toolCallsPerTurn: 0, retries: 0, fallbacks: 0, durationMs: 0 };

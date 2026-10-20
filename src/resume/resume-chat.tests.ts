@@ -27,7 +27,7 @@ describe('chat resume', () => {
     const reopened = second.agent.chat({ sessionId: 's-1' });
     await reopened.ready;
     expect(reopened.conversation().openQuestions.map(({ question }) => question.id)).toEqual(['name']);
-    expect(reopened.answer('name', 'Ada')).toEqual({ ok: true });
+    expect(reopened.answer('name', 'Ada')).toEqual({ ok: true, turn: expect.anything() });
     await until(() => reopened.conversation().messages.at(-1)?.state === 'complete' && reopened.conversation().status === 'idle');
     await reopened.close();
     const [request] = second.provider.requests;

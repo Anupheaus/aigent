@@ -10,8 +10,9 @@ import type { QueuedMessage } from './conversation.js';
 import { routeDelivery } from './delivery.js';
 import { historyToProvider } from './history-to-provider.js';
 import { lineage } from './lineage.js';
-import { editQueued, moveQueued, queuedMessages, removeQueued, takeNext } from './message-queue.js';
-import { settleCancelled } from './pending-turn.js';
+import { moveQueued, queuedMessages, removeQueued, takeNext } from './message-queue.js';
+import { editPendingText, settleCancelled } from './pending-turn.js';
+import { requeue } from './requeue.js';
 import { recordSteered, recordUserMessage } from './user-messages.js';
 import type { PendingTurn } from './pending-turn.js';
 import { createSteerInbox } from './steer-inbox.js';
@@ -23,6 +24,12 @@ import type { TurnHandle, TurnRunControl } from './turn-handle.js';
 /** The reply in progress. */
 interface ActiveTurn {
   control: TurnRunControl;
+  /** What handles attach to: `stop` through it is a user stop, so `onStop` applies. */
+  handleControl: TurnRunControl;
+  /** Messages steered into this turn so far. */
+  steered: Set<string>;
+  /** Set at the user's stop: the queued and steered messages `onStop: 'discard'` drops. */
+  discard?: ReadonlySet<string>;
   agentMessageId: string;
   threadId?: string;
   inbox: SteerInbox<PendingTurn>;
@@ -110,8 +117,16 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       finished(false);
       return;
     }
-    const current: ActiveTurn = { control, agentMessageId, inbox, isStoppedByUser: false, ...(threadId == null ? {} : { threadId }) };
-    const userStop: TurnRunControl = { ...control, stop: options => { current.isStoppedByUser = true; control.stop(options); } };
+    const current: ActiveTurn = { control, handleControl: control, steered: new Set(), agentMessageId, inbox, isStoppedByUser: false, ...(threadId == null ? {} : { threadId }) };
+    const userStop: TurnRunControl = {
+      ...control,
+      stop: options => {
+        current.isStoppedByUser = true;
+        current.discard ??= new Set([...queue.map(({ agentMessageId: id }) => id), ...current.steered]);
+        control.stop(options);
+      },
+    };
+    current.handleControl = userStop;
     turn.control = userStop;
     active = current;
     for (const { handle } of entries) { handle.setMessageId(agentMessageId); handle.attach(userStop); }
@@ -123,14 +138,11 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     active = undefined;
     // Steering that arrived after the last model request was never delivered: it waits in the queue instead.
     const leftovers = ended?.inbox.drain() ?? [];
-    if (ended?.isStoppedByUser === true && onStop === 'discard') {
-      for (const pending of [...leftovers, ...queue]) settleCancelled(pending);
-      queue = [];
-      publishQueue();
-    } else if (leftovers.length > 0) {
-      queue.push(...leftovers.map(pending => ({ ...pending, queuedAt: pending.queuedAt ?? now() })));
-      publishQueue();
-    }
+    const discard = ended?.isStoppedByUser === true && onStop === 'discard' ? ended.discard : undefined;
+    const { queue: kept, dropped } = requeue({ leftovers, queue, ...(discard == null ? {} : { discard }), now: now() });
+    queue = kept;
+    if (leftovers.length > 0 || dropped.length > 0) publishQueue();
+    for (const pending of dropped) settleCancelled(pending);
     if (ended != null && !isClosing) afterReply?.();
     if (isClosing) settleQueue();
     const { taken, rest } = takeNext(queue);
@@ -184,15 +196,9 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     const action = routeDelivery({ mode: pending.delivery ?? 'queue', isBusy: running != null, hasQueue: queue.length > 0 });
     if (action === 'start') { start([pending]); return; }
     // A thread turn and a main-line turn never steer each other: such a message waits its turn.
-    if (action === 'steer' && running != null && running.threadId === pending.threadId) { running.inbox.push(pending); return; }
+    if (action === 'steer' && running != null && running.threadId === pending.threadId) { running.inbox.push(pending); running.steered.add(pending.agentMessageId); return; }
     if (action === 'interrupt' && running != null) { interrupt({ pending, running }); return; }
     enqueue(pending);
-  }
-
-  /** What follows a queued message's own text in the model's view (its attachments), kept across an edit. */
-  function modelSuffix(params: { queue: PendingTurn[]; id: string }): string {
-    const user = params.queue.find(entry => entry.user?.id === params.id)?.user;
-    return user == null ? '' : user.modelText.slice(user.text.length);
   }
 
   function changeQueue(change: (current: PendingTurn[]) => PendingTurn[]): void {
@@ -204,7 +210,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     accept,
     queue: {
       list: () => queuedMessages(queue),
-      edit: (id, text) => changeQueue(current => editQueued({ queue: current, id, text, startedIds: startedIds() }).map(entry => (entry.user?.id === id ? { ...entry, taskText: text, user: { ...entry.user, modelText: text + modelSuffix({ queue: current, id }) } } : entry))),
+      edit: (id, text) => changeQueue(current => editPendingText({ queue: current, id, text, startedIds: startedIds() })),
       move: (id, toIndex) => changeQueue(current => moveQueued({ queue: current, id, toIndex, startedIds: startedIds() })),
       remove: id => { const { queue: rest, removed } = removeQueued({ queue, id, startedIds: startedIds() }); queue = rest; publishQueue(); settleCancelled(removed); },
     },
@@ -212,7 +218,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     followActive: handle => {
       if (active == null) return false;
       handle.setMessageId(active.agentMessageId);
-      handle.attach(active.control);
+      handle.attach(active.handleControl);
       return true;
     },
     stopActive: options => active?.control.stop(options),

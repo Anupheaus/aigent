@@ -105,7 +105,7 @@ describe('ask_user in chat', () => {
     await until(() => chat.conversation().openQuestions.length === 2);
     turn.stop();
     await turn;
-    expect(chat.answer('colour', 'blue')).toEqual({ ok: true });
+    expect(chat.answer('colour', 'blue')).toEqual({ ok: true, turn: expect.anything() });
     expect(chat.conversation().openQuestions).toEqual([]);
     await chat.close();
     expect(chat.conversation().messages.at(-1)).toMatchObject({ role: 'agent', parts: [{ type: 'text', text: 'Blue it is' }] });
@@ -145,7 +145,7 @@ describe('ask_user in chat', () => {
     turn.stop();
     expect((await turn).status).toBe('cancelled');
     expect(chat.conversation()).toMatchObject({ status: 'idle', openQuestions: [{ question: { id: 'name' } }] });
-    expect(chat.answer('name', 'Ada')).toEqual({ ok: true });
+    expect(chat.answer('name', 'Ada')).toEqual({ ok: true, turn: expect.anything() });
     await chat.close();
     const messages = provider.requests[1]!.messages;
     expect(messages.find(({ toolCallId }) => toolCallId === 'ask1')?.text).toContain('"category":"aborted"');
@@ -163,7 +163,7 @@ describe('ask_user in chat', () => {
     const reopened = agent.chat({ sessionId: 's-q' });
     await reopened.ready;
     expect(reopened.conversation().openQuestions.map(({ question }) => question.id)).toEqual(['name']);
-    expect(reopened.answer('name', 'Ada')).toEqual({ ok: true });
+    expect(reopened.answer('name', 'Ada')).toEqual({ ok: true, turn: expect.anything() });
     await reopened.close();
     expect(reopened.conversation().messages.at(-1)).toMatchObject({ role: 'agent', state: 'complete', parts: [{ type: 'text', text: 'Welcome back, Ada' }] });
     expect(provider.requests).toHaveLength(2);

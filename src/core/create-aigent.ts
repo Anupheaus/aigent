@@ -109,6 +109,8 @@ export function createAigent(options: AigentOptions): Aigent {
 
   /** Open chats, closed first by `close()`. */
   const chatClosers = new Set<() => Promise<void>>();
+  /** Stored chat sessions open in this runtime (one live chat per session). */
+  const openSessions = new Set<string>();
 
   async function close(): Promise<void> {
     // Every chat is closed even when one fails (e.g. its writes did not reach the store); the first failure is reported last.
@@ -148,7 +150,7 @@ export function createAigent(options: AigentOptions): Aigent {
       task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
       chat: rawOptions => createChat({
-        runtime: { agent: resolved, services }, options: parseChatOptions({ options: rawOptions, hasStore: store != null }), track: trackSettled,
+        runtime: { agent: resolved, services }, options: parseChatOptions({ options: rawOptions, hasStore: store != null }), track: trackSettled, openSessions,
         registerCloser: closeChat => { chatClosers.add(closeChat); return () => { chatClosers.delete(closeChat); }; },
         ...(store == null || writer == null ? {} : { persistence: { store, writer } }),
       }),

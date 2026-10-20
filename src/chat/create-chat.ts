@@ -33,6 +33,11 @@ export interface CreateChatParams {
   registerCloser(close: () => Promise<void>): () => void;
   /** A fork's first patches. */
   seed?(log: PatchLog): void;
+  /**
+   * The runtime's open stored sessions (`<agentName>:<sessionId>`): two live chats on one stored session would number
+   * their patches from the same seq and overwrite each other's chunks, so a second open is refused.
+   */
+  openSessions?: Set<string>;
 }
 
 /** Everything a chat method needs once its session is loaded. */
@@ -59,6 +64,11 @@ export function createChat(params: CreateChatParams): Chat {
   const key = { agentName: agent.name, sessionId };
   const settings = chatSettings(options);
   const stored = options.persistence === 'store' ? persistence : undefined;
+  const openKey = `${agent.name}:${sessionId}`;
+  if (stored != null && params.openSessions?.has(openKey) === true) {
+    throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' of agent '${agent.name}' is already open in this runtime; close it before opening it again`, details: { sessionId, agentName: agent.name } });
+  }
+  if (stored != null) params.openSessions?.add(openKey);
   let loaded: Loaded | undefined;
   /** The one title call in flight; close() aborts it rather than waiting for a slow model. */
   let titling: Promise<void> | undefined;
@@ -109,6 +119,14 @@ export function createChat(params: CreateChatParams): Chat {
 
   async function close(): Promise<void> {
     isClosed = true;
+    try {
+      await closeSession();
+    } finally {
+      if (stored != null) params.openSessions?.delete(openKey);
+    }
+  }
+
+  async function closeSession(): Promise<void> {
     await ready;
     if (loaded == null) return;
     const { engine, session: { log, writer } } = loaded;
@@ -149,7 +167,8 @@ export function createChat(params: CreateChatParams): Chat {
     answer: (questionId, value) => {
       if (isClosed) return { ok: false, error: closedError(sessionId).message };
       const result = requireLoaded().engine.questions.answer({ questionId, value });
-      return result.ok ? { ok: true } : { ok: false, error: result.error };
+      if (!result.ok) return { ok: false, error: result.error };
+      return result.freshTurn == null ? { ok: true } : { ok: true, turn: result.freshTurn.turn };
     },
     queue: Object.assign(() => (loaded == null ? [] : requireLoaded().engine.queue.list()), {
       edit: (id: string, text: string) => requireLoaded().engine.queue.edit(id, text),

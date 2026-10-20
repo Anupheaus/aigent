@@ -105,7 +105,8 @@ export interface ChatQueue {
   remove(id: string): void;
 }
 
-export type AnswerResult = { ok: true } | { ok: false; error: string };
+/** `turn`: the reply the answer started, when its question's turn was gone (stopped, or the session reopened). */
+export type AnswerResult = { ok: true; turn?: ChatTurn } | { ok: false; error: string };
 
 export interface ChatThread {
   rootMessageId: string;

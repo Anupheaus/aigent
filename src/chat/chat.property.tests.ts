@@ -40,8 +40,9 @@ describe('chat (property)', () => {
       const patches: Patch[] = [];
       chat.subscribe(patch => patches.push(patch));
       const turns: ChatTurn[] = [];
+      const sentTexts: string[] = [];
       for (const [index, step] of operations.entries()) {
-        if (step.kind === 'send') turns.push(chat.send(`message ${index}`, { delivery: step.delivery, coalesce: step.coalesce }));
+        if (step.kind === 'send') { sentTexts.push(`message ${index}`); turns.push(chat.send(`message ${index}`, { delivery: step.delivery, coalesce: step.coalesce })); }
         if (step.kind === 'pin') { const { messages } = chat.conversation(); const target = messages[step.pick % Math.max(messages.length, 1)]; if (target != null) chat.pin(target.id); }
         if (step.kind === 'remove-queued') { const [first] = chat.queue(); if (first != null) chat.queue.remove(first.id); }
         if (step.kind === 'stop') turns.at(-1)?.stop();
@@ -58,6 +59,11 @@ describe('chat (property)', () => {
       // Every user message sent and not removed before it started is in the conversation exactly once.
       const userIds = state.messages.filter(({ role, kind }) => role === 'user' && kind === 'statement').map(({ id }) => id);
       expect(new Set(userIds).size).toBe(userIds.length);
+      // ...and present: a reply that ran (it has a response id) means its user message was recorded.
+      const recorded = new Set(state.messages.filter(({ role, kind }) => role === 'user' && kind === 'statement').map(({ parts }) => (parts[0]?.type === 'text' ? parts[0].text : '')));
+      const replies = await Promise.all(turns);
+      const ran = sentTexts.filter((_text, index) => replies[index]?.responseId !== '');
+      expect(ran.filter(text => !recorded.has(text))).toEqual([]);
     }), { numRuns: 12 });
   }, 120_000);
 });

@@ -51,7 +51,13 @@ export function threadContext(params: { state: ConversationState; rootMessageId:
   const { state, rootMessageId } = params;
   const root = findMessage({ state, messageId: rootMessageId });
   const summary: NewContextMessage = { kind: 'user', flags: { compactable: false }, message: { role: 'user', text: mainSummary({ state, rootMessageId }) } };
-  return [summary, ...historyToProvider([root, ...threadMessages({ state, rootMessageId })])];
+  const replies = threadMessages({ state, rootMessageId });
+  const rootHistory = historyToProvider([root]);
+  if (rootHistory.length > 0) return [summary, ...historyToProvider([root, ...replies])];
+  // A root the model never sees as history (a question, a tool row): its text, so the thread knows what it is about.
+  const role = root.role === 'agent' ? 'assistant' : 'user';
+  const rootText: NewContextMessage = { kind: role, flags: { compactable: false }, message: { role, text: messageText(root) } };
+  return [summary, rootText, ...historyToProvider(replies)];
 }
 
 /** The thread record after `messageIds` joined it. */
