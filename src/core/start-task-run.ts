@@ -2,38 +2,25 @@ import type { ToolCache } from '../cache/cache-types.js';
 import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import type { Provider } from '../providers/provider-types.js';
 import type { Scheduler } from '../scheduler/scheduler-types.js';
+import type { Pricing } from '../scoring/report-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
-import { measureQueueWait } from '../telemetry/measure-queue.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
-import type { AigentEvent } from './aigent-events.js';
-import { DEFAULT_LIMITS } from './agent-types.js';
-import type { TaskResult, TaskResultData, TaskRun } from './agent-types.js';
+import type { ActivityOptions } from './activity.js';
+import type { TaskRun } from './agent-types.js';
 import type { UserFeedback } from '../feedback/feedback-records.js';
-import { createEventStream } from './event-stream.js';
 import type { ModelSettings } from './model-settings.js';
-import type { TurnRouting } from './open-turn-stream.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
-import { resolveModelSettings } from './resolve-model-settings.js';
-import { createRunControl } from './run-control.js';
-import { setUpRunShaping } from './run-shaping.js';
-import { setUpRunPlanning } from './run-planning-setup.js';
-import { createStabilityMonitor } from '../context/stability-monitor.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { CompressedPart } from '../compression/compress-prompt.js';
 import type { CompressionCache } from '../compression/compression-cache.js';
 import type { ResolvedCompression } from '../compression/compression-options.js';
-import { buildPromptTexts } from './prompt-texts.js';
-import { compactionSettings, promptCompressionContext, toProviderTarget } from './run-settings.js';
-import type { RunCompression } from './run-compression.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
-import { runTask } from './run-task.js';
-import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
+import { startAgentRun } from './start-agent-run.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
-
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
 export interface ModelTarget {
   /** `provider:model`, as written in the definition. */
@@ -97,6 +84,15 @@ export interface RuntimeServices {
   isPrefixMonitorEnabled: boolean;
   /** Compressed texts, shared by every agent of the runtime (and other runtimes on the same store). */
   compressionCache: CompressionCache;
+  /** `createAigent({ pricing })`: prices activity updates and chat message meta. */
+  pricing?: Pricing;
+  /** `createAigent({ activity })`: throttle and heartbeat of activity updates. */
+  activity?: ActivityOptions;
+  /**
+   * Real timers for activity throttling and heartbeats, kept apart from `sleep` (retry backoff), which tests often
+   * replace with an instant sleeper.
+   */
+  activityTimers: Sleeper;
 }
 
 export interface StartTaskRunParams {
@@ -106,98 +102,7 @@ export interface StartTaskRunParams {
   input: TaskInput;
 }
 
-interface ResolvedLimits {
-  maxTurns: number;
-  maxToolCalls: number;
-  timeoutMs?: number;
-}
-
-/** Task limits win over agent limits, field by field, then the library defaults. */
-function resolveLimits(taskLimits: TaskLimits | undefined, agentLimits: TaskLimits | undefined): ResolvedLimits {
-  return {
-    maxTurns: taskLimits?.maxTurns ?? agentLimits?.maxTurns ?? DEFAULT_LIMITS.maxTurns,
-    maxToolCalls: taskLimits?.maxToolCalls ?? agentLimits?.maxToolCalls ?? DEFAULT_LIMITS.maxToolCalls,
-    timeoutMs: taskLimits?.timeoutMs ?? agentLimits?.timeoutMs,
-  };
-}
-
-/** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
-function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: RuntimeServices['submitFeedback'] }): TaskResult {
-  const { result, submitFeedback } = params;
-  const { responseId } = result;
-  const feedback: TaskResult['feedback'] = rating => submitFeedback({ ...rating, responseId });
-  return Object.defineProperty(result, 'feedback', { value: feedback, enumerable: false }) as TaskResult;
-}
-
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
-  const { agent, services, input } = params;
-  const { name: agentName, instanceId, targets, resilience, agentVersion, version } = agent;
-  const { clock, ids, sleep, random, scheduler } = services;
-  const [target, ...fallbackTargets] = targets;
-  const runId = ids.next('run');
-  const responseId = ids.next('resp');
-  const { feedbackCollector } = agent;
-  const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
-  const shapersSetting = input.shapers ?? agent.shapers;
-  const { registry: shapingRegistry, shaping } = setUpRunShaping({ registry: agent.registry, settings: shapersSetting, isFeedbackEnabled: feedbackCollector != null });
-  const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
-  const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
-  const primary = toProviderTarget({ target, agent, input });
-  const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
-  const priority = input.priority ?? (input.unattended === true ? 'background' : 'interactive');
-  const measuredScheduler = measureQueueWait({ scheduler, now: () => clock.now(), onWait: waitedMs => telemetry.timer.addQueuedMs(waitedMs) });
-  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler: measuredScheduler, priority, agentName };
-  const stream = createEventStream<AigentEvent, TaskResult>();
-  const emit = (event: AigentEvent): void => stream.push(event);
-  const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });
-  const { registry, planning } = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
-
-  async function execute(): Promise<void> {
-    for (const message of primary.warnings) emit({ type: 'warning', message });
-    let resultData: TaskResultData;
-    let compression: RunCompression | undefined;
-    try {
-      const texts = await buildPromptTexts({ staticPrompt: agent.staticPrompt, input, context: promptCompressionContext({ agent, services }) });
-      for (const message of texts.warnings) emit({ type: 'warning', message });
-      compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts.records] };
-      resultData = await runTask({
-        runId, responseId, agentName, instanceId, systemPrompt: texts.system, brief: texts.brief, registry, clock, control, telemetry, emit,
-        ...(compression == null ? {} : { compression }),
-        ...(services.cache == null ? {} : { cache: services.cache }),
-        ...(shaping == null ? {} : { shaping }),
-        volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
-        planning,
-        routing,
-        compaction: compactionSettings({ agent, input, routing, settings }),
-        showThinking: settings.showThinking ?? true,
-        limits: { maxTurns, maxToolCalls },
-      });
-    } finally {
-      dispose();
-    }
-    // Taken even when nothing is stored, so a disabled run's entries are not kept in memory.
-    const feedback = feedbackCollector?.take(runId) ?? [];
-    // disableTelemetry runs (evals, tests) write nothing at all, so they never reach scores.
-    if (input.disableTelemetry !== true) {
-      const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
-      const warning = await persistRunTelemetry({
-        now: () => clock.now(), telemetry, settings: services.telemetry, feedback,
-        run: {
-          input, result: resultData, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings },
-          ...(compression == null || compression.log.length === 0 ? {} : { compression: compression.log }),
-        },
-      });
-      if (warning != null) emit({ type: 'warning', message: warning });
-    }
-    // `done` is last and only after the records are flushed, so a consumer that sees it can read them.
-    emit({ type: 'done', status: resultData.status, responseId });
-    stream.finish(withFeedbackShortcut({ result: resultData, submitFeedback: services.submitFeedback }));
-  }
-
-  // Deferred so the caller can attach iterators first (events are buffered regardless).
-  queueMicrotask(() => { execute().catch(error => stream.fail(error)); });
-
-  const run: TaskRun = Object.assign(stream.run, { runId, stop, cancel: () => stop({ mode: 'immediate' }) });
-  return run;
+  return startAgentRun(params);
 }

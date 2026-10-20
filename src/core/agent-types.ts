@@ -8,6 +8,8 @@ import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
+import type { RunCallbacks } from './run-callbacks.js';
+import type { Chat, ChatOptions } from '../chat/chat-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
@@ -125,9 +127,15 @@ export type TaskResultData = Omit<TaskResult, 'feedback'>;
 export interface StopOptions {
   /** 'graceful' finishes the current turn; 'immediate' aborts now. Default 'immediate'. */
   mode?: 'graceful' | 'immediate';
+  /**
+   * Immediate stops only: also abort tools with side effects. Without it they finish (bounded by their own timeout)
+   * so writes are not left half-done; read-only tools are always aborted.
+   */
+  force?: boolean;
 }
 
-export type TaskRun = StreamRun<AigentEvent, TaskResult> & {
+/** The run's events as callbacks (`onActivity`, `onThinking`, `onToolActivity`): each sees exactly the events. */
+export type TaskRun = StreamRun<AigentEvent, TaskResult> & RunCallbacks & {
   runId: string;
   /** Repeated calls, and calls after the run settled, are no-ops. */
   stop(options?: StopOptions): void;
@@ -150,6 +158,11 @@ export interface Agent {
    * compressed field before and after. Calls no provider. Rejects with `invalid_input` for an invalid input.
    */
   preview(input?: TaskInput): Promise<PromptPreview>;
+  /**
+   * A stateful conversation: streaming replies, a UI-ready conversation model (snapshot and gapless patches) and,
+   * with a store, persistence by `sessionId`. Validates `options` synchronously (throws `invalid_input`).
+   */
+  chat(options?: ChatOptions): Chat;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

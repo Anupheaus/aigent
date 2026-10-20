@@ -19,7 +19,7 @@ const recordMetaShape = {
   runId: z.string().min(1),
   agentName: z.string().min(1),
   instanceId: z.string().min(1),
-  mode: z.literal('task'),
+  mode: z.enum(['task', 'chat']),
   agentVersion: z.string().min(1),
   scope: z.record(z.string(), z.string()).optional(),
   recordedAt: z.number(),

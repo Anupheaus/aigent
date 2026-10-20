@@ -93,7 +93,9 @@ export function dispatchToolCall(params: DispatchParams): void {
     return;
   }
 
-  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal };
+  // Side-effecting tools outlive an unforced immediate stop, so a write is never left half-done.
+  const toolSignal = registry.get(name)?.hasSideEffects === true ? turn.sideEffectSignal : signal;
+  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.

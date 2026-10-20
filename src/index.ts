@@ -1,5 +1,5 @@
 export { createAigent } from './core/create-aigent.js';
-export type { Aigent, AigentOptions } from './core/create-aigent.js';
+export type { Aigent, AigentOptions } from './core/aigent-types.js';
 export type { Agent, AgentDefinition, StopOptions, TaskResult, TaskRun, TaskUsage } from './core/agent-types.js';
 export type { AigentEvent, CompactionStage, TaskStatus } from './core/aigent-events.js';
 export type { CompactionPolicy } from './context/compaction-policy.js';
@@ -72,3 +72,7 @@ export type {
   QuestionOption, QuestionType,
 } from './chat/message.js';
 export type { ActivityPhase, ActivityProgress, ActivityToolCall, ActivityUpdate } from './core/activity-update.js';
+export type { AttachmentInput, Chat, ChatAttachmentOptions, ChatOptions, ChatReply, ChatTurn, ReadAttachmentResult, SendInput, SendOptions } from './chat/chat-types.js';
+export type { PatchListener, SubscribeOptions } from './chat/apply-patch.js';
+export type { ActivityOptions } from './core/activity.js';
+export type { RunCallbacks, ThinkingContext, ToolActivityEvent, Unsubscribe } from './core/run-callbacks.js';

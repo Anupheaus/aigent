@@ -4,7 +4,7 @@ import type { ProviderTarget } from '../core/open-turn-stream.js';
 import type { TaskInput } from '../core/task-input.js';
 import type { CompressionRecord } from '../compression/compressor-types.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
-import type { OutcomeSummary, RecordMeta, RunRecord, RunRecordFallback, RuntimeOnlySettings, ToolUse, TraceRecord, TraceStep } from './run-record.js';
+import type { OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RuntimeOnlySettings, ToolUse, TraceRecord, TraceStep } from './run-record.js';
 import type { MeasuredTimings } from './run-timer.js';
 
 /** What identifies the agent on every record. */
@@ -32,6 +32,8 @@ export interface RunFacts {
 
 export interface BuildRunRecordsParams {
   input: TaskInput;
+  /** Default `task`. */
+  mode?: RunMode;
   /** Every compression the run used, when the agent compresses. */
   compression?: CompressionRecord[];
   result: TaskResultData;
@@ -65,14 +67,14 @@ function summariseOutcomes(steps: TraceStep[]): OutcomeSummary {
 }
 
 /** Inner `aigent_multi` calls run inside their parent's time, so only top-level steps add up to tool time. */
-function topLevelToolMs(steps: TraceStep[]): number {
+export function topLevelToolMs(steps: TraceStep[]): number {
   return steps.filter(({ parentCallId }) => parentCallId == null).reduce((total, { durationMs }) => total + durationMs, 0);
 }
 
 function recordMeta(params: BuildRunRecordsParams): RecordMeta {
-  const { input: { scope }, result: { runId, agentName, instanceId }, agent: { agentVersion }, facts: { recordedAt, expiresAt } } = params;
+  const { input: { scope }, mode = 'task', result: { runId, agentName, instanceId }, agent: { agentVersion }, facts: { recordedAt, expiresAt } } = params;
   return {
-    schemaVersion: RUN_RECORD_SCHEMA_VERSION, runId, agentName, instanceId, mode: 'task', agentVersion,
+    schemaVersion: RUN_RECORD_SCHEMA_VERSION, runId, agentName, instanceId, mode, agentVersion,
     ...(scope == null ? {} : { scope }), recordedAt, ...(expiresAt == null ? {} : { expiresAt }),
   };
 }

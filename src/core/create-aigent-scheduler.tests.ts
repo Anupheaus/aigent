@@ -8,7 +8,7 @@ import type { FakeProvider } from '../testing/fake-provider.js';
 import { defineTool } from '../tools/define-tool.js';
 import { createAigentError } from './aigent-error.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { AigentEvent } from './aigent-events.js';
 import type { IdGenerator } from './runtime-services.js';
 

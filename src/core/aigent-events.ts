@@ -1,4 +1,5 @@
 import type { Directive } from '../streaming/directive-parser.js';
+import type { ActivityUpdate } from './activity-update.js';
 import type { ToolActivityView } from '../tools/tool-types.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { Usage } from '../providers/provider-types.js';
@@ -16,6 +17,10 @@ export type CompactionStage = 'stubbed' | 'deduped' | 'summarised';
 export type AigentEvent =
   | { type: 'text-delta'; text: string }
   | { type: 'thinking-delta'; text: string }
+  /** A model turn's streamed reasoning ended; `text` is all of it (emitted only after `thinking-delta` events). */
+  | { type: 'thinking-done'; text: string }
+  /** What the agent is doing now: derived from these events, throttled, with heartbeats; the terminal update comes just before `done`. */
+  | { type: 'activity'; update: ActivityUpdate }
   | { type: 'tool-call'; callId: string; name: string; args: unknown }
   | { type: 'tool-activity'; callId: string; view: ToolActivityView }
   | { type: 'tool-result'; callId: string; envelope: ToolEnvelope }

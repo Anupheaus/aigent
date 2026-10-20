@@ -12,6 +12,7 @@ import type {
   PlanItem, PlanItemState, PlanStatus, StoredPlanItem, StoredTodoItem, TodoItem,
 } from './index.js';
 import type {
+  ActivityOptions, Chat, ChatOptions, ChatReply, ChatTurn, SendInput, SendOptions, ThinkingContext,
   ActivityPhase, ActivityUpdate, Branch, ChatRole, ConversationState, DeliveryMode, JsonValue, Message, MessageKind, Part, Patch, PatchBody, Question, QueuedMessage, Thread,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
@@ -165,5 +166,14 @@ describe('public types', () => {
     const activity: ActivityUpdate = { seq: 1, runId: 'r', phase, statusText: 'Thinking', elapsedMs: 0, tokens: { input: 0, output: 0 }, costUsd: 0, heartbeat: false };
     const state: Pick<ConversationState, 'messages' | 'queue' | 'threads' | 'branches' | 'activity'> = { messages: [message], queue: [queued], threads: [thread], branches: [branch], activity };
     expect({ patch, question, state }).toMatchObject({ patch: { seq: 1 } });
+    const chatOptions: ChatOptions = { sessionId: 's', persistence: 'memory', whileBusy: 'queue' };
+    const activityOptions: ActivityOptions = { throttleMs: 100, heartbeatMs: 1_000 };
+    const sendInput: SendInput = { text: 'hi', attachments: [{ kind: 'file', text: 'notes', name: 'notes.md', mimeType: 'text/markdown' }] };
+    const sendOptions: SendOptions = { delivery: 'steer' };
+    const thinking: ThinkingContext = { runId: 'r', turn: 1 };
+    const replyText = (reply: ChatReply): string => reply.text;
+    const turnId = (turn: ChatTurn): string => turn.messageId;
+    const chatId = (chat: Chat): string => chat.sessionId;
+    expect({ chatOptions, activityOptions, sendInput, sendOptions, thinking, replyText, turnId, chatId }).toMatchObject({ thinking: { turn: 1 } });
   });
 });

@@ -10,7 +10,8 @@ import type { CompressionRecord } from '../compression/compressor-types.js';
 export const RUN_RECORD_SCHEMA_VERSION = 1;
 
 /** How the agent was used. Chat is a later mode; every record says which one wrote it. */
-export type RunMode = 'task';
+/** `task` for `agent.task()`, `chat` for one chat reply (a turn group). */
+export type RunMode = 'task' | 'chat';
 
 /** Who wrote a record and when; carried by every stored telemetry record so any record can be sliced and purged alone. */
 export interface RecordMeta {

@@ -9,7 +9,7 @@ import type { FakeTurn } from '../testing/fake-provider.js';
 import { defineTool } from '../tools/define-tool.js';
 import type { AigentEvent } from './aigent-events.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 import { buildSystemPrompt } from './system-prompt.js';
 

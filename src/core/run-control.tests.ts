@@ -53,4 +53,20 @@ describe('createRunControl', () => {
     stop();
     expect(control.abortController.signal.aborted).toBe(false);
   });
+
+  it('aborts side-effecting tools only on a forced stop or the timeout', () => {
+    vi.useFakeTimers();
+    const plain = createRunControl({});
+    plain.stop();
+    expect(plain.control.abortController.signal.aborted).toBe(true);
+    expect(plain.control.sideEffectSignal.aborted).toBe(false);
+    // A later forced stop still reaches the side-effecting tools.
+    plain.stop({ force: true });
+    expect(plain.control.sideEffectSignal.reason).toBe('the run was stopped with force');
+    const timed = createRunControl({ timeoutMs: TIMEOUT_MS });
+    vi.advanceTimersByTime(TIMEOUT_MS);
+    expect(timed.control.sideEffectSignal.aborted).toBe(true);
+    timed.dispose();
+    plain.dispose();
+  });
 });

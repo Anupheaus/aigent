@@ -24,6 +24,8 @@ export interface CreatePatchLogParams {
   base: ConversationState;
   /** Stored patches to replay (a reopened session). */
   history?: Patch[];
+  /** A stored state at some seq of `history`: only the later patches are folded into it. */
+  snapshot?: ConversationState;
   now(): number;
 }
 
@@ -38,9 +40,10 @@ function notify(params: { listener: PatchListener; patch: Patch }): void {
 }
 
 export function createPatchLog(params: CreatePatchLogParams): PatchLog {
-  const { base, history = [], now } = params;
+  const { base, history = [], snapshot, now } = params;
   const recorded: Patch[] = [...history];
-  let state = history.reduce(reduceConversation, base);
+  // The reducer skips patches at or below the snapshot's seq, so folding the whole history onto it is exact.
+  let state = history.reduce(reduceConversation, snapshot ?? base);
   const listeners = new Set<PatchListener>();
 
   function append(body: PatchBody): Patch {

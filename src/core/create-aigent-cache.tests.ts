@@ -9,7 +9,7 @@ import { defineTool } from '../tools/define-tool.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent } from './aigent-events.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 
 function tickingClock(): Clock {

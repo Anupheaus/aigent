@@ -11,7 +11,7 @@ import { defineTool } from '../tools/define-tool.js';
 import type { AgentDefinition } from './agent-types.js';
 import type { AigentEvent } from './aigent-events.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 
 const PLAN: PlanItem[] = [

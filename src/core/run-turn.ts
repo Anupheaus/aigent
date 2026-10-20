@@ -39,8 +39,17 @@ export interface RunTelemetry {
   feedback: RunFeedback;
 }
 
+/** What a turn has streamed so far; kept by the caller so a cut-short turn can still be recorded. */
+export interface PartialTurn {
+  visible: string;
+  calls: ToolCall[];
+  thinkingBlocks: ThinkingBlock[];
+}
+
 /** Work a turn starts in the background; owned by the caller so it can be drained even when the stream throws. */
 export interface TurnWork {
+  /** Filled as the stream arrives. */
+  partial: PartialTurn;
   executions: Promise<ExecutedToolCall>[];
   activities: Promise<void>[];
   /** Aborted when the turn stops waiting for its activity renderers, so abandoned renderers emit nothing more. */
@@ -58,6 +67,8 @@ export interface RunTurnParams {
   maxToolCalls: number;
   clock: Clock;
   signal: AbortSignal;
+  /** Tools with side effects get this instead of `signal` (see `RunControl.sideEffectSignal`). */
+  sideEffectSignal: AbortSignal;
   /** The run's stored messages; read into the request, never changed here (only its size figures are updated). */
   context: RunContext;
   totals: RunTotals;
@@ -110,11 +121,9 @@ function addUsage(totals: RunTotals, usage: Usage): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit } = params;
+  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit, work: { partial } } = params;
   const parser = createDirectiveParser();
-  const calls: ToolCall[] = [];
-  const thinkingBlocks: ThinkingBlock[] = [];
-  let visible = '';
+  const { calls, thinkingBlocks } = partial;
   let finishReason: FinishReason | undefined;
 
   const { request, estimatedTokens } = buildTurnRequest({
@@ -135,7 +144,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       const event = raced.value.value;
       if (event.type === 'text-delta' || event.type === 'thinking-delta' || event.type === 'tool-call') timer.markFirstToken();
       switch (event.type) {
-        case 'text-delta': visible += emitParsed(parser.push(event.text), params); break;
+        case 'text-delta': partial.visible += emitParsed(parser.push(event.text), params); break;
         case 'thinking-delta': if (showThinking) emit(event); break;
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
@@ -149,6 +158,6 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     if (isAbandoned) stopStream(iterator);
   }
   recordPromptSize({ context, estimatedTokens, ...(reportedTokens == null ? {} : { reportedTokens }) });
-  visible += emitParsed(parser.end(), params);
-  return { visible, calls, thinkingBlocks, finishReason };
+  partial.visible += emitParsed(parser.end(), params);
+  return { visible: partial.visible, calls, thinkingBlocks, finishReason };
 }

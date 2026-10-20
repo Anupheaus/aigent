@@ -1,11 +1,27 @@
 import type { StopOptions } from './agent-types.js';
-import type { AbortReason, RunControl } from './run-task.js';
+
+export type AbortReason = 'user' | 'timeout';
+
+/** Mutable control surface shared between the run and its `stop`/`cancel` handles. */
+export interface RunControl {
+  abortController: AbortController;
+  /**
+   * Given to tools with side effects instead of the run signal: an immediate stop lets them finish so writes are not
+   * left half-done, unless it was forced (`force: true`) or the run hit its `timeoutMs`.
+   */
+  sideEffectSignal: AbortSignal;
+  isGracefulStopRequested(): boolean;
+  /** Why the run was aborted, set before aborting. */
+  abortReason(): AbortReason | undefined;
+}
 
 /** Why the run signal aborted, as `signal.reason`; aborted tools quote it so their error says what really happened. */
 const ABORT_REASON_TEXT: Record<AbortReason, string> = {
   user: 'the run was stopped',
   timeout: 'the run reached its timeoutMs limit',
 };
+
+const FORCED_REASON_TEXT = 'the run was stopped with force';
 
 export interface CreateRunControlParams {
   /** Consumer's signal; aborting it cancels the run. */
@@ -16,7 +32,7 @@ export interface CreateRunControlParams {
 
 export interface RunControlHandle {
   control: RunControl;
-  /** Repeated calls, and calls after `dispose`, are no-ops. */
+  /** Repeated calls, and calls after `dispose`, are no-ops (a later forced stop still aborts side-effecting tools). */
   stop(options?: StopOptions): void;
   /** Clears the timeout timer and detaches from the consumer's signal. Call once the run settles. */
   dispose(): void;
@@ -26,6 +42,7 @@ export interface RunControlHandle {
 export function createRunControl(params: CreateRunControlParams): RunControlHandle {
   const { signal, timeoutMs } = params;
   const abortController = new AbortController();
+  const sideEffectController = new AbortController();
   let isGracefulStopRequested = false;
   let abortReason: AbortReason | undefined;
   let isDisposed = false;
@@ -34,13 +51,16 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
     if (isDisposed || abortController.signal.aborted) return;
     abortReason = reason;
     abortController.abort(ABORT_REASON_TEXT[reason]);
+    // A hard limit leaves nothing running, writes included.
+    if (reason === 'timeout') sideEffectController.abort(ABORT_REASON_TEXT[reason]);
   }
 
   function stop(options: StopOptions = {}): void {
-    const { mode = 'immediate' } = options;
+    const { mode = 'immediate', force = false } = options;
     if (isDisposed) return;
     if (mode === 'graceful') { isGracefulStopRequested = true; return; }
     abortWith('user');
+    if (force && !sideEffectController.signal.aborted) sideEffectController.abort(FORCED_REASON_TEXT);
   }
 
   const onExternalAbort = (): void => abortWith('user');
@@ -56,6 +76,7 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
 
   const control: RunControl = {
     abortController,
+    sideEffectSignal: sideEffectController.signal,
     isGracefulStopRequested: () => isGracefulStopRequested,
     abortReason: () => abortReason,
   };

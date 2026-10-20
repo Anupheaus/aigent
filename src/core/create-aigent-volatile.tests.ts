@@ -6,7 +6,7 @@ import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider
 import { defineTool } from '../tools/define-tool.js';
 import type { AigentEvent } from './aigent-events.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { Clock } from './runtime-services.js';
 
 const TOOL_TURNS = 5;

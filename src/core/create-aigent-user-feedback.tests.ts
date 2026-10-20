@@ -7,7 +7,7 @@ import type { Redact } from '../telemetry/redact.js';
 import type { RunRecord } from '../telemetry/run-record.js';
 import { createFakeProvider, textTurn } from '../testing/fake-provider.js';
 import { createAigent } from './create-aigent.js';
-import type { AigentOptions } from './create-aigent.js';
+import type { AigentOptions } from './aigent-types.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 
 const CONCURRENT_RATINGS = 20;
