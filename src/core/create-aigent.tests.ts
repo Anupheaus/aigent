@@ -93,6 +93,27 @@ describe('agent.task', () => {
     expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
   });
 
+  // A UI shows a row per tool-call; calls that never run still need an activity row saying why.
+  it('emits a tool-activity for calls that are not run: unknown tool, invalid args and limit refusals', async () => {
+    const { agent } = setup({ turns: [
+      toolTurn([
+        { id: 'u1', name: 'nope', args: {} },
+        { id: 'v1', name: 'echo', args: { text: 5 } },
+        { id: 'ok', name: 'echo', args: { text: 'fine' } },
+        { id: 'l1', name: 'echo', args: { text: 'over' } },
+      ]),
+      textTurn('done'),
+    ] });
+    const events = await collect(agent.task({ task: 'x', limits: { maxToolCalls: 3 } }));
+    const activityFor = (callId: string) => events.filter(event => event.type === 'tool-activity' && event.callId === callId);
+    expect(activityFor('u1')).toEqual([{ type: 'tool-activity', callId: 'u1', view: { title: "Call to 'nope' was not run", detail: expect.stringContaining("Unknown tool 'nope'") } }]);
+    expect(activityFor('v1')).toEqual([{ type: 'tool-activity', callId: 'v1', view: { title: "Call to 'echo' was not run", detail: expect.stringContaining('failed validation') } }]);
+    expect(activityFor('l1')).toEqual([{ type: 'tool-activity', callId: 'l1', view: { title: "Call to 'echo' was not run", detail: expect.stringContaining('Tool call limit') } }]);
+    expect(activityFor('ok')).toEqual([{ type: 'tool-activity', callId: 'ok', view: { title: 'Echo fine' } }]);
+    const types = events.filter(event => 'callId' in event && event.callId === 'u1').map(event => event.type);
+    expect(types).toEqual(['tool-call', 'tool-activity', 'tool-result']);
+  });
+
   it('is awaitable and iterable with identical events', async () => {
     const { agent } = setup({ turns: [textTurn('A')] });
     const run = agent.task({ task: 'x' });

@@ -98,10 +98,17 @@ function dispatchToolCall(params: DispatchParams): void {
     emit({ type: 'tool-result', callId, envelope: executed.envelope });
     return executed;
   };
+  // Calls that never run have no renderer, but a UI still needs a row for them saying why.
+  const reportNotRun = (executed: ExecutedToolCall): ExecutedToolCall => {
+    const { envelope } = executed;
+    const detail = envelope.ok ? undefined : envelope.error.message;
+    emit({ type: 'tool-activity', callId, view: { title: `Call to '${name}' was not run`, ...(detail != null ? { detail } : {}) } });
+    return reportResult(executed);
+  };
 
   if (totals.toolCalls >= maxToolCalls) {
     const error = { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit of ${maxToolCalls} reached` } as const;
-    work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportResult));
+    work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportNotRun));
     return;
   }
 
@@ -117,12 +124,15 @@ function dispatchToolCall(params: DispatchParams): void {
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
   const execution = executeToolCall({ registry, call, context, now: () => clock.now() })
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
-  work.executions.push(execution.then(reportResult));
 
   const tool = registry.get(name);
-  if (tool == null) return;
-  const parsed = parseToolArgs(tool.argsSchema, args);
-  if (!parsed.ok) return;
+  const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, args);
+  if (tool == null || parsed == null || !parsed.ok) {
+    // Unknown tool or invalid arguments: executeToolCall refuses it without running anything.
+    work.executions.push(execution.then(reportNotRun));
+    return;
+  }
+  work.executions.push(execution.then(reportResult));
   const outcome = execution.then(executed => executed.outcome);
   work.activities.push(startToolActivity({ tool, args: parsed.value, callId, outcome, signal: work.activityController.signal, emit }));
 }
