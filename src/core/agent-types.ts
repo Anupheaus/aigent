@@ -141,6 +141,11 @@ export type TaskRun = StreamRun<AigentEvent, TaskResult> & RunCallbacks & {
   stop(options?: StopOptions): void;
   /** Alias for `stop({ mode: 'immediate' })`. */
   cancel(): void;
+  /**
+   * Delivers `text` as a user message at the next safe boundary (after the in-flight tool results, before the next model
+   * request), with no extra request. Text that arrives after the last request is not delivered (a `warning` says so).
+   */
+  steer(text: string): void;
 };
 
 export interface Agent {

@@ -59,7 +59,8 @@ export function finishTurn(params: FinishTurnParams): ChatReply {
   const current: Message | undefined = log.state().messages.find(({ id }) => id === messageId);
   const meta = { ...current?.meta, ...replyMeta(params) };
   log.append({ type: 'message-updated', messageId, set: { meta, state: messageState(result.status), completedAt: now() } });
-  if (interruptedBy != null) log.append({ type: 'message-interrupted', messageId, byMessageId: interruptedBy });
+  // Only a reply that really was cut short is marked; one that finished before the interrupt landed stays complete.
+  if (interruptedBy != null && result.status === 'cancelled') log.append({ type: 'message-interrupted', messageId, byMessageId: interruptedBy });
   log.append({ type: 'usage-updated', usage: addUsage({ usage: log.state().usage, result, ...(summary?.costUsd == null ? {} : { costUsd: summary.costUsd }) }) });
   const { answer, responseId, usage, status } = result;
   const reply = { text: answer, responseId, messageId, usage, status };

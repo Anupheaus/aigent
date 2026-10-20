@@ -6,8 +6,11 @@ export interface UserMessageParams {
   text: string;
   branchId: string;
   createdAt: number;
-  /** What the model is sent for it (attachments inlined or summarised). */
-  modelText: string;
+  /**
+   * What the model is sent for it (attachments inlined or summarised). Absent for a steered message: the model saw it
+   * inside the reply's own history.
+   */
+  modelText?: string;
   delivery?: MessageDelivery;
   replyTo?: string;
   threadId?: string;
@@ -19,7 +22,7 @@ export interface UserMessageParams {
 /** A user's message; `meta.history` holds what the model sees for it. */
 export function userMessage(params: UserMessageParams): Message {
   const { id, text, branchId, createdAt, modelText, delivery, replyTo, threadId, compactable = true, attachments, extraParts = [] } = params;
-  const meta: MessageMeta = { history: [{ role: 'user', text: modelText }], ...(attachments == null || attachments.length === 0 ? {} : { attachments }) };
+  const meta: MessageMeta = { ...(modelText == null ? {} : { history: [{ role: 'user', text: modelText }] }), ...(attachments == null || attachments.length === 0 ? {} : { attachments }) };
   return {
     id, seq: 0, role: 'user', kind: 'statement', parts: [{ type: 'text', text }, ...extraParts], branchId, state: 'complete', createdAt, completedAt: createdAt, pinned: false, compactable, meta,
     ...(delivery == null ? {} : { delivery }), ...(replyTo == null ? {} : { replyTo }), ...(threadId == null ? {} : { threadId }),

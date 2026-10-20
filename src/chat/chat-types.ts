@@ -129,6 +129,23 @@ export interface Chat {
   react(messageId: string, rating: 'up' | 'down', comment?: string): Promise<void>;
   /** Answers an open question; an invalid answer leaves it open and says precisely why. Throws while a stored session is loading. */
   answer(questionId: string, value: JsonValue): AnswerResult;
+  /** The queued messages; `edit`, `move` and `remove` work until a message starts (then they throw `invalid_input`). */
+  queue: ChatQueue;
+  /** The thread on a message (or the thread it belongs to). */
+  thread(messageId: string): ChatThread;
+  /** A new session with this one's main line up to `atMessageId` (default: all of it); the two evolve independently. */
+  fork(options?: { atMessageId?: string }): Chat;
+  /** Every branch, each with its parent and branch point: the tree as a list. */
+  branches(): Branch[];
+  /** Makes another branch the one the model sees (only while idle). */
+  selectBranch(branchId: string): void;
+  /** Answers `newText` instead of a user message, on a new branch (the old one is kept). */
+  edit(messageId: string, newText: string): ChatTurn;
+  /** Answers again on a new branch instead of an agent reply (the old one is kept). */
+  regenerate(messageId: string): ChatTurn;
+  /** Keeps the message verbatim through compaction (`pinned`, not compactable). */
+  pin(messageId: string): void;
+  unpin(messageId: string): void;
   /** Lets the running turn finish (a turn waiting for an answer is cancelled; its questions stay open), then flushes writes. */
   close(): Promise<void>;
 }

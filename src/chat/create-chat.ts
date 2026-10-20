@@ -1,15 +1,21 @@
 import { createAigentError } from '../core/aigent-error.js';
+import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { Store } from '../store/store-types.js';
+import { createRecordWriter } from '../telemetry/record-writer.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { PatchLog } from './apply-patch.js';
+import { attachmentSaver, prepareAttachments } from './attachments.js';
 import { createChatEngine } from './chat-engine.js';
 import type { ChatEngine } from './chat-engine.js';
+import { rateReply, reactTo } from './chat-feedback.js';
+import { branchAndRun, forkSeed, selectBranch, setPinned, threadOf } from './chat-navigation.js';
 import type { ResolvedChatOptions } from './chat-options.js';
+import { createSender } from './chat-send.js';
 import { buildSession, openStoredSession } from './chat-session.js';
 import type { OpenSession } from './chat-session.js';
+import { titleSession } from './chat-title.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
 import type { Chat } from './chat-types.js';
-import { createSender } from './chat-send.js';
 import { createEmptyConversation } from './conversation.js';
 import { lineage } from './lineage.js';
 
@@ -22,6 +28,8 @@ export interface CreateChatParams {
   track(work: Promise<unknown>): void;
   /** Lets `ai.close()` close the chat (a turn waiting for an answer would otherwise never settle); returns the unregister. */
   registerCloser(close: () => Promise<void>): () => void;
+  /** A fork's first patches. */
+  seed?(log: PatchLog): void;
 }
 
 /** Everything a chat method needs once its session is loaded. */
@@ -30,56 +38,68 @@ interface Loaded {
   engine: ChatEngine;
 }
 
+function chatSettings(options: ResolvedChatOptions): ChatSettings {
+  const { context, constraints, unattended, modelSettings, signal } = options;
+  return {
+    ...(context == null ? {} : { context }), ...(constraints == null ? {} : { constraints }), ...(unattended == null ? {} : { unattended }),
+    ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
+  };
+}
+
 export function createChat(params: CreateChatParams): Chat {
-  const { runtime, options, persistence, track, registerCloser } = params;
-  const { agent, services: { ids, clock } } = runtime;
+  const { runtime, options, persistence, track, registerCloser, seed } = params;
+  const { agent, services } = runtime;
+  const { ids, clock, writeQueue } = services;
+  const now = (): number => clock.now();
   const sessionId = options.sessionId ?? ids.next('chat');
   const key = { agentName: agent.name, sessionId };
-  const settings: ChatSettings = {
-    ...(options.context == null ? {} : { context: options.context }), ...(options.constraints == null ? {} : { constraints: options.constraints }),
-    ...(options.unattended == null ? {} : { unattended: options.unattended }), ...(options.modelSettings == null ? {} : { modelSettings: options.modelSettings }),
-    ...(options.signal == null ? {} : { signal: options.signal }),
-  };
+  const settings = chatSettings(options);
+  const stored = options.persistence === 'store' ? persistence : undefined;
+  const sideWork = new Set<Promise<void>>();
   let loaded: Loaded | undefined;
-  const load = (session: OpenSession): void => { loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings }) }; };
-  const sessionParams = { key, instanceId: agent.instanceId, clock };
+
+  function afterReply(): void {
+    const log = loaded?.session.log;
+    if (options.autoTitle !== true || log == null || log.state().title != null) return;
+    const titling = titleSession({ log, target: agent.targets[0] }).finally(() => sideWork.delete(titling));
+    sideWork.add(titling);
+  }
+
+  const load = (session: OpenSession): void => { loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings, afterReply, ...(options.onStop == null ? {} : { onStop: options.onStop }) }) }; };
+  const sessionParams = { key, instanceId: agent.instanceId, clock, ...(seed == null ? {} : { seed }) };
   // An in-memory session is ready at once; a stored one is read first (methods wait for it on their own).
-  const ready = options.persistence === 'store' && persistence != null
-    ? openStoredSession({ ...sessionParams, persistence }).then(load)
-    : Promise.resolve(load(buildSession(sessionParams)));
+  const ready = stored != null ? openStoredSession({ ...sessionParams, persistence: stored }).then(load) : Promise.resolve(load(buildSession(sessionParams)));
   track(ready);
 
-  /** Runs `work` now when the session is loaded, else once it is (in call order). */
   function whenLoaded(work: (current: Loaded) => void): void {
     if (loaded != null) { work(loaded); return; }
     void ready.then(() => { if (loaded != null) work(loaded); });
   }
 
-  function log(): PatchLog | undefined {
-    return loaded?.session.log;
-  }
-
-  const send = createSender({ ids, track, whenLoaded: work => whenLoaded(({ session, engine }) => work({ log: session.log, engine })) });
-
   function requireLoaded(): Loaded {
-    if (loaded == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' is still loading; await chat.ready first` });
+    if (loaded == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' is still loading; await chat.ready first`, details: { sessionId } });
     return loaded;
   }
 
-  function requireLog(): PatchLog {
-    const current = log();
-    if (current == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' is still loading; await chat.ready first` });
-    return current;
-  }
+  const requireLog = (): PatchLog => requireLoaded().session.log;
+  const navigation = (): { log: PatchLog; engine: ChatEngine; ids: typeof ids; now: () => number } => ({ log: requireLog(), engine: requireLoaded().engine, ids, now });
+  const save = attachmentSaver({ writer: stored?.writer ?? createRecordWriter({ store: createInMemoryStore(), writeQueue }), queueKey: `chat:${agent.name}:${sessionId}` });
+
+  const send = createSender({
+    ids, track, whenLoaded: work => whenLoaded(({ session, engine }) => work({ log: session.log, engine })),
+    defaults: { delivery: options.whileBusy ?? 'queue', coalesce: options.coalesce ?? false },
+    prepareAttachments: attachments => prepareAttachments({ attachments, options: options.attachments ?? {}, vision: agent.targets[0].provider.capabilities.vision, model: agent.targets[0].reference, save, now }),
+  });
 
   async function close(): Promise<void> {
     await ready;
     if (loaded == null) return;
-    const { engine, session: { log: sessionLog, writer } } = loaded;
+    const { engine, session: { log, writer } } = loaded;
     // A turn waiting for an answer could wait forever: it is cancelled, and its questions stay open (and stored).
-    if (sessionLog.state().status === 'waiting_for_user') engine.stopActive({ mode: 'immediate' });
+    if (log.state().status === 'waiting_for_user') engine.stopActive({ mode: 'immediate' });
     await engine.idle();
-    writer?.snapshot(sessionLog.state());
+    await Promise.all([...sideWork]);
+    writer?.snapshot(log.state());
     await writer?.flush();
   }
 
@@ -88,39 +108,34 @@ export function createChat(params: CreateChatParams): Chat {
     sessionId,
     ready,
     send,
-    conversation: () => log()?.state() ?? createEmptyConversation(key),
+    conversation: () => loaded?.session.log.state() ?? createEmptyConversation(key),
     subscribe: (listener, subscribeOptions) => {
       let unsubscribe: (() => void) | undefined;
       let isActive = true;
       whenLoaded(({ session }) => { if (isActive) unsubscribe = session.log.subscribe(listener, subscribeOptions); });
       return () => { isActive = false; unsubscribe?.(); };
     },
-    history: () => (log() == null ? [] : lineage({ state: requireLog().state() })),
+    history: () => (loaded == null ? [] : lineage({ state: requireLog().state() })),
     setContext: text => { settings.context = text; },
-    feedback: async feedback => {
-      await ready;
-      const latest = [...lineage({ state: requireLog().state() })].reverse().find(({ meta }) => meta.responseId != null)?.meta.responseId;
-      const responseId = feedback.responseId ?? latest;
-      if (responseId == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' has no reply to rate yet`, details: { sessionId } });
-      await runtime.services.submitFeedback({ ...feedback, responseId });
-    },
+    feedback: async feedback => { await ready; await rateReply({ log: requireLog(), submit: services.submitFeedback, feedback }); },
+    react: async (messageId, rating, comment) => { await ready; await reactTo({ log: requireLog(), submit: services.submitFeedback, messageId, rating, ...(comment == null ? {} : { comment }) }); },
     answer: (questionId, value) => {
       const result = requireLoaded().engine.questions.answer({ questionId, value });
       return result.ok ? { ok: true } : { ok: false, error: result.error };
     },
-    react: async (messageId, rating, comment) => {
-      await ready;
-      const sessionLog = requireLog();
-      const message = sessionLog.state().messages.find(({ id }) => id === messageId);
-      const responseId = message?.meta.responseId;
-      if (message == null || responseId == null) {
-        throw createAigentError({ code: 'invalid_input', message: `Cannot react to message '${messageId}' in session '${sessionId}': it is not a finished agent reply`, details: { messageId } });
-      }
-      await runtime.services.submitFeedback({ responseId, rating: rating === 'up' ? 'correct' : 'incorrect', ...(comment == null ? {} : { comment }) });
-      // Read again: the message may have changed while the feedback was stored.
-      const { meta } = sessionLog.state().messages.find(({ id }) => id === messageId) ?? message;
-      sessionLog.append({ type: 'message-updated', messageId, set: { meta: { ...meta, userRating: rating } } });
-    },
+    queue: Object.assign(() => (loaded == null ? [] : requireLoaded().engine.queue.list()), {
+      edit: (id: string, text: string) => requireLoaded().engine.queue.edit(id, text),
+      move: (id: string, toIndex: number) => requireLoaded().engine.queue.move(id, toIndex),
+      remove: (id: string) => requireLoaded().engine.queue.remove(id),
+    }),
+    thread: messageId => threadOf({ ...navigation(), messageId }),
+    fork: (forkOptions = {}) => createChat({ ...params, options: { ...options, sessionId: ids.next('chat') }, seed: forkSeed({ parent: requireLog(), ...(forkOptions.atMessageId == null ? {} : { atMessageId: forkOptions.atMessageId }) }) }),
+    branches: () => requireLog().state().branches,
+    selectBranch: branchId => selectBranch({ log: requireLog(), branchId }),
+    edit: (messageId, newText) => branchAndRun({ ...navigation(), messageId, reason: 'edit', newText }),
+    regenerate: messageId => branchAndRun({ ...navigation(), messageId, reason: 'regenerate' }),
+    pin: messageId => setPinned({ log: requireLog(), messageId, pinned: true }),
+    unpin: messageId => setPinned({ log: requireLog(), messageId, pinned: false }),
     close: () => { unregister(); const closing = close(); track(closing); return closing; },
   };
   return chat;

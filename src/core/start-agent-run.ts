@@ -18,6 +18,7 @@ import { createRunCallbacks } from './run-callbacks.js';
 import type { NewContextMessage } from './run-context.js';
 import { createRunControl } from './run-control.js';
 import { createRunEmitter } from './run-emitter.js';
+import { createSteerInbox } from '../chat/steer-inbox.js';
 import { finishAgentRun, resolveLimits } from './finish-agent-run.js';
 import type { RunSummary } from './finish-agent-run.js';
 import { setUpRunPlanning } from './run-planning-setup.js';
@@ -85,6 +86,9 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const planned = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
   const { planning } = planned;
   const registry = tools.length === 0 ? planned.registry : createToolRegistry([...planned.registry.list(), ...tools]);
+  // Task steering: delivered at the next safe boundary like a chat's; a chat turn brings its own inbox.
+  const taskInbox = createSteerInbox<string>({ toMessage: text => ({ role: 'user', text }) });
+  const steer = conversation?.steer ?? taskInbox;
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;
 
   async function execute(): Promise<void> {
@@ -107,13 +111,16 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           ...(shaping == null ? {} : { shaping }),
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), showThinking: settings.showThinking ?? true, limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
-          ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }), ...(conversation.steer == null ? {} : { steer: conversation.steer }) }),
+          steer,
+          ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),
         });
       } finally {
         dispose();
       }
     })();
     emitter.endThinking();
+    const undelivered = taskInbox.drain().length;
+    if (undelivered > 0) emit({ type: 'warning', message: `${undelivered} steering message(s) arrived after the run's last model request and were not delivered` });
     activity.enter('finishing');
     const result = await finishAgentRun({
       agent, services, input, telemetry, result: resultData, targets: { primary, fallbacks: fallbacks.filter(({ label }) => routing.usedLabels.has(label)), runtimeSettings: settings }, emit,
@@ -131,5 +138,5 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
 
   const thinkingContext = { runId, ...(conversation == null ? {} : { messageId: conversation.messageId }) };
   const callbacks = createRunCallbacks({ run: stream.run, context: () => thinkingContext });
-  return Object.assign(stream.run, { runId, stop, cancel: () => stop({ mode: 'immediate' }), ...callbacks });
+  return Object.assign(stream.run, { runId, stop, cancel: () => stop({ mode: 'immediate' }), steer: (text: string) => taskInbox.push(text), ...callbacks });
 }

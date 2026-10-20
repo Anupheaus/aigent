@@ -27,7 +27,8 @@ function contextKind(params: { message: Message; provider: ProviderMessage }): C
   const { message: { kind }, provider: { role } } = params;
   if (role === 'assistant') return 'assistant';
   if (role === 'tool') return 'tool';
-  if (kind === 'answer' || kind === 'summary') return kind;
+  // A promoted thread's summary is a user note, not the compaction summary (which the context layout places itself).
+  if (kind === 'answer') return kind;
   return 'user';
 }
 
