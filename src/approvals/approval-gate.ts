@@ -9,7 +9,8 @@ import { summariseArgs } from '../telemetry/summarise-args.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool, ToolActivityView, ToolContext } from '../tools/tool-types.js';
 import { decideByRules, needsApproval, ruleFromScope } from './approval-rules.js';
-import type { ApprovalAuditRecord, ApprovalDecision, ApprovalOptions, ApprovalRule } from './approval-types.js';
+import type { AllowAlwaysRules } from './allow-always.js';
+import type { ApprovalAuditRecord, ApprovalDecision, ApprovalOptions } from './approval-types.js';
 import type { AuditTrail } from './audit-trail.js';
 
 /** Whether a call may run, and why not. */
@@ -44,8 +45,8 @@ export interface ApprovalCenter {
 
 export interface CreateApprovalCenterParams {
   rules: ApprovalOptions;
-  /** `allow_always` rules, shared by the runtime's agents. */
-  runtimeRules: ApprovalRule[];
+  /** The runtime's `allow_always` rules (per instance unless a decision widened them). */
+  allowAlways: AllowAlwaysRules;
   audit: AuditTrail;
   clock: Clock;
   agent: { name: string; instanceId: string };
@@ -84,7 +85,8 @@ export function approvalRequestId(params: { runId: string; callId: string }): st
 }
 
 export function createApprovalCenter(params: CreateApprovalCenterParams): ApprovalCenter {
-  const { rules, runtimeRules, audit, clock, agent } = params;
+  const { rules, allowAlways, audit, clock, agent } = params;
+  const owner = { agentName: agent.name, instanceId: agent.instanceId };
   const waiters = new Map<string, Waiter>();
   const restored = new Map<string, PendingApprovalState & { runId: string }>();
   const decided = new Map<string, ApprovalDecision>();
@@ -97,7 +99,7 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
   async function settleDecision(params: { gate: GateParams; requestId: string; decision: ApprovalDecision }): Promise<GateOutcome> {
     const { gate: { call, emit }, requestId, decision: { decision, scope, note } } = params;
     emit({ type: 'approval-decision', requestId, callId: call.id, tool: call.name, decision, by: 'user', ...(note == null ? {} : { note }) });
-    if (decision === 'allow_always') runtimeRules.push(ruleFromScope({ tool: call.name, ...(scope == null ? {} : { scope }) }));
+    if (decision === 'allow_always') allowAlways.add({ rule: ruleFromScope({ tool: call.name, args: call.args, ...(scope == null ? {} : { scope }) }), across: scope?.across ?? 'instance', owner });
     return decision === 'deny' ? { isAllowed: false, error: denied({ tool: call.name, requestId, by: 'user', ...(note == null ? {} : { note }) }) } : { isAllowed: true };
   }
 
@@ -129,9 +131,13 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
     const { runId, call, tool, context, isUnattended, emit, force } = params;
     if (force == null && !needsApproval({ requiresApproval: tool.requiresApproval, args: call.args, context })) return { isAllowed: true };
     const requestId = approvalRequestId({ runId, callId: call.id });
+    // A forced re-ask (a call that may already have had its effect) is never approved by a pre-granted rule: those
+    // never approved a possible duplicate. Deny rules always apply, before any decision given early.
+    const allow = force == null ? [...rules.allow ?? [], ...allowAlways.rulesFor(owner)] : [];
+    const verdict = decideByRules({ tool: call.name, args: call.args, rules: { allow, deny: rules.deny ?? [] } });
     const early = decided.get(requestId);
-    if (early != null) { decided.delete(requestId); return settleDecision({ gate: params, requestId, decision: early }); }
-    const verdict = decideByRules({ tool: call.name, args: call.args, rules: { allow: [...rules.allow ?? [], ...runtimeRules], deny: rules.deny ?? [] } });
+    if (early != null) decided.delete(requestId);
+    if (early != null && verdict !== 'deny') return settleDecision({ gate: params, requestId, decision: early });
     if (verdict !== 'ask' || isUnattended) {
       const by = verdict === 'ask' ? 'policy' : 'rule';
       const isAllowed = verdict === 'allow';
@@ -148,6 +154,8 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
     if (state == null) {
       throw createAigentError({ code: 'invalid_input', message: `No approval request '${requestId}' is pending for agent instance '${agent.instanceId}'`, details: { requestId, pending: [...waiters.keys(), ...restored.keys()] } });
     }
+    // Checked before anything changes, so a refused decision leaves the request pending.
+    if (decision.decision === 'allow_always') ruleFromScope({ tool: state.tool, args: state.args, ...(decision.scope == null ? {} : { scope: decision.scope }) });
     restored.delete(requestId);
     if (waiter == null) decided.set(requestId, decision);
     else { waiters.delete(requestId); waiter.resolve(decision); }

@@ -37,7 +37,7 @@ import { previewPrompt } from './preview.js';
 import { createAgentResume } from '../resume/agent-resume.js';
 import { createApprovalCenter } from '../approvals/approval-gate.js';
 import { createAuditTrail } from '../approvals/audit-trail.js';
-import type { ApprovalRule } from '../approvals/approval-types.js';
+import { createAllowAlwaysRules } from '../approvals/allow-always.js';
 import { createInstanceRuntime } from '../resume/instance-runtime.js';
 import { validateResumeOptions } from '../resume/resume-options.js';
 import { createAigentError } from './aigent-error.js';
@@ -138,14 +138,14 @@ export function createAigent(options: AigentOptions): Aigent {
 
   /** The latest definition given for each agent name, so `restoreAgent` can rebuild an instance. */
   const definitions = new Map<string, AgentDefinition>();
-  /** `allow_always` decisions, shared by the runtime's agents. */
-  const runtimeRules: ApprovalRule[] = [];
+  /** `allow_always` decisions: per agent instance unless a decision widened them. */
+  const allowAlways = createAllowAlwaysRules();
   const audit = createAuditTrail({ ...(writer == null ? {} : { records: writer }), clock });
 
   function agent(definition: AgentDefinition): Agent {
     const base = resolveAgent({ definition, context: agentContext });
     const { name, instanceId, agentVersion } = base;
-    const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, runtimeRules, audit, clock, agent: { name, instanceId } }) };
+    const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
     const restore = createAgentResume({ agent: resolved, services });
     return {

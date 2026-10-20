@@ -1,3 +1,5 @@
+import { createAigentError } from '../core/aigent-error.js';
+import { hashArgs } from '../resume/call-ledger.js';
 import type { ToolContext } from '../tools/tool-types.js';
 import type { ApprovalDecision, ApprovalOptions, ApprovalRule, RequiresApproval } from './approval-types.js';
 
@@ -34,8 +36,17 @@ export function decideByRules(params: { tool: string; args: unknown; rules: Appr
   return 'ask';
 }
 
-/** The rule an `allow_always` decision adds: its scope, else the call's tool with any arguments. */
-export function ruleFromScope(params: { tool: string; scope?: ApprovalDecision['scope'] }): ApprovalRule {
-  const { tool, scope } = params;
-  return { tool: scope?.tool ?? tool, ...(scope?.argsMatch == null ? {} : { argsMatch: scope.argsMatch }) };
+/**
+ * The rule an `allow_always` decision adds: the call's tool with exactly its arguments, unless the scope narrows them
+ * to `argsMatch` or allows any (`anyArgs`). Throws `invalid_input` for a scope that names another tool.
+ */
+export function ruleFromScope(params: { tool: string; args: unknown; scope?: ApprovalDecision['scope'] }): ApprovalRule {
+  const { tool, args, scope } = params;
+  if (scope?.tool != null && scope.tool !== tool) {
+    throw createAigentError({ code: 'invalid_input', message: `An allow_always decision for a '${tool}' call cannot cover tool '${scope.tool}'; it only covers the tool that asked`, details: { tool, scopeTool: scope.tool } });
+  }
+  if (scope?.anyArgs === true) return { tool };
+  if (scope?.argsMatch != null) return { tool, argsMatch: scope.argsMatch };
+  const argsHash = hashArgs(args);
+  return { tool, when: callArgs => hashArgs(callArgs) === argsHash };
 }

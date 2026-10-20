@@ -34,9 +34,21 @@ describe('decideByRules', () => {
     expect(decideByRules({ tool: 'write_file', args, rules: { allow, deny } })).toBe(expected);
   });
 
-  it('builds an allow_always rule scoped to the call tool by default', () => {
-    expect(ruleFromScope({ tool: 'write_file' })).toEqual({ tool: 'write_file' });
-    expect(ruleFromScope({ tool: 'write_file', scope: { argsMatch: { path: 'a' } } })).toEqual({ tool: 'write_file', argsMatch: { path: 'a' } });
-    expect(ruleFromScope({ tool: 'write_file', scope: { tool: '*' } })).toEqual({ tool: '*' });
+  // Replaces a test that locked in the old, too-wide default (any arguments) and allowed scope.tool '*'.
+  it('builds an allow_always rule for the call tool with exactly these arguments by default', () => {
+    const exact = ruleFromScope({ tool: 'write_file', args: { path: 'a', mode: 'w' } });
+    expect(decideByRules({ tool: 'write_file', args: { mode: 'w', path: 'a' }, rules: { allow: [exact] } })).toBe('allow');
+    expect(decideByRules({ tool: 'write_file', args: { path: 'a', mode: 'x' }, rules: { allow: [exact] } })).toBe('ask');
+    expect(decideByRules({ tool: 'read_file', args: { path: 'a', mode: 'w' }, rules: { allow: [exact] } })).toBe('ask');
+    const narrowed = ruleFromScope({ tool: 'write_file', args: { path: 'a' }, scope: { argsMatch: { path: 'a' } } });
+    expect(decideByRules({ tool: 'write_file', args: { path: 'a', mode: 'x' }, rules: { allow: [narrowed] } })).toBe('allow');
+    const any = ruleFromScope({ tool: 'write_file', args: { path: 'a' }, scope: { anyArgs: true } });
+    expect(decideByRules({ tool: 'write_file', args: { path: 'z' }, rules: { allow: [any] } })).toBe('allow');
+  });
+
+  it('refuses an allow_always scope that names another tool', () => {
+    expect(() => ruleFromScope({ tool: 'write_file', args: {}, scope: { tool: '*' } })).toThrow(expect.objectContaining({ code: 'invalid_input' }));
+    expect(() => ruleFromScope({ tool: 'write_file', args: {}, scope: { tool: 'delete_file' } })).toThrow(expect.objectContaining({ code: 'invalid_input' }));
+    expect(ruleFromScope({ tool: 'write_file', args: {}, scope: { tool: 'write_file', anyArgs: true } })).toMatchObject({ tool: 'write_file' });
   });
 });

@@ -32,11 +32,26 @@ export interface ApprovalOptions {
 
 export type ApprovalDecisionKind = 'allow_once' | 'allow_always' | 'deny';
 
+/** Who an `allow_always` rule applies to: this agent instance, every instance of its agent, or every agent of the runtime. */
+export type AllowAlwaysScope = 'instance' | 'agent' | 'runtime';
+
+/** `allow_always`: what the new rule covers. By default: this tool with exactly these arguments, for this agent instance. */
+export interface ApprovalDecisionScope {
+  /** Must be the call's own tool (a rule for another tool, or `*`, is refused with `invalid_input`). */
+  tool?: string;
+  /** Top-level arguments that must be equal, instead of all of them. */
+  argsMatch?: Record<string, string | number | boolean>;
+  /** Any arguments of this tool. */
+  anyArgs?: boolean;
+  /** Default `instance`. Rules are kept in memory only: a restart forgets them. */
+  across?: AllowAlwaysScope;
+}
+
 /** `agent.approve(requestId, decision)`. */
 export interface ApprovalDecision {
   decision: ApprovalDecisionKind;
-  /** `allow_always`: what the new rule covers (default: this tool, any arguments). */
-  scope?: { tool?: string; argsMatch?: Record<string, string | number | boolean> };
+  /** `allow_always`: what the new rule covers (default: this tool, these exact arguments, this agent instance). */
+  scope?: ApprovalDecisionScope;
   note?: string;
 }
 
@@ -65,6 +80,8 @@ export interface ApprovalAuditRecord {
   argsHash: string;
   decision: ApprovalDecisionKind | 'denied_unattended' | 'aborted';
   by: ApprovalDecider;
+  /** This decision's place among the request's decisions (1 first); the record's key is `<requestId>:<sequence>`. */
+  sequence: number;
   /** Epoch ms; also `recordedAt` so `ai.purge` can remove old entries. */
   at: number;
   recordedAt: number;
