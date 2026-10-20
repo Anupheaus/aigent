@@ -76,8 +76,6 @@ export interface QuestionMeta {
   answered: boolean;
   /** The `ask_user` call that asked it. */
   callId: string;
-  /** True once the answer reached the model as that call's result (otherwise it is replayed as user text). */
-  delivered?: boolean;
 }
 
 /** What a UI needs about a message besides its parts; the figures match the run record of the same run. */
