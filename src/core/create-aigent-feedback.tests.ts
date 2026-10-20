@@ -220,6 +220,16 @@ describe('enableFeedback on', () => {
     expect(steps.map(({ outcome }) => outcome?.answer)).toEqual(['a ok', undefined, undefined, undefined]);
   });
 
+  it('rejects at ai.agent() a tool whose own previous argument the loop would strip', () => {
+    const { ai } = setup({ turns: [] });
+    const note = defineTool({
+      name: 'note', description: 'Note', args: z.object({ previous: z.string() }).strict(),
+      deterministic: true, cache: false, describeActivity: () => ({ title: 'Note' }), run: async args => args.previous,
+    });
+    expect(() => ai.agent({ name: 'writer', model: 'fake:m', tools: [note], enableFeedback: true })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining("Tool 'note' of agent 'writer'") }));
+    expect(() => ai.agent({ name: 'writer', model: 'fake:m', tools: [note], enableFeedback: false })).not.toThrow();
+  });
+
   it('tells the model that only top-level calls carry previous', () => {
     expect(FEEDBACK_PROMPT_ADDENDUM).toContain('not calls inside aigent_multi');
   });

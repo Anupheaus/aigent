@@ -180,7 +180,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const instanceId = definition.instanceId ?? ids.next('agent');
     const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
-    const registry = buildAgentRegistry({ tools, now: () => clock.now(), ...(feedbackCollector == null ? {} : { feedbackCollector }) });
+    const registry = buildAgentRegistry({ agentName: name, tools, now: () => clock.now(), ...(feedbackCollector == null ? {} : { feedbackCollector }) });
     const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
     // A fallback's provider layer can differ from the primary's, so each fallback's own effective settings are hashed.
     const fallbacks = fallbackTargets.map(({ reference, providerSettings }) => ({
