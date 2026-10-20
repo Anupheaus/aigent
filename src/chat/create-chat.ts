@@ -20,6 +20,7 @@ import type { ChatRuntime, ChatSettings } from './chat-turn.js';
 import type { Chat } from './chat-types.js';
 import { createEmptyConversation } from './conversation.js';
 import { lineage } from './lineage.js';
+import { memoryOnlyRuntime } from './memory-runtime.js';
 
 export interface CreateChatParams {
   runtime: ChatRuntime;
@@ -49,7 +50,8 @@ function chatSettings(options: ResolvedChatOptions): ChatSettings {
 }
 
 export function createChat(params: CreateChatParams): Chat {
-  const { runtime, options, persistence, track, registerCloser, seed } = params;
+  const { options, persistence, track, registerCloser, seed } = params;
+  const runtime = options.persistence === 'memory' ? memoryOnlyRuntime(params.runtime) : params.runtime;
   const { agent, services } = runtime;
   const { ids, clock, writeQueue } = services;
   const now = (): number => clock.now();

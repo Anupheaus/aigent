@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { defineTool } from '../tools/define-tool.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import { textTurn, toolTurn } from '../testing/fake-provider.js';
 import { RUNS_COLLECTION } from '../telemetry/collections.js';
@@ -95,13 +97,18 @@ describe('agent.chat', () => {
     expect(prefix.slice(0, 4).reduce(reduceConversation, createEmptyConversation({ sessionId: 'session-1', agentName: 'helper' })).seq).toBe(4);
   });
 
-  it("writes nothing with persistence 'memory', and nothing but run records otherwise", async () => {
+  // Replaces a test that only checked collection 'chats', which let run records carrying the user's words through.
+  it("writes nothing at all with persistence 'memory' (no run records, traces, checkpoints or cache entries), and chats otherwise", async () => {
     const store = spyStore();
-    const { agent } = chatSetup({ turns: [textTurn('ok'), textTurn('ok')], store });
+    const lookup = defineTool({ name: 'lookup', description: 'Look up', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: true, describeActivity: () => ({ title: 'Looking up' }), run: async ({ text }) => text });
+    const { agent } = chatSetup({ turns: [toolTurn([{ id: 'c1', name: 'lookup', args: { text: 'secret-marker' } }]), textTurn('ok'), textTurn('ok')], store, runtime: { resume: { lease: { ttlMs: 60_000 } } }, agent: { tools: [lookup] } });
+    // The agent instance's own lease and record (written when it is defined with resume) are not the session's.
+    await agent.ready;
+    store.writes.length = 0;
     const memory = agent.chat({ persistence: 'memory' });
-    await memory.send('hi');
+    await memory.send('secret-marker');
     await memory.close();
-    expect(store.writes.filter(collection => collection === 'chats')).toEqual([]);
+    expect(store.writes).toEqual([]);
     const stored = agent.chat();
     await stored.send('hi');
     await stored.close();
