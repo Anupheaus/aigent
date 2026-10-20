@@ -14,7 +14,7 @@ import type { ResolvedChatOptions } from './chat-options.js';
 import { createSender } from './chat-send.js';
 import { buildSession, openStoredSession } from './chat-session.js';
 import type { OpenSession } from './chat-session.js';
-import { titleSession } from './chat-title.js';
+import { titleRouting, titleSession } from './chat-title.js';
 import { createSuspendedTurns } from './suspended-turns.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
 import type { Chat } from './chat-types.js';
@@ -59,14 +59,16 @@ export function createChat(params: CreateChatParams): Chat {
   const key = { agentName: agent.name, sessionId };
   const settings = chatSettings(options);
   const stored = options.persistence === 'store' ? persistence : undefined;
-  const sideWork = new Set<Promise<void>>();
   let loaded: Loaded | undefined;
+  /** The one title call in flight; close() aborts it rather than waiting for a slow model. */
+  let titling: Promise<void> | undefined;
+  const titleAbort = new AbortController();
 
   function afterReply(): void {
     const log = loaded?.session.log;
-    if (options.autoTitle !== true || log == null || log.state().title != null) return;
-    const titling = titleSession({ log, target: agent.targets[0] }).finally(() => sideWork.delete(titling));
-    sideWork.add(titling);
+    if (options.autoTitle !== true || titling != null || log == null || log.state().title != null) return;
+    const signals = [titleAbort.signal, ...(settings.signal == null ? [] : [settings.signal])];
+    titling = titleSession({ log, routing: titleRouting({ agent, services }), signals }).finally(() => { titling = undefined; });
   }
 
   // With checkpoints, a stored session's suspended turns can be continued after a restart.
@@ -113,7 +115,8 @@ export function createChat(params: CreateChatParams): Chat {
     // A turn waiting for an answer (now or once it asks) could wait forever: it is cancelled, its questions stay open (and stored).
     engine.close();
     await engine.idle();
-    await Promise.all([...sideWork]);
+    titleAbort.abort();
+    await titling;
     if (writer == null) return;
     // Never a snapshot ahead of patches that are not stored: the writer refuses it after a failure.
     writer.snapshot(log.state());
