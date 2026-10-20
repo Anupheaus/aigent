@@ -324,6 +324,16 @@ describe('openAiCompatible streaming', () => {
     expect(events.at(-1)).toEqual({ type: 'done', finishReason });
   });
 
+  // Older Ollama and Gemini-compat servers send `stop` even when the turn called tools.
+  it.each([
+    ['stop', 'tool_calls'],
+    ['content_filter', 'tool_calls'],
+    ['length', 'length'],
+  ])('maps finish_reason %s with tool calls present to %s', async (wireReason, finishReason) => {
+    const events = await streaming(sseBody([toolCallChunk([{ index: 0, id: 'c1', name: 'a', arguments: '{}' }]), finishChunk(wireReason)])).events();
+    expect(events.at(-1)).toEqual({ type: 'done', finishReason });
+  });
+
   it('finishes with tool_calls when [DONE] arrives without a finish_reason but tool calls exist', async () => {
     const events = await streaming(sseBody([toolCallChunk([{ index: 0, id: 'c1', name: 'a', arguments: '{}' }])])).events();
     expect(events.at(-1)).toEqual({ type: 'done', finishReason: 'tool_calls' });
@@ -360,6 +370,8 @@ describe('openAiCompatible streaming', () => {
     const error = await streaming(sseBodyWithoutDone([textChunk('x')])).error();
     expect(error.code).toBe('provider_failed');
     expect(error.message).toContain('stream ended before completion');
+    // A cut-off stream is a dropped connection, so it is worth retrying.
+    expect(error.details).toMatchObject({ retryable: true });
   });
 });
 

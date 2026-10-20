@@ -30,6 +30,8 @@ const DONE_DATA = '[DONE]';
 /** Used when a server omits a call id, so tool results can still be matched to their call. */
 const FALLBACK_CALL_ID_PREFIX = 'call_';
 const ZERO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
+/** Longest slice of a bad payload quoted in an error message. */
+const MAX_QUOTED_PAYLOAD_CHARS = 200;
 /** Wire `finish_reason` → normalised reason; anything else (e.g. `content_filter`) is treated as `stop`. */
 const FINISH_REASONS: ReadonlyMap<string, FinishReason> = new Map<string, FinishReason>([
   ['stop', 'stop'],
@@ -71,9 +73,15 @@ export function createOpenAiStreamState(providerId: string): OpenAiStreamState {
   return { providerId, toolCalls: [], openToolCalls: new Map(), hasSeenDone: false };
 }
 
-function streamError(params: { state: OpenAiStreamState; problem: string }): Error {
-  const { state, problem } = params;
-  return createAigentError({ code: 'provider_failed', message: `Provider '${state.providerId}' ${problem}` });
+interface StreamErrorParams {
+  state: OpenAiStreamState;
+  problem: string;
+  details?: Record<string, unknown>;
+}
+
+function streamError(params: StreamErrorParams): Error {
+  const { state, problem, details } = params;
+  return createAigentError({ code: 'provider_failed', message: `Provider '${state.providerId}' ${problem}`, ...(details == null ? {} : { details }) });
 }
 
 /** Returns the parsed payload, or `undefined` for non-JSON payloads (keep-alives, comments) that are safe to skip. */
@@ -89,11 +97,12 @@ function readChunk(params: { state: OpenAiStreamState; data: string }): OpenAiCh
   const { state, data } = params;
   const payload = parsePayload(data);
   if (payload === undefined) return undefined;
+  const quoted = data.slice(0, MAX_QUOTED_PAYLOAD_CHARS);
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw streamError({ state, problem: `sent a stream payload that is not a JSON object: ${data.slice(0, 200)}` });
+    throw streamError({ state, problem: `sent a stream payload that is not a JSON object: ${quoted}` });
   }
   const parsed = chunkSchema.safeParse(payload);
-  if (!parsed.success) throw streamError({ state, problem: `sent an unexpected chunk shape (${parsed.error.message}): ${data.slice(0, 200)}` });
+  if (!parsed.success) throw streamError({ state, problem: `sent an unexpected chunk shape (${parsed.error.message}): ${quoted}` });
   return parsed.data;
 }
 
@@ -198,10 +207,11 @@ function toToolCall(draft: ToolCallDraft): ToolCall {
   return { id, name, args: parseArguments(raw) };
 }
 
+/** Calls present means the turn wants tools, whatever the server said (some send `stop`); only a cut-off wins. */
 function resolveFinishReason(state: OpenAiStreamState): FinishReason {
   const { finishReason, toolCalls } = state;
-  if (finishReason == null) return toolCalls.length > 0 ? 'tool_calls' : 'stop';
-  return FINISH_REASONS.get(finishReason) ?? 'stop';
+  const mapped = finishReason == null ? 'stop' : FINISH_REASONS.get(finishReason) ?? 'stop';
+  return toolCalls.length > 0 && mapped !== 'length' ? 'tool_calls' : mapped;
 }
 
 /**
@@ -210,7 +220,10 @@ function resolveFinishReason(state: OpenAiStreamState): FinishReason {
  */
 export function finishOpenAiStream(state: OpenAiStreamState): ProviderEvent[] {
   const { finishReason, hasSeenDone, toolCalls, usage = ZERO_USAGE } = state;
-  if (finishReason == null && !hasSeenDone) throw streamError({ state, problem: 'stream ended before completion: no finish_reason or [DONE] received' });
+  if (finishReason == null && !hasSeenDone) {
+    // A cut-off stream is a dropped connection that happened to close cleanly, so retrying is reasonable.
+    throw streamError({ state, problem: 'stream ended before completion: no finish_reason or [DONE] received', details: { retryable: true } });
+  }
   const calls: ProviderEvent[] = [...toolCalls]
     .sort((left, right) => left.index - right.index || left.order - right.order)
     .map(draft => ({ type: 'tool-call', call: toToolCall(draft) }));
