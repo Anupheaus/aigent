@@ -10,6 +10,8 @@ import type { MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-ty
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
 const MAX_ID_LENGTH = 64;
+/** Headroom over the slowest inner tool's timeout, so inner timeouts (not this one) decide which calls failed. */
+const MULTI_TIMEOUT_MARGIN_MS = 1_000;
 
 const multiArgsSchema = z.object({
   calls: z.array(z.object({
@@ -91,6 +93,9 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     });
   }
 
+  // Inner calls run in parallel and each enforces its own timeout, so the slowest inner timeout bounds the whole call.
+  // Without this the 30 s default would cut off slower inner tools and lose every finished result with them.
+  const slowestInnerTimeoutMs = Math.max(0, ...registry.list().map(innerTool => innerTool.timeoutMs));
   const tool = defineTool({
     name: MULTI_TOOL_NAME,
     description: 'Run several tool calls at once. Each call is { id, tool, args }: a unique id, the tool name, and args, the argument object exactly as that tool takes it. Returns one result per call in order; only retry the ones that failed.',
@@ -98,6 +103,7 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     deterministic: false,
     cache: false,
     strictSchema: false,
+    timeoutMs: slowestInnerTimeoutMs + MULTI_TIMEOUT_MARGIN_MS,
     describeActivity: args => ({ title: `Running ${args.calls.length} tool calls`, detail: args.calls.map(call => call.tool).join(', ') }),
     run: async (args, context) => {
       const split = splitContext(context);

@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { defineBatchTool, defineTool } from './define-tool.js';
 import { toolFailure } from './tool-failure.js';
+import { executeToolCall } from './execute-tool-call.js';
 import { createMultiTool } from './multi-tool.js';
 import { createToolRegistry } from './tool-registry.js';
 import type { MultiToolContext, ToolContext } from './tool-types.js';
@@ -121,5 +122,51 @@ describe('aigent_multi', () => {
     const multi = createMultiTool({ registry: createToolRegistry([nested]), now });
     const result = await multi.run({ calls: [{ id: 'a', tool: 'nested', args: { filter: { path: 'src', depth: null } } }] }, CONTEXT);
     expect(result).toEqual([{ id: 'a', tool: 'nested', ok: true, result: { path: 'src' } }]);
+  });
+});
+
+describe('aigent_multi timeouts', () => {
+  const SLOW_TIMEOUT_MS = 120_000;
+  const SLOW_FINISH_MS = 31_000;
+
+  function slowAndFastRegistry() {
+    const slow = defineTool({
+      name: 'slow', description: 's', args: z.object({}).strict(), deterministic: true, cache: false, timeoutMs: SLOW_TIMEOUT_MS,
+      describeActivity: () => ({ title: 's' }), run: () => new Promise(resolve => setTimeout(() => resolve('slow done'), SLOW_FINISH_MS)),
+    });
+    const fast = defineTool({ name: 'fast', description: 'f', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'f' }), run: async () => 'fast done' });
+    const hanging = defineTool({ name: 'hanging', description: 'h', args: z.object({}).strict(), deterministic: true, cache: false, timeoutMs: 50, describeActivity: () => ({ title: 'h' }), run: () => new Promise(() => undefined) });
+    return createToolRegistry([slow, fast, hanging]);
+  }
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('allows at least as long as its slowest inner tool', () => {
+    const multi = createMultiTool({ registry: slowAndFastRegistry(), now });
+    expect(multi.timeoutMs).toBeGreaterThan(SLOW_TIMEOUT_MS);
+  });
+
+  it('does not cut off an inner tool that runs past the 30 s default but within its own timeout', async () => {
+    vi.useFakeTimers();
+    const multi = createMultiTool({ registry: slowAndFastRegistry(), now });
+    const pending = executeToolCall({
+      registry: createToolRegistry([multi]),
+      call: { id: 'm', name: 'aigent_multi', args: { calls: [{ id: 'a', tool: 'slow', args: {} }, { id: 'b', tool: 'fast', args: {} }] } },
+      context: CONTEXT, now,
+    });
+    await vi.advanceTimersByTimeAsync(SLOW_FINISH_MS);
+    expect((await pending).envelope).toEqual({ id: 'm', tool: 'aigent_multi', ok: true, result: [
+      { id: 'a', tool: 'slow', ok: true, result: 'slow done' },
+      { id: 'b', tool: 'fast', ok: true, result: 'fast done' },
+    ] });
+  });
+
+  it('still enforces each inner tool its own timeout without losing the siblings', async () => {
+    const multi = createMultiTool({ registry: slowAndFastRegistry(), now });
+    const result = await multi.run({ calls: [{ id: 'a', tool: 'hanging', args: {} }, { id: 'b', tool: 'fast', args: {} }] }, CONTEXT);
+    expect(result).toEqual([
+      expect.objectContaining({ id: 'a', ok: false, error: expect.objectContaining({ category: 'timeout', code: 'tool_timeout' }) }),
+      { id: 'b', tool: 'fast', ok: true, result: 'fast done' },
+    ]);
   });
 });
