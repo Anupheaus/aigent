@@ -1,4 +1,5 @@
 import type { Shaper } from '../shaper-types.js';
+import { mapCommandOutput } from './command-text.js';
 
 /** CSI sequences (colours, cursor moves) and OSC sequences (window titles) terminals interpret. */
 const ANSI_ESCAPES = /\u001b\[[0-?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
@@ -27,9 +28,9 @@ export const stripNoiseShaper: Shaper = {
   name: 'strip-noise',
   appliesTo: ['command-output'],
   shape: ({ value, context }) => {
-    if (typeof value !== 'string') return undefined;
-    const cleaned = capBlankRuns(value.replace(ANSI_ESCAPES, '').split('\n').map(finalLine)).join('\n');
-    if (cleaned === value) return undefined;
+    // A string result, or the stdout/stderr of structured ones (results marked raw: true are left alone).
+    const cleaned = mapCommandOutput({ value, clean: text => capBlankRuns(text.replace(ANSI_ESCAPES, '').split('\n').map(finalLine)).join('\n') });
+    if (cleaned === undefined) return undefined;
     return { value: cleaned, note: `Terminal noise removed (ANSI escapes, progress overwrites, trailing whitespace, extra blank lines); full output: handle ${context.originalHandle()}` };
   },
 };

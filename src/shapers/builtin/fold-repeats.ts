@@ -1,4 +1,5 @@
 import type { Shaper } from '../shaper-types.js';
+import { mapCommandOutput } from './command-text.js';
 
 /** Identical consecutive lines folded into one. */
 const MIN_REPEATS = 3;
@@ -22,10 +23,9 @@ export const foldRepeatsShaper: Shaper = {
   name: 'fold-repeats',
   appliesTo: ['log', 'command-output'],
   shape: ({ value, context }) => {
-    if (typeof value !== 'string') return undefined;
-    const lines = value.split('\n');
-    const folded = foldLines(lines);
-    if (folded.length === lines.length) return undefined;
-    return { value: folded.join('\n'), note: `Repeated lines folded as "line (xN)"; full output: handle ${context.originalHandle()}` };
+    // A string result, or the stdout/stderr of structured ones (results marked raw: true are left alone).
+    const folded = mapCommandOutput({ value, clean: text => foldLines(text.split('\n')).join('\n') });
+    if (folded === undefined) return undefined;
+    return { value: folded, note: `Repeated lines folded as "line (xN)"; full output: handle ${context.originalHandle()}` };
   },
 };

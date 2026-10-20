@@ -84,5 +84,10 @@ export function createShellPolicy(options: ShellPolicyOptions): ShellPolicy {
     return Object.keys(child).some(name => name.toUpperCase() === 'PATH') ? child : { ...child, PATH: '' };
   }
 
-  return { checkCommand, environment, limits, cwdPolicy, access };
+  function approvalFor(request: { command: string; args: readonly string[] }): boolean {
+    const requiresApproval = commands.find(({ name }) => name === request.command)?.requiresApproval ?? false;
+    return typeof requiresApproval === 'function' ? requiresApproval(request.args) : requiresApproval;
+  }
+
+  return { checkCommand, approvalFor, environment, limits, cwdPolicy, access };
 }

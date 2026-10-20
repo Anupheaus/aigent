@@ -779,6 +779,26 @@ const agent = ai.agent({ name: 'coder', model, tools: fsTools({ policy, backupDi
 - **`regex_extract`** `{ text, pattern, flags?, maxMatches? (≤ 1000) }`: matches with their index, captures and named groups. Patterns are checked first: nested, alternated or adjacent repetition (`(a+)+`, `(a|aa)+`, `\w*\w*`) and back-references are refused (`unsafe_pattern`). That check is a heuristic, not a bound: matching runs in a small pool of worker threads (at most 2, 64 MB heap each) that is terminated at the deadline, so even a pattern that slips through never blocks the process. Text is limited to 1,000,000 characters and matched in chunks of at most 200,000 (cut at line breaks; a match never spans two chunks) under a 2-second budget (`stoppedBy: 'time budget'`, with the matches found before it).
 - **`calc`** `{ expression }`: `+ - * / % ^` (`^` right-associative and tighter than unary minus), parentheses, `min max abs round floor ceil sqrt pow log` and `pi`, `e`, through a small parser: nothing is ever run as code. Arithmetic is double-precision floating point (`0.1 + 0.2` is `0.30000000000000004`). Errors are exact: `division_by_zero`, `not_a_number` (e.g. `sqrt(-1)`, overflow), `unknown_identifier`, `wrong_arity`, `syntax_error` with its position.
 
+### Shell (`@anupheaus/aigent/tools/shell`)
+
+```ts
+import { createFsPolicy } from '@anupheaus/aigent/tools/fs';
+import { createShellPolicy, shellTools } from '@anupheaus/aigent/tools/shell';
+
+const policy = createShellPolicy({
+  commands: [{ name: 'npm', resolvedPath: '/usr/bin/npm', argRules: { allowSubcommands: ['test', 'run'] } }, { name: 'node', requiresApproval: true }],
+  searchDirs: ['/usr/bin'],
+  cwdPolicy: createFsPolicy({ roots: [{ path: '/srv/project', permissions: ['read'] }] }),
+});
+const agent = ai.agent({ name: 'builder', model, tools: shellTools({ policy }) });
+```
+
+- **The policy decides, deny by default.** Without `commands` everything is refused (`no_commands`). The model names a program exactly as configured: a path (`./git`, `/usr/bin/git`), another case (`GIT`) or an extension (`git.exe`) is `command_not_allowed`. The executable is found only through the command's `resolvedPath` or the policy's `searchDirs` (never the parent's `PATH`; on Windows `.exe` and `.com`, never batch files), and with `strictResolve` (the default) its real path after links must still carry the allowed name (`command_mismatch`). Arguments are checked for NUL characters, count (`maxArgs`, default 64), total length, `allowSubcommands` and `denyArgs` (a string matches exactly or as `--opt=...`; a RegExp is tested). The working directory must pass the `cwdPolicy` read check (`cwd_denied`). `allowShell` can only be `false`: nothing ever runs through a shell.
+- **`shell_run`** `{ command, args, cwd?, timeoutMs?, stdin?, raw? }` (up to 5 items, run one at a time in order unless `sequential: false`, then in parallel within `maxConcurrent`) returns `{ command, exitCode, stdout, stderr, truncated, timedOut, durationMs }`. Arguments are passed literally (`;`, `&&`, `|`, backticks, `$()`, redirects and globs are plain text). A non-zero exit is a result, not an error; policy refusals, a timeout (`timeout`) or a stop (`aborted`) are failures. Output over `maxOutputBytes` (default 200,000 per stream) is cut with a marker. Output is `command-output` and `lossy-ok`: the `strip-noise` and `fold-repeats` shapers may clean `stdout`/`stderr` for the model (the original stays under a `result_original` handle); `raw: true` keeps an item byte-faithful.
+- **Processes:** `createNodeProcessRunner()` spawns with `shell: false`, a hidden window and (POSIX) a new process group. On timeout (default 30 s, at most 10 minutes), abort or output overflow the whole tree is killed (`taskkill /T /F` on Windows; SIGTERM, then SIGKILL after 2 s, to the group on POSIX), and processes a finished child left running are killed too, so nothing outlives the call. Inject your own `ProcessRunner` to run elsewhere or in tests.
+- **Environment:** the child gets only allowlisted variables (`env.allow`, default `DEFAULT_ENV_ALLOW`: `PATH`, home, temp, locale and Windows system directories; compared case-insensitively on Windows) plus `env.set`; credentials such as `AWS_*`, `*_TOKEN` and `NPM_TOKEN` never reach it. `PATH` is always set: to `searchDirs` when given (on Windows libuv would otherwise copy the parent's).
+- **Side effects:** `shell_run` has side effects (`risk: 'high'`, `resume: 'ask'`, no undo). A dry run executes nothing and returns the resolved program, argv, working directory and the environment's variable names. `approvals: 'by-policy'` (the default) asks for commands whose `requiresApproval` is true (or whose predicate matches the argv); `'always'` asks for every call. Unattended runs are refused unless an `approvals.allow` rule grants the call.
+
 ### Code intelligence (`@anupheaus/aigent/tools/code`)
 
 ```ts

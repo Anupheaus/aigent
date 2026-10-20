@@ -65,6 +65,8 @@ export type CommandDecision =
 /** The only authority on which programs the shell and git packs may run, with what arguments and where. */
 export interface ShellPolicy {
   checkCommand(request: { command: string; args: readonly string[]; cwd?: string }): Promise<CommandDecision>;
+  /** Whether the allowed command's own rule wants this argv approved (false for unknown commands: they are refused). */
+  approvalFor(request: { command: string; args: readonly string[] }): boolean;
   /** The scrubbed environment every child gets. */
   environment(): Record<string, string>;
   limits: { maxOutputBytes: number; timeoutMs: number; maxConcurrent: number };
