@@ -219,6 +219,7 @@ const scheduler = createScheduler({
 const aigent = createAigent({ providers, scheduler }); // or: scheduler: { limits: { ... } }
 ```
 
+- **Validation:** `maxConcurrent`, `requestsPerMinute` and `tokensPerMinute` must be positive integers and `maxBackgroundWaitMs` a non-negative integer. `createScheduler` (and `createAigent` given options) throws `invalid_definition` naming each bad field and its value, and rejects unknown keys, since a limit of 0 would queue every call forever and a misspelt key would silently mean no limit.
 - **Admission:** a call starts when the key's in-flight count is below `maxConcurrent` and its per-minute budgets have room. It must also not be in a rate-limit pause. The token cost is estimated at admission as the request JSON length / 4 plus `maxOutputTokens` (1024 when unset). It is corrected with the actual usage when the call ends.
 - **Per-minute budgets:** `requestsPerMinute` and `tokensPerMinute` hold in every sliding 60 s window. A spent amount returns exactly 60 s after it was spent. A plain continuously refilling bucket would allow up to twice the limit in one window. A single request larger than the whole token budget is let through only when the window is otherwise empty.
 - **Lanes:** a task's `priority` is `'interactive'` or `'background'`. It defaults to `'background'` for `unattended` tasks and `'interactive'` otherwise. Interactive calls go first. A background call that has waited longer than `maxBackgroundWaitMs` (default 60 s) joins the interactive lane, so it is never starved.

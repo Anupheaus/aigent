@@ -3,6 +3,7 @@ import { createSystemClock, createTimerSleeper } from '../core/runtime-services.
 import { blockFor, chargeAdmission, createKeyState } from './key-state.js';
 import type { AdmissionBlock, KeyState, Waiter } from './key-state.js';
 import { pickNextWaiter } from './pick-next-waiter.js';
+import { parseSchedulerOptions } from './scheduler-options.js';
 import type { Lease, LeaseRequest, ProviderLimits, QueuedInfo, Scheduler, SchedulerOptions, SchedulerSnapshot } from './scheduler-types.js';
 
 const DEFAULT_MAX_BACKGROUND_WAIT_MS = 60_000;
@@ -24,7 +25,7 @@ interface ResolvedLimits {
  * pause allow; queued requests are ordered by lane, then fairly across agents (see `pickNextWaiter`).
  */
 export function createScheduler(options: SchedulerOptions = {}): Scheduler {
-  const { limits = {}, defaultLimits = {}, clock = createSystemClock(), sleep = createTimerSleeper(), maxBackgroundWaitMs = DEFAULT_MAX_BACKGROUND_WAIT_MS } = options;
+  const { limits = {}, defaultLimits = {}, clock = createSystemClock(), sleep = createTimerSleeper(), maxBackgroundWaitMs = DEFAULT_MAX_BACKGROUND_WAIT_MS } = parseSchedulerOptions(options);
   const states = new Map<string, KeyState>();
   let arrivals = 0;
   let admissions = 0;
