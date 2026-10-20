@@ -4,6 +4,8 @@ import type { Guardrail, GuardrailRunContext } from '../guardrail-types.js';
 
 /** Extra turns to fix an invalid structured answer. */
 export const DEFAULT_OUTPUT_RETRIES = 2;
+/** The built-in's name. */
+export const OUTPUT_SCHEMA_NAME = 'output-schema';
 /** The block code of an answer that does not match the task's `output` schema. */
 export const OUTPUT_INVALID_CODE = 'output_invalid';
 
@@ -31,7 +33,7 @@ export function outputSchemaGuardrails(run: GuardrailRunContext): Guardrail[] {
   const { output, outputFormat = 'json' } = run;
   if (output == null) return [];
   return [{
-    name: 'output-schema', stage: 'output',
+    name: OUTPUT_SCHEMA_NAME, stage: 'output',
     check: value => {
       const parsed = parseStructuredOutput({ text: typeof value === 'string' ? value : '', schema: output, format: outputFormat });
       return parsed.ok ? { action: 'allow' } : { action: 'block', code: OUTPUT_INVALID_CODE, reason: parsed.error };

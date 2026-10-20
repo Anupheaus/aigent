@@ -251,7 +251,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     // suspended ask_user turn can be continued with real answers instead of its aborted results.
     if (!isRecorded || (!signal.aborted && !await checkpoint({ boundary: 'turn-complete' }))) break;
     if (turn.calls.length === 0) {
-      const settled = await settleAnswer({ text: turn.visible.trim(), ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: outputRetries, emit });
+      const settled = await settleAnswer({ text: turn.visible.trim(), ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: Math.min(outputRetries, limits.maxTurns - totals.turns), emit });
       // The answer did not match the task's output schema: the model is told why and answers again.
       if (settled.kind === 'retry') { outputRetries -= 1; commit([{ kind: 'user', message: { role: 'user', text: settled.feedback } }]); continue; }
       answer = settled.answer;

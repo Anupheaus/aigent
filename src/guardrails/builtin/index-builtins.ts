@@ -24,7 +24,7 @@ export function defaultGuardrails(params: { builtins?: GuardrailOptions['builtin
     ...(pii == null ? [] : piiGuardrails(pii)),
     ...(injection == null ? [] : injectionGuardrails()),
     ...(scope == null ? [] : scopeGuardrails({ options: scope, run })),
-    ...(loop == null ? [] : loopGuardrails(loop)),
+    ...(loop == null ? [] : loopGuardrails({ ...loop, isStructured: run.output != null })),
     ...(outputSchema == null ? [] : outputSchemaGuardrails(run)),
   ];
 }

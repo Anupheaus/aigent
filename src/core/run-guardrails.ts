@@ -1,5 +1,6 @@
 import { findSecrets, openSecretStart } from '../guardrails/builtin/secrets.js';
 import { defaultGuardrails } from '../guardrails/builtin/index-builtins.js';
+import { OUTPUT_SCHEMA_NAME } from '../guardrails/builtin/output-schema.js';
 import type { GuardrailDecisionRecord, GuardrailOptions, GuardrailRunContext, ToolCallValue, ToolResultValue } from '../guardrails/guardrail-types.js';
 import { createGuardrailPipeline } from '../guardrails/pipeline.js';
 import type { PipelineResult } from '../guardrails/pipeline.js';
@@ -9,6 +10,7 @@ import type { ToolCall } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { AigentEvent } from './aigent-events.js';
+import { errorTextsOf, withErrorTexts } from './guard-error-texts.js';
 
 /** The error code every guardrail block carries in a tool envelope (the guardrail's own code is in `details.code`). */
 export const GUARDRAIL_BLOCKED_CODE = 'guardrail_blocked';
@@ -18,8 +20,11 @@ type Blocked = Extract<PipelineResult, { action: 'block' }>;
 /** A call the guardrails let through (arguments possibly rewritten), or the error that refuses it. */
 export type CallVerdict = { call: ToolCall } | { error: ToolErrorDetail };
 
-/** A final answer after the output guardrails: kept or rewritten, or blocked. */
-export type AnswerVerdict = { answer: string } | { blocked: Blocked };
+/** A final answer after the output guardrails: kept or rewritten, or blocked (with the answer as rewritten before the block). */
+export type AnswerVerdict = { answer: string } | { blocked: Blocked; answer: string };
+
+/** Whether the answer, as the model wrote it, has the task's required structure (`output-schema`). */
+export type StructureVerdict = { ok: true } | { ok: false; reason: string };
 
 /** One run's guardrails: the checks at each fixed point of the loop and every non-allow decision. */
 export interface RunGuardrails {
@@ -31,6 +36,11 @@ export interface RunGuardrails {
   /** The envelope the model will see, after the `toolResult` checks. */
   checkToolResult(executed: ExecutedToolCall): Promise<ExecutedToolCall>;
   checkOutput(answer: string): Promise<AnswerVerdict>;
+  /**
+   * The task's `output` schema over the answer as the model wrote it, before any rewrite: a redaction or other rewrite
+   * never makes a correct answer fail (the model could not fix what it did not do).
+   */
+  checkStructure(answer: string): Promise<StructureVerdict>;
   /** A turn's stream filter (hold-back and `stream` checks); undefined when no `stream` guardrail is on. */
   stream(): StreamHoldback | undefined;
 }
@@ -52,37 +62,18 @@ export function guardrailError(params: { blocked: Blocked; subject: 'call' | 're
   };
 }
 
-/** The parts of a failure that may carry text from outside: what the toolResult checks see of a failed call. */
-interface ErrorTexts {
-  message: string;
-  suggestion?: string;
-  details?: Record<string, unknown>;
-}
-
-function errorTextsOf(error: ToolErrorDetail): ErrorTexts {
-  const { message, suggestion, details } = error;
-  return { message, ...(suggestion == null ? {} : { suggestion }), ...(details == null ? {} : { details }) };
-}
-
-/** The failure with its guarded texts; a check that turned them into one text (a quarantine) makes that the message. */
-function withErrorTexts(params: { error: ToolErrorDetail; guarded: unknown }): ToolErrorDetail {
-  const { error, guarded } = params;
-  const { suggestion: _suggestion, details: _details, ...kept } = error;
-  if (typeof guarded !== 'object' || guarded === null || typeof (guarded as ErrorTexts).message !== 'string') return { ...kept, message: typeof guarded === 'string' ? guarded : JSON.stringify(guarded) };
-  return { ...kept, ...(guarded as ErrorTexts) };
-}
-
 export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuardrails {
   const { options: { builtins = {}, custom = [], failMode = 'closed', timeoutMs }, ids, run, emit } = params;
   const decisions: GuardrailDecisionRecord[] = [];
-  const pipeline = createGuardrailPipeline({
-    builtins: defaultGuardrails({ builtins, run }), custom, failMode, ...(timeoutMs == null ? {} : { timeoutMs }),
-    onDecision: record => {
-      decisions.push(record);
-      emit({ type: 'guardrail', ...record });
-      if (record.action === 'warn' || (record.action === 'error' && record.isBlocking !== true)) emit({ type: 'warning', message: `Guardrail '${record.guardrail}' (${record.stage}): ${record.message}` });
-    },
-  });
+  const onDecision = (record: GuardrailDecisionRecord): void => {
+    decisions.push(record);
+    emit({ type: 'guardrail', ...record });
+    if (record.action === 'warn' || (record.action === 'error' && record.isBlocking !== true)) emit({ type: 'warning', message: `Guardrail '${record.guardrail}' (${record.stage}): ${record.message}` });
+  };
+  const all = defaultGuardrails({ builtins, run });
+  const settings = { failMode, ...(timeoutMs == null ? {} : { timeoutMs }), onDecision };
+  const pipeline = createGuardrailPipeline({ builtins: all.filter(({ name }) => name !== OUTPUT_SCHEMA_NAME), custom, ...settings });
+  const structure = createGuardrailPipeline({ builtins: all.filter(({ name }) => name === OUTPUT_SCHEMA_NAME), ...settings });
   const secrets = builtins.secrets === false ? undefined : builtins.secrets ?? {};
 
   const checkToolCall = (call: ToolCall): CallVerdict | Promise<CallVerdict> => {
@@ -127,7 +118,12 @@ export function createRunGuardrails(params: CreateRunGuardrailsParams): RunGuard
     checkOutput: async answer => {
       if (!pipeline.has('output')) return { answer };
       const result = await pipeline.run({ stage: 'output', value: answer, context: ids });
-      return result.action === 'block' ? { blocked: result } : { answer: String(result.value) };
+      return result.action === 'block' ? { blocked: result, answer: String(result.value) } : { answer: String(result.value) };
+    },
+    checkStructure: async answer => {
+      if (!structure.has('output')) return { ok: true };
+      const result = await structure.run({ stage: 'output', value: answer, context: ids });
+      return result.action === 'block' ? { ok: false, reason: result.reason } : { ok: true };
     },
     stream: () => {
       if (!pipeline.has('stream')) return undefined;

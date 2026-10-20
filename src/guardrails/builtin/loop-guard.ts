@@ -6,9 +6,20 @@ export const DEFAULT_MAX_REPEATS = 3;
 /** Longest final answer before it is truncated. */
 export const DEFAULT_MAX_OUTPUT_CHARS = 200_000;
 
-/** Blocks a call repeated with the same arguments too often in one run, and truncates a runaway answer. One per run. */
-export function loopGuardrails(options: LoopGuardOptions): Guardrail[] {
-  const { maxRepeats = DEFAULT_MAX_REPEATS, maxOutputChars = DEFAULT_MAX_OUTPUT_CHARS } = options;
+/** The block code of a structured answer over `maxOutputChars`. */
+export const OUTPUT_TOO_LONG_CODE = 'output_too_long';
+
+/** The loop guard's options, and whether the run's answer is structured (cutting it would only make it invalid). */
+export interface LoopGuardSettings extends LoopGuardOptions {
+  isStructured?: boolean;
+}
+
+/**
+ * Blocks a call repeated with the same arguments too often in one run, and truncates a runaway answer (a structured
+ * one is blocked instead: truncated JSON can never match its schema). One per run.
+ */
+export function loopGuardrails(options: LoopGuardSettings): Guardrail[] {
+  const { maxRepeats = DEFAULT_MAX_REPEATS, maxOutputChars = DEFAULT_MAX_OUTPUT_CHARS, isStructured = false } = options;
   const counts = new Map<string, number>();
   return [
     {
@@ -28,6 +39,7 @@ export function loopGuardrails(options: LoopGuardOptions): Guardrail[] {
       name: 'loop-guard', stage: 'output',
       check: value => {
         if (typeof value !== 'string' || value.length <= maxOutputChars) return { action: 'allow' };
+        if (isStructured) return { action: 'block', code: OUTPUT_TOO_LONG_CODE, reason: `the structured answer is ${value.length} characters, over maxOutputChars ${maxOutputChars}` };
         return { action: 'rewrite', value: `${value.slice(0, maxOutputChars)}\n[answer truncated at ${maxOutputChars} characters]`, note: `the answer was ${value.length} characters, over maxOutputChars ${maxOutputChars}` };
       },
     },
