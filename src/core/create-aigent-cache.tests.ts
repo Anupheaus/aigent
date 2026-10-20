@@ -124,6 +124,40 @@ describe('createAigent tool-result cache', () => {
     expect(await store.list('toolcache')).toEqual([]);
   });
 
+  it('stamps entries with agentName, runId and recordedAt, so ai.purge removes an agent’s cached results (review I2)', async () => {
+    const store = createInMemoryStore();
+    const { ai, one, two, runs } = setup({ store });
+    const first = await one.task({ task: 'read a' });
+    const [entry] = await store.list<Record<string, unknown>>('toolcache');
+    expect(entry?.value).toMatchObject({ agentName: 'one', runId: first.runId, recordedAt: expect.any(Number) });
+    await ai.purge({ agentName: 'one' });
+    expect(await store.list('toolcache')).toEqual([]);
+    await two.task({ task: 'read a' });
+    expect(runs()).toBe(2);
+  });
+
+  it('applies retention: an entry expires (and is no longer served) expiresInMs after it was recorded (review I2)', async () => {
+    const store = createInMemoryStore();
+    let current = 1_000;
+    const clock: Clock = { now: () => current };
+    const { one, two, runs } = setup({ store, clock, retention: { expiresInMs: 5_000 } });
+    await one.task({ task: 'read a' });
+    const [entry] = await store.list<{ recordedAt: number; expiresAt: number }>('toolcache');
+    expect(entry!.value.expiresAt).toBe(entry!.value.recordedAt + 5_000);
+    current += 5_000;
+    await two.task({ task: 'read a' });
+    expect(runs()).toBe(2);
+  });
+
+  it('keeps the cache out of the consumer store when redact is set, so nothing un-redacted is stored and nothing redacted is served (review I2)', async () => {
+    const store = createInMemoryStore();
+    const { one, two, runs } = setup({ store, redact: record => record });
+    await one.task({ task: 'read a' });
+    await two.task({ task: 'read a' });
+    expect(runs()).toBe(1);
+    expect(await store.list('toolcache')).toEqual([]);
+  });
+
   it('is disabled with cache: false', async () => {
     const store = createInMemoryStore();
     const { one, two, runs } = setup({ store, cache: false });

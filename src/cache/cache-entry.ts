@@ -19,18 +19,30 @@ export interface BuildEntryParams {
   /** True when the lookup already counted its miss on `current`. */
   isMissCounted: boolean;
   now: number;
+  /** Retention: the entry expires this long after `now` at the latest. */
+  expiresInMs?: number;
+}
+
+/** The earlier of the tool's TTL and retention, as an epoch ms; undefined when neither applies. */
+function expiryOf(params: { now: number; cacheTtlMs: number | undefined; expiresInMs: number | undefined }): number | undefined {
+  const { now, cacheTtlMs, expiresInMs } = params;
+  const limits = [cacheTtlMs, expiresInMs].filter((limit): limit is number => limit != null);
+  return limits.length === 0 ? undefined : now + Math.min(...limits);
 }
 
 /** A new entry; statistics carry over from the entry it replaces so invalidations and hits stay cumulative. */
 export function buildEntry(params: BuildEntryParams): CacheEntry {
-  const { current, address: { namespace, validity }, request, isMissCounted, now } = params;
+  const { current, address: { namespace, validity }, request, isMissCounted, now, expiresInMs } = params;
   const { lookup: { tool, context: { agentName, runId } }, value, durationMs, bytes, resultTokens } = request;
   const { cacheTtlMs } = tool;
   const carried = current == null ? firstStats({ agentName, runId, now }) : current.stats;
   const counted = current != null && !isMissCounted ? withMiss(carried, { agentName, isInvalidation: false }) : carried;
+  const expiresAt = expiryOf({ now, cacheTtlMs, expiresInMs });
   return {
     schemaVersion: CACHE_ENTRY_SCHEMA_VERSION, namespace, tool: tool.name, storedAt: now,
-    ...(cacheTtlMs == null ? {} : { expiresAt: now + cacheTtlMs }),
+    // Telemetry record fields, so purge({ agentName, runId, before }) reaches the entries a run stored.
+    agentName, runId, recordedAt: now,
+    ...(expiresAt == null ? {} : { expiresAt }),
     ...(validity == null ? {} : { validity }),
     value, bytes, originalDurationMs: durationMs, resultTokens,
     stats: { ...counted, lastRequestedAt: now },

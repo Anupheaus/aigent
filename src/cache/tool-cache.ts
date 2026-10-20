@@ -21,6 +21,8 @@ export interface CreateToolCacheParams {
   writeQueue: WriteQueue;
   now(): number;
   options?: CacheOptions;
+  /** Retention: entries expire this long after they were recorded, whatever the tool's TTL. */
+  expiresInMs?: number;
 }
 
 /** A lookup that missed and now owns (or merely precedes) the call's store. */
@@ -61,7 +63,7 @@ async function addressOf(request: CacheLookup): Promise<EntryAddress> {
 
 /** Tool-result cache over a store: single-flight lookups, exact statistics, TTL, validity tokens and LRU eviction. */
 export function createToolCache(params: CreateToolCacheParams): ToolCache {
-  const { store, writeQueue, now } = params;
+  const { store, writeQueue, now, expiresInMs } = params;
   const limits = resolveCacheOptions(params.options);
   const flights = createSingleFlight();
   const pending = new WeakMap<CacheLookup, PendingStore>();
@@ -179,7 +181,7 @@ export function createToolCache(params: CreateToolCacheParams): ToolCache {
     try {
       if (request.bytes > limits.maxEntryBytes) { settle?.('abandoned'); return; }
       const copied = { ...request, value: structuredClone(request.value) };
-      const stored = await updateEntry(address.storeKey, current => buildEntry({ current, address, request: copied, isMissCounted, now: now() }));
+      const stored = await updateEntry(address.storeKey, current => buildEntry({ current, address, request: copied, isMissCounted, now: now(), ...(expiresInMs == null ? {} : { expiresInMs }) }));
       index.touch(address.storeKey, { bytes: stored.bytes, lastRequestedAt: stored.stats.lastRequestedAt });
       settle?.('stored');
       await evictOverflow(address.storeKey);

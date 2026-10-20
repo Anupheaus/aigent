@@ -160,7 +160,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
   const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
   const writeQueue = createWriteQueue();
-  const toolCache = resolveToolCache({ cache: options.cache, store, captureContent, writeQueue, clock });
+  const toolCache = resolveToolCache({ cache: options.cache, store, captureContent, isRedacted: redact != null, ...(expiresInMs == null ? {} : { expiresInMs }), writeQueue, clock });
   const volatile = parseVolatileOptions(options.volatile);
   // process is absent outside Node (e.g. edge runtimes); without it no NODE_ENV is set.
   const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';

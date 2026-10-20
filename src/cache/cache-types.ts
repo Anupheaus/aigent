@@ -47,7 +47,13 @@ export interface CacheEntry {
   tool: string;
   /** Epoch ms. */
   storedAt: number;
-  /** Epoch ms after which the entry is not served (the tool's `cacheTtlMs`). */
+  /** The agent whose call stored this value (`purge({ agentName })` removes it). Absent on summary records. */
+  agentName?: string;
+  /** The run whose call stored this value (`purge({ runId })` removes it). Absent on summary records. */
+  runId?: string;
+  /** Epoch ms, equal to `storedAt` (`purge({ before })` and retention use it). Absent on summary records. */
+  recordedAt?: number;
+  /** Epoch ms after which the entry is not served: the earlier of the tool's `cacheTtlMs` and `retention.expiresInMs`. */
   expiresAt?: number;
   /** The tool's validity token when the entry was stored. */
   validity?: string;
