@@ -429,6 +429,12 @@ describe('anthropic errors', () => {
     expect(error.message).not.toContain(API_KEY);
   });
 
+  it('names the server reason from the error body in the message', async () => {
+    const body = '{"type":"error","error":{"type":"not_found_error","message":"model: claude-nope"}}';
+    const error = await harness({ respond: () => ({ status: 404, body }) }).error();
+    expect(error.message).toContain('model: claude-nope');
+  });
+
   it('redacts the key from a streamed error message', async () => {
     const error = await streaming([errorEvent({ errorType: 'authentication_error', message: `invalid x-api-key ${API_KEY}` })]).error();
     expect(error.message).toContain('invalid x-api-key [REDACTED]');

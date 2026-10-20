@@ -376,6 +376,20 @@ describe('openAiCompatible errors', () => {
     expect(error.message).not.toContain(API_KEY);
   });
 
+  it('names the server reason from a JSON error body in the message, redacted', async () => {
+    const body = JSON.stringify({ error: { message: `The model 'gpt-x' does not exist for key ${API_KEY}`, type: 'invalid_request_error' } });
+    const error = await harness({ respond: () => ({ status: 404, body }) }).error();
+    expect(error.message).toContain("The model 'gpt-x' does not exist for key [REDACTED]");
+    expect(error.message).not.toContain(API_KEY);
+  });
+
+  it('accepts a plain string error field as the server reason and ignores non-JSON bodies', async () => {
+    const plain = await harness({ respond: () => ({ status: 400, body: '{"error":"bad model name"}' }) }).error();
+    expect(plain.message).toContain('bad model name');
+    const html = await harness({ respond: () => ({ status: 502, body: '<html>Bad Gateway</html>' }) }).error();
+    expect(html.message).not.toContain('<html>');
+  });
+
   it('redacts secret custom header values from error bodies', async () => {
     const azureKey = 'azure-secret-value-456';
     const error = await harness({
