@@ -8,7 +8,7 @@
 
 - `npm run typecheck` - type-check everything, including tests.
 - `npm test` - run the vitest suite (`src/**/*.tests.ts`).
-- `npm run build` - compile to `dist/` (tests excluded).
+- `npm run build` - clean `dist/` (`scripts/clean.mjs`), then compile to it (tests excluded).
 
 ## Structure
 
