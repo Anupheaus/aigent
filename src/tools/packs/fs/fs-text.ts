@@ -38,29 +38,6 @@ export function decoderFor(encoding: TextEncoding): TextDecoder {
   return new TextDecoder(label, { ignoreBOM: true });
 }
 
-/** Text with its BOM removed and CRLF line ends turned into LF, plus what was there, so it can be written back. */
-export interface NormalisedText {
-  text: string;
-  hasBom: boolean;
-  /** The file's line ending: CRLF when every line end is CRLF, else LF. */
-  eol: '\n' | '\r\n';
-}
-
-export function normaliseText(raw: string): NormalisedText {
-  const hasBom = raw.startsWith('﻿');
-  const body = hasBom ? raw.slice(1) : raw;
-  const crlf = (body.match(/\r\n/g) ?? []).length;
-  const lf = (body.match(/\n/g) ?? []).length;
-  const eol = crlf > 0 && crlf === lf ? '\r\n' : '\n';
-  return { text: eol === '\r\n' ? body.replace(/\r\n/g, '\n') : body, hasBom, eol };
-}
-
-/** Puts back the BOM and line ending a normalised text came from. */
-export function denormaliseText(params: { text: string; hasBom: boolean; eol: '\n' | '\r\n' }): string {
-  const { text, hasBom, eol } = params;
-  return (hasBom ? '﻿' : '') + (eol === '\r\n' ? text.replace(/\r?\n/g, '\r\n') : text);
-}
-
 export function encodeUtf8(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }

@@ -1,5 +1,6 @@
 import type { TextMatcher } from './fs-search-matcher.js';
-import { BINARY_SAMPLE_BYTES, cutLongLine, encodingOf, isBinary, normaliseText } from './fs-text.js';
+import { cutLongLine } from './fs-text.js';
+import { decodeExactly } from './fs-text-codec.js';
 import type { SkipReason } from './fs-walk.js';
 
 /** One match: 1-based line and column, the line's text and, when asked, the lines around it. */
@@ -31,14 +32,12 @@ export interface SearchFileParams {
   room: number;
 }
 
-/** The file's text, or undefined when it is binary or not valid in its encoding (never searched as U+FFFD). */
-function decodeWhole(bytes: Uint8Array): string | undefined {
-  if (isBinary(bytes.subarray(0, BINARY_SAMPLE_BYTES))) return undefined;
-  const { encoding } = encodingOf(bytes);
+/** The file's text as fs_read shows it, or undefined when it is binary or not valid in its encoding (never searched as U+FFFD). */
+function decodeWhole(params: { bytes: Uint8Array; path: string }): string | undefined {
   try {
-    return normaliseText(new TextDecoder(encoding === 'utf-8-bom' ? 'utf-8' : encoding, { fatal: true, ignoreBOM: true }).decode(bytes)).text;
+    return decodeExactly(params).doc.text;
   } catch {
-    // Invalid bytes past the binary sample: treated as binary, like the sample would have been.
+    // Binary, or invalid bytes past the binary sample: skipped as binary, like the sample would have been.
     return undefined;
   }
 }
@@ -58,7 +57,7 @@ export async function searchFile(params: SearchFileParams): Promise<FileMatches 
     // Vanished or unreadable between the listing and the read: reported, never counted as "no matches".
     return { skipped: 'unreadable' };
   }
-  const text = decodeWhole(bytes);
+  const text = decodeWhole({ bytes, path });
   if (text == null) return { skipped: 'binary' };
   const lines = text.split('\n');
   const outcome = await matcher({ texts: lines, keep: room });
