@@ -1,3 +1,7 @@
+import { analyseRequest } from '../analysis/request-efficiency.js';
+import { mineSequences } from '../analysis/sequence-mining.js';
+import { suggestTools } from '../analysis/tool-suggestions.js';
+import { groupSimilarTasks } from '../analysis/trace-group.js';
 import type { RunRecord, RunTrace } from '../telemetry/run-record.js';
 import { buildAgentReport } from './agent-report.js';
 import { compareVersions } from './compare-versions.js';
@@ -45,8 +49,8 @@ export function buildReport(params: BuildReportParams): Report {
     runCount: selected.length,
     agents,
     findings: findFindings({ traces: selected, minRuns, ...(pricing == null ? {} : { pricing }) }),
-    requests: [],
-    toolSuggestions: [],
+    requests: groupSimilarTasks(selected).map(analyseRequest),
+    toolSuggestions: suggestTools(mineSequences(selected), selected),
     cache: emptyCacheFindings(),
     ...(versions == null ? {} : { comparison: compareVersions({ runs: comparisonRuns, versions, ...(pricing == null ? {} : { pricing }) }) }),
   };

@@ -63,7 +63,9 @@ describe('ai.report', () => {
     expect(agentReport?.scores.reliability).toMatchObject({ value: 50 });
     expect(agentReport?.scores.speed.value).not.toBeNull();
     expect(report.findings).toContainEqual(expect.objectContaining({ kind: 'unbatched-repeats', subject: 'read', agentName: 'finder' }));
-    expect(report.requests).toEqual([]);
+    // Similar tasks form one request; with feedback off there are no outcomes, so nothing counts as successful and no
+    // sequence can be mined, but the back-to-back reads still show as unbatched.
+    expect(report.requests).toEqual([expect.objectContaining({ runs: RUNS, successfulRuns: 0, wastedSteps: expect.arrayContaining([{ runId: results[0]?.runId, stepIndex: 1, reason: 'unbatched' }]) })]);
     expect(report.toolSuggestions).toEqual([]);
     expect(report.cache).toEqual({ hottestEntries: [], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] });
   });

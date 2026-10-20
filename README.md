@@ -381,6 +381,19 @@ const report = await ai.report({ agentName: 'writer', since: Date.now() - 86_400
   `guardrail` is reserved for the guardrails slice, and `report.cache` stays empty until the tool-result cache slice.
 - **`compareVersions`** gives `comparison.before` and `comparison.after` (runs, and medians of duration, tokens, turns, tool calls per turn, cost and reliability) and their `deltas` (after minus before). Values are null where a side has no data.
 
+### Request analysis and tool suggestions
+
+The report also looks at what was asked, across runs, without any model calls:
+
+- **`report.requests`** groups runs with similar tasks. Task text is lowercased, punctuation and stopwords are removed, numbers become `#`, and runs are clustered by token-set Jaccard similarity of at least 0.6 to the group's first task. Runs without stored task text (`captureContent: false`) group by `label`, or stand alone. For each group it gives `runs`, `successfulRuns`, `typical` (median tokens, turns and tool calls), `cheapestSuccessful` (`runId`, tokens, turns, tool calls, duration and the tool `path`), `potentialSaving` (typical minus cheapest), and `wastedSteps`. A run is successful when the agent's last reported outcome was a success and no user rated it incorrect, or when a user rated it correct; runs rated incorrect are never the cheapest path. A wasted step is `{ runId, stepIndex, reason }`, where the reason is one of:
+  - `failed-before-success`: the call failed and a later call to the same tool succeeded.
+  - `repeat-call`: the same call already succeeded earlier.
+  - `superseded-search`: a search-like call that a later search replaced.
+  - `unbatched`: the same tool with the same argument keys, called back to back a turn apart.
+- **`report.toolSuggestions`** mines recurring contiguous tool sequences (2 to 5 calls, in at least 3 distinct runs) that end in a step the agent reported as a success. Sequences wholly inside one `aigent_multi` batch and runs rated incorrect are ignored, and a sequence is only kept in its longest form. Each suggestion has a snake_case `name` from its tools (for example `search_then_read`), a `description`, the sequences it `replaces`, `supportingRunIds`, `proposedArgs` (the argument names and types its first call took) and `estimatedSaving` per use. The saving counts the intermediate result tokens, the extra turns and the time before the last call.
+
+Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
+
 ## Stream directives
 
 The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. The system prompt only describes them when [feedback](#agent-feedback-enablefeedback) is on, but they are always parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
@@ -410,6 +423,7 @@ Phase 1 foundation core, implemented in this slice:
 - `enableFeedback`: the `previous` outcome field, `::aigent outcome` linking and the `aigent_feedback` tool
 - User feedback on responses: `ai.feedback` / `result.feedback`, with amendable history and `userVerdict` on the run record
 - Scoring against rolling per-version baselines, findings, version comparison and `ai.report()`
+- Request analysis (similar-task groups, cheapest successful path, wasted steps) and tool suggestions from mined sequences
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
