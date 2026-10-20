@@ -20,7 +20,7 @@ import type { ApprovalCenter } from '../approvals/approval-gate.js';
 import type { InFlightRound } from '../resume/checkpoint-types.js';
 import type { RunCheckpoints } from '../resume/checkpoint-hooks.js';
 import { createRunCheckpointer } from './run-checkpointer.js';
-import { isFenced } from '../resume/lease.js';
+import { watchRunLease } from './run-lease-watch.js';
 import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
 import type { NewContextMessage } from './run-context.js';
 import type { RunControl } from './run-control.js';
@@ -138,23 +138,15 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     onCommit?.(messages.map(({ message }) => message));
   };
   const fail = (error: unknown): void => { status = 'failed'; failure = describeError(error); emit({ type: 'error', message: failure }); };
-  // Another process owns the instance now: the run stops (at once or at the next boundary) and writes nothing more.
-  const lost = params.checkpoints?.lost;
-  const onLost = (): void => {
-    emit({ type: 'warning', message: `The run stopped because ${String(lost?.reason)}` });
-    control.stop({ mode: params.checkpoints?.onLeaseLost ?? 'immediate' });
-  };
-  if (lost?.aborted === true) onLost();
-  else lost?.addEventListener('abort', onLost, { once: true });
-  /** Writes a checkpoint; a write that fails (the store is gone, or another owner took over) fails the run. */
+  const lease = watchRunLease({ ...(params.checkpoints == null ? {} : { checkpoints: params.checkpoints }), control, emit });
+  /** Writes a checkpoint; a failed write fails the run, except a fenced one (the lease is lost: the run stops instead). */
   const checkpoint = async (at: Parameters<typeof checkpointer.at>[0]): Promise<boolean> => {
-    if (lost?.aborted === true) return true;
+    if (lease.isLost()) return true;
     try {
       await checkpointer.at(at);
       return true;
     } catch (error) {
-      // Fenced: another process owns the instance now, which is a lost lease rather than a failure of this run.
-      if (isFenced(error)) { params.checkpoints?.reportLost(error); return true; }
+      if (lease.absorbFenced(error)) return true;
       fail(error);
       abortController.abort(PROVIDER_FAILED_ABORT_REASON);
       return false;
@@ -257,8 +249,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     }
   }
 
-  lost?.removeEventListener('abort', onLost);
-  if (params.checkpoints != null && lost?.aborted !== true) await checkpointer.close(status).catch((error: unknown) => emit({ type: 'warning', message: `The run's final checkpoint was not written: ${describeError(error)}` }));
+  lease.dispose();
+  if (params.checkpoints != null && !lease.isLost()) await checkpointer.close(status).catch((error: unknown) => emit({ type: 'warning', message: `The run's final checkpoint was not written: ${describeError(error)}` }));
   return buildTurnsResult({
     ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, ...(failure == null ? {} : { failure }), ...(output === undefined ? {} : { output }) },
     totals, context, compactor, planning, durationMs: clock.now() - startedAt,
