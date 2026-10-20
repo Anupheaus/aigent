@@ -27,10 +27,13 @@ import { stopStream } from './stop-stream.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import type { RunEffects } from './run-effects.js';
 import type { StreamHoldback } from '../guardrails/stream-holdback.js';
+import type { DelegatedUsage, RunDelegation } from './delegation-types.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
   usage: Usage;
+  /** What delegated sub-runs used; absent until a sub-run finishes. */
+  delegated?: DelegatedUsage;
   turns: number;
   /** Tool calls actually started. */
   toolCalls: number;
@@ -98,6 +101,10 @@ export interface RunTurnParams {
   guardrails?: RunGuardrails;
   /** The run's side effects (dry-run plans). */
   effects?: RunEffects;
+  /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
+  delegation?: RunDelegation;
+  /** Aborts on any stop of the run, graceful included. */
+  stopSignal?: AbortSignal;
   emit(event: AigentEvent): void;
 }
 

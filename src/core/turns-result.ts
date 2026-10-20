@@ -48,6 +48,7 @@ export function buildTurnsResult(params: BuildTurnsResultParams): TaskResultData
       ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs,
       ...(context.peakTokens > 0 ? { contextTokensPeak: context.peakTokens } : {}),
       ...compactionUsage({ compactor, totals }),
+      ...(totals.delegated == null ? {} : { delegated: { ...totals.delegated } }),
     },
   };
   if (failure != null) result.failure = failure;

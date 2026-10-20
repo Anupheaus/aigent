@@ -1,3 +1,4 @@
+import type { RunParent } from '../core/delegation-types.js';
 import type { TaskUsage } from '../core/agent-types.js';
 import type { TaskStatus } from '../core/aigent-events.js';
 import type { ModelSettings } from '../core/model-settings.js';
@@ -212,6 +213,8 @@ export interface RunRecord extends RecordMeta {
   dryRun?: true;
   /** Dry runs: the planned effects (targets, summaries and texts only with content capture on). */
   plannedEffects?: PlannedEffect[];
+  /** A delegated sub-run: the run and `delegate` call it worked for. */
+  parent?: RunParent;
 }
 
 /** One document in the `traces` collection, keyed by run id. */

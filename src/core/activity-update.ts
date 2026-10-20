@@ -13,6 +13,8 @@ export interface ActivityToolCall {
   /** Batch tools: items finished so far, from the tool's activity view. */
   itemsDone?: number;
   itemsTotal?: number;
+  /** A call of a delegated sub-run (its `callId` is `<parentCallId>/<own id>`), rolled up into this run's list. */
+  delegatedTo?: { agentName: string; parentCallId: string };
 }
 
 export interface ActivityProgress {

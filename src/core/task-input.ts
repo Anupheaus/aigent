@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createAigentError } from './aigent-error.js';
 import { describeIssues } from './describe-issues.js';
 import { planSchema } from '../planning/plan-schema.js';
+import { MAX_DELEGATION_DEPTH } from './delegation-types.js';
 import { shapersSettingSchema } from '../shapers/shapers-setting.js';
 import { modelSettingsSchema } from './model-settings.js';
 import type { OnQuestion } from '../chat/task-questions.js';
@@ -49,6 +50,11 @@ export const taskInputSchema = z.object({
   dryRun: z.boolean().optional(),
   /** A user attached to the task: registers `ask_user`, whose questions this answers (not with `unattended`). */
   onQuestion: z.custom<OnQuestion>(value => typeof value === 'function', 'onQuestion must be a function').optional(),
+  /** Set by the `delegate` tool: the run and call this sub-run works for (stored as `RunRecord.parent`). */
+  parent: z.object({
+    agentName: z.string().min(1), instanceId: z.string().min(1), runId: z.string().min(1), callId: z.string().min(1),
+    depth: z.number().int().min(1).max(MAX_DELEGATION_DEPTH),
+  }).strict().optional(),
 }).strict();
 
 export type TaskInput = z.infer<typeof taskInputSchema>;

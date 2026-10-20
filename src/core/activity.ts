@@ -1,6 +1,6 @@
 import type { PlanItemState } from '../planning/plan-schema.js';
 import type { Usage } from '../providers/provider-types.js';
-import { createActivityState, isTerminalPhase, reduceActivity, setPhase, statusText, terminalPhase } from './activity-state.js';
+import { createActivityState, currentCalls, isTerminalPhase, reduceActivity, setPhase, statusText, terminalPhase } from './activity-state.js';
 import type { ActivityState } from './activity-state.js';
 import type { ActivityPhase, ActivityUpdate } from './activity-update.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
@@ -55,7 +55,8 @@ export function createActivityPublisher(params: CreateActivityParams): ActivityP
 
   function snapshot(params: { heartbeat: boolean; now: number }): ActivityUpdate {
     const { heartbeat, now } = params;
-    const { phase, current, tokens, responses, plan: planCount, todo } = state;
+    const { phase, tokens, responses, plan: planCount, todo } = state;
+    const current = currentCalls(state);
     const isTerminal = isTerminalPhase(phase);
     seq += 1;
     return {
@@ -115,7 +116,7 @@ export function createActivityPublisher(params: CreateActivityParams): ActivityP
     finish: status => {
       if (isTerminalPhase(state.phase)) return;
       timers.abort();
-      state = { ...setPhase(state, terminalPhase(status)), current: [] };
+      state = { ...setPhase(state, terminalPhase(status)), current: [], delegated: {} };
       emitNow({ heartbeat: false, now: clock.now() });
     },
   };

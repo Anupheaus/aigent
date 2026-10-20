@@ -34,6 +34,7 @@ const usageSchema = z.object({
   compactions: count.optional(),
   compactionTokens: count.optional(),
   compactionTokensSaved: count.optional(),
+  delegated: z.object({ runs: count, inputTokens: count, outputTokens: count, cachedTokens: count, turns: count, toolCalls: count, costUsd: z.number().nonnegative().optional() }).optional(),
 });
 
 const timingsSchema = z.object({
@@ -84,6 +85,7 @@ export const runRecordSchema = z.object({
   plannedEffects: z.array(z.object({
     tool: z.string(), callId: z.string(), kind: z.string(), target: z.string(), summary: z.string(), before: z.string().optional(), after: z.string().optional(), reversible: z.boolean(),
   })).optional(),
+  parent: z.object({ agentName: z.string(), instanceId: z.string(), runId: z.string(), callId: z.string(), depth: count }).optional(),
 });
 
 export const traceStepSchema = z.object({

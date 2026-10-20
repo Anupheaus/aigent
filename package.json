@@ -36,6 +36,14 @@
     "./tools/fs": {
       "types": "./dist/tools/packs/fs/index.d.ts",
       "import": "./dist/tools/packs/fs/index.js"
+    },
+    "./tools/data": {
+      "types": "./dist/tools/packs/data/index.d.ts",
+      "import": "./dist/tools/packs/data/index.js"
+    },
+    "./tools/meta": {
+      "types": "./dist/tools/packs/meta/index.d.ts",
+      "import": "./dist/tools/packs/meta/index.js"
     }
   },
   "files": [

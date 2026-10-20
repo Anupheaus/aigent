@@ -253,6 +253,8 @@ A run yields these events, in order, ending with `done`:
 | `fallback` | a turn moved to the next fallback model |
 | `planned-effects` | dry runs: what a call would have done (see [Dry runs](#dry-runs)) |
 | `guardrail` | a guardrail rewrote, blocked or warned about something, or its check failed (see [Guardrails](#guardrails)) |
+| `approval-request`, `approval-decision` | a call waits for a person's approval, and how it was decided (see [Human approvals](#human-approvals)) |
+| `delegated` | an event of a sub-run started by a `delegate` call (see [Agents and delegation](#agents-and-delegation-anupheausaigenttoolsmeta)) |
 | `warning` | something was ignored or cut short, such as an unsupported setting or a malformed directive |
 | `error` | the run failed |
 | `done` | the final status and the answer's `responseId`, after the run's records are written |
@@ -763,6 +765,31 @@ const agent = ai.agent({ name: 'coder', model, tools: fsTools({ policy, backupDi
 - **Side effects:** the four mutating tools declare `hasSideEffects`, a `risk`, `resume: 'verify'` (a resumed run checks content hashes, or where things are, before running an interrupted call again), `dryRun` (planned effects with a `+added -removed lines` summary; nothing changes) and undo. With `backupDir`, prior content is backed up and deletes go to a managed trash under it, so `agent.undo` restores writes, edits, moves and deletes; a file changed since is left alone and reported. Without it, overwrites and deletes cannot be undone. `approvals: 'deletes'` (the default) asks before deletes, `'writes'` before every change, `'none'` never (the policy's `approval` can still ask).
 - **`access`:** the disk goes through `FsAccess` (`createNodeFsAccess()` by default); `createMemoryFsAccess({ platform, files })` is a faithful in-memory disk for tests, with posix or Windows path rules.
 - File contents are data: text in a file (instructions, `::aigent` directives) never changes the policy, approvals or the run.
+
+### Data and formats (`@anupheaus/aigent/tools/data`)
+
+`dataTools()` gives five pure batch tools, all `deterministic` and cached in the shared namespace (the same arguments give the same result for every agent):
+
+- **`json_query`** `{ json, query }`: a JSONPath subset over JSON text: `$`, `.key` and `['key']`, `[n]` (negative counts from the end), `*` / `[*]`, `..key`, and filters `[?(@.a.b == 1)]` (`== != < <= > >=` against a number, quoted string, `true`, `false` or `null`) or `[?(@.a)]` (field present). Returns `{ matches, count }` in document order; bad JSON is `invalid_json`, a bad query `invalid_query` with the character it stopped at.
+- **`csv_query`** `{ csv, header?, select?, where?: [{ column, op: 'eq' | 'ne' | 'gt' | 'lt' | 'contains' | 'startsWith', value }], orderBy?: { column, direction? }, limit? (≤ 1000) }` returns `{ columns, rows, totalRows, matchedRows, truncated }`. Parsing follows RFC 4180 (quoted fields with delimiters, doubled quotes and line breaks, CRLF, a BOM); numbers compare as numbers. Its results are `lossy-ok` structured data, so a tabular shaper may shorten them.
+- **`text_diff`** `{ a, b, context? }`: a unified diff (Myers, shortest edit script) with `added`, `removed`, `unchanged` and `identical`.
+- **`regex_extract`** `{ text, pattern, flags?, maxMatches? (≤ 1000) }`: matches with their index, captures and named groups. Patterns are checked first: nested or overlapping repetition (`(a+)+`, `(a|aa)+`) and back-references are refused (`unsafe_pattern`), so catastrophic backtracking is caught before it runs. Text is limited to 1,000,000 characters and matched in chunks of at most 200,000 (cut at line breaks; a match never spans two chunks) under a 2-second budget (`stoppedBy: 'time budget'`).
+- **`calc`** `{ expression }`: `+ - * / % ^` (`^` right-associative and tighter than unary minus), parentheses, `min max abs round floor ceil sqrt pow log` and `pi`, `e`, through a small parser: nothing is ever run as code. Errors are exact: `division_by_zero`, `not_a_number` (e.g. `sqrt(-1)`, overflow), `unknown_identifier`, `wrong_arity`, `syntax_error` with its position.
+
+### Agents and delegation (`@anupheaus/aigent/tools/meta`)
+
+```ts
+import { metaTools } from '@anupheaus/aigent/tools/meta';
+
+ai.agent({ name: 'researcher', model, tools: [search] });
+const lead = ai.agent({ name: 'lead', model, tools: metaTools({ delegateTargets: ['researcher'] }) });
+```
+
+- **`delegate`** `{ agent, task, returnBudgetTokens? }` hands a self-contained task to another agent of the same runtime (the latest `ai.agent` with that name) as a sub-run. Only names in `delegateTargets` are allowed (`agent_not_allowed`); without targets the tool is not registered. The sub-run gets `parent: { agentName, instanceId, runId, callId, depth }` (stored as `RunRecord.parent`), the caller's `unattended` and priority (so it shares the scheduler lanes), and stops with its caller: an immediate stop cancels it, a graceful one stops it at its next boundary. Delegation goes at most 3 levels deep (`depth_limit`).
+- **Result:** `{ agent, runId, status, answer, truncated, usage, errors }`. An answer over `returnBudgetTokens` (default 2,000) is cut with a marker and `fullAnswer: { runId, chars }`, the run whose record holds the whole answer.
+- **Roll-up:** the sub-run's progress arrives as `delegated` events (`{ callId, agentName, runId, event }`: its activity, tool calls and results, approvals, warnings and `done`), and its in-flight calls appear in the caller's activity `current` list right after the `delegate` call, with nested ids (`d1/s1`) and `delegatedTo: { agentName, parentCallId }`. Its usage is added to the caller's `usage.delegated` (`runs`, tokens, turns, tool calls and `costUsd` at its own model's price), not to the caller's own token counts.
+- **Side effects:** `delegate` declares side effects (a sub-agent may change things), so a resumed run asks before running an interrupted delegation again. In a dry run the sub-run is a dry run too and its planned effects become the delegate call's. The sub-run's effects are logged by its own agent: undo them with that agent's `undo({ runId })`. Its approval requests are decided through its own agent's `approve`.
+- `aigent_multi`, `aigent_feedback`, `plan_complete`, `todo`, `ask_user` and `result_original` stay registered by the core.
 
 ## Stream directives
 

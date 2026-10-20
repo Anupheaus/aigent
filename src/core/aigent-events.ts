@@ -54,5 +54,7 @@ export type AigentEvent =
   /** Dry runs: what a call (or the calls inside it) would have done. */
   | { type: 'planned-effects'; callId: string; effects: PlannedEffect[] }
   | { type: 'error'; message: string }
+  /** An event of a sub-run started by this run's `delegate` call `callId` (the sub-run's own `runId`). */
+  | { type: 'delegated'; callId: string; agentName: string; runId: string; event: AigentEvent }
   /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
   | { type: 'done'; status: TaskStatus; responseId: string };

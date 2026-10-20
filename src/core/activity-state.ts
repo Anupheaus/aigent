@@ -19,6 +19,8 @@ export interface ActivityState {
   /** The agent's own `::aigent status` text, until the phase changes. */
   agentStatus?: string;
   current: ActivityToolCall[];
+  /** Calls in flight in delegated sub-runs, by the parent's `delegate` call id. */
+  delegated: Record<string, ActivityToolCall[]>;
   /** Latest activity title per call in flight. */
   titles: Record<string, string>;
   tokens: { input: number; output: number; cached: number };
@@ -39,7 +41,7 @@ function countDone(items: readonly { status: string }[]): DoneCount {
 }
 
 export function createActivityState(plan: readonly PlanItemState[] = []): ActivityState {
-  return { phase: 'thinking', current: [], titles: {}, tokens: { input: 0, output: 0, cached: 0 }, responses: 0, plan: countDone(plan), todo: { done: 0, total: 0 } };
+  return { phase: 'thinking', current: [], delegated: {}, titles: {}, tokens: { input: 0, output: 0, cached: 0 }, responses: 0, plan: countDone(plan), todo: { done: 0, total: 0 } };
 }
 
 /** The terminal phase a run's status maps to. */
@@ -70,7 +72,8 @@ function finishCall(params: { state: ActivityState; callId: string }): ActivityS
   if (!state.current.some(call => call.callId === callId)) return state;
   const current = state.current.filter(call => call.callId !== callId);
   const { [callId]: _finished, ...titles } = state.titles;
-  return { ...withPhase(state, phaseForCalls(current)), current, titles };
+  const { [callId]: _children, ...delegated } = state.delegated;
+  return { ...withPhase(state, phaseForCalls(current)), current, titles, delegated };
 }
 
 function showView(params: { state: ActivityState; callId: string; title: string; progress?: { done: number; total: number } }): ActivityState {
@@ -78,6 +81,19 @@ function showView(params: { state: ActivityState; callId: string; title: string;
   if (!state.current.some(call => call.callId === callId)) return state;
   const current = progress == null ? state.current : state.current.map(call => (call.callId === callId ? { ...call, itemsDone: progress.done, itemsTotal: progress.total } : call));
   return { ...state, current, titles: { ...state.titles, [callId]: title } };
+}
+
+/** A sub-run's activity update replaces its calls in the parent's list (nested ids, marked with the sub-run's agent). */
+function rollUp(params: { state: ActivityState; callId: string; agentName: string; event: AigentEvent }): ActivityState {
+  const { state, callId, agentName, event } = params;
+  if (event.type !== 'activity' || !state.current.some(call => call.callId === callId)) return state;
+  const children = (event.update.current ?? []).map(child => ({ ...child, callId: `${callId}/${child.callId}`, delegatedTo: child.delegatedTo ?? { agentName, parentCallId: callId } }));
+  return { ...state, delegated: { ...state.delegated, [callId]: children } };
+}
+
+/** The calls in flight, each sub-run's calls right after the `delegate` call that started it. */
+export function currentCalls(state: ActivityState): ActivityToolCall[] {
+  return state.current.flatMap(call => [call, ...state.delegated[call.callId] ?? []]);
 }
 
 /** The state after one loop event; unrelated events return `state` itself. */
@@ -93,6 +109,7 @@ export function reduceActivity(state: ActivityState, params: { event: AigentEven
     case 'directive': return event.directive.type === 'status' ? { ...state, agentStatus: event.directive.data.text } : state;
     case 'plan-update': return { ...state, plan: countDone(event.items) };
     case 'todo-update': return { ...state, todo: countDone(event.items) };
+    case 'delegated': return rollUp({ state, callId: event.callId, agentName: event.agentName, event: event.event });
     case 'usage': {
       const { inputTokens, outputTokens, cachedTokens } = event.usage;
       const { tokens } = state;

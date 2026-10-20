@@ -3,6 +3,7 @@ import type { ContentKind, Fidelity } from '../shapers/shaper-types.js';
 import type { JsonSchema } from '../providers/provider-types.js';
 import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types.js';
 import type { ExecutedToolCall } from './execute-tool-call.js';
+import type { DelegationContext } from '../core/delegation-types.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { DryRunOutput, PlannedEffect } from '../effects/planned-effects.js';
 import type { CapturedEffect, UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-types.js';
@@ -22,6 +23,8 @@ export interface ToolContext {
   idempotencyKey?: string;
   /** A dry run: a tool with side effects is asked for `dryRun` instead of `run`, and must change nothing. */
   dryRun?: boolean;
+  /** Only for tools that declare `startsSubRuns` (the `delegate` tool): how to start linked sub-runs. */
+  delegation?: DelegationContext;
 }
 
 /** How a resumed run treats a call that had started but not finished when the run was interrupted. */
@@ -166,4 +169,6 @@ export interface Tool {
   applyUndo?(descriptor: UndoDescriptor, context: UndoContext): Promise<UndoOutcome>;
   /** Effects recorded inside a result (the calls inside an `aigent_multi` result). */
   capturedEffects?(result: unknown): CapturedEffect[];
+  /** The tool starts sub-runs of other agents (`delegate`): its context then carries `delegation`. */
+  startsSubRuns?: boolean;
 }

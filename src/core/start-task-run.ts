@@ -1,3 +1,4 @@
+import type { StartSubRun } from './delegation-types.js';
 import type { ToolCache } from '../cache/cache-types.js';
 import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import type { Provider } from '../providers/provider-types.js';
@@ -108,6 +109,8 @@ export interface RuntimeServices {
   guardrails: GuardrailOptions;
   /** The effect log behind `agent.undo` (absent: effects are not recorded). */
   effects?: EffectLog;
+  /** Starts a run of another agent of this runtime, for the `delegate` tool. */
+  startSubRun?: StartSubRun;
 }
 
 export interface StartTaskRunParams {

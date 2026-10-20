@@ -83,7 +83,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task, dryRun }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression } = params;
+  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -96,6 +96,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(runtime == null ? {} : { runtimeSettings: runtime }),
     ...(fallbacks.length === 0 ? {} : { fallbacks: fallbacks.map(target => ({ model: target.label, ...sentSettings(target) })) }),
     unattended, status, usage,
+    ...(parent == null ? {} : { parent }),
     timings: { ...timings, durationMs: usage.durationMs, toolMs: topLevelToolMs(steps) },
     stepCount: steps.length,
     failureCount: errors.length,

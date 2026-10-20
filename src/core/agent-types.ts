@@ -10,6 +10,7 @@ import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
 import type { UndoReport, UndoTarget } from '../effects/undo-types.js';
+import type { DelegatedUsage } from './delegation-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
@@ -97,6 +98,8 @@ export interface TaskUsage extends Usage {
   compactionTokens?: number;
   /** Estimated prompt tokens removed by the run's compactions. */
   compactionTokensSaved?: number;
+  /** What the sub-runs this run delegated to used (not included in the counts above); absent when it delegated nothing. */
+  delegated?: DelegatedUsage;
 }
 
 export interface TaskResult {

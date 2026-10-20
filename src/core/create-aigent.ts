@@ -38,6 +38,9 @@ import { createAgentResume } from '../resume/agent-resume.js';
 import { createApprovalCenter } from '../approvals/approval-gate.js';
 import { createAuditTrail } from '../approvals/audit-trail.js';
 import { createAllowAlwaysRules } from '../approvals/allow-always.js';
+import { costOfUsage } from '../scoring/pricing.js';
+import type { StartedSubRun } from './delegation-types.js';
+import type { TaskInput } from './task-input.js';
 import { createInstanceRuntime } from '../resume/instance-runtime.js';
 import { validateResumeOptions } from '../resume/resume-options.js';
 import { createAigentError } from './aigent-error.js';
@@ -93,6 +96,7 @@ export function createAigent(options: AigentOptions): Aigent {
     ...(resume == null ? {} : { resume }),
     guardrails: parseGuardrailOptions(options.guardrails),
     effects: effectLog,
+    startSubRun: request => startSubRun(request),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -138,6 +142,16 @@ export function createAigent(options: AigentOptions): Aigent {
 
   /** The latest definition given for each agent name, so `restoreAgent` can rebuild an instance. */
   const definitions = new Map<string, AgentDefinition>();
+  /** The latest agent created for each name, which `delegate` sub-runs run on. */
+  const agentsByName = new Map<string, { agent: Agent; model: string }>();
+
+  /** A sub-run of the named agent (for the `delegate` tool), priced at that agent's own model. */
+  function startSubRun(request: { agentName: string; input: TaskInput }): StartedSubRun | undefined {
+    const { agentName, input } = request;
+    const entry = agentsByName.get(agentName);
+    if (entry == null) return undefined;
+    return { run: entry.agent.task(input), price: usage => costOfUsage({ model: entry.model, usage, ...(pricing == null ? {} : { pricing }) }) ?? undefined };
+  }
   /** `allow_always` decisions: per agent instance unless a decision widened them. */
   const allowAlways = createAllowAlwaysRules();
   const audit = createAuditTrail({ ...(writer == null ? {} : { records: writer }), clock });
@@ -156,7 +170,7 @@ export function createAigent(options: AigentOptions): Aigent {
       void settled.then(() => agentWork.delete(settled));
       return track(run);
     };
-    return {
+    const created: Agent = {
       name,
       instanceId,
       agentVersion,
@@ -176,6 +190,8 @@ export function createAigent(options: AigentOptions): Aigent {
         ...(store == null || writer == null ? {} : { persistence: { store, writer } }),
       }),
     };
+    agentsByName.set(name, { agent: created, model: resolved.targets[0].reference });
+    return created;
   }
 
   async function restoreAgent(instanceId: string): Promise<Agent> {

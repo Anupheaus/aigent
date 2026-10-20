@@ -36,6 +36,7 @@ import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import { settleAnswer } from './settle-answer.js';
 import type { RunEffects } from './run-effects.js';
+import type { RunDelegation } from './delegation-types.js';
 
 /** Supplies messages that arrived while the run was busy; read at each safe boundary (before a model request). */
 export interface SteerSource {
@@ -87,6 +88,8 @@ export interface RunAgentTurnsParams {
   inputBlocked?: string;
   /** The run's side effects (dry-run plans). */
   effects?: RunEffects;
+  /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
+  delegation?: RunDelegation;
   emit(event: AigentEvent): void;
 }
 
@@ -206,6 +209,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
         ...(shaping == null ? {} : { shaping }),
         ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }),
         ...(params.effects == null ? {} : { effects: params.effects }),
+        ...(params.delegation == null ? {} : { delegation: params.delegation }), stopSignal: control.stopSignal,
       });
       endTurn();
     } catch (error) {

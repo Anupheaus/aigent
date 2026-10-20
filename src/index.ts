@@ -8,6 +8,7 @@ export type {
 } from './compression/compressor-types.js';
 export type { CompressionEvalReport, CompressionEvalResult, CompressionEvalSide, EvalCompressionParams } from './compression/eval-compression.js';
 export type { TaskInput, TaskLimits } from './core/task-input.js';
+export type { DelegatedUsage, RunParent } from './core/delegation-types.js';
 export type { ModelSettings } from './core/model-settings.js';
 export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';
 export type {

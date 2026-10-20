@@ -14,6 +14,7 @@ import { idempotencyKeyOf, innerLedgerId } from '../resume/call-ledger.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { runDispatchedCall } from './run-dispatched-call.js';
+import { delegationFor } from './delegation-context.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
 
 /**
@@ -69,7 +70,9 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
     const finish = recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args });
     const ledgerId = innerLedgerId({ parentCallId, innerId: id });
     const toolSignal = registry.get(tool)?.hasSideEffects === true ? sideEffectSignal : signal;
-    const innerContext: ToolContext = { ...context, callId: id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? turn.runId, callId: ledgerId }) };
+    const delegation = registry.get(tool)?.startsSubRuns === true ? delegationFor({ turn, callId: ledgerId }) : undefined;
+    const { delegation: _wrapperDelegation, ...wrapperContext } = context;
+    const innerContext: ToolContext = { ...wrapperContext, callId: id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? turn.runId, callId: ledgerId }), ...(delegation == null ? {} : { delegation }) };
     const executed = tool === MULTI_TOOL_NAME
       ? rejectToolCall({ call, error: nestedMultiError() })
       : await runDispatchedCall({ call, turn, context: innerContext, ledgerId, parentCallId, isCommentary: COMMENTARY_TOOLS.has(tool), isLedgered: true, reserve: () => reserveToolCall({ totals, maxToolCalls }) });
@@ -120,7 +123,11 @@ export function dispatchToolCall(params: DispatchParams): void {
 
   // Side-effecting tools outlive an unforced immediate stop, so a write is never left half-done.
   const toolSignal = registry.get(name)?.hasSideEffects === true ? turn.sideEffectSignal : signal;
-  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? runId, callId }), ...(effects?.dryRun === true ? { dryRun: true } : {}) };
+  const delegation = registry.get(name)?.startsSubRuns === true ? delegationFor({ turn, callId }) : undefined;
+  const baseContext: ToolContext = {
+    agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? runId, callId }),
+    ...(effects?.dryRun === true ? { dryRun: true } : {}), ...(delegation == null ? {} : { delegation }),
+  };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
