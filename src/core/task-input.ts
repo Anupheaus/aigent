@@ -28,9 +28,30 @@ export const taskInputSchema = z.object({
 export type TaskInput = z.infer<typeof taskInputSchema>;
 export type TaskLimits = z.infer<typeof limitsSchema>;
 
+function describeIssues(error: z.ZodError): string {
+  return error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
+}
+
+export interface ParseAgentLimitsParams {
+  agentName: string;
+  limits: unknown;
+}
+
+/** Validates an agent definition's default limits with the same rules as task limits; throws `invalid_definition`. */
+export function parseAgentLimits(params: ParseAgentLimitsParams): TaskLimits | undefined {
+  const { agentName, limits } = params;
+  if (limits === undefined) return undefined;
+  const result = limitsSchema.safeParse(limits);
+  if (result.success) return result.data;
+  throw createAigentError({
+    code: 'invalid_definition',
+    message: `Agent '${agentName}' has invalid limits (each must be a positive integer; allowed keys: maxTurns, maxToolCalls, timeoutMs): ${describeIssues(result.error)}`,
+    details: { agentName, issues: result.error.issues.length },
+  });
+}
+
 export function parseTaskInput(raw: unknown): TaskInput {
   const result = taskInputSchema.safeParse(raw);
   if (result.success) return result.data;
-  const problems = result.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
-  throw createAigentError({ code: 'invalid_input', message: `Invalid task input: ${problems}`, details: { issues: result.error.issues.length } });
+  throw createAigentError({ code: 'invalid_input', message: `Invalid task input: ${describeIssues(result.error)}`, details: { issues: result.error.issues.length } });
 }

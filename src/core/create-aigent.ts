@@ -9,7 +9,7 @@ import { createSystemClock, createUuidGenerator } from './runtime-services.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 import { startTaskRun } from './start-task-run.js';
 import type { RuntimeServices } from './start-task-run.js';
-import { parseTaskInput } from './task-input.js';
+import { parseAgentLimits, parseTaskInput } from './task-input.js';
 
 export interface AigentOptions {
   /** Every provider agents may use; ids must be unique. */
@@ -87,8 +87,9 @@ export function createAigent(options: AigentOptions): Aigent {
   }
 
   function agent(definition: AgentDefinition): Agent {
-    const { name, persona, skillset, context, tools = [], limits } = definition;
+    const { name, persona, skillset, context, tools = [] } = definition;
     if (name === '') throw createAigentError({ code: 'invalid_definition', message: 'Agent name must be a non-empty string' });
+    const limits = parseAgentLimits({ agentName: name, limits: definition.limits });
     const { providerId, model } = parseModelReference(definition.model);
     const provider = resolveProvider(providerId);
     const instanceId = definition.instanceId ?? ids.next('agent');

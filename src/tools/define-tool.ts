@@ -40,13 +40,18 @@ function invalid(toolName: string, message: string): never {
 }
 
 function validateBase(input: ToolBaseInput & { describeActivity: unknown }): void {
-  const { name, deterministic, cache, cacheTtlMs, hasSideEffects, describeActivity } = input;
+  const { name, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
   if (typeof deterministic !== 'boolean') invalid(name, 'deterministic must be declared explicitly (true or false)');
   if (typeof cache !== 'boolean') invalid(name, 'cache must be declared explicitly (true or false)');
   if (typeof describeActivity !== 'function') invalid(name, 'describeActivity is required so the UI can render each call');
   if (hasSideEffects === true && (cache || deterministic)) invalid(name, 'a tool with side effects cannot be cached or deterministic');
   if (cache && !deterministic && (cacheTtlMs == null || cacheTtlMs <= 0)) invalid(name, 'a cached non-deterministic tool needs a positive cacheTtlMs');
+  if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
+}
+
+function isPositiveInteger(value: unknown): boolean {
+  return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
@@ -89,6 +94,8 @@ function batchFailures(result: unknown): ToolErrorDetail[] {
 
 export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
   const { item, maxItems, runItem, describeActivity, ...base } = input;
+  // An array schema with min 1 and max below 1 could never be satisfied.
+  if (!isPositiveInteger(maxItems)) invalid(base.name, `maxItems must be a positive integer, got ${String(maxItems)}`);
   const argsSchema = z.object({ items: z.array(item).min(1).max(maxItems) }).strict();
   const tool = defineTool({
     ...base,

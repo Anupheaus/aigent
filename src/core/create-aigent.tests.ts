@@ -198,6 +198,25 @@ describe('agent.task', () => {
     expect(await store.list('runs')).toEqual([]);
   });
 
+  it.each([
+    ['maxTurns', { maxTurns: 0 }],
+    ['maxToolCalls', { maxToolCalls: -1 }],
+    ['timeoutMs', { timeoutMs: -10 }],
+    ['timeoutMs', { timeoutMs: 1.5 }],
+  ])('rejects invalid agent limits (%s) at definition time with invalid_definition', (field, limits) => {
+    const { ai } = setup({ turns: [] });
+    expect(() => ai.agent({ name: 'limited', model: 'fake:m', limits })).toThrow(expect.objectContaining({
+      code: 'invalid_definition',
+      message: expect.stringMatching(new RegExp(`Agent 'limited'.*limits.*${field}`)),
+    }));
+  });
+
+  it('rejects unknown agent limit keys', () => {
+    const { ai } = setup({ turns: [] });
+    const limits = { maxTurns: 2, maxTokens: 5 } as unknown as { maxTurns: number };
+    expect(() => ai.agent({ name: 'limited', model: 'fake:m', limits })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('maxTokens') }));
+  });
+
   it('gives each agent a stable unique instanceId unless one is provided', () => {
     const { ai } = setup({ turns: [] });
     const first = ai.agent({ name: 'a', model: 'fake:m' });

@@ -36,9 +36,36 @@ describe('defineTool', () => {
     expect(() => defineTool({ ...BASE, hasSideEffects: true })).toThrow(/side effects/);
     expect(() => defineTool({ ...BASE, deterministic: false, cache: true, cacheTtlMs: 1_000 })).not.toThrow();
   });
+
+  it.each([0, -5, Number.NaN, Number.POSITIVE_INFINITY, 1.5])('rejects timeoutMs %s with invalid_definition naming the value', timeoutMs => {
+    expect(() => defineTool({ ...BASE, timeoutMs })).toThrow(expect.objectContaining({
+      code: 'invalid_definition',
+      message: expect.stringMatching(new RegExp(`read_thing.*timeoutMs must be a positive integer.*got ${String(timeoutMs)}`)),
+    }));
+  });
+
+  it('accepts a positive integer timeoutMs', () => {
+    expect(defineTool({ ...BASE, timeoutMs: 120_000 }).timeoutMs).toBe(120_000);
+  });
 });
 
 describe('defineBatchTool', () => {
+  const BATCH_BASE = {
+    name: 'read_things', description: 'Reads things', item: z.object({ id: z.string() }).strict(), maxItems: 3,
+    deterministic: true, cache: false, describeActivity: () => ({ title: 'Reading' }), runItem: async () => 1,
+  };
+
+  it.each([0, -1, 2.5, Number.NaN])('rejects maxItems %s with invalid_definition naming the value', maxItems => {
+    expect(() => defineBatchTool({ ...BATCH_BASE, maxItems })).toThrow(expect.objectContaining({
+      code: 'invalid_definition',
+      message: expect.stringMatching(new RegExp(`read_things.*maxItems must be a positive integer.*got ${String(maxItems)}`)),
+    }));
+  });
+
+  it('validates the batch timeoutMs like any tool', () => {
+    expect(() => defineBatchTool({ ...BATCH_BASE, timeoutMs: 0 })).toThrow(/timeoutMs must be a positive integer/);
+  });
+
   it('wraps items, returns per-item results and survives item failures', async () => {
     const tool = defineBatchTool({
       name: 'read_things',
