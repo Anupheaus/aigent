@@ -67,6 +67,23 @@ describe('createDirectiveParser', () => {
     expect(result.warnings[2]).toMatch(/outcome/);
   });
 
+  const markerLookalikes = ['::aigentic agents are cool\n', '::aigents\n', '::aigent_status {"text":"x"}\n', '::aigentic'];
+
+  it.each(markerLookalikes)('keeps a line that only starts like the marker as visible text: %j', line => {
+    const expected = { text: line, directives: [], warnings: [] };
+    expect(parseInChunks([line])).toEqual(expected);
+    for (let splitAt = 0; splitAt <= line.length; splitAt += 1) {
+      expect(parseInChunks([line.slice(0, splitAt), line.slice(splitAt)])).toEqual(expected);
+    }
+  });
+
+  it('still recognises the marker followed by a tab or at the end of the line', () => {
+    expect(parseInChunks(['::aigent\tstatus {"text":"tabbed"}\n']).directives).toEqual([{ type: 'status', data: { text: 'tabbed' } }]);
+    const bare = parseInChunks(['::aigent\nafter']);
+    expect(bare.text).toBe('after');
+    expect(bare.warnings).toEqual([expect.stringContaining("directive type ''")]);
+  });
+
   it('does not lose or leak partial prefixes at end of stream', () => {
     expect(parseInChunks(['text\n::ai']).text).toBe('text\n::ai');
     expect(parseInChunks(['text\n:']).text).toBe('text\n:');

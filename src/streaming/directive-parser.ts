@@ -23,9 +23,16 @@ export interface DirectiveParser {
 const MARKER = '::aigent';
 const JSON_PREVIEW_LENGTH = 80;
 
-/** True while `buffer` could still turn out to be (the start of) a directive line. */
+const WHITESPACE = /\s/;
+
+/** A directive line is the marker alone or followed by whitespace, so text such as `::aigentic` is never swallowed. */
+function isDirectiveLine(line: string): boolean {
+  return line.startsWith(MARKER) && (line.length === MARKER.length || WHITESPACE.test(line.charAt(MARKER.length)));
+}
+
+/** True while `buffer` (no newline yet) could still turn out to be (the start of) a directive line. */
 function couldBeDirective(buffer: string): boolean {
-  return MARKER.startsWith(buffer) || buffer.startsWith(MARKER);
+  return MARKER.startsWith(buffer) || isDirectiveLine(buffer);
 }
 
 function parseDirectiveLine(line: string, output: ParseOutput): void {
@@ -71,7 +78,7 @@ export function createDirectiveParser(): DirectiveParser {
       const newline = buffer.indexOf('\n');
       if (newline === -1) {
         if (!isFinal && couldBeDirective(buffer)) return; // hold back until we can decide
-        if (isFinal && buffer.startsWith(MARKER)) { parseDirectiveLine(buffer, output); buffer = ''; return; }
+        if (isFinal && isDirectiveLine(buffer)) { parseDirectiveLine(buffer, output); buffer = ''; return; }
         output.text += buffer;
         buffer = '';
         atLineStart = false;
@@ -79,7 +86,7 @@ export function createDirectiveParser(): DirectiveParser {
       }
       const line = buffer.slice(0, newline);
       buffer = buffer.slice(newline + 1);
-      if (line.startsWith(MARKER)) parseDirectiveLine(line, output);
+      if (isDirectiveLine(line)) parseDirectiveLine(line, output);
       else output.text += `${line}\n`;
     }
   }
