@@ -25,6 +25,7 @@ function changesFor(plan: NonNullable<ReturnType<typeof planCompaction>>, summar
     dedupes: new Map(plan.dedupes.map(({ messageId, keptCallId }) => [messageId, duplicateResultStub(keptCallId)])),
     summarise: plan.summarise,
     ...(plan.summarise.length === 0 ? {} : { summary: summaryMessage(`summary ${summarySeq}`, summarySeq) }),
+    ...(plan.recentFrom == null ? {} : { recentFrom: plan.recentFrom }),
   };
 }
 
@@ -42,6 +43,21 @@ describe('applyCompaction', () => {
     expect(after.map(({ kind, message: { text } }) => (kind === 'answer' || kind === 'summary' ? text : kind))).toEqual(['system', 'brief', 'a1', 'a2', 'S', 'assistant', 'tool', 'assistant', 'tool']);
     expect(after.map(({ seq }) => seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
     expect(cacheBreakpoints({ state: after, hasVolatile: true })).toEqual([0, 3, 4, 8]);
+  });
+
+  it('leaves non-compactable messages of the recent window in their chronological place, after the summary', () => {
+    const state = historyBuilder().head().round({ callId: 'c0' }).answer('a1').round({ callId: 'c1' }).round({ callId: 'c2', isCompactable: false }).answer('a2').build();
+    const after = applyCompaction({ state, changes: { ...NO_CHANGES, summarise: ['r:m2', 'r:m3'], summary: summaryMessage('S'), recentFrom: 'r:m7' } });
+    expect(after.map(({ id, kind }) => (kind === 'summary' ? 'S' : id))).toEqual(['r:m0', 'r:m1', 'r:m4', 'S', 'r:m5', 'r:m6', 'r:m7', 'r:m8', 'r:m9']);
+  });
+
+  it('hoists an older mixed round whole, freezing its (stubbed) compactable result so the pair stays together', () => {
+    const state = historyBuilder().head().round({ callId: 'c0' }).build();
+    state[2] = { ...state[2]!, compactable: false };
+    state.push(...historyBuilder().round({ callId: 'c1' }).build().map((message, offset) => ({ ...message, id: `n${offset}`, seq: 4 + offset })));
+    const after = applyCompaction({ state, changes: { ...NO_CHANGES, stubs: new Map([['r:m3', { text: 'stub', handle: 'H1' }]]), recentFrom: 'n0' } });
+    expect(after.map(({ id, compactable }) => `${id}:${compactable}`)).toEqual(['r:m0:false', 'r:m1:false', 'r:m2:false', 'r:m3:false', 'n0:true', 'n1:true']);
+    expect(after[3]?.message.text).toBe('stub');
   });
 
   it('never rewrites a non-compactable message, even if asked to', () => {
@@ -71,10 +87,11 @@ describe('applyCompaction', () => {
 
 // ─── Property ───
 
-type Entry = { type: 'round'; isCompactable: boolean; resultChars: number; duplicate: boolean } | { type: 'answer' } | { type: 'pinned' };
+type Entry = { type: 'round'; isCompactable: boolean; resultChars: number; duplicate: boolean } | { type: 'mixed'; resultChars: number } | { type: 'answer' } | { type: 'pinned' };
 
 const entryArbitrary: fc.Arbitrary<Entry> = fc.oneof(
   { weight: 6, arbitrary: fc.record({ type: fc.constant('round' as const), isCompactable: fc.integer({ min: 0, max: 4 }).map(roll => roll > 0), resultChars: fc.integer({ min: 10, max: 3_000 }), duplicate: fc.boolean() }) },
+  { weight: 2, arbitrary: fc.record({ type: fc.constant('mixed' as const), resultChars: fc.integer({ min: 10, max: 3_000 }) }) },
   { weight: 1, arbitrary: fc.constant({ type: 'answer' as const }) },
   { weight: 1, arbitrary: fc.constant({ type: 'pinned' as const }) },
 );
@@ -89,6 +106,14 @@ function appendEntries(params: { state: ContextMessage[]; entries: Entry[]; coun
   for (const entry of entries) {
     if (entry.type === 'answer') { add({ kind: 'answer', message: { role: 'user', text: `answer ${counter.next}` } }); continue; }
     if (entry.type === 'pinned') { add({ kind: 'user', flags: { pinned: true }, message: { role: 'user', text: `pin ${counter.next}` } }); continue; }
+    if (entry.type === 'mixed') {
+      // A parallel round: one kept call (non-compactable result) and one free call whose result may be stubbed.
+      const [kept, free] = [`k${counter.next}`, `f${counter.next}`];
+      add({ kind: 'assistant', pairId: kept, flags: { compactable: false }, message: { role: 'assistant', text: '', toolCalls: [{ id: kept, name: 'keep', args: {} }, { id: free, name: 'fetch', args: {} }] } });
+      add({ kind: 'tool', pairId: kept, flags: { compactable: false }, message: { role: 'tool', toolCallId: kept, text: 'kept' } });
+      add({ kind: 'tool', pairId: kept, message: { role: 'tool', toolCallId: free, text: `${free}`.padEnd(entry.resultChars, 'z') } });
+      continue;
+    }
     const callId = `c${counter.next}`;
     const flags = entry.isCompactable ? {} : { flags: { compactable: false } };
     add({ kind: 'assistant', pairId: callId, ...flags, message: { role: 'assistant', text: '', toolCalls: [{ id: callId, name: 'read', args: { n: counter.next } }] } });
@@ -110,6 +135,17 @@ function arePairsIntact(state: readonly ContextMessage[]): boolean {
   });
 }
 
+/** Every tool call is followed, before any other assistant or user message, by exactly one result for it. */
+function areCallsAnswered(state: readonly ContextMessage[]): boolean {
+  return state.every(({ message: { role, toolCalls = [] } }, index) => {
+    if (role !== 'assistant' || toolCalls.length === 0) return true;
+    const following = state.slice(index + 1);
+    const end = following.findIndex(({ message: { role: next } }) => next !== 'tool');
+    const results = (end === -1 ? following : following.slice(0, end)).map(({ message: { toolCallId } }) => toolCallId);
+    return toolCalls.every(({ id }) => results.filter(resultId => resultId === id).length === 1);
+  });
+}
+
 describe('compaction property', () => {
   it('keeps non-compactable messages byte-identical and ordered, one summary at most, pairs intact and recent turns verbatim', () => {
     fc.assert(fc.property(
@@ -128,12 +164,22 @@ describe('compaction property', () => {
           protectedSoFar.push(...appended.slice(current.length).filter(({ compactable }) => !compactable));
           const tokens = stateTokens(appended);
           const plan = planCompaction({ state: appended, policy, usableBudget: Math.ceil(tokens / pressure), estimate: { tokens, ratio: 1 } });
-          const recentBefore = compactionGroups(appended).filter(({ messages }) => messages[0]?.message.role === 'assistant').slice(-keepRecent).flatMap(({ messages }) => messages);
+          // Fewer recent rounds than keepRecent are kept only when that is what reaches compactTo; never fewer than one.
+          const recentKept = plan?.recentKept ?? keepRecent;
+          if (plan != null && recentKept < keepRecent) expect(plan.estimates.afterSummary <= plan.targetTokens || plan.tokensBefore > Math.ceil(tokens / pressure)).toBe(true);
+          expect(recentKept).toBeGreaterThanOrEqual(1);
+          const recentBefore = compactionGroups(appended).filter(({ messages }) => messages[0]?.message.role === 'assistant').slice(-recentKept).flatMap(({ messages }) => messages);
           current = plan == null ? appended : applyCompaction({ state: appended, changes: changesFor(plan, counter.next++) });
           const survivors = current.filter(({ id }) => protectedSoFar.some(kept => kept.id === id));
           expect(survivors).toEqual(protectedSoFar.map(kept => ({ ...kept, seq: survivors.find(({ id }) => id === kept.id)?.seq })));
           expect(current.filter(({ kind }) => kind === 'summary').length).toBeLessThanOrEqual(1);
           expect(arePairsIntact(current)).toBe(true);
+          expect(areCallsAnswered(current)).toBe(true);
+          // The recent window keeps its chronological order, non-compactable messages included.
+          if (plan != null) {
+            const recentIds = appended.slice(appended.findIndex(({ id }) => id === plan.recentFrom)).map(({ id }) => id);
+            expect(current.slice(-recentIds.length).map(({ id }) => id)).toEqual(recentIds);
+          }
           for (const recent of recentBefore) expect(current.find(({ id }) => id === recent.id)?.message).toEqual(recent.message);
         }
       },

@@ -85,6 +85,15 @@ describe('createCompactor', () => {
     await expect(tight.compactor.beforeTurn({ remainingTurns: 10 })).rejects.toMatchObject({ code: 'context_overflow', details: { usableBudget: Math.ceil(tokens / 1.2) } });
   });
 
+  it('does not count a compaction that changed nothing (failed summary, no spare stubs)', async () => {
+    const state = rounds(30, 20);
+    const failing = async (): Promise<WrittenSummary> => { throw createAigentError({ code: 'provider_failed', message: 'down' }); };
+    const run = harness({ state, usableBudget: Math.ceil(stateTokens(state) / 0.9), policy: { compactTo: 0.3 }, summarise: failing });
+    await run.compactor.beforeTurn({ remainingTurns: 10 }).catch(() => undefined);
+    expect(run.compactor.stats().compactions).toBe(0);
+    expect(run.compacted).toEqual([]);
+  });
+
   it('rethrows an abort from the summariser instead of falling back', async () => {
     const state = rounds(30, 80);
     const run = harness({ state, usableBudget: Math.ceil(stateTokens(state) / 0.9), policy: { compactTo: 0.3 }, summarise: async () => { throw createAigentError({ code: 'aborted', message: 'stopped' }); } });
@@ -97,7 +106,8 @@ describe('createCompactor', () => {
     const finishing = harness({ state, usableBudget: Math.ceil(tokens / 0.8) });
     await finishing.compactor.beforeTurn({ remainingTurns: 1 });
     expect(finishing.events).toEqual([]);
-    const recentOnly = rounds(2, 2_000);
+    // Only the latest round is left, and it always stays verbatim.
+    const recentOnly = rounds(1, 4_000);
     const overfull = harness({ state: recentOnly, usableBudget: Math.ceil(stateTokens(recentOnly) / 1.1) });
     await expect(overfull.compactor.beforeTurn({ remainingTurns: 10 })).rejects.toMatchObject({ code: 'context_overflow', message: expect.stringContaining('compaction cannot free more') });
   });
@@ -143,5 +153,36 @@ describe('createCompactor', () => {
     expect(compactedAt.length).toBeLessThanOrEqual(Math.ceil(roundCount / 10));
     expect(compactedAt.every((round, index) => index === 0 || round - compactedAt[index - 1]! > 1)).toBe(true);
     expect(stateTokens(run.context.state)).toBeLessThanOrEqual(3_000);
+  });
+
+  it('does not thrash when the recent rounds alone are above compactTo: large results, default policy', async () => {
+    const roundCount = 30;
+    // A 12k window less the default 3k output reserve; each result is ~1,400 tokens, so 4 recent rounds exceed compactTo.
+    const usableBudget = 9_000;
+    const state = historyBuilder().head().build();
+    const run = harness({ state, usableBudget, policy: { ...DEFAULT_COMPACTION_POLICY } });
+    const compactedAt: number[] = [];
+    for (let round = 0; round < roundCount; round += 1) {
+      run.context.state.push(...historyBuilder().round({ callId: `c${round}`, resultChars: 5_500 }).build().map((message, offset) => ({ ...message, id: `n${round}:${offset}` })));
+      const before = run.compacted.length;
+      await run.compactor.beforeTurn({ remainingTurns: 10 });
+      if (run.compacted.length > before) compactedAt.push(round);
+      expect(stateTokens(run.context.state)).toBeLessThanOrEqual(usableBudget);
+    }
+    expect(compactedAt.length).toBeGreaterThan(0);
+    expect(compactedAt.length).toBeLessThanOrEqual(8);
+    expect(compactedAt.every((round, index) => index === 0 || round - compactedAt[index - 1]! > 1)).toBe(true);
+    // The latest round always stays verbatim.
+    expect(run.context.state.at(-1)?.kind).toBe('tool');
+  });
+
+  it('waits minTurnsBetween turns before compacting again while the prompt still fits', async () => {
+    const state = rounds(8, 2_000);
+    const tokens = stateTokens(state);
+    const run = harness({ state, usableBudget: Math.ceil(tokens / 0.8), policy: { minTurnsBetween: 3 } });
+    await run.compactor.beforeTurn({ remainingTurns: 10 });
+    run.context.state.push(...historyBuilder().round({ callId: 'x1', resultChars: 7_000 }).build().map((message, offset) => ({ ...message, id: `x1:${offset}` })));
+    await run.compactor.beforeTurn({ remainingTurns: 10 });
+    expect(run.compacted).toHaveLength(1);
   });
 });

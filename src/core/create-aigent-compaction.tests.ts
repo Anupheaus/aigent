@@ -90,7 +90,9 @@ describe('createAigent compaction', () => {
   });
 
   it('keeps one summary after the hoist, with a cache breakpoint on it, and merges the previous summary', async () => {
-    const { provider, summariser, agent } = setup({ turns: [...fetchTurns(ROUNDS), textTurn('done', { usage: NO_INPUT })], definition: { compaction: { compactTo: 0.2, keepRecent: 2 } } });
+    // Long enough for two summaries: each compaction now lands far below compactAt.
+    const rounds = 3 * ROUNDS;
+    const { provider, summariser, agent } = setup({ turns: [...fetchTurns(rounds), textTurn('done', { usage: NO_INPUT })], definition: { compaction: { compactTo: 0.2, keepRecent: 2 }, limits: { maxTurns: rounds + 1 } } });
     await agent.task({ task: 'Fetch' });
     const last = provider.requests.at(-1)!;
     const summaries = last.messages.flatMap(({ text }, index) => (text?.startsWith(SUMMARY_HEADING) === true ? [index] : []));
@@ -99,6 +101,24 @@ describe('createAigent compaction', () => {
     expect(summariser.requests.length).toBeGreaterThanOrEqual(2);
     expect(summariser.requests[0]?.messages[0]).toEqual({ role: 'system', text: SUMMARISER_PROMPT });
     expect(summariser.requests[1]?.messages[1]?.text).toContain('## Previous summary');
+  });
+
+  it('keeps rounds with a non-compactable result in chronological order and still stubs their big compactable results', async () => {
+    const keepTool = defineTool({
+      name: 'keep', description: 'Keep a note', args: z.object({ n: z.number() }).strict(), deterministic: false, cache: false, compactable: false,
+      describeActivity: () => ({ title: 'keep' }), run: async ({ n }) => `note ${n}`,
+    });
+    const mixedTurns = Array.from({ length: ROUNDS }, (_unused, round) => toolTurn([{ id: `f${round}`, name: 'fetch', args: { n: round } }, { id: `k${round}`, name: 'keep', args: { n: round } }], { usage: NO_INPUT }));
+    const { provider, agent } = setup({ turns: [...mixedTurns, textTurn('done', { usage: NO_INPUT })], definition: { tools: [fetchTool, keepTool] } });
+    const result = await agent.task({ task: 'Fetch and keep' });
+    expect(result.status).toBe('completed');
+    const last = provider.requests.at(-1)!;
+    const callOrder = last.messages.flatMap(({ toolCalls = [] }) => toolCalls.map(({ id }) => Number(id.slice(1))));
+    expect(callOrder).toEqual([...callOrder].sort((left, right) => left - right));
+    // The newest round is last, after the summary, not hoisted ahead of older rounds.
+    expect(last.messages.filter(({ volatile }) => volatile !== true).at(-1)?.toolCallId).toBe(`k${ROUNDS - 1}`);
+    // Old fetch results riding in kept rounds were stubbed, so the kept block stays small.
+    expect(last.messages.find(({ toolCallId }) => toolCallId === 'f0')?.text ?? '').not.toContain('page 0: ');
   });
 
   it('never compacts mid tool round: every compaction comes after all results of the round before it', async () => {

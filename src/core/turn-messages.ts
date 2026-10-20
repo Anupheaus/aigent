@@ -7,7 +7,7 @@ import type { TurnStreamResult } from './run-turn.js';
 export interface TurnMessagesParams {
   turn: TurnStreamResult;
   executed: ExecutedToolCall[];
-  /** Resolves each result's tool; one with `compactable: false` keeps the whole round out of compaction. */
+  /** Resolves each result's tool; one with `compactable: false` keeps its result and the round's call verbatim. */
   registry: ToolRegistry;
 }
 
@@ -18,18 +18,20 @@ export interface TurnMessagesParams {
 export function turnMessages(params: TurnMessagesParams): NewContextMessage[] {
   const { turn: { visible, calls, thinkingBlocks }, executed, registry } = params;
   const pairId = calls[0]?.id;
-  // One non-compactable result keeps its whole round: the hoist must move the call and every result together.
-  const isKept = executed.some(({ envelope: { tool } }) => registry.get(tool)?.compactable === false);
-  const paired = { ...(pairId == null ? {} : { pairId }), ...(isKept ? { flags: { compactable: false } } : {}) };
+  const isKept = ({ envelope: { tool } }: ExecutedToolCall): boolean => registry.get(tool)?.compactable === false;
+  const keptFlags = { flags: { compactable: false } };
+  // A kept result pins its call (the pair must stay together); its compactable siblings can still be stubbed in place.
+  const isCallKept = executed.some(isKept);
+  const paired = pairId == null ? {} : { pairId };
   const assistant: NewContextMessage = {
     kind: 'assistant',
     message: { role: 'assistant', text: visible, ...(calls.length > 0 ? { toolCalls: calls } : {}), ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}) },
-    ...paired,
+    ...paired, ...(isCallKept ? keptFlags : {}),
   };
-  const toolResults = executed.map(({ envelope }): NewContextMessage => ({
+  const toolResults = executed.map((call): NewContextMessage => ({
     kind: 'tool',
-    message: { role: 'tool', toolCallId: envelope.id, text: envelopeText(envelope) },
-    ...paired,
+    message: { role: 'tool', toolCallId: call.envelope.id, text: envelopeText(call.envelope) },
+    ...paired, ...(isKept(call) ? keptFlags : {}),
   }));
   return [assistant, ...toolResults];
 }

@@ -71,6 +71,10 @@ export function createCompactor(params: CreateCompactorParams): Compactor {
   const stats: CompactorStats = { compactions: 0, tokensSaved: 0 };
   let isCompacting = false;
   let hasWarnedNonCompactable = false;
+  // Counts calls to `beforeTurn`; starts high so the first compaction is never held back.
+  let turnsSinceCompaction = Number.POSITIVE_INFINITY;
+  // The recent window of the plan being applied: its non-compactable messages keep their place.
+  let recentFrom: string | undefined;
   const current = (): number => Math.ceil(estimateRaw() * context.ratio);
 
   function checkNonCompactable(): void {
@@ -89,7 +93,8 @@ export function createCompactor(params: CreateCompactorParams): Compactor {
   function applyStage(params: { stage: CompactionStage; changes: CompactionChanges; affected: number; summaryTokens?: number }): void {
     const { stage, changes, affected, summaryTokens } = params;
     const tokensBefore = current();
-    context.state.splice(0, context.state.length, ...applyCompaction({ state: context.state, changes }));
+    const placed = recentFrom == null ? changes : { ...changes, recentFrom };
+    context.state.splice(0, context.state.length, ...applyCompaction({ state: context.state, changes: placed }));
     emit({ type: 'compaction', stage, tokensBefore, tokensAfter: current(), messagesAffected: affected, ...(summaryTokens == null ? {} : { summaryTokens }) });
   }
 
@@ -102,7 +107,8 @@ export function createCompactor(params: CreateCompactorParams): Compactor {
     return { stubs: new Map(replacements), dedupes: new Map(), summarise: [] };
   }
 
-  async function summariseStage(params: { summarise: readonly string[]; spareStubs: readonly StubAction[] }): Promise<void> {
+  /** Runs the summary stage; returns whether it changed the state. */
+  async function summariseStage(params: { summarise: readonly string[]; spareStubs: readonly StubAction[] }): Promise<boolean> {
     const { summarise: ids, spareStubs } = params;
     const previousSummary = context.state.find(({ kind }) => kind === 'summary')?.message.text;
     const messages = context.state.filter(({ id }) => ids.includes(id));
@@ -110,27 +116,41 @@ export function createCompactor(params: CreateCompactorParams): Compactor {
       const { text } = await summarise({ ...(previousSummary == null ? {} : { previousSummary }), messages });
       const summary = createSummary(text);
       applyStage({ stage: 'summarised', changes: { stubs: new Map(), dedupes: new Map(), summarise: ids, summary }, affected: messages.length, summaryTokens: summary.tokens });
+      return true;
     } catch (error) {
       if (isAbort(error)) throw error;
       emit({ type: 'warning', message: `Compaction summary failed (${describeError(error)}); stubbed stale tool results instead` });
-      if (spareStubs.length > 0) applyStage({ stage: 'stubbed', changes: stubChanges(spareStubs), affected: spareStubs.length });
+      if (spareStubs.length === 0) return false;
+      applyStage({ stage: 'stubbed', changes: stubChanges(spareStubs), affected: spareStubs.length });
+      return true;
     }
+  }
+
+  /** Applies a plan's stages; returns whether any of them changed the state. */
+  async function applyPlan(plan: NonNullable<ReturnType<typeof planCompaction>>): Promise<boolean> {
+    const { stubs, dedupes, summarise: ids, spareStubs } = plan;
+    recentFrom = plan.recentFrom;
+    if (stubs.length > 0) applyStage({ stage: 'stubbed', changes: stubChanges(stubs), affected: stubs.length });
+    if (dedupes.length > 0) applyStage({ stage: 'deduped', changes: { stubs: new Map(), dedupes: new Map(dedupes.map(({ messageId, keptCallId }) => [messageId, duplicateResultStub(keptCallId)])), summarise: [] }, affected: dedupes.length });
+    const isSummarised = ids.length > 0 && await summariseStage({ summarise: ids, spareStubs });
+    return stubs.length > 0 || dedupes.length > 0 || isSummarised;
   }
 
   async function compact(remainingTurns: number): Promise<void> {
     checkNonCompactable();
+    turnsSinceCompaction += 1;
     const tokensBefore = current();
     // A run on its last turn that still fits gains nothing from paying for a compaction.
     if (remainingTurns <= 1 && tokensBefore < usableBudget) return;
+    // Hysteresis in turns: a prompt that still fits waits, so the cached prefix is not rewritten turn after turn.
+    if (turnsSinceCompaction <= policy.minTurnsBetween && tokensBefore <= usableBudget) return;
     const plan = planCompaction({ state: context.state, policy, usableBudget, estimate: { tokens: tokensBefore, ratio: context.ratio } });
-    if (plan != null) {
-      const { stubs, dedupes, summarise: ids, spareStubs } = plan;
-      if (stubs.length > 0) applyStage({ stage: 'stubbed', changes: stubChanges(stubs), affected: stubs.length });
-      if (dedupes.length > 0) applyStage({ stage: 'deduped', changes: { stubs: new Map(), dedupes: new Map(dedupes.map(({ messageId, keptCallId }) => [messageId, duplicateResultStub(keptCallId)])), summarise: [] }, affected: dedupes.length });
-      if (ids.length > 0) await summariseStage({ summarise: ids, spareStubs });
+    // A plan whose stages all came to nothing (e.g. a failed summary with no spare stubs) is not a compaction.
+    if (plan != null && await applyPlan(plan)) {
       const tokensAfter = current();
       stats.compactions += 1;
       stats.tokensSaved += Math.max(0, tokensBefore - tokensAfter);
+      turnsSinceCompaction = 0;
       onCompacted({ tokensBefore, tokensAfter });
     }
     const tokensAfter = current();

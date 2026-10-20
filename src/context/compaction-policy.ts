@@ -12,9 +12,14 @@ export interface CompactionPolicy {
   keepRecent: number;
   /** A compaction that would save fewer tokens than this is skipped, unless the prompt no longer fits at all. */
   minSavingTokens: number;
+  /**
+   * Turns that must pass after a compaction before the next one, unless the prompt no longer fits. Stops a run whose
+   * recent rounds alone sit above `compactAt` from compacting (and rewriting its cached prefix) on every turn.
+   */
+  minTurnsBetween: number;
 }
 
-export const DEFAULT_COMPACTION_POLICY: CompactionPolicy = { compactAt: 0.75, compactTo: 0.45, keepRecent: 4, minSavingTokens: 500 };
+export const DEFAULT_COMPACTION_POLICY: CompactionPolicy = { compactAt: 0.75, compactTo: 0.45, keepRecent: 4, minSavingTokens: 500, minTurnsBetween: 3 };
 
 const policySchema = z.object({
   compactAt: z.number().gt(0).lte(1),
@@ -22,6 +27,7 @@ const policySchema = z.object({
   // The latest round must stay verbatim: providers want the last assistant turn (and its thinking) as sent.
   keepRecent: z.number().int().min(1),
   minSavingTokens: z.number().int().nonnegative(),
+  minTurnsBetween: z.number().int().nonnegative(),
 }).strict().refine(({ compactAt, compactTo }) => compactTo < compactAt, { message: 'compactTo must be below compactAt', path: ['compactTo'] });
 
 export interface ParseCompactionPolicyParams {

@@ -50,7 +50,7 @@ export interface AgentDefinition {
   todo?: boolean;
   /**
    * When the run compacts its history (fractions of the usable prompt budget): defaults
-   * `{ compactAt: 0.75, compactTo: 0.45, keepRecent: 4, minSavingTokens: 500 }`. Validated at `ai.agent`.
+   * `{ compactAt: 0.75, compactTo: 0.45, keepRecent: 4, minSavingTokens: 500, minTurnsBetween: 3 }`. Validated at `ai.agent`.
    */
   compaction?: Partial<CompactionPolicy>;
   /** `provider:model` that writes compaction summaries (default: the agent's own model and fallbacks). */

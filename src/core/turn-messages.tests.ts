@@ -26,9 +26,9 @@ describe('turnMessages', () => {
     ]);
   });
 
-  it('keeps the whole round out of compaction when any of its tools is not compactable, so the pair is hoisted together', () => {
+  it('keeps the call and the non-compactable result verbatim, while a compactable sibling result can still be stubbed', () => {
     const messages = turnMessages({ registry: REGISTRY, turn: { visible: '', calls: [{ id: 'a', name: 'free', args: {} }, { id: 'b', name: 'kept', args: {} }], thinkingBlocks: [] }, executed: [executed('a', 'free'), executed('b', 'kept')] });
-    expect(messages.map(({ flags }) => flags)).toEqual([{ compactable: false }, { compactable: false }, { compactable: false }]);
+    expect(messages.map(({ flags }) => flags)).toEqual([{ compactable: false }, undefined, { compactable: false }]);
   });
 
   it('stores a final answer without pairing', () => {

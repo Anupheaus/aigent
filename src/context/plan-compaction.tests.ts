@@ -76,6 +76,34 @@ describe('planCompaction', () => {
     expect(planCompaction({ state, policy: { ...POLICY, minSavingTokens: 10_000 }, usableBudget: Math.ceil(tokens / 0.8), estimate: { tokens, ratio: 1 } })).toBeUndefined();
   });
 
+  it('plans nothing when only a large previous summary could be re-written (nothing new to fold in)', () => {
+    const state = rounds(2, 40);
+    state.splice(2, 0, { ...state[0]!, id: 'r:s', kind: 'summary', compactable: false, tokens: 4_000, message: { role: 'user', text: 's'.repeat(16_000) } });
+    const tokens = stateTokens(state);
+    expect(planCompaction({ state, policy: POLICY, usableBudget: Math.ceil(tokens / 0.8), estimate: { tokens, ratio: 1 } })).toBeUndefined();
+  });
+
+  it('keeps fewer recent rounds (never under one) only when that reaches compactTo', () => {
+    const state = rounds(6, 4_000);
+    const tokens = stateTokens(state);
+    const plan = planCompaction({ state, policy: { ...POLICY, keepRecent: 4 }, usableBudget: Math.ceil(tokens / 0.8), estimate: { tokens, ratio: 1 } });
+    expect(plan!.recentKept).toBeLessThan(4);
+    expect(plan!.recentKept).toBeGreaterThanOrEqual(1);
+    expect(plan!.estimates.afterSummary).toBeLessThanOrEqual(plan!.targetTokens);
+    expect(plan!.stubs.map(({ callId }) => callId)).not.toContain('c5');
+  });
+
+  it('stubs a big compactable result inside an older round that also holds a non-compactable result', () => {
+    const state = rounds(6, 2_000);
+    // Round c0 (messages 2 and 3): its call is pinned by a non-compactable sibling result, its own result is not.
+    state[2] = { ...state[2]!, compactable: false };
+    const tokens = stateTokens(state);
+    const plan = planCompaction({ state, policy: { ...POLICY, compactTo: 0.7 }, usableBudget: Math.ceil(tokens / 0.8), estimate: { tokens, ratio: 1 } });
+    expect(plan?.stubs.map(({ callId }) => callId)).toContain('c0');
+    expect(plan?.summarise).not.toContain('r:m3');
+    expect(plan?.recentFrom).toBe('r:m10');
+  });
+
   it('scales savings by the calibration ratio', () => {
     const state = rounds(6, 2_000);
     const raw = stateTokens(state);
