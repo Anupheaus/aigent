@@ -1,4 +1,5 @@
 import type { Provider } from '../providers/provider-types.js';
+import type { Scheduler } from '../scheduler/scheduler-types.js';
 import type { Store } from '../store/store-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
@@ -55,6 +56,7 @@ export interface RuntimeServices {
   writeQueue: WriteQueue;
   sleep: Sleeper;
   random: RandomSource;
+  scheduler: Scheduler;
 }
 
 export interface StartTaskRunParams {
@@ -97,14 +99,15 @@ function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
   const { name: agentName, instanceId, targets, resilience, prompt, registry, agentVersion, version } = agent;
-  const { clock, ids, store, writeQueue, sleep, random } = services;
+  const { clock, ids, store, writeQueue, sleep, random, scheduler } = services;
   const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });
   const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
-  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, warnedLabels: new Set([primary.label]) };
+  const priority = input.priority ?? (input.unattended === true ? 'background' : 'interactive');
+  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, warnedLabels: new Set([primary.label]), scheduler, priority, agentName };
   const stream = createEventStream<AigentEvent, TaskResult>();
   const emit = (event: AigentEvent): void => stream.push(event);
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });

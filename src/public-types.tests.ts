@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
-  RunRecord, Sleeper, ToolErrorCategory, ToolFailureInit, UpdateRecordParams,
+  RunRecord, Sleeper, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
+  QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
@@ -27,6 +28,19 @@ describe('public types', () => {
     const random: RandomSource = () => 0.5;
     const clock: Clock = { now: () => 0 };
     const ids: IdGenerator = { next: prefix => prefix };
-    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, sleep, random, clock, ids }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
+    const limits: ProviderLimits = { maxConcurrent: 2, requestsPerMinute: 60, tokensPerMinute: 100_000 };
+    const schedulerOptions: SchedulerOptions = { limits: { anthropic: limits }, maxBackgroundWaitMs: 30_000 };
+    const priority: LanePriority = 'background';
+    const reason: QueueReason = 'tokens-per-minute';
+    const queuedInfo: QueuedInfo = { position: 1, reason };
+    const usage: LeaseUsage = { tokens: 10 };
+    const lease: Lease = { release: () => undefined };
+    const keySnapshot: KeySnapshot = { inFlight: 0, queued: 0, interactiveQueued: 0, backgroundQueued: 0 };
+    const schedulerSnapshot: SchedulerSnapshot = { anthropic: keySnapshot };
+    const rateLimit: RateLimitReport = { key: 'anthropic', retryAfterMs: 1 };
+    const usageReport: UsageReport = { key: 'anthropic', tokens: 1 };
+    const leaseRequest: LeaseRequest = { key: 'anthropic:m', estimatedTokens: 1, priority, agentName: 'a', signal: new AbortController().signal };
+    const scheduler: Scheduler = { acquire: async () => lease, reportRateLimit: () => undefined, reportUsage: () => undefined, snapshot: () => schedulerSnapshot };
+    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });

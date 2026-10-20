@@ -1,5 +1,7 @@
 import type { Provider, ProviderEvent, ProviderMessage, ProviderSettings, ProviderToolSpec } from '../providers/provider-types.js';
+import type { LanePriority, Scheduler } from '../scheduler/scheduler-types.js';
 import type { AigentEvent } from './aigent-events.js';
+import { leasedStream } from './leased-stream.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { RandomSource, Sleeper } from './runtime-services.js';
 import { streamWithResilience } from './stream-with-resilience.js';
@@ -27,6 +29,10 @@ export interface TurnRouting {
   random: RandomSource;
   /** Labels whose setting warnings were already emitted in this run. */
   warnedLabels: Set<string>;
+  /** Every provider call waits for a lease from it. */
+  scheduler: Scheduler;
+  priority: LanePriority;
+  agentName: string;
 }
 
 /** Retry and fallback counts, updated as they happen. */
@@ -52,6 +58,19 @@ export interface OpenTurnStreamParams {
 interface TargetAttemptParams {
   target: ProviderTarget;
   request: TurnRequest;
+  routing: TurnRouting;
+  emit(event: AigentEvent): void;
+}
+
+/** Output tokens assumed for the scheduler's estimate when `maxOutputTokens` is not set. */
+const DEFAULT_OUTPUT_TOKEN_ESTIMATE = 1024;
+/** Rough characters per token for estimating input size from the request JSON. */
+const CHARS_PER_TOKEN = 4;
+
+/** Input estimated from the request size plus the most the model may write. */
+function estimateTokens(params: { request: TurnRequest; settings?: ProviderSettings }): number {
+  const { request, settings } = params;
+  return Math.ceil(JSON.stringify(request).length / CHARS_PER_TOKEN) + (settings?.maxOutputTokens ?? DEFAULT_OUTPUT_TOKEN_ESTIMATE);
 }
 
 function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouting; emit(event: AigentEvent): void }): void {
@@ -61,11 +80,18 @@ function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouti
   for (const message of warnings) emit({ type: 'warning', message });
 }
 
+/** One target as a resilient attempt: each open waits for a scheduler lease, then applies the first-event timeout. */
 function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
-  const { target: { label, provider, model, settings }, request: { messages, tools } } = params;
+  const { target: { label, provider, model, settings }, request, routing: { scheduler, priority, agentName, policy, sleep }, emit } = params;
+  const { messages, tools } = request;
+  const lease = { key: label, estimatedTokens: estimateTokens({ request, settings }), priority, agentName };
   return {
     label,
-    open: signal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }) }, signal),
+    open: signal => leasedStream({
+      scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs,
+      open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }) }, streamSignal),
+      onQueued: ({ position, reason, waitMs }) => emit({ type: 'queued', position, reason, ...(waitMs == null ? {} : { waitMs }) }),
+    }),
   };
 }
 
@@ -77,10 +103,12 @@ export function openTurnStream(params: OpenTurnStreamParams): AsyncIterable<Prov
   const { routing, request, signal, counters, emit } = params;
   const { targets, policy, sleep, random } = routing;
   const [primary, ...fallbacks] = targets;
-  const attempts: [ProviderAttempt, ...ProviderAttempt[]] = [targetAttempt({ target: primary, request }), ...fallbacks.map(target => targetAttempt({ target, request }))];
+  const attempts: [ProviderAttempt, ...ProviderAttempt[]] = [targetAttempt({ target: primary, request, routing, emit }), ...fallbacks.map(target => targetAttempt({ target, request, routing, emit }))];
   const targetsByLabel = new Map(targets.map(target => [target.label, target]));
   return streamWithResilience({
-    attempts, policy, sleep, random, signal,
+    attempts, sleep, random, signal,
+    // Each attempt applies the first-event timeout itself, after its lease, so queueing never counts as silence.
+    policy: { ...policy, firstEventTimeoutMs: undefined },
     onRetry: ({ attempt, delayMs, label, reason }) => {
       counters.retries += 1;
       emit({ type: 'retry', attempt, delayMs, model: label, reason });

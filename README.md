@@ -199,6 +199,51 @@ const agent = aigent.agent({
 
 Each retry emits `{ type: 'retry', attempt, delayMs, model, reason }` and each fallback emits `{ type: 'fallback', from, to, reason }`. `TaskResult.usage` and the run record count them in `retries` and `fallbacks`. Pass `sleep` and `random` to `createAigent` to control waiting and jitter in tests.
 
+## Scheduler: shared limits, priorities and fairness
+
+Every provider call waits for a lease from a scheduler, so agents sharing a provider respect its limits. By default there are no limits and calls start at once. To set limits, pass `SchedulerOptions`. To share limits across several `createAigent` instances, pass one `createScheduler()` to each of them:
+
+```ts
+import { createAigent, createScheduler } from '@anupheaus/aigent';
+
+const scheduler = createScheduler({
+  limits: {
+    anthropic: { maxConcurrent: 4, requestsPerMinute: 50, tokensPerMinute: 400_000 },
+    'anthropic:claude-opus-5': { maxConcurrent: 1 }, // a provider:model key wins over the provider key
+  },
+  defaultLimits: { maxConcurrent: 8 }, // for providers without an entry, per provider
+});
+const aigent = createAigent({ providers, scheduler }); // or: scheduler: { limits: { ... } }
+```
+
+- **Admission:** a call starts when the key's in-flight count is below `maxConcurrent` and its per-minute budgets have room. It must also not be in a rate-limit pause. The token cost is estimated at admission as the request JSON length / 4 plus `maxOutputTokens` (1024 when unset). It is corrected with the actual usage when the call ends.
+- **Per-minute budgets:** `requestsPerMinute` and `tokensPerMinute` hold in every sliding 60 s window. A spent amount returns exactly 60 s after it was spent. A plain continuously refilling bucket would allow up to twice the limit in one window. A single request larger than the whole token budget is let through only when the window is otherwise empty.
+- **Lanes:** a task's `priority` is `'interactive'` or `'background'`. It defaults to `'background'` for `unattended` tasks and `'interactive'` otherwise. Interactive calls go first. A background call that has waited longer than `maxBackgroundWaitMs` (default 60 s) joins the interactive lane, so it is never starved.
+- **Fairness:** within a lane, the agent served least recently goes next. An agent with many queued calls delays another agent's call by at most one admission.
+- **Rate limits:** a 429 from a provider pauses that key for its `retry-after` (1 s without one). The key then runs at half its `maxConcurrent` for the next 10 admissions. Call `reportRateLimit` and `reportUsage` yourself for calls made outside aigent.
+- **Leases:** a lease is held only while the provider streams, not while tools run. Each retry takes a new one. The first-event timeout starts once the lease is granted, so queueing never counts as a silent stream. Stopping a run removes a queued call at once and releases a held lease.
+- **Queued events:** a call that cannot start at once emits `{ type: 'queued', position, reason, waitMs? }`, where `reason` is `'concurrency'`, `'requests-per-minute'` (also used for a 429 pause) or `'tokens-per-minute'`. `waitMs` is present when the wait is known. No event is emitted for a call admitted immediately.
+- **Inspection:** `scheduler.snapshot()` returns `{ inFlight, queued, interactiveQueued, backgroundQueued }` for each limit key.
+
+`Scheduler` is an interface (`acquire`, `reportRateLimit`, `reportUsage`, `snapshot`), so a cross-process implementation can replace the in-memory one.
+
+## Events
+
+A run yields these events, in order, ending with `done`:
+
+| Event | When |
+| --- | --- |
+| `text-delta`, `thinking-delta` | model output (thinking is hidden when `showThinking` is false) |
+| `tool-call`, `tool-activity`, `tool-result` | a tool call, its activity rows and its result envelope |
+| `directive` | a parsed `::aigent` directive |
+| `usage` | token usage reported by the provider for a turn |
+| `queued` | a provider call is waiting for the scheduler |
+| `retry` | a provider call failed before its first event and will be retried |
+| `fallback` | a turn moved to the next fallback model |
+| `warning` | something was ignored or cut short, such as an unsupported setting or a malformed directive |
+| `error` | the run failed |
+| `done` | the final status, after the run record is written |
+
 ## Stopping a run
 
 ```ts
@@ -257,8 +302,9 @@ Phase 1 foundation core, implemented in this slice:
 - Streaming provider adapters: `anthropic` and `openAiCompatible`, with the `deepseek`, `openai` and `ollama` presets
 - Model settings resolved task > agent > runtime > provider and mapped per provider, and the agent version hash
 - Provider retry with backoff and `retry-after`, first-event timeout and fallback models
+- A shared scheduler (`createScheduler`): concurrency and per-minute limits, priority lanes, per-agent fairness and 429 adaptation
 
-Roadmap (later slices, each with its own spec): model settings (thinking and effort), retry and fallback, vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
+Roadmap (later slices, each with its own spec): vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
 ## License
 

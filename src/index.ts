@@ -23,6 +23,11 @@ export type { ToolFailure, ToolFailureInit } from './tools/tool-failure.js';
 export type { Tool, ToolActivityView, ToolContext, ToolOutcome } from './tools/tool-types.js';
 export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';
+export { createScheduler } from './scheduler/scheduler.js';
+export type {
+  KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo, QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot,
+  UsageReport,
+} from './scheduler/scheduler-types.js';
 export { createInMemoryStore } from './store/in-memory-store.js';
 export { createWriteQueue } from './store/write-queue.js';
 export { updateRecord } from './store/update-record.js';

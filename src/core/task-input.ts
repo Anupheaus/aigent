@@ -20,6 +20,8 @@ export const taskInputSchema = z.object({
   acceptanceCriteria: z.array(z.string()).optional(),
   onAmbiguity: z.enum(['ask', 'assume', 'fail']).optional(),
   unattended: z.boolean().optional(),
+  /** Scheduler lane; defaults to `background` for unattended tasks and `interactive` otherwise. */
+  priority: z.enum(['interactive', 'background']).optional(),
   disableTelemetry: z.boolean().optional(),
   label: z.string().optional(),
   scope: z.record(z.string(), z.string()).optional(),

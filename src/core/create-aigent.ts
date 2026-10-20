@@ -1,4 +1,6 @@
 import type { Provider } from '../providers/provider-types.js';
+import { createScheduler } from '../scheduler/scheduler.js';
+import type { Scheduler, SchedulerOptions } from '../scheduler/scheduler-types.js';
 import type { Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
 import { createMultiTool } from '../tools/multi-tool.js';
@@ -29,6 +31,11 @@ export interface AigentOptions {
   sleep?: Sleeper;
   /** Jitter source (default `Math.random`). */
   random?: RandomSource;
+  /**
+   * Admits every provider call (concurrency, per-minute budgets, priority lanes, fairness). Pass one `Scheduler` to
+   * several `createAigent` instances to share limits, or options to build one. Default: no limits.
+   */
+  scheduler?: Scheduler | SchedulerOptions;
   /** Runtime-wide model settings; agent and task settings win over them, field by field. */
   modelSettings?: ModelSettings;
   /** Per-provider default settings, keyed by provider id; the lowest-precedence layer. */
@@ -71,12 +78,23 @@ function parseProviderModelSettings(params: { settings: Record<string, ModelSett
   }));
 }
 
+function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
+  return typeof (value as Partial<Scheduler>).acquire === 'function';
+}
+
+/** The given scheduler, or one built from options (defaulting to this aigent's clock and sleep). */
+function resolveScheduler(params: { scheduler: Scheduler | SchedulerOptions | undefined; clock: Clock; sleep: Sleeper }): Scheduler {
+  const { scheduler = {}, clock, sleep } = params;
+  return isScheduler(scheduler) ? scheduler : createScheduler({ clock, sleep, ...scheduler });
+}
+
 export function createAigent(options: AigentOptions): Aigent {
   const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom() } = options;
   const providersById = indexProviders(providers);
   const runtimeSettings = parseModelSettings({ owner: 'createAigent', settings: options.modelSettings });
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
-  const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue(), sleep, random };
+  const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
+  const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue(), sleep, random, scheduler };
   /** Settles (never rejects) when its run has finished, including writing its record. */
   const activeRuns = new Set<Promise<void>>();
 

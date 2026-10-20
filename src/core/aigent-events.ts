@@ -2,6 +2,7 @@ import type { Directive } from '../streaming/directive-parser.js';
 import type { ToolActivityView } from '../tools/tool-types.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { Usage } from '../providers/provider-types.js';
+import type { QueueReason } from '../scheduler/scheduler-types.js';
 
 export type TaskStatus = 'completed' | 'incomplete' | 'failed' | 'cancelled' | 'stopped' | 'limit_reached';
 
@@ -18,5 +19,7 @@ export type AigentEvent =
   | { type: 'retry'; attempt: number; delayMs: number; model: string; reason: string }
   /** `from` (a `provider:model`) is exhausted; the turn continues on fallback model `to`. */
   | { type: 'fallback'; from: string; to: string; reason: string }
+  /** The provider call is waiting for the scheduler; emitted only when it could not start at once. */
+  | { type: 'queued'; position: number; reason: QueueReason; waitMs?: number }
   | { type: 'error'; message: string }
   | { type: 'done'; status: TaskStatus };
