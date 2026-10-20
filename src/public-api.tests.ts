@@ -5,6 +5,7 @@ import * as testing from './testing/index.js';
 import * as fsPack from './tools/packs/fs/index.js';
 import * as dataPack from './tools/packs/data/index.js';
 import * as metaPack from './tools/packs/meta/index.js';
+import * as webPack from './tools/packs/web/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -25,6 +26,10 @@ describe('public API', () => {
   it('exports the data and meta packs from their own entries', () => {
     expect(Object.keys(dataPack).sort()).toEqual(['MAX_REGEX_INPUT_CHARS', 'REGEX_CHUNK_CHARS', 'REGEX_TIME_BUDGET_MS', 'dataTools']);
     expect(Object.keys(metaPack).sort()).toEqual(['DEFAULT_RETURN_BUDGET_TOKENS', 'MAX_DELEGATION_DEPTH', 'metaTools']);
+  });
+
+  it('exports the web pack from its own entry', () => {
+    expect(Object.keys(webPack).sort()).toEqual(['classifyAddress', 'createFetchHttpAccess', 'createHttpPolicy', 'createNodeHttpAccess', 'webTools']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {

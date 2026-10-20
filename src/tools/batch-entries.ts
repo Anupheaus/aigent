@@ -33,3 +33,15 @@ export const BATCH_RESULT_HELPERS: Required<Pick<Tool, 'summarise' | 'nestedFail
   nestedFailures: batchFailures,
   countItems: countBatchItems,
 };
+
+/** The batch outcome, with the first failure's reason so an activity row says why (e.g. "outside every allowed root"). */
+function summariseWithReason(result: unknown): ToolOutcome {
+  const entries = batchEntries(result);
+  const failures = entries.flatMap(entry => (entry.ok ? [] : [entry.error]));
+  const [first] = failures;
+  if (first == null) return { success: true, reason: `${entries.length} of ${entries.length} items succeeded` };
+  return { success: false, reason: `${failures.length} of ${entries.length} items failed: ${first.message}` };
+}
+
+/** `BATCH_RESULT_HELPERS` whose outcome names the first failure (the tool packs' batch tools). */
+export const BATCH_RESULT_HELPERS_WITH_REASONS: Required<Pick<Tool, 'summarise' | 'nestedFailures' | 'countItems'>> = { ...BATCH_RESULT_HELPERS, summarise: summariseWithReason };

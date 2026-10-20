@@ -4,11 +4,10 @@ import { fsErrorCode } from '../../../security/fs-access.js';
 import type { FsAccess } from '../../../security/fs-access.js';
 import { createNodeFsAccess } from '../../../security/fs-access-node.js';
 import type { FsPermission, FsPolicy } from '../../../security/fs-policy-types.js';
-import { BATCH_RESULT_HELPERS } from '../../batch-entries.js';
-import type { BatchEntry } from '../../batch-entries.js';
+import { BATCH_RESULT_HELPERS_WITH_REASONS } from '../../batch-entries.js';
 import { toolFailure } from '../../tool-failure.js';
 import type { ToolFailure } from '../../tool-failure.js';
-import type { Tool, ToolOutcome } from '../../tool-types.js';
+import type { Tool } from '../../tool-types.js';
 
 /** Which filesystem operations need a person's approval (on top of `FsPolicyOptions.approval`). */
 export type FsApprovals = 'writes' | 'deletes' | 'none';
@@ -86,21 +85,8 @@ export async function onDisk<T>(params: { path: string; work(): Promise<T> }): P
   }
 }
 
-function batchEntries(result: unknown): BatchEntry[] {
-  return Array.isArray(result) ? result as BatchEntry[] : [];
-}
-
-/** The batch outcome, with the first failure's reason so an activity row says why (e.g. "outside every allowed root"). */
-function summarise(result: unknown): ToolOutcome {
-  const entries = batchEntries(result);
-  const failures = entries.flatMap(entry => (entry.ok ? [] : [entry.error]));
-  const [first] = failures;
-  if (first == null) return { success: true, reason: `${entries.length} of ${entries.length} items succeeded` };
-  return { success: false, reason: `${failures.length} of ${entries.length} items failed: ${first.message}` };
-}
-
 /** Batch helpers for the filesystem tools: failure reasons come from the structured errors. */
-export const FS_RESULT_HELPERS: Required<Pick<Tool, 'summarise' | 'nestedFailures' | 'countItems'>> = { ...BATCH_RESULT_HELPERS, summarise };
+export const FS_RESULT_HELPERS: Required<Pick<Tool, 'summarise' | 'nestedFailures' | 'countItems'>> = BATCH_RESULT_HELPERS_WITH_REASONS;
 
 /** The last segment of a path, for activity titles. */
 export function baseName(path: string): string {

@@ -44,6 +44,10 @@
     "./tools/meta": {
       "types": "./dist/tools/packs/meta/index.d.ts",
       "import": "./dist/tools/packs/meta/index.js"
+    },
+    "./tools/web": {
+      "types": "./dist/tools/packs/web/index.d.ts",
+      "import": "./dist/tools/packs/web/index.js"
     }
   },
   "files": [

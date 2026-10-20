@@ -101,6 +101,9 @@ export function createHttpPolicy(options: HttpPolicyOptions): HttpPolicy {
     const literal = host.startsWith('[') ? host.slice(1, -1) : host;
     const isLiteral = classifyAddress(literal).kind !== 'invalid';
     if (!allowPrivateNetwork && (host === 'localhost' || host.endsWith('.localhost'))) return deny({ code: 'private_address', message: `'${host}' is a local host name` });
+    // A literal private address is named as such, whatever the allowlist says.
+    const literalKind = isLiteral ? classifyAddress(literal).kind : 'public';
+    if (isBlocked(literalKind)) return deny({ code: 'private_address', message: `${literal} is a ${literalKind} address, which may not be fetched` });
     if (!isListed({ host, entries })) return deny({ code: 'domain_not_allowed', message: `Host '${host}' is not in the allowed domains`, suggestion: entries.length === 0 ? 'No domains are allowed for web access' : `Allowed: ${entries.join(', ')}` });
     let addresses: string[];
     try {
