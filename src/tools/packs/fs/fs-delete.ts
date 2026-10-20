@@ -3,10 +3,11 @@ import { fsError } from '../../../security/fs-access.js';
 import { defineBatchTool } from '../../define-batch-tool.js';
 import { toolFailure } from '../../tool-failure.js';
 import type { Tool, ToolContext } from '../../tool-types.js';
-import { pathExists } from './fs-atomic.js';
+import { parentOf, pathExists } from './fs-atomic.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
 import { assertSubtreeUnprotected } from './fs-subtree.js';
+import { assertResolvesTo, serialised } from './fs-verify.js';
 import { applyUndoSteps, moveToTrash, undoDescriptor, withUndo } from './fs-undo.js';
 
 export const FS_DELETE_TOOL_NAME = 'fs_delete';
@@ -30,6 +31,8 @@ async function deleteOne(params: { deps: FsDeps; item: DeleteItem; context: Tool
       const { type } = await access.lstat(allowed.path);
       if (type === 'directory' && !recursive) throw fsError({ code: 'EISDIR', path: allowed.path, message: 'is a directory (pass recursive: true)' });
       if (type !== 'symlink') await assertSubtreeUnprotected({ deps, path: allowed.path, root: allowed.root });
+      // Right before acting: the parent must still be the checked one (not swapped for a link since the check).
+      await assertResolvesTo({ deps, path: parentOf({ path: allowed.path, platform: access.platform }) });
       // With a backupDir the delete is a move into the managed trash, so it can be undone.
       const trashed = await moveToTrash({ deps, context, path: allowed.path });
       if (trashed == null) await access.rm(allowed.path, { recursive: type === 'directory' });
@@ -55,7 +58,7 @@ export function createFsDelete(deps: FsDeps): Tool {
         const title = countTitle({ verb: 'Deleting', noun: 'paths', paths: items.map(({ path }) => path) });
         return outcome.then(({ success, reason }) => ({ title, ...(success ? {} : { detail: reason }) }), () => ({ title }));
       },
-      runItem: (item, context) => deleteOne({ deps, item, context }),
+      runItem: (item, context) => serialised({ deps, work: () => deleteOne({ deps, item, context }) }),
       dryRunItem: async ({ path, recursive = false }) => {
         const allowed = await allowPath({ deps, path, permission: 'delete', followFinalLink: false });
         const stat = await access.lstat(allowed.path).catch(() => undefined);

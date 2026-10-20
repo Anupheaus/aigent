@@ -6,6 +6,7 @@ import { parentOf, pathExists } from './fs-atomic.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
 import { assertSubtreeUnprotected } from './fs-subtree.js';
+import { assertResolvesTo, serialised } from './fs-verify.js';
 import { applyUndoSteps, moveToTrash, undoDescriptor, withUndo } from './fs-undo.js';
 import type { UndoStep } from './fs-undo.js';
 
@@ -42,6 +43,9 @@ async function moveOne(params: { deps: FsDeps; item: MoveItem; context: ToolCont
         const trashed = await moveToTrash({ deps, context, path: target.path });
         steps.push(trashed == null ? { kind: 'not-undoable', path: target.path, reason: 'it was replaced and no backupDir was configured' } : { kind: 'move-back', from: trashed, to: target.path });
       }
+      // Right before acting: both parents must still be the checked ones (not swapped for links since the check).
+      await assertResolvesTo({ deps, path: parentOf({ path: source.path, platform: access.platform }) });
+      await assertResolvesTo({ deps, path: parentOf({ path: target.path, platform: access.platform }) });
       await access.rename(source.path, target.path);
       steps.push({ kind: 'move-back', from: target.path, to: source.path });
       return withUndo({ result: { from: source.path, to: target.path, replaced: steps.length > 1 }, steps });
@@ -63,7 +67,7 @@ export function createFsMove(deps: FsDeps): Tool {
         const title = countTitle({ verb: 'Moving', noun: 'paths', paths: items.map(({ from }) => from) });
         return outcome.then(({ success, reason }) => ({ title, ...(success ? {} : { detail: reason }) }), () => ({ title }));
       },
-      runItem: (item, context) => moveOne({ deps, item, context }),
+      runItem: (item, context) => serialised({ deps, work: () => moveOne({ deps, item, context }) }),
       dryRunItem: async ({ from, to, overwrite = false }) => {
         const source = await allowPath({ deps, path: from, permission: 'delete', followFinalLink: false });
         const target = await allowPath({ deps, path: to, permission: 'write', followFinalLink: false });

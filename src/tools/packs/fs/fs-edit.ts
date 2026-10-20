@@ -8,6 +8,7 @@ import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, 
 import type { FsDeps } from './fs-shared.js';
 import { BINARY_SAMPLE_BYTES, decoderFor, denormaliseText, encodeUtf8, encodingOf, isBinary, normaliseText, sha256 } from './fs-text.js';
 import { applyUndoSteps, backUp, backupPathFor, undoDescriptor, withUndo } from './fs-undo.js';
+import { readVerified, serialised } from './fs-verify.js';
 import { changeSummary } from './fs-write.js';
 
 export const FS_EDIT_TOOL_NAME = 'fs_edit';
@@ -26,8 +27,8 @@ type EditItem = z.infer<typeof editItem>;
 
 /** The file as fs_read shows it (BOM dropped, LF), and how to write it back the same way. */
 async function readEditable(params: { deps: FsDeps; path: string }) {
-  const { deps: { access }, path } = params;
-  const bytes = await access.readFile(path);
+  const { deps, path } = params;
+  const bytes = await readVerified({ deps, path });
   if (isBinary(bytes.subarray(0, BINARY_SAMPLE_BYTES))) throw toolFailure({ code: 'binary_file', message: `'${path}' is a binary file; fs_edit only edits text`, suggestion: 'Use fs_write to replace it whole, if that is really intended' });
   const { encoding } = encodingOf(bytes);
   return { ...normaliseText(decoderFor(encoding).decode(bytes)), bytes };
@@ -69,7 +70,7 @@ export function createFsEdit(deps: FsDeps): Tool {
         const title = countTitle({ verb: 'Editing', noun: 'files', paths: items.map(({ path }) => path) });
         return outcome.then(({ success, reason }) => ({ title, ...(success ? {} : { detail: reason }) }), () => ({ title }));
       },
-      runItem: (item, context) => editOne({ deps, item, context }),
+      runItem: (item, context) => serialised({ deps, work: () => editOne({ deps, item, context }) }),
       dryRunItem: async ({ path, edits }) => {
         const allowed = await allowPath({ deps, path, permission: 'write' });
         const current = await onDisk({ path, work: () => readEditable({ deps, path: allowed.path }) });

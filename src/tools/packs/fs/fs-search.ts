@@ -9,6 +9,7 @@ import { createTextMatcher, SEARCH_REGEX_BUDGET_MS } from './fs-search-matcher.j
 import type { TextMatcher } from './fs-search-matcher.js';
 import { allowPath, baseName, FS_RESULT_HELPERS, MAX_FS_ITEMS, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
+import { readVerified } from './fs-verify.js';
 import { createSkipReport, walk } from './fs-walk.js';
 import type { WalkEntry } from './fs-walk.js';
 
@@ -89,7 +90,7 @@ export function createFsSearch(deps: FsDeps): Tool {
           }
         }
         for (const file of item.kind === 'content' ? files : []) {
-          const searched = await searchFile({ access, path: file.path, size: file.size, maxBytes: policy.limits.maxReadBytes, matcher, contextLines: item.contextLines ?? 0, room: maxMatches - shown });
+          const searched = await searchFile({ read: path => readVerified({ deps, path }), path: file.path, size: file.size, maxBytes: policy.limits.maxReadBytes, matcher, contextLines: item.contextLines ?? 0, room: maxMatches - shown });
           if ('stopped' in searched) { stoppedBy = searched.stopped; break; }
           if ('skipped' in searched) { skipped.add(searched.skipped, file.relative); continue; }
           if (searched.count === 0) continue;

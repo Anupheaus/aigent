@@ -7,6 +7,7 @@ import type { Tool } from '../../tool-types.js';
 import { readLines } from './fs-lines.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
+import { openVerified } from './fs-verify.js';
 
 export const FS_READ_TOOL_NAME = 'fs_read';
 const DEFAULT_LIMIT = 2_000;
@@ -63,7 +64,8 @@ export function createFsRead(deps: FsDeps): Tool {
           work: async () => {
             const { size, type } = await access.stat(allowed.path);
             if (type === 'directory') throw fsError({ code: 'EISDIR', path: allowed.path, message: 'is a directory' });
-            const read = await readLines({ access, path: allowed.path, size, offset, limit, maxChars: policy.limits.maxReadBytes, raw });
+            const handle = await openVerified({ deps, path: allowed.path });
+            const read = await readLines({ handle, size, offset, limit, maxChars: policy.limits.maxReadBytes, raw }).finally(() => handle.close());
             if (read.binary) return { path: allowed.path, binary: true, bytes: size, mimeGuess: read.mimeGuess };
             const { binary: _binary, ...text } = read;
             return { path: allowed.path, ...text, bytes: size };

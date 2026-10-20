@@ -16,7 +16,12 @@ export type FsApprovals = 'writes' | 'deletes' | 'none';
 export interface FsToolsOptions {
   /** The path authority every tool goes through (deny by default). */
   policy: FsPolicy;
-  /** Default: the real disk (`createNodeFsAccess()`). */
+  /**
+   * Default: the real disk (`createNodeFsAccess()`). Each operation re-verifies the checked path right before and
+   * after it acts (see `fs-verify.ts`), and the mutating tools of one `fsTools()` run one at a time; a directory swapped
+   * for a link in the instant between the last check and the operation can still redirect that operation (it is then
+   * reported as `path_changed`), because Node offers no handle-relative or no-follow file operations.
+   */
   access?: FsAccess;
   /** Default `deletes`: deletes need approval; `writes` adds writes, edits and moves; `none` asks for nothing. */
   approvals?: FsApprovals;

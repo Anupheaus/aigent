@@ -82,4 +82,21 @@ export function fsAccessContract(create: () => Promise<ContractSubject>): void {
       expect(await codeOf(access.realpath(join('d', 'nope')))).toBe('ENOENT');
     } finally { await cleanup(); }
   });
+
+  it('gives each file an identity that an open handle shares and a rename keeps', async () => {
+    const { access, join, cleanup } = await create();
+    try {
+      await access.writeFile({ path: join('one.txt'), data: bytes('1') });
+      await access.writeFile({ path: join('two.txt'), data: bytes('2') });
+      const one = (await access.stat(join('one.txt'))).fileId;
+      expect(one).toEqual(expect.any(String));
+      expect((await access.stat(join('two.txt'))).fileId).not.toBe(one);
+      const handle = await access.open(join('one.txt'));
+      try {
+        expect((await handle.stat?.())?.fileId).toBe(one);
+      } finally { await handle.close(); }
+      await access.rename(join('one.txt'), join('moved.txt'));
+      expect((await access.lstat(join('moved.txt'))).fileId).toBe(one);
+    } finally { await cleanup(); }
+  });
 }

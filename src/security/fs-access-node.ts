@@ -1,23 +1,29 @@
 import { copyFile, lstat, mkdir, open, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
-import type { Dirent, Stats } from 'node:fs';
+import type { BigIntStats, Dirent } from 'node:fs';
 import type { FsAccess, FsEntryType, FsStat } from './fs-access.js';
 
-function typeOf(entry: Pick<Stats | Dirent, 'isFile' | 'isDirectory' | 'isSymbolicLink'>): FsEntryType {
+function typeOf(entry: Pick<BigIntStats | Dirent, 'isFile' | 'isDirectory' | 'isSymbolicLink'>): FsEntryType {
   if (entry.isSymbolicLink()) return 'symlink';
   if (entry.isFile()) return 'file';
   return entry.isDirectory() ? 'directory' : 'other';
 }
 
-function toStat(stats: Stats): FsStat {
-  return { type: typeOf(stats), size: stats.isDirectory() ? 0 : stats.size, mtimeMs: stats.mtimeMs };
+const IS_WINDOWS = process.platform === 'win32';
+
+/**
+ * Big-integer stats, so the inode (a 64-bit file index on Windows) is exact in `fileId`. On Windows `fstat` reports
+ * device 0 while `stat` reports the volume serial, so there the id is the file index alone (unique per volume).
+ */
+function toStat(stats: BigIntStats): FsStat {
+  return { type: typeOf(stats), size: stats.isDirectory() ? 0 : Number(stats.size), mtimeMs: Number(stats.mtimeMs), fileId: IS_WINDOWS ? `${stats.ino}` : `${stats.dev}:${stats.ino}` };
 }
 
 /** The real disk through `node:fs/promises`. Paths must already be canonical (see `FsPolicy`). */
 export function createNodeFsAccess(): FsAccess {
   return {
-    platform: process.platform === 'win32' ? 'win32' : 'posix',
-    stat: async path => toStat(await stat(path)),
-    lstat: async path => toStat(await lstat(path)),
+    platform: IS_WINDOWS ? 'win32' : 'posix',
+    stat: async path => toStat(await stat(path, { bigint: true })),
+    lstat: async path => toStat(await lstat(path, { bigint: true })),
     // fs.promises.realpath has native semantics: it also expands Windows short (8.3) names and resolves junctions.
     realpath: path => realpath(path),
     readFile: async path => new Uint8Array(await readFile(path)),
@@ -29,6 +35,7 @@ export function createNodeFsAccess(): FsAccess {
           const { bytesRead } = await handle.read(buffer, 0, length, offset);
           return buffer.subarray(0, bytesRead);
         },
+        stat: async () => toStat(await handle.stat({ bigint: true })),
         close: () => handle.close(),
       };
     },

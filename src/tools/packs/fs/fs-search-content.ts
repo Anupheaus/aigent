@@ -1,4 +1,3 @@
-import type { FsAccess } from '../../../security/fs-access.js';
 import type { TextMatcher } from './fs-search-matcher.js';
 import { BINARY_SAMPLE_BYTES, cutLongLine, encodingOf, isBinary, normaliseText } from './fs-text.js';
 import type { SkipReason } from './fs-walk.js';
@@ -20,7 +19,8 @@ export interface FileMatches {
 }
 
 export interface SearchFileParams {
-  access: FsAccess;
+  /** Reads the whole file (verified: see `fs-verify.ts`). */
+  read(path: string): Promise<Uint8Array>;
   path: string;
   size: number;
   /** Larger files are skipped as `tooLarge` (and reported). */
@@ -49,11 +49,11 @@ function decodeWhole(bytes: Uint8Array): string | undefined {
  * `stopped` when the search's matcher ran out of time (or was aborted).
  */
 export async function searchFile(params: SearchFileParams): Promise<FileMatches | { skipped: SkipReason } | { stopped: 'timed-out' | 'aborted' }> {
-  const { access, path, size, maxBytes, matcher, contextLines, room } = params;
+  const { read, path, size, maxBytes, matcher, contextLines, room } = params;
   if (size > maxBytes) return { skipped: 'tooLarge' };
   let bytes: Uint8Array;
   try {
-    bytes = await access.readFile(path);
+    bytes = await read(path);
   } catch {
     // Vanished or unreadable between the listing and the read: reported, never counted as "no matches".
     return { skipped: 'unreadable' };

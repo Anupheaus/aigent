@@ -89,7 +89,11 @@ export function createMemoryFsAccess(options: MemoryFsOptions): FsAccess {
     });
   };
   const typeOf = (node: MemoryNode): FsEntryType => (node.kind === 'dir' ? 'directory' : node.kind);
-  const statOf = (node: MemoryNode): FsStat => ({ type: typeOf(node), size: node.kind === 'file' ? node.data.length : 0, mtimeMs: node.mtimeMs });
+  /** Each stored node is one file: its id survives renames (the node moves) and changes when a write replaces it. */
+  const ids = new WeakMap<MemoryNode, string>();
+  let nextId = 0;
+  const idOf = (node: MemoryNode): string => ids.get(node) ?? (ids.set(node, `mem:${(nextId += 1)}`).get(node) as string);
+  const statOf = (node: MemoryNode): FsStat => ({ type: typeOf(node), size: node.kind === 'file' ? node.data.length : 0, mtimeMs: node.mtimeMs, fileId: idOf(node) });
   const mkdirs = (parts: PathParts): void => {
     for (let depth = 1; depth <= parts.segments.length; depth += 1) {
       const ancestor = { root: parts.root, segments: parts.segments.slice(0, depth) };
@@ -119,8 +123,9 @@ export function createMemoryFsAccess(options: MemoryFsOptions): FsAccess {
     realpath: async path => joinParts({ parts: existing({ path }).parts, platform }),
     readFile,
     open: async path => {
+      const { node } = existing({ path });
       const data = await readFile(path);
-      return { read: async ({ offset, length }) => data.slice(offset, offset + length), close: async () => undefined };
+      return { read: async ({ offset, length }) => data.slice(offset, offset + length), stat: async () => statOf(node), close: async () => undefined };
     },
     writeFile: async ({ path, data, exclusive = false }) => {
       const parts = resolve({ path, followLast: true });

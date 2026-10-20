@@ -2,11 +2,12 @@ import { z } from 'zod';
 import { defineBatchTool } from '../../define-batch-tool.js';
 import type { Tool, ToolContext } from '../../tool-types.js';
 import { diffLines, diffStats, splitLines } from '../diff.js';
-import { parentOf, pathExists, writeAtomically } from './fs-atomic.js';
+import { createExclusively, parentOf, pathExists, writeAtomically } from './fs-atomic.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
 import { encodeUtf8, sha256 } from './fs-text.js';
 import { applyUndoSteps, backUp, undoDescriptor, withUndo } from './fs-undo.js';
+import { serialised } from './fs-verify.js';
 import type { UndoStep } from './fs-undo.js';
 
 export const FS_WRITE_TOOL_NAME = 'fs_write';
@@ -38,7 +39,7 @@ async function writeOne(params: { deps: FsDeps; item: WriteItem; context: ToolCo
       const hash = sha256(data);
       if (!overwrite) {
         // An exclusive create: refused atomically when the file exists, never a check-then-write race.
-        await access.writeFile({ path: allowed.path, data, exclusive: true });
+        await createExclusively({ deps, path: allowed.path, data });
         return withUndo({ result: { path: allowed.path, bytes: data.length, created: true }, steps: [{ kind: 'remove-created', path: allowed.path, hash }] });
       }
       const existed = await pathExists({ deps, path: allowed.path });
@@ -66,7 +67,7 @@ export function createFsWrite(deps: FsDeps): Tool {
         const title = countTitle({ verb: 'Writing', noun: 'files', paths: items.map(({ path }) => path) });
         return outcome.then(({ success, reason }) => ({ title, ...(success ? {} : { detail: reason }) }), () => ({ title }));
       },
-      runItem: (item, context) => writeOne({ deps, item, context }),
+      runItem: (item, context) => serialised({ deps, work: () => writeOne({ deps, item, context }) }),
       dryRunItem: async ({ path, content, overwrite = false }) => {
         const allowed = await allowPath({ deps, path, permission: 'write', bytes: encodeUtf8(content).length });
         const before = await access.readFile(allowed.path).then(bytes => new TextDecoder().decode(bytes), () => undefined);

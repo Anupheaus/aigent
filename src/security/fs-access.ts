@@ -12,6 +12,11 @@ export interface FsStat {
   size: number;
   /** Last modification, epoch ms. */
   mtimeMs: number;
+  /**
+   * The file's identity on its volume (device and inode/file index), when the access knows it: two paths with the
+   * same id name the same file. Used to check that an opened handle is the file the policy checked.
+   */
+  fileId?: string;
 }
 
 export interface FsDirEntry {
@@ -23,6 +28,8 @@ export interface FsDirEntry {
 export interface FsFileHandle {
   /** Up to `length` bytes from byte `offset` (fewer at the end of the file). */
   read(range: { offset: number; length: number }): Promise<Uint8Array>;
+  /** The open file's own stat (fstat), with its `fileId` when known. */
+  stat?(): Promise<FsStat>;
   close(): Promise<void>;
 }
 
