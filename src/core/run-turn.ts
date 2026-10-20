@@ -29,6 +29,7 @@ import type { RunEffects } from './run-effects.js';
 import { createTurnStreamGuard, flushThinking } from './turn-stream-guard.js';
 import type { TurnStreamGuard } from './turn-stream-guard.js';
 import type { DelegatedUsage, RunDelegation } from './delegation-types.js';
+import type { RunCallIds } from './run-call-ids.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
@@ -107,6 +108,8 @@ export interface RunTurnParams {
   effects?: RunEffects;
   /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
   delegation?: RunDelegation;
+  /** Makes the turn's call ids unique within the run. */
+  callIds?: RunCallIds;
   /** Aborts on any stop of the run, graceful included. */
   stopSignal?: AbortSignal;
   emit(event: AigentEvent): void;
@@ -184,7 +187,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
         case 'thinking-delta': { const shown = guard.thinking(event.text); if (shown !== '') emit({ type: 'thinking-delta', text: shown }); break; }
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
-        case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
+        case 'tool-call': { const call = params.callIds?.unique({ call: event.call, turn: totals.turns }) ?? event.call; calls.push(call); dispatchToolCall({ call, turn: params }); break; }
         case 'usage': addUsage(totals, event.usage); reportedTokens = event.usage.inputTokens; emit(event); break;
         case 'done': finishReason = event.finishReason; break;
       }

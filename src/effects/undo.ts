@@ -18,10 +18,21 @@ export interface UndoEffectsParams {
   writeQueue: WriteQueue;
 }
 
-function matches(entry: EffectLogEntry, target: UndoTarget): boolean {
-  if ('callId' in target) return entry.callId === target.callId;
-  if ('runId' in target) return entry.runId === target.runId;
-  return entry.at >= target.since;
+/** Whether the entry is one the target names: a run (and call) exactly, else a call or time within the scope. */
+function matches(params: { entry: EffectLogEntry; target: UndoTarget; instanceId: string }): boolean {
+  const { entry, target, instanceId } = params;
+  if ('runId' in target) return entry.runId === target.runId && (target.callId == null || entry.callId === target.callId);
+  if (target.scope !== 'agent' && entry.instanceId !== instanceId) return false;
+  return 'callId' in target ? entry.callId === target.callId : entry.at >= target.since;
+}
+
+/** A bare call id that names calls of several runs is refused: undoing all of them would reverse unrelated work. */
+function assertOneRun(params: { entries: EffectLogEntry[]; target: UndoTarget }): void {
+  const { entries, target } = params;
+  if (!('callId' in target) || 'runId' in target) return;
+  const runIds = [...new Set(entries.map(({ runId }) => runId))];
+  if (runIds.length <= 1) return;
+  throw createAigentError({ code: 'invalid_input', message: `Call id '${target.callId}' names calls of more than one run (${runIds.join(', ')}); pass { runId, callId } to say which`, details: { callId: target.callId, runs: runIds.length } });
 }
 
 /** Newest first: later time, then later append. */
@@ -66,7 +77,8 @@ async function undoOne(params: UndoEffectsParams & { entry: EffectLogEntry }): P
 export async function undoEffects(params: UndoEffectsParams): Promise<UndoReport> {
   const { log, agent, target, writeQueue } = params;
   return writeQueue.enqueue(`undo:${agent.name}`, async () => {
-    const entries = (await log.effects(agent.name)).filter(entry => matches(entry, target)).sort(newestFirst);
+    const entries = (await log.effects(agent.name)).filter(entry => matches({ entry, target, instanceId: agent.instanceId })).sort(newestFirst);
+    assertOneRun({ entries, target });
     const results: UndoResult[] = [];
     // One at a time, newest first: a later effect may depend on an earlier one still being in place.
     for (const entry of entries) results.push(await undoOne({ ...params, entry }));
@@ -74,15 +86,16 @@ export async function undoEffects(params: UndoEffectsParams): Promise<UndoReport
   });
 }
 
+const scopeSchema = z.enum(['instance', 'agent']).optional();
 const undoTargetSchema = z.union([
-  z.object({ callId: z.string().min(1) }).strict(),
-  z.object({ runId: z.string().min(1) }).strict(),
-  z.object({ since: z.number().finite() }).strict(),
+  z.object({ runId: z.string().min(1), callId: z.string().min(1).optional() }).strict(),
+  z.object({ callId: z.string().min(1), scope: scopeSchema }).strict(),
+  z.object({ since: z.number().finite(), scope: scopeSchema }).strict(),
 ]);
 
 /** Validates `agent.undo(target)`; throws `invalid_input`. */
 export function parseUndoTarget(target: unknown): UndoTarget {
   const parsed = undoTargetSchema.safeParse(target);
   if (parsed.success) return parsed.data;
-  throw createAigentError({ code: 'invalid_input', message: `Invalid undo target (expected { callId }, { runId } or { since: epochMs }): ${describeIssues(parsed.error)}`, details: { issues: parsed.error.issues.length } });
+  throw createAigentError({ code: 'invalid_input', message: `Invalid undo target (expected { runId, callId? }, { callId, scope? } or { since: epochMs, scope? }): ${describeIssues(parsed.error)}`, details: { issues: parsed.error.issues.length } });
 }

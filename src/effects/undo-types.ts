@@ -48,8 +48,17 @@ export interface EffectLogEntry {
   sequence: number;
 }
 
-/** What `agent.undo` reverses: one call's effects, a run's, or every effect since a time (epoch ms). */
-export type UndoTarget = { callId: string } | { runId: string } | { since: number };
+/** Whose effects a `callId` or `since` target covers: this agent instance's (default), or every instance of the agent. */
+export type UndoScope = 'instance' | 'agent';
+
+/**
+ * What `agent.undo` reverses: a run's effects (or one call of it), one call by its id, or every effect since a time
+ * (epoch ms). `callId` alone must name a call of exactly one run (provider call ids repeat across runs).
+ */
+export type UndoTarget =
+  | { runId: string; callId?: string }
+  | { callId: string; scope?: UndoScope }
+  | { since: number; scope?: UndoScope };
 
 export type UndoResultStatus = 'undone' | 'failed' | 'unavailable' | 'already_undone' | 'expired';
 

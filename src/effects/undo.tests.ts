@@ -99,7 +99,7 @@ describe('effect log and agent.undo', () => {
     expect(steps.map(({ tool, undoable }) => [tool, undoable === true])).toEqual([['write_file', true], ['format_disk', false]]);
     world.set('/a.txt', 'changed');
     const fresh = setup({ turns: [], world, store });
-    expect((await fresh.agent.undo({ callId: 'a' })).results).toMatchObject([{ status: 'undone' }]);
+    expect((await fresh.agent.undo({ runId: run.runId, callId: 'a' })).results).toMatchObject([{ status: 'undone' }]);
     expect(world.get('/a.txt')).toBe('old a');
   });
 

@@ -20,6 +20,7 @@ import type { ApprovalCenter } from '../approvals/approval-gate.js';
 import type { InFlightRound } from '../resume/checkpoint-types.js';
 import type { RunCheckpoints } from '../resume/checkpoint-hooks.js';
 import { createRunCheckpointer } from './run-checkpointer.js';
+import { createRunCallIds } from './run-call-ids.js';
 import { watchRunLease } from './run-lease-watch.js';
 import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
 import type { NewContextMessage } from './run-context.js';
@@ -136,6 +137,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     // The pending request is checkpointed; the turn's request was sent, but only a recorded response counts it.
     onPending: async () => { await checkpointer.at({ boundary: 'approval', ...(inFlightRound == null ? { turnsDone: totals.turns - 1 } : { inFlight: inFlightRound }) }); },
   });
+  const callIds = createRunCallIds({ context, ...(restore == null ? {} : { reserved: restore.ledger.map(({ callId }) => callId) }) });
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';
@@ -218,7 +220,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
         ...(shaping == null ? {} : { shaping }),
         ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }),
         ...(params.effects == null ? {} : { effects: params.effects }),
-        ...(params.delegation == null ? {} : { delegation: params.delegation }), stopSignal: control.stopSignal,
+        ...(params.delegation == null ? {} : { delegation: params.delegation }), stopSignal: control.stopSignal, callIds,
       });
       endTurn();
     } catch (error) {

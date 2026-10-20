@@ -201,9 +201,11 @@ export interface Agent {
    */
   approve(requestId: string, decision: ApprovalDecision): Promise<void>;
   /**
-   * Reverses this agent's recorded effects (one call's, a run's, or every one since a time) newest first through their
-   * tools' `applyUndo`, with one result per effect: `undone`, `failed` (the rest still run), `unavailable` (the tool
-   * cannot undo it), `already_undone` or `expired` (past `undo.retentionMs`). Each undo is itself recorded.
+   * Reverses recorded effects (a run's or one call of it, one call by id, or every one since a time) newest first through
+   * their tools' `applyUndo`, with one result per effect: `undone`, `failed` (the rest still run), `unavailable` (the
+   * tool cannot undo it, or its undo data was changed by `redact`), `already_undone` or `expired` (past
+   * `undo.retentionMs`). Each undo is itself recorded. `callId` and `since` cover this instance's effects unless
+   * `scope: 'agent'`; a bare `callId` that matches calls of several runs is refused (`invalid_input`).
    */
   undo(target: UndoTarget): Promise<UndoReport>;
   /**
