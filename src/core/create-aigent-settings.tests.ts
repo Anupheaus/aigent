@@ -103,8 +103,38 @@ describe('model settings through createAigent', () => {
       agentVersion: agent.agentVersion,
       model: 'fake:m',
       version: 'v3',
-      settings: { contextSize: 10_000, temperature: 0.9, maxOutputTokens: 500 },
+      settings: { temperature: 0.9, maxOutputTokens: 500 },
+      runtimeSettings: { contextSize: 10_000 },
     });
+    expect(record?.value).not.toHaveProperty('droppedSettings');
+    expect(record?.value).not.toHaveProperty('fallbacks');
+  });
+
+  it('records only the settings the model was sent, naming the ones it dropped, and only its own providerOptions', async () => {
+    const store = createInMemoryStore();
+    const fake = createFakeProvider({ turns: [textTurn('ok')] });
+    const provider: FakeProvider = { ...fake, capabilities: { ...fake.capabilities, supportedSettings: ['temperature', 'providerOptions'] } };
+    const agent = aigentWith({ provider, options: { store } })
+      .agent({ name: 'helper', model: 'fake:m', modelSettings: { temperature: 0.5, seed: 4, providerOptions: { fake: { top_k: 2 }, other: { secret_ref: 'x' } } } });
+    const result = await agent.task({ task: 'x' });
+    const record = await store.get<Record<string, unknown>>('runs', result.runId);
+    expect(record?.value).toMatchObject({ settings: { temperature: 0.5, providerOptions: { top_k: 2 } }, droppedSettings: ['seed'] });
+    expect(record?.value).not.toHaveProperty('runtimeSettings');
+  });
+
+  it('records what each fallback model the run used was sent, and only those', async () => {
+    const store = createInMemoryStore();
+    const down = createAigentError({ code: 'provider_failed', message: 'down', details: { retryable: true } });
+    const primary = createFakeProvider({ id: 'fake', turns: [1, 2, 3].map(() => ({ events: [], failBeforeEvents: down })) });
+    const fakeBackup = createFakeProvider({ id: 'backup', turns: [textTurn('ok')] });
+    const backup: FakeProvider = { ...fakeBackup, capabilities: { ...fakeBackup.capabilities, supportedSettings: ['maxOutputTokens'] } };
+    const unused = createFakeProvider({ id: 'unused', turns: [] });
+    const ai = createAigent({ providers: [primary, backup, unused], clock, ids: sequentialIds(), store, sleep: async () => undefined, random: () => 0.5 });
+    const agent = ai.agent({ name: 'helper', model: 'fake:m', fallbackModels: ['backup:m', 'unused:m'], modelSettings: { maxOutputTokens: 100, temperature: 0.2 } });
+    const result = await agent.task({ task: 'x' });
+    const record = await store.get<Record<string, unknown>>('runs', result.runId);
+    expect(record?.value).toMatchObject({ model: 'fake:m', settings: { maxOutputTokens: 100, temperature: 0.2 } });
+    expect((record?.value as Record<string, unknown>).fallbacks).toEqual([{ model: 'backup:m', settings: { maxOutputTokens: 100 }, droppedSettings: ['temperature'] }]);
   });
 
   it('leaves the version label out of the run record when the agent has none', async () => {

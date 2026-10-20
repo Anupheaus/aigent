@@ -26,12 +26,13 @@ describe('filterProviderSettings', () => {
 
   it('returns no settings when nothing is left to send', () => {
     expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { contextSize: 1 } }).settings).toBeUndefined();
-    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: {} })).toEqual({ warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: {} })).toEqual({ warnings: [], dropped: [] });
   });
 
   it('drops each setting the provider does not support, with one warning each', () => {
-    const { settings, warnings } = filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { temperature: 1, seed: 3, stop: ['x'] } });
+    const { settings, warnings, dropped } = filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { temperature: 1, seed: 3, stop: ['x'] } });
     expect(settings).toEqual({ temperature: 1 });
+    expect(dropped).toEqual(['stop', 'seed']);
     expect(warnings).toEqual([
       "Provider 'p' does not support setting 'stop'; ignored",
       "Provider 'p' does not support setting 'seed'; ignored",
@@ -44,7 +45,8 @@ describe('filterProviderSettings', () => {
       seen.push({ settings, context });
       return settings.thinking === 'off' ? ['effort'] : [];
     };
-    const { settings, warnings } = filterProviderSettings({ provider: providerWith({ unsupportedSettings }), model: MODEL, settings: { thinking: 'off', effort: 'high', temperature: 1 } });
+    const { settings, warnings, dropped } = filterProviderSettings({ provider: providerWith({ unsupportedSettings }), model: MODEL, settings: { thinking: 'off', effort: 'high', temperature: 1 } });
+    expect(dropped).toEqual(['thinking', 'effort']);
     expect(seen).toEqual([{ settings: { thinking: 'off', effort: 'high', temperature: 1 }, context: { model: MODEL } }]);
     expect(settings).toEqual({ temperature: 1 });
     expect(warnings).toEqual([
@@ -56,8 +58,8 @@ describe('filterProviderSettings', () => {
   it("sends only this provider's providerOptions, flattened, and none when it has no entry", () => {
     const providerOptions = { p: { metadata: { user_id: 'u' } }, other: { logprobs: true } };
     expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions } }).settings).toEqual({ providerOptions: { metadata: { user_id: 'u' } } });
-    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { other: { logprobs: true } } } })).toEqual({ warnings: [] });
-    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { p: {} } } })).toEqual({ warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { other: { logprobs: true } } } })).toEqual({ warnings: [], dropped: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { p: {} } } })).toEqual({ warnings: [], dropped: [] });
   });
 
   it('treats a provider without capabilities.supportedSettings as supporting none, warning once instead of throwing', () => {
@@ -69,12 +71,13 @@ describe('filterProviderSettings', () => {
         "Provider 'p' does not support setting 'temperature'; ignored",
         "Provider 'p' does not support setting 'seed'; ignored",
       ],
+      dropped: ['temperature', 'seed'],
     });
-    expect(filterProviderSettings({ provider: legacy, model: MODEL, settings: { contextSize: 10 } })).toEqual({ warnings: [] });
+    expect(filterProviderSettings({ provider: legacy, model: MODEL, settings: { contextSize: 10 } })).toEqual({ warnings: [], dropped: [] });
   });
 
   it('does not warn about undefined settings', () => {
-    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [], dropped: [] });
   });
 
   it("adds the provider's own warnings about the settings it keeps, after the dropped ones", () => {

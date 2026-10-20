@@ -92,7 +92,8 @@ function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
   const { target: { reference, provider, model, providerSettings }, agent: { agentSettings, runtimeSettings }, input } = params;
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agentSettings, runtime: runtimeSettings, provider: providerSettings });
   const filtered = filterProviderSettings({ provider, model, settings });
-  return { label: reference, provider, model, warnings: filtered.warnings, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
+  const { warnings, dropped } = filtered;
+  return { label: reference, provider, model, warnings, dropped, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
 }
 
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
@@ -107,7 +108,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const primary = toProviderTarget({ target, agent, input });
   const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
   const priority = input.priority ?? (input.unattended === true ? 'background' : 'interactive');
-  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, warnedLabels: new Set([primary.label]), scheduler, priority, agentName };
+  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler, priority, agentName };
   const stream = createEventStream<AigentEvent, TaskResult>();
   const emit = (event: AigentEvent): void => stream.push(event);
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });
@@ -127,7 +128,8 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
       dispose();
     }
     if (input.disableTelemetry !== true) {
-      const record = buildRunRecord({ input, result, agent: { agentVersion, model: target.reference, settings, version }, startedAt });
+      const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
+      const record = buildRunRecord({ input, result, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings }, startedAt });
       const warning = await writeRunRecord({ store, writeQueue, record });
       if (warning != null) emit({ type: 'warning', message: warning });
     }

@@ -18,6 +18,8 @@ export interface ProviderTarget {
   settings?: ProviderSettings;
   /** One per setting this provider leaves out; emitted the first time the run uses the target. */
   warnings: string[];
+  /** The resolved settings this provider leaves out, for the run record. */
+  dropped: (keyof ProviderSettings)[];
 }
 
 /** Which models a run's turns use and how failures are retried; shared by every turn of the run. */
@@ -27,8 +29,8 @@ export interface TurnRouting {
   policy: ResiliencePolicy;
   sleep: Sleeper;
   random: RandomSource;
-  /** Labels whose setting warnings were already emitted in this run. */
-  warnedLabels: Set<string>;
+  /** Labels this run has used (the primary from the start, fallbacks once reached); their setting warnings are emitted on first use. */
+  usedLabels: Set<string>;
   /** Every provider call waits for a lease from it. */
   scheduler: Scheduler;
   priority: LanePriority;
@@ -74,9 +76,9 @@ function estimateTokens(params: { request: TurnRequest; settings?: ProviderSetti
 }
 
 function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouting; emit(event: AigentEvent): void }): void {
-  const { target: { label, warnings }, routing: { warnedLabels }, emit } = params;
-  if (warnedLabels.has(label)) return;
-  warnedLabels.add(label);
+  const { target: { label, warnings }, routing: { usedLabels }, emit } = params;
+  if (usedLabels.has(label)) return;
+  usedLabels.add(label);
   for (const message of warnings) emit({ type: 'warning', message });
 }
 

@@ -13,8 +13,10 @@ export interface FilterProviderSettingsParams {
 export interface FilteredProviderSettings {
   /** What may be sent; absent when nothing is left. */
   settings?: ProviderSettings;
-  /** One message per setting left out. */
+  /** One message per setting left out, then the provider's own notes on what it keeps. */
   warnings: string[];
+  /** The settings left out, in `PROVIDER_SETTING_KEYS` order. */
+  dropped: (keyof ProviderSettings)[];
 }
 
 type SettingsRecord = Record<string, unknown>;
@@ -55,7 +57,8 @@ export function filterProviderSettings(params: FilterProviderSettingsParams): Fi
     return [];
   })];
   const kept = Object.fromEntries(Object.entries(facing).filter(([key]) => !unsupported.has(key as keyof ProviderSettings) && !conflicting.has(key as keyof ProviderSettings)));
-  if (Object.keys(kept).length === 0) return { warnings: dropWarnings };
+  const dropped = present.filter(key => unsupported.has(key) || conflicting.has(key));
+  if (Object.keys(kept).length === 0) return { warnings: dropWarnings, dropped };
   const keptSettings = kept as ProviderSettings;
-  return { settings: keptSettings, warnings: [...dropWarnings, ...(settingsWarnings?.(keptSettings, context) ?? [])] };
+  return { settings: keptSettings, warnings: [...dropWarnings, ...(settingsWarnings?.(keptSettings, context) ?? [])], dropped };
 }
