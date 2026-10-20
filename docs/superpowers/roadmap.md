@@ -10,7 +10,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 2 | Providers (OpenAI-compatible, Anthropic, contract suite) | done |
 | 3 | Model settings, provider resilience (retry/fallback), shared scheduler | done |
 | 4 | Run records, scoring, report, feedback tools, user feedback, analysis | done |
-| 5 | Tool-result cache, shaper pipeline (verbatim-safe), volatile block, plan/todo tools | todo |
+| 5 | Tool-result cache, shaper pipeline (verbatim-safe), volatile block, plan/todo tools | done |
 | 6 | Context layout, compaction, `Compressor` interface | todo |
 | 7 | Chat: conversation model, patches, ask_user, queue/steer, threads, forks | todo |
 | 8 | Resumable instances: checkpoints, leases, exactly-once; approvals | todo |
