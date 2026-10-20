@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderEvent, ProviderRequest } from '../providers/provider-types.js';
 import { createFakeProvider, textTurn, toolTurn } from './fake-provider.js';
 
@@ -44,5 +44,22 @@ describe('createFakeProvider', () => {
     })();
     await expect(run).rejects.toMatchObject({ code: 'aborted' });
     expect(seen.length).toBeLessThan(6);
+  });
+
+  describe('pending timers', () => {
+    afterEach(() => { vi.useRealTimers(); });
+
+    // Consumers assert "no pending timers" after cancelling; the fake must not leave its delay timer behind.
+    it('clears its delay timer as soon as the signal aborts', async () => {
+      vi.useFakeTimers();
+      const provider = createFakeProvider({ turns: [textTurn('ab', { chunkSize: 1, delayMs: 60_000 })] });
+      const controller = new AbortController();
+      const consumed = collect(provider.stream(REQUEST, controller.signal));
+      const settled = expect(consumed).rejects.toMatchObject({ code: 'aborted' });
+      await vi.advanceTimersByTimeAsync(10);
+      controller.abort();
+      await settled;
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 });

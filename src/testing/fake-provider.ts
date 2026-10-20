@@ -59,8 +59,14 @@ export function toolTurn(calls: ToolCall[], options: TurnOptions = {}): FakeTurn
   return { events, delayMs };
 }
 
-function sleep(delayMs: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, delayMs));
+/** Waits `delayMs`, or less if `signal` aborts first; never leaves its timer or listener behind. */
+function sleep(delayMs: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    if (signal.aborted) { resolve(); return; }
+    const onAbort = (): void => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve(); }, delayMs);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 export function createFakeProvider(options: FakeProviderOptions): FakeProvider {
@@ -76,7 +82,7 @@ export function createFakeProvider(options: FakeProviderOptions): FakeProvider {
       throw createAigentError({ code: 'provider_failed', message: `FakeProvider '${id}' has no scripted turn for request ${turnIndex}; scripted ${turns.length}` });
     }
     for (const event of turn.events) {
-      if (turn.delayMs != null && turn.delayMs > 0) await sleep(turn.delayMs);
+      if (turn.delayMs != null && turn.delayMs > 0) await sleep(turn.delayMs, signal);
       if (signal.aborted) throw createAigentError({ code: 'aborted', message: `FakeProvider '${id}' stream aborted` });
       yield event;
     }
