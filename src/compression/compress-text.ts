@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
+import { createAigentError } from '../core/aigent-error.js';
 import { canonicalJson } from '../core/canonical-json.js';
+import { raceSignal } from '../core/race-signal.js';
 import { describeError } from '../core/describe-value.js';
 import { estimateTokens } from '../telemetry/estimate-tokens.js';
 import type { CompressionCache, CompressedEntry } from './compression-cache.js';
@@ -58,25 +60,45 @@ interface ResultParams {
   cacheHit: boolean;
   latencyMs: number;
   isSkipped?: boolean;
+  isFailed?: boolean;
 }
 
 function toResult(params: ResultParams): CompressedText {
-  const { text, field, key, entry, cacheHit, latencyMs, isSkipped = false } = params;
+  const { text, field, key, entry, cacheHit, latencyMs, isSkipped = false, isFailed = false } = params;
   const originalTokens = estimateTokens(text);
   const compressedTokens = estimateTokens(entry.text);
   return {
-    text: entry.text, originalText: text, originalTokens, compressedTokens, ratio: originalTokens === 0 ? 1 : compressedTokens / originalTokens, cacheHit, key, latencyMs, isSkipped,
+    text: entry.text, originalText: text, originalTokens, compressedTokens, ratio: originalTokens === 0 ? 1 : compressedTokens / originalTokens, cacheHit, key, latencyMs, isSkipped, isFailed,
     ...(entry.isRejected ? { warning: rejectedWarning(field) } : {}),
   };
 }
 
+/** Asks the compressor, bounded by `timeoutMs` and the caller's signal; the compressor's own signal ends with either. */
+async function askCompressor(params: CompressTextParams & { required: string[] }): Promise<string> {
+  const { text, compression: { compressor, targetRatio, timeoutMs }, required, signal } = params;
+  const call = new AbortController();
+  const onAbort = (): void => call.abort(signal?.reason);
+  signal?.addEventListener('abort', onAbort, { once: true });
+  if (signal?.aborted === true) onAbort();
+  const timer = setTimeout(() => call.abort(`the compressor did not answer within ${timeoutMs}ms`), timeoutMs);
+  try {
+    const raced = await raceSignal({ work: compressor.compress({ text, targetRatio, protect: required, signal: call.signal }), signal: call.signal });
+    if (raced.isAborted && signal?.aborted === true) throw createAigentError({ code: 'aborted', message: `Compression was aborted: ${String(signal.reason)}` });
+    if (raced.isAborted) throw createAigentError({ code: 'provider_failed', message: String(call.signal.reason), details: { compressorId: compressor.id, timeoutMs } });
+    return raced.value.text;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
+  }
+}
+
 /** Runs the compressor and checks its output; a failure or a dropped protected span keeps the original. */
 async function runCompressor(params: CompressTextParams & { recordedAt: number }): Promise<{ entry: CompressedEntry; failure?: string }> {
-  const { text, compression: { compressor, targetRatio, forceKeep }, recordedAt, signal } = params;
+  const { text, compression: { compressor, forceKeep }, recordedAt, signal } = params;
   const base = { compressorId: compressor.id, compressorVersion: compressor.version, recordedAt };
   const required = requiredSpans({ text, forceKeep });
   try {
-    const { text: output } = await compressor.compress({ text, targetRatio, protect: required, ...(signal == null ? {} : { signal }) });
+    const output = await askCompressor({ ...params, required });
     if (!keepsRequired({ text, output, required })) return { entry: { ...base, text, isRejected: true } };
     // Output that is not shorter is no compression at all; the original is sent as is.
     return { entry: { ...base, text: output.length < text.length ? output : text, isRejected: false } };
@@ -102,7 +124,7 @@ export async function compressText(params: CompressTextParams): Promise<Compress
   const { entry, failure } = await runCompressor({ ...params, recordedAt: startedAt });
   const latencyMs = now() - startedAt;
   // A failure is not cached: the next call may find the compressor available again.
-  if (failure != null) return { ...toResult({ text, field, key, entry, cacheHit: false, latencyMs }), warning: `Compression of ${field} failed (${failure}) and was ignored` };
+  if (failure != null) return { ...toResult({ text, field, key, entry, cacheHit: false, latencyMs, isFailed: true }), warning: `Compression of ${field} failed (${failure}) and was ignored` };
   await cache.set({ key, entry });
   return toResult({ text, field, key, entry, cacheHit: false, latencyMs });
 }

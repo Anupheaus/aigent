@@ -100,12 +100,16 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     let compression: RunCompression | undefined;
     const resultData = await (async () => {
       try {
+        const { signal } = control.abortController;
         // Chat turns use the persona only: the user's words arrive as history, not as task fields.
-        const texts = await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input } : {}), context: promptCompressionContext({ agent, services }) });
-        for (const message of texts.warnings) emit({ type: 'warning', message });
-        compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts.records] };
+        const texts = await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input } : {}), context: { ...promptCompressionContext({ agent, services }), signal } })
+          .catch(error => { if (signal.aborted) return undefined; throw error; });
+        for (const message of texts?.warnings ?? []) emit({ type: 'warning', message });
+        compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts?.records ?? []] };
+        // Stopped while compressing the prompt: the loop sees the aborted signal first and settles the run without a request.
+        const initial = texts == null ? [] : initialMessages({ system: texts.system, brief: texts.brief, ...(conversation == null ? {} : { conversation }) });
         return await runAgentTurns({
-          runId, responseId, agentName, instanceId, initial: initialMessages({ system: texts.system, brief: texts.brief, ...(conversation == null ? {} : { conversation }) }), registry, clock, control, telemetry, emit,
+          runId, responseId, agentName, instanceId, initial, registry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
           ...(services.cache == null ? {} : { cache: services.cache }),
           ...(shaping == null ? {} : { shaping }),

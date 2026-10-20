@@ -12,7 +12,6 @@ import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { ModelSettings } from './model-settings.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
-import type { CompressedPart } from '../compression/compress-prompt.js';
 import type { CompressionCache } from '../compression/compression-cache.js';
 import type { ResolvedCompression } from '../compression/compression-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
@@ -21,6 +20,7 @@ import { createAskUserTool } from '../chat/ask-user-tool.js';
 import { askThrough } from '../chat/task-questions.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
+import type { StaticPrompt } from './static-prompt.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
@@ -63,7 +63,7 @@ export interface ResolvedAgent {
   /** The agent's compression settings, when it compresses. */
   compression?: ResolvedCompression;
   /** The persona fields as sent, compressed once per agent and memoised (lazily, on the first task or preview). */
-  staticPrompt(): Promise<CompressedPart<PromptPersona>>;
+  staticPrompt: StaticPrompt;
 }
 
 /** Shared, per-`createAigent` services. */

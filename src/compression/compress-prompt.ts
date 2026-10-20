@@ -12,6 +12,8 @@ export interface PromptCompressionContext {
   compression?: ResolvedCompression;
   cache: CompressionCache;
   now(): number;
+  /** Ends a compressor call early (the run was stopped); the compression then rejects as aborted. */
+  signal?: AbortSignal;
 }
 
 /** One field as written and as sent; `result` is set when the field went through the compressor (or its cache). */
@@ -28,9 +30,9 @@ export interface CompressedPart<T> {
 }
 
 async function compressField(params: { field: CompressionField; text: string; context: PromptCompressionContext }): Promise<FieldOutcome> {
-  const { field, text, context: { compression, cache, now } } = params;
+  const { field, text, context: { compression, cache, now, signal } } = params;
   if (compression == null || !isFieldCompressed({ compression, field })) return { field, original: text, final: text };
-  const result = await compressText({ text, field, compression, cache, now });
+  const result = await compressText({ text, field, compression, cache, now, ...(signal == null ? {} : { signal }) });
   return { field, original: text, final: result.text, result };
 }
 

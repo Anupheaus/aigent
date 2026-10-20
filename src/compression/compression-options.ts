@@ -3,6 +3,7 @@ import type { CompressionField, CompressionOptions, CompressionTarget, Compresso
 
 export const DEFAULT_TARGET_RATIO = 0.5;
 export const DEFAULT_MIN_TOKENS = 200;
+export const DEFAULT_COMPRESSOR_TIMEOUT_MS = 30_000;
 const COMPRESSION_TARGETS: readonly CompressionTarget[] = ['toolResults', 'history', 'retrieval'];
 const STATIC_FIELDS = ['persona', 'skillset', 'context', 'task', 'references', 'examples'] as const;
 
@@ -20,6 +21,7 @@ export interface ResolvedCompression {
   fields: Record<StaticCompressionField, boolean>;
   applyTo: CompressionTarget[];
   forceKeep: string[];
+  timeoutMs: number;
 }
 
 function invalid(params: { agentName: string; problem: string }): Error {
@@ -39,7 +41,7 @@ function checkCompressor(params: { agentName: string; compressor: unknown }): Co
 export function parseCompressionOptions(params: { agentName: string; options: CompressionOptions | undefined }): ResolvedCompression | undefined {
   const { agentName, options } = params;
   if (options == null) return undefined;
-  const { targetRatio = DEFAULT_TARGET_RATIO, minTokens = DEFAULT_MIN_TOKENS, fields = {}, applyTo = ['toolResults'], forceKeep = [] } = options;
+  const { targetRatio = DEFAULT_TARGET_RATIO, minTokens = DEFAULT_MIN_TOKENS, fields = {}, applyTo = ['toolResults'], forceKeep = [], timeoutMs = DEFAULT_COMPRESSOR_TIMEOUT_MS } = options;
   const compressor = checkCompressor({ agentName, compressor: options.compressor });
   if (!(targetRatio > 0 && targetRatio < 1)) throw invalid({ agentName, problem: `targetRatio must be between 0 and 1 (exclusive), got ${targetRatio}` });
   if (!Number.isSafeInteger(minTokens) || minTokens < 0) throw invalid({ agentName, problem: `minTokens must be a non-negative integer, got ${minTokens}` });
@@ -47,8 +49,9 @@ export function parseCompressionOptions(params: { agentName: string; options: Co
   if (unknownField != null) throw invalid({ agentName, problem: `unknown field '${unknownField}'; expected one of ${STATIC_FIELDS.join(', ')}` });
   const unknownTarget = applyTo.find(target => !COMPRESSION_TARGETS.includes(target));
   if (unknownTarget != null) throw invalid({ agentName, problem: `unknown applyTo '${String(unknownTarget)}'; expected ${COMPRESSION_TARGETS.join(', ')}` });
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw invalid({ agentName, problem: `timeoutMs must be a positive integer, got ${timeoutMs}` });
   if (forceKeep.some(entry => typeof entry !== 'string' || entry === '')) throw invalid({ agentName, problem: 'forceKeep entries must be non-empty strings' });
-  return { compressor, targetRatio, minTokens, fields: { ...DEFAULT_FIELDS, ...fields }, applyTo: [...applyTo], forceKeep: [...forceKeep] };
+  return { compressor, targetRatio, minTokens, fields: { ...DEFAULT_FIELDS, ...fields }, applyTo: [...applyTo], forceKeep: [...forceKeep], timeoutMs };
 }
 
 /** Whether a static field is compressed under these settings. */

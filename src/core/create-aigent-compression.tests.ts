@@ -44,7 +44,34 @@ async function collect(iterable: AsyncIterable<AigentEvent>): Promise<AigentEven
   return events;
 }
 
+const HUNG = { id: 'hung', version: '1', compress: () => new Promise<{ text: string }>(() => undefined) };
+
 describe('createAigent compression', () => {
+  it('ends a run on timeoutMs or its signal while a compressor never answers, and does not memoise the failure', async () => {
+    let calls = 0;
+    const flaky = { id: 'flaky', version: '1', compress: (input: { text: string }) => { calls += 1; return calls === 1 ? HUNG.compress() : fakeCompressor().compress({ ...input, targetRatio: 0.5, protect: [] }); } };
+    const { agent } = setup({ turns: [textTurn('one'), textTurn('two'), textTurn('three')], definition: { compression: { compressor: flaky, minTokens: 10, timeoutMs: 60_000 } } });
+    const timed = await agent.task({ task: 'short', limits: { timeoutMs: 50 } });
+    expect(timed.status).toBe('limit_reached');
+    const controller = new AbortController();
+    const cancelled = agent.task({ task: 'short', signal: controller.signal });
+    controller.abort();
+    expect((await cancelled).status).toBe('cancelled');
+    // The abandoned static compression was not memoised: this run compresses the persona fields afresh.
+    const fresh = await agent.task({ task: 'short' });
+    expect(fresh.status).toBe('completed');
+    expect(calls).toBeGreaterThan(1);
+  });
+
+  it('falls back to the original prompt with a warning when the compressor exceeds its own timeoutMs', async () => {
+    const { agent, provider } = setup({ definition: { compression: { compressor: HUNG, minTokens: 10, timeoutMs: 20 } } });
+    const run = agent.task({ task: 'short' });
+    const events = await collect(run);
+    expect((await run).status).toBe('completed');
+    expect(events).toContainEqual({ type: 'warning', message: 'Compression of context failed (the compressor did not answer within 20ms) and was ignored' });
+    expect(provider.requests[0]?.messages[0]?.text).toContain(CONTEXT.trim());
+  });
+
   it('previews exactly the system prompt, brief and tools the provider then receives', async () => {
     const { provider, agent } = setup();
     const input = { task: TASK, acceptanceCriteria: ['Mentions every note'] };

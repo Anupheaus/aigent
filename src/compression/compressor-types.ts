@@ -41,6 +41,11 @@ export interface CompressionOptions {
   applyTo?: CompressionTarget[];
   /** Extra exact substrings that must survive every compression (identifiers, product names...). */
   forceKeep?: string[];
+  /**
+   * Milliseconds one compressor call may take (default 30,000). A call that does not answer in time is told to stop
+   * through its `signal`, and the original text is used with a warning; the failure is not cached.
+   */
+  timeoutMs?: number;
 }
 
 /** One compression a run used, as stored on its run record. */
@@ -71,6 +76,8 @@ export interface CompressedText {
   isSkipped: boolean;
   /** Set when the compressor's output was rejected (dropped protected content, or failed). */
   warning?: string;
+  /** The compressor threw or timed out: nothing was cached, so a later call tries again. */
+  isFailed: boolean;
 }
 
 /** One field of a preview: what was written and what the model sees. */

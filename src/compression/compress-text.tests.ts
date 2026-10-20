@@ -78,6 +78,23 @@ describe('compressText', () => {
     expect(await setup({ compressor: failing }).run(PROSE)).toMatchObject({ text: PROSE, warning: 'Compression of context failed (model missing) and was ignored' });
   });
 
+  it('times out a compressor that never answers: original with a warning, nothing cached, the compressor told to stop', async () => {
+    let seen: AbortSignal | undefined;
+    const hung = { id: 'h', version: '1', compress: ({ signal }: { signal?: AbortSignal }) => { seen = signal; return new Promise<{ text: string }>(() => undefined); } };
+    const { store, run } = setup({ compressor: hung, timeoutMs: 20 });
+    expect(await run(PROSE)).toMatchObject({ text: PROSE, isFailed: true, warning: 'Compression of context failed (the compressor did not answer within 20ms) and was ignored' });
+    expect(seen?.aborted).toBe(true);
+    expect(await store.list(COMPRESSED_COLLECTION)).toEqual([]);
+  });
+
+  it('rejects as aborted as soon as the caller aborts a compressor that never answers', async () => {
+    const hung = { id: 'h', version: '1', compress: () => new Promise<{ text: string }>(() => undefined) };
+    const controller = new AbortController();
+    const pending = setup({ compressor: hung, timeoutMs: 60_000 }).run(PROSE, { signal: controller.signal });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+  });
+
   it('property: protected spans injected into random text survive the fake compressor', async () => {
     const spans = ['not', 'never', '42 ms', 'src/a/b.ts', 'fooBar', 'snake_case_name', '"quoted text"', 'https://x.test/p', '`code()`'];
     await fc.assert(fc.asyncProperty(

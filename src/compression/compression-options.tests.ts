@@ -9,7 +9,7 @@ describe('parseCompressionOptions', () => {
   it('is undefined without options and fills the defaults: persona and skillset off, the rest on', () => {
     expect(parseCompressionOptions({ agentName: 'a', options: undefined })).toBeUndefined();
     const resolved = parseCompressionOptions({ agentName: 'a', options: { compressor } })!;
-    expect(resolved).toMatchObject({ targetRatio: 0.5, minTokens: 200, applyTo: ['toolResults'], forceKeep: [] });
+    expect(resolved).toMatchObject({ targetRatio: 0.5, minTokens: 200, applyTo: ['toolResults'], forceKeep: [], timeoutMs: 30_000 });
     expect(resolved.fields).toEqual({ persona: false, skillset: false, context: true, task: true, references: true, examples: true });
     expect(isFieldCompressed({ compression: resolved, field: 'persona' })).toBe(false);
     expect(isFieldCompressed({ compression: resolved, field: 'context' })).toBe(true);
@@ -23,6 +23,7 @@ describe('parseCompressionOptions', () => {
     [{ compressor, fields: { tools: true } }, /unknown field 'tools'/],
     [{ compressor, applyTo: ['memory'] }, /unknown applyTo 'memory'/],
     [{ compressor, forceKeep: [''] }, /forceKeep/],
+    [{ compressor, timeoutMs: 0 }, /timeoutMs/],
   ])('rejects %o', (options, message) => {
     expect(() => parseCompressionOptions({ agentName: 'w', options: options as unknown as CompressionOptions })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringMatching(message) }));
   });
