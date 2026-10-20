@@ -51,6 +51,82 @@ await aigent.close();
 
 `agent.task()` validates its input synchronously, then runs in the background. The returned run is both an async iterable of events (any number of consumers, before, during or after the run) and a promise of the final `TaskResult`.
 
+## Providers
+
+A provider connects agents to a model service. Pass every provider you use to `createAigent`. Each agent then picks one with its `model` string, written `provider:model`. The string is split at the first colon only, so model ids that contain colons work: `ollama:qwen2.5:14b` uses provider `ollama` with model `qwen2.5:14b`.
+
+```ts
+import { anthropic, createAigent, deepseek, ollama, openai, openAiCompatible } from '@anupheaus/aigent';
+
+const aigent = createAigent({
+  providers: [
+    anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! }), // id 'anthropic'
+    deepseek({ apiKey: process.env.DEEPSEEK_API_KEY }),     // id 'deepseek'
+    openai({ apiKey: process.env.OPENAI_API_KEY }),         // id 'openai'
+    ollama(),                                               // id 'ollama', local server, no key
+    // Any other OpenAI-compatible server (vLLM, LM Studio, a gateway...):
+    openAiCompatible({ id: 'local', baseUrl: 'http://localhost:8000/v1', apiKey: 'optional' }),
+  ],
+});
+
+const claude = aigent.agent({ name: 'writer', model: 'anthropic:claude-sonnet-5-5' });
+const local = aigent.agent({ name: 'helper', model: 'ollama:qwen2.5:14b' });
+```
+
+- **`anthropic(options)`** uses the streaming Messages API at `https://api.anthropic.com/v1/messages`.
+  - `apiKey` is required.
+  - Optional: `baseUrl`, `fetch`, `defaultMaxTokens` (default 4096), `maxContextTokens` (default 200,000) and `version` (`anthropic-version`, default `2023-06-01`).
+  - `promptCaching` (default true) marks the system prompt as a cache breakpoint.
+- **`openAiCompatible(options)`** posts to `${baseUrl}/chat/completions`.
+  - Required: `id` (the `provider:` prefix) and `baseUrl`.
+  - Optional: `apiKey` (sent as a bearer token), extra `headers`, `fetch`, `maxContextTokens` (default 128,000) and `supportsParallelToolCalls`.
+- **Presets** are `openAiCompatible` with a fixed id and base URL. Each takes optional `apiKey`, `baseUrl` and `fetch`.
+
+  | Preset | Id | Default base URL |
+  | --- | --- | --- |
+  | `deepseek()` | `deepseek` | `https://api.deepseek.com` |
+  | `openai()` | `openai` | `https://api.openai.com/v1` |
+  | `ollama()` | `ollama` | `http://localhost:11434/v1` |
+
+All adapters stream over `fetch` (Node 20+), with no vendor SDK. Their shared behaviour:
+
+- **Keys** come only from the options you pass, and never appear in error messages.
+- **Tool calls:** strict tools are sent with strict decoding where the API supports it (OpenAI `strict: true`), and `aigent_multi` with `strict: false`. Malformed tool-call JSON from the model reaches the loop as the raw string, so the model gets a precise validation error it can fix.
+- **Failures:** HTTP errors and dropped connections become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx). The run then ends with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
+- **Empty assistant turns:** an assistant turn with no text and no tool calls is left out of the request, because both APIs reject it. Adjacent messages from the same role are then merged so roles keep alternating.
+- **`fetch` option:** inject your own for proxies or tests.
+
+### Testing a provider you write
+
+A custom provider implements the `Provider` interface. `@anupheaus/aigent/testing/contract` holds the vitest suite the built-in adapters pass. It needs `vitest` (an optional peer dependency), so import it only from test files:
+
+```ts
+// my-provider.test.ts
+import { describeProviderContract } from '@anupheaus/aigent/testing/contract';
+
+describeProviderContract({
+  name: 'my-provider',
+  // Return a provider that reproduces `scenario` (text, parallel tool calls, malformed args, HTTP error,
+  // truncated stream, slow text for abort) on its first `stream` call, e.g. with a fake `fetch`.
+  create: scenario => myProvider({ fetch: fakeFetchFor(scenario) }),
+  skip: [], // scenario kinds that cannot apply to your provider
+});
+```
+
+### Live tests
+
+The default `npm test` never touches the network. The tests in `src/providers/live.tests.ts` run a small tool-using task against real services. They are skipped unless `AIGENT_LIVE=1`, and each provider is also skipped when its prerequisite is missing:
+
+| Provider | Needs | Model |
+| --- | --- | --- |
+| Ollama | a server answering `http://localhost:11434/api/tags` | `OLLAMA_MODEL` (default `qwen2.5:14b`) |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| Anthropic | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` (default `claude-haiku-5-5`) |
+
+```sh
+AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
+```
+
 ## Stopping a run
 
 ```ts
@@ -105,8 +181,9 @@ Phase 1 foundation core, implemented in this slice:
 - Stream directive parser, task input validation, system prompt and task brief
 - `FakeProvider` test helpers (`@anupheaus/aigent/testing`, no test-runner dependency)
 - `describeProviderContract`, the vitest suite every provider must pass (`@anupheaus/aigent/testing/contract`; needs `vitest`, an optional peer dependency)
+- Streaming provider adapters: `anthropic` and `openAiCompatible`, with the `deepseek`, `openai` and `ollama` presets
 
-Roadmap (later slices, each with its own spec): real provider adapters (Anthropic and OpenAI-compatible, covering DeepSeek, OpenAI and Ollama), chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
+Roadmap (later slices, each with its own spec): model settings (thinking and effort), retry and fallback, vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
 
 ## License
 
