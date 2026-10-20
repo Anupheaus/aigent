@@ -54,6 +54,19 @@ describe('executeToolCall', () => {
     expect(executed.envelope).toMatchObject({ id: 'c', ok: false, error: { category: 'thrown', code: 'tool_threw', message: expect.stringContaining('non-Error value') } });
   });
 
+  // JavaScript consumers (or casts) can hand back a plain value or throw synchronously; neither may be misreported.
+  it('treats a plain (non-Promise) return value as success', async () => {
+    const syncRun = (() => 7) as unknown as () => Promise<unknown>;
+    const executed = await executeToolCall({ registry: registryWith(syncRun), call: { id: 'c', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toEqual({ id: 'c', tool: 'work', ok: true, result: 7 });
+  });
+
+  it('reports a synchronous throw from run as tool_threw with its message', async () => {
+    const syncThrow = (() => { throw new Error('sync boom'); }) as unknown as () => Promise<unknown>;
+    const executed = await executeToolCall({ registry: registryWith(syncThrow), call: { id: 'c', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toMatchObject({ ok: false, error: { code: 'tool_threw', message: 'sync boom' } });
+  });
+
   it('times out tools that never settle', async () => {
     const executed = await executeToolCall({ registry: registryWith(() => new Promise(() => undefined), 20), call: { id: 'c', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
     expect(executed.envelope).toMatchObject({ ok: false, error: { category: 'timeout', retryable: true } });

@@ -100,7 +100,9 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
     });
   }
   try {
-    const result = await raceWithLimits({ work: tool.run(parsed.value, context), timeoutMs: tool.timeoutMs, signal: context.signal });
+    // Wrapped so a plain return value (JavaScript consumers, casts) still counts as success and a synchronous throw becomes a rejection.
+    const work = new Promise<unknown>(resolve => resolve(tool.run(parsed.value, context)));
+    const result = await raceWithLimits({ work, timeoutMs: tool.timeoutMs, signal: context.signal });
     if (result === TIMEOUT_MARKER) {
       return failedCall({ call, error: { category: 'timeout', code: 'tool_timeout', retryable: true, message: `Tool '${tool.name}' did not finish within ${tool.timeoutMs} ms` }, durationMs: elapsed() });
     }
