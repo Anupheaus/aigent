@@ -7,7 +7,7 @@ import { createMultiTool } from './multi-tool.js';
 import { createToolRegistry } from './tool-registry.js';
 import type { MultiToolContext, ToolContext } from './tool-types.js';
 
-const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', signal: new AbortController().signal };
+const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', callId: 'm', signal: new AbortController().signal };
 const now = (): number => 0;
 
 function contextWithBudget(budget: number): MultiToolContext {
@@ -56,7 +56,7 @@ describe('aigent_multi', () => {
     const spy = defineTool({ name: 'spy', description: 'spy', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 's' }), run: async (_args, context) => { seenContext = context; return 1; } });
     const multi = createMultiTool({ registry: createToolRegistry([spy]), now });
     await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, contextWithBudget(1));
-    expect(seenContext).toEqual(CONTEXT);
+    expect(seenContext).toEqual({ ...CONTEXT, callId: 'a' });
   });
 
   it('reports inner failures, including failed items of inner batch tools, as nested failures', async () => {
@@ -122,6 +122,49 @@ describe('aigent_multi', () => {
     const multi = createMultiTool({ registry: createToolRegistry([nested]), now });
     const result = await multi.run({ calls: [{ id: 'a', tool: 'nested', args: { filter: { path: 'src', depth: null } } }] }, CONTEXT);
     expect(result).toEqual([{ id: 'a', tool: 'nested', ok: true, result: { path: 'src' } }]);
+  });
+});
+
+describe('aigent_multi inner call tracing', () => {
+  const echo = defineTool({ name: 'echo', description: 'echo', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => args.text });
+
+  function tracingContext(begun: string[], finished: string[]): MultiToolContext {
+    return {
+      ...contextWithBudget(1),
+      traceInnerCall: ({ id, tool, args }) => {
+        begun.push(`${id}:${tool}:${JSON.stringify(args)}`);
+        return executed => { finished.push(`${id}:${executed.envelope.ok ? 'ok' : 'failed'}:${executed.size.resultBytes}`); };
+      },
+    };
+  }
+
+  it('reports every inner call, refused ones included, in call order and with its executed result', async () => {
+    const begun: string[] = [];
+    const finished: string[] = [];
+    const multi = createMultiTool({ registry: createToolRegistry([echo]), now });
+    await multi.run({ calls: [
+      { id: 'a', tool: 'echo', args: { text: 'hi' } },
+      { id: 'b', tool: 'echo', args: { text: 'over budget' } },
+      { id: 'c', tool: 'aigent_multi', args: {} },
+    ] }, tracingContext(begun, finished));
+    expect(begun).toEqual(['a:echo:{"text":"hi"}', 'b:echo:{"text":"over budget"}', 'c:aigent_multi:{}']);
+    expect(finished.sort()).toEqual(['a:ok:4', expect.stringMatching(/^b:failed:\d+$/), expect.stringMatching(/^c:failed:\d+$/)]);
+  });
+
+  it('does not hand the tracer on to inner tools', async () => {
+    let seenContext: ToolContext | undefined;
+    const spy = defineTool({ name: 'spy', description: 'spy', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 's' }), run: async (_args, context) => { seenContext = context; return 1; } });
+    const multi = createMultiTool({ registry: createToolRegistry([spy]), now });
+    await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, tracingContext([], []));
+    expect(seenContext).toEqual({ ...CONTEXT, callId: 'a' });
+  });
+
+  it('keeps failed items of an inner batch tool whose visible result was truncated', async () => {
+    const batch = defineBatchTool({ name: 'batch', description: 'b', item: z.object({ id: z.string() }).strict(), maxItems: 3, deterministic: true, cache: false, maxResultTokens: 1, describeActivity: () => ({ title: 'b' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('bad item'); return batchItem.id.repeat(40); } });
+    const multi = createMultiTool({ registry: createToolRegistry([batch]), now });
+    const result = await multi.run({ calls: [{ id: 'c', tool: 'batch', args: { items: [{ id: 'ok' }, { id: 'bad' }] } }] }, CONTEXT);
+    expect(result).toEqual([expect.objectContaining({ id: 'c', ok: true, result: expect.objectContaining({ truncated: true }) })]);
+    expect(multi.nestedFailures?.(result)).toEqual([expect.objectContaining({ message: 'bad item', details: { itemIndex: 1, callId: 'c', tool: 'batch' } })]);
   });
 });
 

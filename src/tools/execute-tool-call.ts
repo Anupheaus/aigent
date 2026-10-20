@@ -4,18 +4,28 @@ import { describeThrown } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
-import type { ToolContext, ToolOutcome } from './tool-types.js';
+import type { ItemCounts, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import { truncateResult } from './truncate-result.js';
+import type { ResultSize } from './truncate-result.js';
 
 export interface ExecutedToolCall {
+  /** What the model sees; an oversize result is replaced by the truncation marker. */
   envelope: ToolEnvelope;
   outcome: ToolOutcome;
   durationMs: number;
+  /** Size of the full result (or of the error), measured before truncation. */
+  size: ResultSize;
+  /** Failures inside a successful aggregate result, taken from the full result so truncation never hides one. */
+  nested: ToolErrorDetail[];
+  /** Batch item totals, when the tool reports them. */
+  items?: ItemCounts;
 }
 
 export interface ExecuteToolCallParams {
   registry: ToolRegistry;
   call: ToolCall;
-  context: ToolContext;
+  /** The run's context; the call's own id is added as `callId`. */
+  context: Omit<ToolContext, 'callId'>;
   now(): number;
 }
 
@@ -35,12 +45,38 @@ interface RaceWithLimitsParams {
   signal: AbortSignal;
 }
 
+interface SucceededCallParams {
+  call: ToolCall;
+  tool: Tool;
+  result: unknown;
+  durationMs: number;
+}
+
 function failedCall(params: FailedCallParams): ExecutedToolCall {
   const { call, error, durationMs } = params;
+  // Failures are never truncated: the model needs the whole error to recover.
+  const { size } = truncateResult({ result: error });
   return {
     envelope: { id: call.id, tool: call.name, ok: false, error },
     outcome: { success: false, reason: error.message },
     durationMs,
+    size,
+    nested: [],
+  };
+}
+
+/** Everything telemetry and error reporting need is taken from the full result before the visible one is truncated. */
+function succeededCall(params: SucceededCallParams): ExecutedToolCall {
+  const { call, tool, result, durationMs } = params;
+  const { result: visible, size } = truncateResult({ result, maxResultTokens: tool.maxResultTokens });
+  const items = tool.countItems?.(result);
+  return {
+    envelope: { id: call.id, tool: call.name, ok: true, result: visible },
+    outcome: tool.summarise?.(result) ?? { success: true, reason: 'completed' },
+    durationMs,
+    size,
+    nested: tool.nestedFailures?.(result) ?? [],
+    ...(items == null ? {} : { items }),
   };
 }
 
@@ -77,7 +113,8 @@ function abortReasonText(signal: AbortSignal): string {
 
 /** Executes one tool call. Never rejects: every failure becomes a structured envelope. */
 export async function executeToolCall(params: ExecuteToolCallParams): Promise<ExecutedToolCall> {
-  const { registry, call, context, now } = params;
+  const { registry, call, now } = params;
+  const context: ToolContext = { ...params.context, callId: call.id };
   const startedAt = now();
   const elapsed = () => now() - startedAt;
   const tool = registry.get(call.name);
@@ -115,11 +152,7 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
     if (result === ABORT_MARKER) {
       return failedCall({ call, error: { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${tool.name}' was aborted because ${abortReasonText(context.signal)}` }, durationMs: elapsed() });
     }
-    return {
-      envelope: { id: call.id, tool: call.name, ok: true, result },
-      outcome: tool.summarise?.(result) ?? { success: true, reason: 'completed' },
-      durationMs: elapsed(),
-    };
+    return succeededCall({ call, tool, result, durationMs: elapsed() });
   } catch (error) {
     return failedCall({ call, error: describeThrown(error), durationMs: elapsed() });
   }

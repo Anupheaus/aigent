@@ -4,7 +4,12 @@ export type { Agent, AgentDefinition, StopOptions, TaskResult, TaskRun, TaskUsag
 export type { AigentEvent, TaskStatus } from './core/aigent-events.js';
 export type { TaskInput, TaskLimits } from './core/task-input.js';
 export type { ModelSettings } from './core/model-settings.js';
-export type { RunRecord, RunRecordFallback, RuntimeOnlySettings } from './core/run-record.js';
+export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';
+export type {
+  OutcomeSource, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, TraceRecord, TraceStep,
+} from './telemetry/run-record.js';
+export type { Redact, RedactableRecord } from './telemetry/redact.js';
+export type { RetentionOptions } from './telemetry/retention.js';
 export type { ResiliencePolicy } from './core/resilience-policy.js';
 export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
@@ -21,7 +26,7 @@ export type { Directive } from './streaming/directive-parser.js';
 export { defineBatchTool, defineTool } from './tools/define-tool.js';
 export { toolFailure } from './tools/tool-failure.js';
 export type { ToolFailure, ToolFailureInit } from './tools/tool-failure.js';
-export type { Tool, ToolActivityView, ToolContext, ToolOutcome } from './tools/tool-types.js';
+export type { ItemCounts, Tool, ToolActivityView, ToolContext, ToolOutcome } from './tools/tool-types.js';
 export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';
 export { createScheduler } from './scheduler/scheduler.js';
@@ -33,5 +38,5 @@ export { createInMemoryStore } from './store/in-memory-store.js';
 export { createWriteQueue } from './store/write-queue.js';
 export { updateRecord } from './store/update-record.js';
 export type { UpdateRecordParams } from './store/update-record.js';
-export type { CompareAndSetParams, Store, StoredRecord } from './store/store-types.js';
+export type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store/store-types.js';
 export type { WriteQueue } from './store/write-queue.js';

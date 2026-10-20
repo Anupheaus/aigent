@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { defineTool } from './define-tool.js';
-import { executeToolCall } from './execute-tool-call.js';
+import { executeToolCall, rejectToolCall } from './execute-tool-call.js';
+import type { ExecutedToolCall } from './execute-tool-call.js';
 import { addErrorDetails } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
-import type { MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import type { FinishInnerCall, InnerCall, MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
@@ -39,6 +40,7 @@ interface InnerCallParams {
   call: MultiCall;
   context: ToolContext;
   reserveToolCall(): boolean;
+  traceInnerCall?(call: InnerCall): FinishInnerCall;
 }
 
 function envelopesOf(result: unknown): ToolEnvelope[] {
@@ -56,41 +58,55 @@ function hasCallBudget(context: ToolContext): context is MultiToolContext {
   return typeof (context as Partial<MultiToolContext>).reserveToolCall === 'function';
 }
 
-/** Inner tools get the plain public context; the run budget is only for this tool. Without a budget (direct use) calls are unlimited. */
+/** Inner tools get the plain public context; the budget and tracer are only for this tool. Without a budget (direct use) calls are unlimited. */
 function splitContext(context: ToolContext): Omit<InnerCallParams, 'call'> {
   if (!hasCallBudget(context)) return { context, reserveToolCall: () => true };
-  const { reserveToolCall, ...publicContext } = context;
-  return { context: publicContext, reserveToolCall };
+  const { reserveToolCall, traceInnerCall, ...publicContext } = context;
+  return { context: publicContext, reserveToolCall, ...(traceInnerCall == null ? {} : { traceInnerCall }) };
 }
 
-function failure(call: MultiCall, error: ToolErrorDetail): ToolEnvelope {
-  return { id: call.id, tool: call.tool, ok: false, error };
+function refused(call: MultiCall, error: ToolErrorDetail): ExecutedToolCall {
+  return rejectToolCall({ call: { id: call.id, name: call.tool, args: call.args }, error });
 }
 
 /** Built-in tool that runs several different tools in one model call, returning one envelope per call. */
 export function createMultiTool(options: CreateMultiToolOptions): Tool {
   const { registry, now } = options;
+  /** The executed inner calls behind each result this tool returned, so nested failures come from full, untruncated results. */
+  const executedByResult = new WeakMap<object, ExecutedToolCall[]>();
 
-  async function runInnerCall(params: InnerCallParams): Promise<ToolEnvelope> {
+  async function executeInnerCall(params: InnerCallParams): Promise<ExecutedToolCall> {
     const { call, context, reserveToolCall } = params;
     if (call.tool === MULTI_TOOL_NAME) {
-      return failure(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
+      return refused(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
     }
     // Each inner call is a real tool call, so it takes from the run's maxToolCalls budget like a top-level call.
     if (!reserveToolCall()) {
-      return failure(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
+      return refused(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
     }
-    const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now });
-    return executed.envelope;
+    return executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now });
+  }
+
+  /** Traced as it starts (so the trace keeps call order, even though calls finish in any order) and when it finishes. */
+  async function runInnerCall(params: InnerCallParams): Promise<ExecutedToolCall> {
+    const { call: { id, tool, args }, traceInnerCall } = params;
+    const finish = traceInnerCall?.({ id, tool, args });
+    const executed = await executeInnerCall(params);
+    finish?.(executed);
+    return executed;
+  }
+
+  /** Each envelope's own failures, read from the result's envelopes when this tool did not produce it. */
+  function failuresPerCall(result: unknown): ToolErrorDetail[][] {
+    const executedCalls = typeof result === 'object' && result !== null ? executedByResult.get(result) : undefined;
+    if (executedCalls != null) return executedCalls.map(({ envelope, nested }) => (envelope.ok ? nested : [envelope.error]));
+    return envelopesOf(result).map(envelope => (envelope.ok ? registry.get(envelope.tool)?.nestedFailures?.(envelope.result) ?? [] : [envelope.error]));
   }
 
   /** Inner failures, plus failures nested inside successful inner results (e.g. batch items), tagged with the inner call. */
   function nestedFailures(result: unknown): ToolErrorDetail[] {
-    return envelopesOf(result).flatMap(envelope => {
-      const { id: callId, tool } = envelope;
-      const details = envelope.ok ? registry.get(tool)?.nestedFailures?.(envelope.result) ?? [] : [envelope.error];
-      return details.map(detail => addErrorDetails(detail, { callId, tool }));
-    });
+    const perCall = failuresPerCall(result);
+    return envelopesOf(result).flatMap(({ id: callId, tool }, callIndex) => (perCall[callIndex] ?? []).map(detail => addErrorDetails(detail, { callId, tool })));
   }
 
   // Inner calls run in parallel and each enforces its own timeout, so the slowest inner timeout bounds the whole call.
@@ -107,7 +123,10 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     describeActivity: args => ({ title: `Running ${args.calls.length} tool calls`, detail: args.calls.map(call => call.tool).join(', ') }),
     run: async (args, context) => {
       const split = splitContext(context);
-      return Promise.all(args.calls.map(call => runInnerCall({ call, ...split })));
+      const executedCalls = await Promise.all(args.calls.map(call => runInnerCall({ call, ...split })));
+      const envelopes = executedCalls.map(({ envelope }) => envelope);
+      executedByResult.set(envelopes, executedCalls);
+      return envelopes;
     },
   });
   return { ...tool, summarise: summariseMulti, nestedFailures };

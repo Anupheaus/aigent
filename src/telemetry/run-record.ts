@@ -1,0 +1,150 @@
+import type { TaskUsage } from '../core/agent-types.js';
+import type { TaskStatus } from '../core/aigent-events.js';
+import type { ModelSettings } from '../core/model-settings.js';
+import type { ProviderSettings } from '../providers/provider-types.js';
+import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
+
+/** Version of every stored telemetry record's shape; bumped on any incompatible change. */
+export const RUN_RECORD_SCHEMA_VERSION = 1;
+
+/** How the agent was used. Chat is a later mode; every record says which one wrote it. */
+export type RunMode = 'task';
+
+/** Who wrote a record and when; carried by every stored telemetry record so any record can be sliced and purged alone. */
+export interface RecordMeta {
+  schemaVersion: typeof RUN_RECORD_SCHEMA_VERSION;
+  runId: string;
+  agentName: string;
+  instanceId: string;
+  mode: RunMode;
+  /** The agent's version hash (see `Agent.agentVersion`). */
+  agentVersion: string;
+  /** The task's `scope`, stored untouched and never interpreted. */
+  scope?: Record<string, string>;
+  /** Epoch ms when the record was written; `purge({ before })` compares against it. */
+  recordedAt: number;
+  /** Epoch ms after which a store may drop the record (`createAigent({ retention })`). */
+  expiresAt?: number;
+}
+
+/** The runtime-only settings: they shape the run but are never sent to a provider. */
+export type RuntimeOnlySettings = Pick<ModelSettings, 'contextSize' | 'showThinking'>;
+
+/** A fallback model the run used, with what it was sent. */
+export interface RunRecordFallback {
+  /** `provider:model`. */
+  model: string;
+  /** The settings this model was sent (its own `providerOptions` entry included); `{}` when none. */
+  settings: ProviderSettings;
+  /** Resolved settings this model's provider left out. */
+  droppedSettings?: (keyof ProviderSettings)[];
+}
+
+/** Who reported a step's outcome: an `::aigent outcome` directive or the `previous` field of the next call. */
+export type OutcomeSource = 'directive' | 'previous';
+
+/** The agent's own verdict on a tool step. */
+export interface StepOutcome {
+  /** True when the step found what the agent was looking for. */
+  success: boolean;
+  /** Short description of the result; `''` when content capture is off. */
+  answer: string;
+  source: OutcomeSource;
+}
+
+/** One tool call of a run, in start order. Inner `aigent_multi` calls are steps too, linked by `parentCallId`. */
+export interface TraceStep {
+  /** 0-based position in start order. */
+  index: number;
+  /** 1-based model request that asked for the call. */
+  turn: number;
+  callId: string;
+  /** The `aigent_multi` call this inner call belongs to. */
+  parentCallId?: string;
+  tool: string;
+  /** First 120 characters of the arguments' canonical JSON; with content capture off, the argument shape only. */
+  argsSummary: string;
+  /** The arguments as validated, only when content capture is on. */
+  args?: unknown;
+  ok: boolean;
+  errorCategory?: ToolErrorCategory;
+  errorCode?: string;
+  /** Batch calls: failed items. */
+  itemFailures?: number;
+  /** Batch calls: items in the call. */
+  itemTotal?: number;
+  /** Served from the tool-result cache (set by the cache slice). */
+  cacheHit?: boolean;
+  /** UTF-8 bytes of the full result (or error), before truncation. */
+  resultBytes: number;
+  /** Estimated tokens of the full result (or error), before truncation. */
+  resultTokens: number;
+  /** The model was shown a truncation marker instead of the result. */
+  truncated: boolean;
+  durationMs: number;
+  /** Epoch ms when the call started. */
+  startedAtMs: number;
+  outcome?: StepOutcome;
+}
+
+/** Where a run's time went, in milliseconds. */
+export interface RunTimings {
+  /** Epoch ms when the run started. */
+  startedAt: number;
+  /** From the start to the first streamed text, thinking or tool call. */
+  firstTokenMs?: number;
+  durationMs: number;
+  /** Streaming model responses, excluding time spent queued. */
+  modelMs: number;
+  /** Sum of the top-level tool calls' durations (they may overlap the stream and each other). */
+  toolMs: number;
+  /** Waiting for the scheduler to admit provider calls. */
+  queuedMs: number;
+}
+
+/** One document in the `runs` collection, keyed by run id. */
+export interface RunRecord extends RecordMeta {
+  /** Stable id of the run's answer, used by `ai.feedback`. */
+  responseId: string;
+  /** The agent definition's human version label, when it has one. */
+  version?: string;
+  label?: string;
+  /** The agent's `provider:model`. */
+  model: string;
+  /**
+   * The settings the agent's model was sent: resolved task > agent > runtime > provider, then filtered for its
+   * provider, with only that provider's `providerOptions` entry. `{}` when none. `providerOptions` are stored as
+   * configured unless a `redact` hook changes them.
+   */
+  settings: ProviderSettings;
+  /** Resolved settings the agent's provider left out (each also produced a `warning`). */
+  droppedSettings?: (keyof ProviderSettings)[];
+  /** `contextSize` / `showThinking` when set: run configuration that is never sent. */
+  runtimeSettings?: RuntimeOnlySettings;
+  /** Fallback models the run actually used, in the order it reached them. */
+  fallbacks?: RunRecordFallback[];
+  /** No user was available (`TaskInput.unattended`). */
+  unattended: boolean;
+  status: TaskStatus;
+  usage: TaskUsage;
+  timings: RunTimings;
+  /** Trace steps, inner `aigent_multi` calls included. */
+  stepCount: number;
+  /** Tool failures, failed batch items and failed inner calls included (as in `TaskResult.errors`). */
+  failureCount: number;
+  /** The task text, only when content capture is on. */
+  task?: string;
+  /** The final answer, only when content capture is on. */
+  answer?: string;
+}
+
+/** One document in the `traces` collection, keyed by run id. */
+export interface TraceRecord extends RecordMeta {
+  steps: TraceStep[];
+}
+
+/** A run with its steps, as `ai.trace(runId)` returns it. */
+export interface RunTrace {
+  run: RunRecord;
+  steps: TraceStep[];
+}

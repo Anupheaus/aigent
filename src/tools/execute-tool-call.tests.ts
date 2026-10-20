@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineTool } from './define-tool.js';
+import { defineBatchTool, defineTool } from './define-tool.js';
 import { toolFailure } from './tool-failure.js';
 import { executeToolCall } from './execute-tool-call.js';
 import { createToolRegistry } from './tool-registry.js';
 import type { ToolContext } from './tool-types.js';
 
-const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', signal: new AbortController().signal };
+const CONTEXT: Omit<ToolContext, 'callId'> = { agentName: 'a', instanceId: 'i', runId: 'r', signal: new AbortController().signal };
 const now = () => 0;
 
 function registryWith(run: () => Promise<unknown>, timeoutMs?: number) {
@@ -77,5 +77,59 @@ describe('executeToolCall', () => {
     const pending = executeToolCall({ registry: registryWith(() => new Promise(() => undefined), 10_000), call: { id: 'c', name: 'work', args: { n: 1 } }, context: { ...CONTEXT, signal: controller.signal }, now });
     controller.abort();
     expect((await pending).envelope).toMatchObject({ ok: false, error: { category: 'aborted' } });
+  });
+});
+
+describe('executeToolCall result sizing', () => {
+  function sizedRegistry(run: () => Promise<unknown>, maxResultTokens?: number) {
+    return createToolRegistry([defineTool({
+      name: 'work', description: 'work', args: z.object({ n: z.number() }).strict(), deterministic: false, cache: false, maxResultTokens,
+      describeActivity: () => ({ title: 'w' }), run,
+    })]);
+  }
+
+  it('gives the tool its own call id in the context', async () => {
+    let seen: ToolContext | undefined;
+    const registry = createToolRegistry([defineTool({ name: 'work', description: 'w', args: z.object({}).strict(), deterministic: false, cache: false, describeActivity: () => ({ title: 'w' }), run: async (_args, context) => { seen = context; return 1; } })]);
+    await executeToolCall({ registry, call: { id: 'c9', name: 'work', args: {} }, context: CONTEXT, now });
+    expect(seen).toEqual({ ...CONTEXT, callId: 'c9' });
+  });
+
+  it('records the result size and leaves results within budget untouched', async () => {
+    const executed = await executeToolCall({ registry: sizedRegistry(async () => 'abc', 5), call: { id: 'c1', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toEqual({ id: 'c1', tool: 'work', ok: true, result: 'abc' });
+    expect(executed.size).toEqual({ resultBytes: 5, resultTokens: 2, truncated: false });
+  });
+
+  it('truncates the model-visible result past maxResultTokens and flags it, keeping the original size', async () => {
+    const executed = await executeToolCall({ registry: sizedRegistry(async () => 'abcdefghijklmnopqrstuvwxyz', 2), call: { id: 'c1', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toEqual({ id: 'c1', tool: 'work', ok: true, result: { truncated: true, note: 'Result truncated to ~2 tokens (was ~7); narrow the request or page through it.', preview: '"abcdefg' } });
+    expect(executed.size).toEqual({ resultBytes: 28, resultTokens: 7, truncated: true });
+    expect(executed.outcome).toEqual({ success: true, reason: 'completed' });
+  });
+
+  it('never truncates a failed envelope', async () => {
+    const longMessage = 'x'.repeat(400);
+    const executed = await executeToolCall({ registry: sizedRegistry(async () => { throw new Error(longMessage); }, 1), call: { id: 'c1', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toMatchObject({ ok: false, error: { message: longMessage } });
+    expect(executed.size.truncated).toBe(false);
+    expect(executed.size.resultTokens).toBeGreaterThan(100);
+  });
+
+  it('counts batch items and their failures from the full result even when the visible result is truncated', async () => {
+    const batch = defineBatchTool({
+      name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, maxResultTokens: 1,
+      describeActivity: () => ({ title: 'r' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('unreadable'); return batchItem.id.repeat(50); },
+    });
+    const executed = await executeToolCall({ registry: createToolRegistry([batch]), call: { id: 'b1', name: 'read_all', args: { items: [{ id: 'ok' }, { id: 'bad' }] } }, context: CONTEXT, now });
+    expect(executed.size.truncated).toBe(true);
+    expect(executed.items).toEqual({ total: 2, failed: 1 });
+    expect(executed.nested).toEqual([expect.objectContaining({ code: 'tool_threw', message: 'unreadable', details: { itemIndex: 1 } })]);
+  });
+
+  it('reports no items and no nested failures for a plain tool', async () => {
+    const executed = await executeToolCall({ registry: sizedRegistry(async () => 1), call: { id: 'c1', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.items).toBeUndefined();
+    expect(executed.nested).toEqual([]);
   });
 });

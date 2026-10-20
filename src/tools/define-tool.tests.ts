@@ -14,7 +14,7 @@ const BASE = {
   run: async () => 'ok',
 };
 
-const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', signal: new AbortController().signal };
+const CONTEXT: ToolContext = { agentName: 'a', instanceId: 'i', runId: 'r', callId: 'c', signal: new AbortController().signal };
 
 describe('defineTool', () => {
   it('builds a tool with a strict JSON schema and defaults', () => {
@@ -99,5 +99,6 @@ describe('defineBatchTool', () => {
     ]);
     expect(tool.summarise?.(result)).toEqual({ success: false, reason: '1 of 2 items failed' });
     expect(tool.nestedFailures?.(result)).toEqual([expect.objectContaining({ code: 'nope', details: { itemIndex: 1 } })]);
+    expect(tool.countItems?.(result)).toEqual({ total: 2, failed: 1 });
   });
 });

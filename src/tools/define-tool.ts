@@ -4,7 +4,7 @@ import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
 import { addErrorDetails, describeThrown } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
-import type { DescribeActivity, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import type { DescribeActivity, ItemCounts, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -96,6 +96,11 @@ function summariseBatch(result: unknown): ToolOutcome {
   return { success: false, reason: `${failed} of ${entries.length} items failed` };
 }
 
+function countBatchItems(result: unknown): ItemCounts {
+  const entries = batchEntries(result);
+  return { total: entries.length, failed: entries.filter(entry => !entry.ok).length };
+}
+
 function batchFailures(result: unknown): ToolErrorDetail[] {
   return batchEntries(result).flatMap(entry => (entry.ok ? [] : [addErrorDetails(entry.error, { itemIndex: entry.index })]));
 }
@@ -118,5 +123,5 @@ export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<T
       }
     })),
   });
-  return { ...tool, summarise: summariseBatch, nestedFailures: batchFailures };
+  return { ...tool, summarise: summariseBatch, nestedFailures: batchFailures, countItems: countBatchItems };
 }

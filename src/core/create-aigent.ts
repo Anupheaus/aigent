@@ -1,8 +1,15 @@
 import type { Provider } from '../providers/provider-types.js';
 import { createScheduler } from '../scheduler/scheduler.js';
 import type { Scheduler, SchedulerOptions } from '../scheduler/scheduler-types.js';
-import type { Store } from '../store/store-types.js';
+import type { PurgeFilter, Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
+import { purgeRecords } from '../telemetry/purge-records.js';
+import { readTrace } from '../telemetry/read-trace.js';
+import { createRecordWriter } from '../telemetry/record-writer.js';
+import type { Redact } from '../telemetry/redact.js';
+import { parseRetention } from '../telemetry/retention.js';
+import type { RetentionOptions } from '../telemetry/retention.js';
+import type { RunTrace } from '../telemetry/run-record.js';
 import { createMultiTool } from '../tools/multi-tool.js';
 import { createToolRegistry } from '../tools/tool-registry.js';
 import { createAigentError } from './aigent-error.js';
@@ -40,6 +47,15 @@ export interface AigentOptions {
   modelSettings?: ModelSettings;
   /** Per-provider default settings, keyed by provider id; the lowest-precedence layer. */
   providerModelSettings?: Record<string, ModelSettings>;
+  /**
+   * Applied to every record of every collection before it reaches the store (it gets a copy and may change `value`).
+   * If it throws, that record is not written and the run emits a warning.
+   */
+  redact?: Redact;
+  /** Store task text, answers and tool argument values (default true). False keeps metrics and argument shapes only. */
+  captureContent?: boolean;
+  /** Retention hints stamped on records as `expiresAt`; the store decides whether to honour them. */
+  retention?: RetentionOptions;
 }
 
 export interface Aigent {
@@ -50,6 +66,13 @@ export interface Aigent {
    * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.
    */
   close(): Promise<void>;
+  /** A stored run with its ordered steps, or undefined when it was not stored (no store, unknown id, disableTelemetry). */
+  trace(runId: string): Promise<RunTrace | undefined>;
+  /**
+   * Deletes matching records from every collection through `Store.purge`; resolves with how many went. Rejects with
+   * `invalid_input` for an empty filter, without a store, or when the store does not implement `purge`.
+   */
+  purge(filter: PurgeFilter): Promise<number>;
 }
 
 function indexProviders(providers: Provider[]): Map<string, Provider> {
@@ -89,12 +112,16 @@ function resolveScheduler(params: { scheduler: Scheduler | SchedulerOptions | un
 }
 
 export function createAigent(options: AigentOptions): Aigent {
-  const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom() } = options;
+  const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
   const providersById = indexProviders(providers);
+  const { expiresInMs } = parseRetention(options.retention) ?? {};
   const runtimeSettings = parseModelSettings({ owner: 'createAigent', settings: options.modelSettings });
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
   const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
-  const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue(), sleep, random, scheduler };
+  const writeQueue = createWriteQueue();
+  const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
+  const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
+  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, sleep, random, scheduler };
   /** Settles (never rejects) when its run has finished, including writing its record. */
   const activeRuns = new Set<Promise<void>>();
 
@@ -146,5 +173,10 @@ export function createAigent(options: AigentOptions): Aigent {
     };
   }
 
-  return { agent, close };
+  return {
+    agent,
+    close,
+    trace: runId => readTrace({ store, runId }),
+    purge: async filter => purgeRecords({ store, filter }),
+  };
 }

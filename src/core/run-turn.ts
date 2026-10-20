@@ -1,6 +1,8 @@
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
 import type { FinishReason, ProviderMessage, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
+import type { RunTimer } from '../telemetry/run-timer.js';
+import type { FinishStep, TraceRecorder } from '../telemetry/trace-recorder.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
@@ -23,6 +25,12 @@ export interface RunTotals extends ResilienceCounters {
   turns: number;
   /** Tool calls actually started. */
   toolCalls: number;
+}
+
+/** The run's telemetry collectors, shared by its turns. */
+export interface RunTelemetry {
+  recorder: TraceRecorder;
+  timer: RunTimer;
 }
 
 /** Work a turn starts in the background; owned by the caller so it can be drained even when the stream throws. */
@@ -48,6 +56,7 @@ export interface RunTurnParams {
   messages: ProviderMessage[];
   totals: RunTotals;
   work: TurnWork;
+  telemetry: RunTelemetry;
   emit(event: AigentEvent): void;
 }
 
@@ -94,13 +103,25 @@ function reserveToolCall(params: ReserveToolCallParams): boolean {
   return true;
 }
 
+/** The aigent_multi context: inner calls share the run's call budget and are traced as steps of their own. */
+function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; parentCallId: string }): MultiToolContext {
+  const { context, turn: { totals, maxToolCalls, telemetry: { recorder } }, parentCallId } = params;
+  return {
+    ...context,
+    reserveToolCall: () => reserveToolCall({ totals, maxToolCalls }),
+    traceInnerCall: ({ id, tool, args }) => recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args }),
+  };
+}
+
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
 function dispatchToolCall(params: DispatchParams): void {
   const { call, turn } = params;
-  const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, emit } = turn;
+  const { runId, agentName, instanceId, registry, maxToolCalls, clock, signal, totals, work, telemetry, emit } = turn;
   const { id: callId, name, args } = call;
   emit({ type: 'tool-call', callId, name, args });
+  const finishStep: FinishStep = telemetry.recorder.begin({ turn: totals.turns, callId, tool: name, args });
   const reportResult = (executed: ExecutedToolCall): ExecutedToolCall => {
+    finishStep(executed);
     emit({ type: 'tool-result', callId, envelope: executed.envelope });
     return executed;
   };
@@ -118,12 +139,11 @@ function dispatchToolCall(params: DispatchParams): void {
     return;
   }
 
-  const baseContext: ToolContext = { agentName, instanceId, runId, signal };
+  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
-    const multiContext: MultiToolContext = { ...baseContext, reserveToolCall: () => reserveToolCall({ totals, maxToolCalls }) };
-    context = multiContext;
+    context = multiToolContext({ context: baseContext, turn, parentCallId: callId });
   } else {
     totals.toolCalls += 1;
   }
@@ -145,7 +165,7 @@ function dispatchToolCall(params: DispatchParams): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, messages, totals, emit } = params;
+  const { runId, routing, showThinking, registry, signal, messages, totals, telemetry: { timer }, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   const thinkingBlocks: ThinkingBlock[] = [];
@@ -165,6 +185,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       }
       if (raced.value.done === true) break;
       const event = raced.value.value;
+      if (event.type === 'text-delta' || event.type === 'thinking-delta' || event.type === 'tool-call') timer.markFirstToken();
       switch (event.type) {
         case 'text-delta': visible += emitParsed(parser.push(event.text), emit); break;
         case 'thinking-delta': if (showThinking) emit(event); break;

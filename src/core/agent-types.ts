@@ -55,6 +55,8 @@ export interface TaskResult {
   status: TaskStatus;
   answer: string;
   runId: string;
+  /** Stable id of this answer; pass it to `ai.feedback` to rate the response. */
+  responseId: string;
   agentName: string;
   instanceId: string;
   usage: TaskUsage;

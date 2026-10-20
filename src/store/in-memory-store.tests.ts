@@ -34,3 +34,42 @@ describe('createInMemoryStore', () => {
     expect(await store.list('other')).toEqual([]);
   });
 });
+
+describe('createInMemoryStore purge', () => {
+  async function seeded() {
+    const store = createInMemoryStore();
+    const records = [
+      ['runs', 'r1', { agentName: 'a', runId: 'r1', recordedAt: 100 }],
+      ['traces', 'r1', { agentName: 'a', runId: 'r1', recordedAt: 100 }],
+      ['runs', 'r2', { agentName: 'a', runId: 'r2', recordedAt: 300 }],
+      ['runs', 'r3', { agentName: 'b', runId: 'r3', recordedAt: 100 }],
+      ['other', 'plain', 'not an object'],
+    ] as const;
+    for (const [collection, key, value] of records) await store.compareAndSet({ collection, key, expectedVersion: undefined, value });
+    return store;
+  }
+
+  async function keys(store: ReturnType<typeof createInMemoryStore>): Promise<string[]> {
+    const listed = await Promise.all(['runs', 'traces', 'other'].map(async collection => (await store.list(collection)).map(record => `${collection}/${record.key}`)));
+    return listed.flat().sort();
+  }
+
+  it('deletes records of one run across collections and returns the count', async () => {
+    const store = await seeded();
+    expect(await store.purge?.({ runId: 'r1' })).toBe(2);
+    expect(await keys(store)).toEqual(['other/plain', 'runs/r2', 'runs/r3']);
+  });
+
+  it('combines criteria: records of one agent written before a time', async () => {
+    const store = await seeded();
+    expect(await store.purge?.({ agentName: 'a', before: 200 })).toBe(2);
+    expect(await keys(store)).toEqual(['other/plain', 'runs/r2', 'runs/r3']);
+  });
+
+  it('purges every record of an agent and never touches records without the fields', async () => {
+    const store = await seeded();
+    expect(await store.purge?.({ agentName: 'b' })).toBe(1);
+    expect(await store.purge?.({ before: 1_000 })).toBe(3);
+    expect(await keys(store)).toEqual(['other/plain']);
+  });
+});

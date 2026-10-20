@@ -103,7 +103,7 @@ describe('agent.task', () => {
     expect(events).toContainEqual({ type: 'directive', directive: { type: 'status', data: { text: 'Wrapping up' } } });
     const visible = events.filter(event => event.type === 'text-delta').map(event => event.text).join('');
     expect(visible).toBe('Hello\nWorld');
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed', responseId: expect.stringMatching(/^resp_/) });
   });
 
   // A UI shows a row per tool-call; calls that never run still need an activity row saying why.
@@ -215,7 +215,7 @@ describe('agent.task', () => {
       // The tool was in flight while the stream was still open: no usage (end of stream) arrived before the stop.
       expect(events.map(event => event.type)).toContain('tool-call');
       expect(events.map(event => event.type)).not.toContain('usage');
-      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled', responseId: expect.stringMatching(/^resp_/) });
       expect(provider.requests).toHaveLength(1);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
@@ -252,7 +252,7 @@ describe('agent.task', () => {
     const { agent, ai } = setup({ turns: [textTurn('ok')], tools: [echoTool], store });
     const result = await agent.task({ task: 'x', label: 'step-1', scope: { userId: 'u1' } });
     const record = await store.get<Record<string, unknown>>('runs', result.runId);
-    expect(record?.value).toMatchObject({ runId: result.runId, agentName: 'helper', status: 'completed', label: 'step-1', scope: { userId: 'u1' }, startedAt: 1_000 });
+    expect(record?.value).toMatchObject({ runId: result.runId, agentName: 'helper', status: 'completed', label: 'step-1', scope: { userId: 'u1' }, timings: { startedAt: 1_000 } });
     await ai.close();
   });
 
@@ -388,7 +388,7 @@ describe('agent.task tool failure containment', () => {
     const result = await run;
     expect(result).toMatchObject({ status: 'completed', answer: 'recovered' });
     expect(result.errors).toEqual([expect.objectContaining({ category: 'thrown', code: 'tool_threw' })]);
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed', responseId: expect.stringMatching(/^resp_/) });
   });
 
   it('reports a renderer that throws an unprintable value as a warning', async () => {
@@ -399,7 +399,7 @@ describe('agent.task tool failure containment', () => {
     const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('ok')], tools: [tool] });
     const events = await collect(agent.task({ task: 'x' }));
     expect(events).toContainEqual({ type: 'warning', message: expect.stringContaining("describeActivity for tool 'echo' failed") });
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed', responseId: expect.stringMatching(/^resp_/) });
   });
 });
 
@@ -468,7 +468,7 @@ describe('agent.task run control', () => {
     const events = await collect(run);
     expect((await run).status).toBe('completed');
     expect(events).toContainEqual({ type: 'warning', message: expect.stringMatching(/activity.*did not settle/) });
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed', responseId: expect.stringMatching(/^resp_/) });
   });
 
   it('cancel settles the run even when a renderer never settles', async () => {
@@ -497,7 +497,7 @@ describe('agent.task run control', () => {
     expect(result).toMatchObject({ status: 'cancelled', stopMode: 'immediate', usage: { toolCalls: 1 } });
     expect(result.errors).toEqual([expect.objectContaining({ category: 'aborted' })]);
     expect(provider.requests).toHaveLength(1);
-    expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled', responseId: expect.stringMatching(/^resp_/) });
   });
 
   describe('with a provider that ignores the abort signal', () => {
@@ -530,7 +530,7 @@ describe('agent.task run control', () => {
       expect((await run).status).toBe('cancelled');
       expect(returnSpy).toHaveBeenCalledTimes(1);
       expect(events).toContainEqual({ type: 'text-delta', text: 'partial' });
-      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled', responseId: expect.stringMatching(/^resp_/) });
     });
 
     it('timeoutMs still ends the run with limit_reached', async () => {

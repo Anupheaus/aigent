@@ -174,7 +174,7 @@ Invalid values are rejected up front: agent, `createAigent` and per-provider set
 
 Every agent has an `agentVersion`: a sha-256 of everything that shapes its behaviour. That covers the model, persona, skillset, context, effective settings (agent, runtime and provider levels), limits, the definition's `version` label, each tool's contract (name, description, schema and flags) and the library version. It also covers each fallback model with its own effective settings, and the resilience policy with defaults filled in. It does not depend on `name` or `instanceId`, on key order, or on empty and default-valued fields: `resilience: {}`, `fallbackModels: []`, `limits: {}` and empty `providerOptions` hash the same as leaving them out. Each run record in the `runs` collection stores `agentVersion`, `model` and the `version` label, so results can be compared across agent revisions. It also stores the settings as actually sent: `settings` is what the agent's model received (after its provider dropped what it cannot honour, with only that provider's `providerOptions` entry), `droppedSettings` names the resolved settings it left out, `runtimeSettings` holds `contextSize` / `showThinking` when set, and `fallbacks` lists `{ model, settings, droppedSettings? }` for each fallback model the run actually used.
 
-**Privacy:** `providerOptions` are stored in run records exactly as configured. Keep API keys, user identifiers and other personal data out of them; when the telemetry `redact` hook lands (see the telemetry plan) it will apply to these fields like every other stored field, and until then there is no redaction of run records.
+**Privacy:** `providerOptions` are stored in run records exactly as configured, for the primary model and each fallback used. Keep API keys, user identifiers and other personal data out of them, or remove them with the `redact` hook (see [Telemetry](#telemetry-run-records-traces-and-privacy)), which sees these fields like every other stored field.
 
 ## Retries, timeouts and fallback models
 
@@ -250,7 +250,7 @@ A run yields these events, in order, ending with `done`:
 | `fallback` | a turn moved to the next fallback model |
 | `warning` | something was ignored or cut short, such as an unsupported setting or a malformed directive |
 | `error` | the run failed |
-| `done` | the final status, after the run record is written |
+| `done` | the final status and the answer's `responseId`, after the run's records are written |
 
 ## Stopping a run
 
@@ -286,6 +286,41 @@ A strict schema cannot describe every inner tool's arguments, so `aigent_multi` 
 - `retries` and `fallbacks`: provider calls retried, and turns moved to a fallback model.
 - `toolCallsPerTurn`: `toolCalls / turns`, or 0 when no request was made. Every turn re-sends the conversation, so doing the same work in fewer turns is more efficient. For example, 50 tool calls in 3 turns gives about 16.7. Batch tools and `aigent_multi` raise this number.
 
+## Telemetry: run records, traces and privacy
+
+With a `store`, every run writes two records through the agent's write queue before `done` is emitted:
+
+- `runs/<runId>`: the run record. It holds `schemaVersion` (currently `RUN_RECORD_SCHEMA_VERSION`, 1), `runId`, `responseId`, `agentName`, `instanceId`, `mode` (`'task'`), `agentVersion` and `version`, `label`, `scope` (stored untouched), `model`, the settings as sent (see [Agent versions](#agent-versions)), `unattended`, `status` and `usage`. It also holds `timings` (`startedAt`, `firstTokenMs`, `durationMs`, `modelMs` streaming time without queueing, `toolMs` summed over top-level calls, `queuedMs` waiting for the scheduler), `stepCount`, `failureCount`, and, when content capture is on, the `task` text and final `answer`.
+- `traces/<runId>`: the same identity fields plus `steps`, one per tool call in start order. A step has `index`, `turn`, `callId`, `parentCallId` (inner `aigent_multi` calls), `tool`, `argsSummary` (the first 120 characters of the arguments' canonical JSON), `args` (content capture only), `ok`, `errorCategory` / `errorCode`, `itemFailures` / `itemTotal` for batch calls, `resultBytes` and `resultTokens` (estimated as characters / 4) of the full result, `truncated`, `durationMs` and `startedAtMs`. Refused calls (unknown tool, invalid arguments, over `maxToolCalls`) are steps too, so every failure is recorded.
+
+Every record carries `schemaVersion`, `runId`, `agentName`, `instanceId`, `mode`, `agentVersion`, `scope` and `recordedAt`. `TaskResult.responseId` and the `done` event identify the answer for [user feedback](#user-feedback-on-responses).
+
+```ts
+const ai = createAigent({
+  providers, store,
+  redact: ({ collection, key, value }) => ({ collection, key, value: scrubEmails(value) }),
+  captureContent: true,                       // default; false keeps metrics and argument shapes only
+  retention: { expiresInMs: 30 * 24 * 3_600_000 },
+});
+
+const trace = await ai.trace(result.runId);   // { run, steps } or undefined
+await ai.purge({ agentName: 'writer', before: Date.now() - 7 * 24 * 3_600_000 });
+```
+
+- **`redact(record)`** runs on a copy of every record of every collection before it reaches the store (`runs`, `traces`, and the feedback collections below), including `settings.providerOptions` and each `fallbacks[].settings.providerOptions`. It may change `value` only. If it throws or changes the collection or key, that record is not written and the run emits a warning.
+- **`captureContent: false`** stores no task text, answer, argument values or outcome answers. `argsSummary` then shows only the arguments' shape, for example `{"path":"<string>"}`.
+- **`retention.expiresInMs`** stamps `expiresAt = recordedAt + expiresInMs` on every record; the store decides whether to honour it.
+- **`ai.purge(filter)`** deletes records matching every given field of `{ agentName?, runId?, before? }` (`before` compares `recordedAt`) through the optional `Store.purge` and resolves with the count. It rejects with `invalid_input` for an empty filter, without a store, or when the store has no `purge`. The in-memory store implements it.
+- **`ai.trace(runId)`** returns the stored run and its steps, validated against the schema, or `undefined`.
+- **Failures never fail the run.** A store or `redact` failure becomes one `warning` (`Could not save run record: …`) naming each record that was not written. The queue is not blocked, so later writes still succeed.
+- **`disableTelemetry: true`** on a task writes nothing at all (events still stream), so evaluation runs never reach scores.
+
+Traces can contain sensitive content (task text, answers, tool arguments). Content is stored by default because analysis needs it; use `redact`, `captureContent: false`, retention and `purge` to control it.
+
+### Large tool results
+
+A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
+
 ## Stream directives
 
 The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. They are parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
@@ -311,6 +346,7 @@ Phase 1 foundation core, implemented in this slice:
 - Model settings resolved task > agent > runtime > provider and mapped per provider, and the agent version hash
 - Provider retry with backoff and `retry-after`, first-event timeout and fallback models
 - A shared scheduler (`createScheduler`): concurrency and per-minute limits, priority lanes, per-agent fairness and 429 adaptation
+- Versioned run records and step traces with tool telemetry, the `redact` hook, content capture, retention hints, `ai.trace` and `ai.purge`
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 

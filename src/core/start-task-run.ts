@@ -1,7 +1,7 @@
 import type { Provider } from '../providers/provider-types.js';
 import type { Scheduler } from '../scheduler/scheduler-types.js';
-import type { Store } from '../store/store-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
+import { measureQueueWait } from '../telemetry/measure-queue.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent } from './aigent-events.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
@@ -13,8 +13,9 @@ import type { ProviderTarget, TurnRouting } from './open-turn-stream.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
-import { buildRunRecord, writeRunRecord } from './run-record.js';
 import { runTask } from './run-task.js';
+import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
+import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
@@ -52,8 +53,9 @@ export interface ResolvedAgent {
 export interface RuntimeServices {
   clock: Clock;
   ids: IdGenerator;
-  store?: Store;
+  /** Flushed by `ai.close()`; every store write goes through it. */
   writeQueue: WriteQueue;
+  telemetry: TelemetrySettings;
   sleep: Sleeper;
   random: RandomSource;
   scheduler: Scheduler;
@@ -100,26 +102,28 @@ function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
   const { name: agentName, instanceId, targets, resilience, prompt, registry, agentVersion, version } = agent;
-  const { clock, ids, store, writeQueue, sleep, random, scheduler } = services;
+  const { clock, ids, sleep, random, scheduler } = services;
   const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
+  const responseId = ids.next('resp');
+  const telemetry = createRunTelemetry({ now: () => clock.now(), settings: services.telemetry });
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });
   const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
   const priority = input.priority ?? (input.unattended === true ? 'background' : 'interactive');
-  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler, priority, agentName };
+  const measuredScheduler = measureQueueWait({ scheduler, now: () => clock.now(), onWait: waitedMs => telemetry.timer.addQueuedMs(waitedMs) });
+  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler: measuredScheduler, priority, agentName };
   const stream = createEventStream<AigentEvent, TaskResult>();
   const emit = (event: AigentEvent): void => stream.push(event);
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });
 
   async function execute(): Promise<void> {
-    const startedAt = clock.now();
     for (const message of primary.warnings) emit({ type: 'warning', message });
     let result: TaskResult;
     try {
       result = await runTask({
-        runId, agentName, instanceId, prompt, input, registry, clock, control, emit,
+        runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
         routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
@@ -127,14 +131,17 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
     } finally {
       dispose();
     }
+    // disableTelemetry runs (evals, tests) write nothing at all, so they never reach scores.
     if (input.disableTelemetry !== true) {
       const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
-      const record = buildRunRecord({ input, result, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings }, startedAt });
-      const warning = await writeRunRecord({ store, writeQueue, record });
+      const warning = await persistRunTelemetry({
+        now: () => clock.now(), telemetry, settings: services.telemetry,
+        run: { input, result, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings } },
+      });
       if (warning != null) emit({ type: 'warning', message: warning });
     }
-    // `done` is last and only after the record is flushed, so a consumer that sees it can read the record.
-    emit({ type: 'done', status: result.status });
+    // `done` is last and only after the records are flushed, so a consumer that sees it can read them.
+    emit({ type: 'done', status: result.status, responseId });
     stream.finish(result);
   }
 

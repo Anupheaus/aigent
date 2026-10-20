@@ -2,7 +2,10 @@ import { describeValue } from '../core/describe-value.js';
 import { isToolFailure } from './tool-failure.js';
 import type { FieldError } from './parse-tool-args.js';
 
-export type ToolErrorCategory = 'validation' | 'unknown_tool' | 'thrown' | 'timeout' | 'aborted' | 'denied';
+/** Every kind of tool failure. */
+export const TOOL_ERROR_CATEGORIES = ['validation', 'unknown_tool', 'thrown', 'timeout', 'aborted', 'denied'] as const;
+
+export type ToolErrorCategory = typeof TOOL_ERROR_CATEGORIES[number];
 
 /** Complete, machine-readable description of a tool failure. */
 export interface ToolErrorDetail {

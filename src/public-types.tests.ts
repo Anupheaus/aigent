@@ -3,6 +3,7 @@ import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
   RunRecord, RunRecordFallback, RuntimeOnlySettings, SettingsContext, OpenAiTokenLimitField, ReasoningModelMatcher, Sleeper, ThinkingBlock, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
   QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
+  ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
@@ -47,6 +48,20 @@ describe('public types', () => {
     const usageReport: UsageReport = { key: 'anthropic', tokens: 1 };
     const leaseRequest: LeaseRequest = { key: 'anthropic:m', estimatedTokens: 1, priority, agentName: 'a', signal: new AbortController().signal };
     const scheduler: Scheduler = { acquire: async () => lease, reportRateLimit: () => undefined, reportUsage: () => undefined, snapshot: () => schedulerSnapshot };
+    const meta: RecordMeta = { schemaVersion: 1, runId: 'r', agentName: 'a', instanceId: 'i', mode: 'task', agentVersion: 'v', recordedAt: 0 };
+    const mode: RunMode = meta.mode;
+    const outcomeSource: OutcomeSource = 'directive';
+    const outcome: StepOutcome = { success: true, answer: 'found', source: outcomeSource };
+    const step: TraceStep = { index: 0, turn: 1, callId: 'c', tool: 't', argsSummary: '{}', ok: true, resultBytes: 1, resultTokens: 1, truncated: false, durationMs: 1, startedAtMs: 0, outcome };
+    const traceRecord: TraceRecord = { ...meta, steps: [step] };
+    const timings: RunTimings = { startedAt: 0, durationMs: 1, modelMs: 1, toolMs: 0, queuedMs: 0 };
+    const runTrace: Pick<RunTrace, 'steps'> = { steps: traceRecord.steps };
+    const redactable: RedactableRecord = { collection: 'runs', key: 'r', value: {} };
+    const redact: Redact = record => record;
+    const retention: RetentionOptions = { expiresInMs: 1_000 };
+    const purgeFilter: PurgeFilter = { agentName: 'a', before: 0 };
+    const itemCounts: ItemCounts = { total: 2, failed: 1 };
+    expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });

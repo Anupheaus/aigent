@@ -6,8 +6,8 @@ import * as testing from './testing/index.js';
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
     expect(Object.keys(api).sort()).toEqual([
-      'anthropic', 'createAigent', 'createAigentError', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'defineBatchTool', 'defineTool', 'isAigentError',
-      'ollama', 'openAiCompatible', 'openai', 'toolFailure', 'updateRecord',
+      'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'createAigent', 'createAigentError', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'defineBatchTool', 'defineTool',
+      'isAigentError', 'ollama', 'openAiCompatible', 'openai', 'toolFailure', 'updateRecord',
     ]);
   });
 

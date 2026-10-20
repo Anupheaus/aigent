@@ -9,7 +9,7 @@ import type { TaskResult } from './agent-types.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
-import type { RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
+import type { RunTelemetry, RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
 import type { Clock } from './runtime-services.js';
 import { buildSystemPrompt } from './system-prompt.js';
 import type { PromptPersona } from './system-prompt.js';
@@ -28,6 +28,8 @@ export interface RunControl {
 
 export interface RunTaskParams {
   runId: string;
+  /** Stable id of this run's answer, for user feedback. */
+  responseId: string;
   agentName: string;
   instanceId: string;
   routing: TurnRouting;
@@ -39,6 +41,7 @@ export interface RunTaskParams {
   limits: { maxTurns: number; maxToolCalls: number };
   clock: Clock;
   control: RunControl;
+  telemetry: RunTelemetry;
   emit(event: AigentEvent): void;
 }
 
@@ -64,17 +67,13 @@ function abortedStatus(control: RunControl): TaskStatus {
   return control.abortReason() === 'timeout' ? 'limit_reached' : 'cancelled';
 }
 
-interface FailedDetailsParams {
-  executed: ExecutedToolCall[];
-  registry: ToolRegistry;
-}
-
-/** Every failure of a turn: failed calls, plus failures nested inside successful aggregate results (batch items, aigent_multi calls). */
-function failedDetails(params: FailedDetailsParams): ToolErrorDetail[] {
-  const { executed, registry } = params;
-  return executed.flatMap(({ envelope }) => {
+/**
+ * Every failure of a turn: failed calls, plus failures nested inside successful aggregate results (batch items,
+ * aigent_multi calls), taken from the full results so a truncated result never hides one.
+ */
+function failedDetails(executed: ExecutedToolCall[]): ToolErrorDetail[] {
+  return executed.flatMap(({ envelope, nested }) => {
     if (!envelope.ok) return [envelope.error];
-    const nested = registry.get(envelope.tool)?.nestedFailures?.(envelope.result) ?? [];
     return nested.map(detail => addErrorDetails(detail, { parentCallId: envelope.id }));
   });
 }
@@ -117,7 +116,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResult> {
-  const { runId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, emit } = params;
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
@@ -137,9 +136,12 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
 
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
+    const endTurn = telemetry.timer.startTurn();
     try {
-      turn = await runTurn({ runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, emit });
+      turn = await runTurn({ runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit });
+      endTurn();
     } catch (error) {
+      endTurn();
       // Only the run's own signal means it was aborted; a provider error that merely carries the 'aborted' code is a provider failure.
       if (signal.aborted) {
         status = abortedStatus(control);
@@ -150,13 +152,13 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
         // Tools dispatched mid-stream must not outlive a failed run.
         abortController.abort(PROVIDER_FAILED_ABORT_REASON);
       }
-      errors.push(...failedDetails({ executed: await drainWork({ work, signal, emit }), registry }));
+      errors.push(...failedDetails(await drainWork({ work, signal, emit })));
       break;
     }
 
     const executed = await drainWork({ work, signal, emit });
     messages.push(...turnMessages({ turn, executed }));
-    errors.push(...failedDetails({ executed, registry }));
+    errors.push(...failedDetails(executed));
     if (turn.calls.length === 0) {
       answer = turn.visible.trim();
       if (turn.finishReason === 'length') status = 'incomplete';
@@ -166,7 +168,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
 
   const { usage, turns, toolCalls, retries, fallbacks } = totals;
   const result: TaskResult = {
-    status, answer, runId, agentName, instanceId, errors,
+    status, answer, runId, responseId, agentName, instanceId, errors,
     usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt },
   };
   if (failure != null) result.failure = failure;

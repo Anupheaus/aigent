@@ -4,7 +4,10 @@ import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { QueueReason } from '../scheduler/scheduler-types.js';
 
-export type TaskStatus = 'completed' | 'incomplete' | 'failed' | 'cancelled' | 'stopped' | 'limit_reached';
+/** Every way a run can end. */
+export const TASK_STATUSES = ['completed', 'incomplete', 'failed', 'cancelled', 'stopped', 'limit_reached'] as const;
+
+export type TaskStatus = typeof TASK_STATUSES[number];
 
 export type AigentEvent =
   | { type: 'text-delta'; text: string }
@@ -22,4 +25,5 @@ export type AigentEvent =
   /** The provider call is waiting for the scheduler; emitted only when it could not start at once. */
   | { type: 'queued'; position: number; reason: QueueReason; waitMs?: number }
   | { type: 'error'; message: string }
-  | { type: 'done'; status: TaskStatus };
+  /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
+  | { type: 'done'; status: TaskStatus; responseId: string };
