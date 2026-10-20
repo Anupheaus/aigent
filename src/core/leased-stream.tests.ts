@@ -75,6 +75,15 @@ describe('leasedStream', () => {
     expect(reports).toEqual([{ key: KEY, retryAfterMs: 3_000 }]);
   });
 
+  it('caps the pause at maxRateLimitPauseMs, so one long retry-after cannot stall every agent on the key', async () => {
+    const scheduler = singleSlotScheduler();
+    const reports: unknown[] = [];
+    const spy: Scheduler = { ...scheduler, reportRateLimit: report => { reports.push(report); } };
+    const limited = createAigentError({ code: 'provider_failed', message: 'HTTP 429', details: { status: 429, retryable: true, retryAfterMs: 3_600_000 } });
+    await expect(collect(leasedStream(params({ scheduler: spy, maxRateLimitPauseMs: 20_000, open: () => { throw limited; } })))).rejects.toBe(limited);
+    expect(reports).toEqual([{ key: KEY, retryAfterMs: 20_000 }]);
+  });
+
   it('pauses the key for 1 s when a 429 has no retry-after', async () => {
     const scheduler = singleSlotScheduler();
     const reports: unknown[] = [];

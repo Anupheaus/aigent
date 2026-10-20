@@ -131,6 +131,17 @@ describe('scheduler through createAigent', () => {
     expect(scheduler.releases).toEqual([undefined, { tokens: 15 }]);
   });
 
+  it('falls back at once on a 429 whose retry-after exceeds maxDelayMs, pausing the key only for maxDelayMs', async () => {
+    const scheduler = spyScheduler(createScheduler({}));
+    const quotaSpent = createAigentError({ code: 'provider_failed', message: 'HTTP 429', details: { status: 429, retryable: true, retryAfterMs: 3_600_000 } });
+    const primary = createFakeProvider({ id: 'fake', turns: [{ events: [], failBeforeEvents: quotaSpent }] });
+    const backup = createFakeProvider({ id: 'backup', turns: [textTurn('from backup')] });
+    const ai = aigentWith({ providers: [primary, backup], options: { scheduler } });
+    const result = await ai.agent({ name: 'helper', model: 'fake:m', fallbackModels: ['backup:m'] }).task({ task: 'x' });
+    expect(result).toMatchObject({ status: 'completed', answer: 'from backup', usage: { retries: 0, fallbacks: 1 } });
+    expect(scheduler.rateLimits).toEqual([{ key: 'fake:m', retryAfterMs: 20_000 }]);
+  });
+
   it('releases the lease when the provider fails, leaving nothing in flight', async () => {
     const scheduler = createScheduler({ limits: { fake: { maxConcurrent: 1 } } });
     const fatal = createAigentError({ code: 'provider_failed', message: 'HTTP 400', details: { status: 400, retryable: false } });

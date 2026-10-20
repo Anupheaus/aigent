@@ -173,6 +173,34 @@ describe('streamWithResilience', () => {
     expect(record.delays).toEqual([7_000]);
   });
 
+  it('falls back at once instead of sleeping when retry-after exceeds maxDelayMs', async () => {
+    const record = recorder();
+    const exhausted = createAigentError({ code: 'provider_failed', message: 'HTTP 429', details: { retryable: true, status: 429, retryAfterMs: 3_600_000 } });
+    const primary = scripted('a:m', [{ kind: 'fail', error: exhausted }]);
+    const backup = scripted('b:m', [{ kind: 'events', events: [TEXT, DONE] }]);
+    expect(await collect(stream({ attempts: [primary, backup], record }))).toEqual([TEXT, DONE]);
+    expect(primary.opens()).toBe(1);
+    expect(record.delays).toEqual([]);
+    expect(record.retries).toEqual([]);
+    expect(record.fallbacks).toEqual([expect.objectContaining({ from: 'a:m', to: 'b:m', reason: 'HTTP 429 (retry-after 3600000 ms is longer than maxDelayMs 20000 ms, so it was not waited for)' })]);
+  });
+
+  it('fails with the error, without sleeping, when retry-after exceeds maxDelayMs and there is no fallback', async () => {
+    const record = recorder();
+    const exhausted = createAigentError({ code: 'provider_failed', message: 'HTTP 429', details: { retryable: true, status: 429, retryAfterMs: 20_001 } });
+    const primary = scripted('a:m', [{ kind: 'fail', error: exhausted }]);
+    await expect(collect(stream({ attempts: [primary], record }))).rejects.toBe(exhausted);
+    expect(record.delays).toEqual([]);
+  });
+
+  it('still waits for a retry-after equal to maxDelayMs', async () => {
+    const record = recorder();
+    const limited = createAigentError({ code: 'provider_failed', message: 'HTTP 429', details: { retryable: true, status: 429, retryAfterMs: 20_000 } });
+    const primary = scripted('a:m', [{ kind: 'fail', error: limited }, { kind: 'events', events: [DONE] }]);
+    await collect(stream({ attempts: [primary], record }));
+    expect(record.delays).toEqual([20_000]);
+  });
+
   it('moves to the fallback once retries are exhausted', async () => {
     const record = recorder();
     const primary = scripted('a:m', [{ kind: 'fail', error: retryable() }, { kind: 'fail', error: retryable() }, { kind: 'fail', error: retryable('HTTP 500') }]);

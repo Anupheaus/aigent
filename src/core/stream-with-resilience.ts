@@ -109,7 +109,7 @@ async function* streamAttempt(params: StreamAttemptParams): AsyncGenerator<Provi
 
 /**
  * Streams from the first attempt that works. Retryable failures before any event are retried with backoff (up to
- * `maxRetries` per attempt); then, for `provider_failed` errors that are retryable (or any, with
+ * `maxRetries` per attempt, and never when the server's `retry-after` exceeds `maxDelayMs`); then, for `provider_failed` errors that are retryable (or any, with
  * `fallbackOnNonRetryable`), the next attempt is tried. A failure after an event was yielded is thrown at once.
  * An abort at any point (streaming, opening, backing off) throws `aborted` promptly.
  */
@@ -123,9 +123,15 @@ export async function* streamWithResilience(params: ResilientStreamParams): Asyn
       const outcome = yield* streamAttempt({ attempt, signal, sleep, firstEventTimeoutMs });
       if (outcome.kind === 'completed') return;
       const { error } = outcome;
-      const reason = describeError(error);
-      if (isRetryable(error) && retry < policy.maxRetries) {
-        const delayMs = computeBackoffMs({ attempt: retry, policy, retryAfterMs: retryAfterMsOf(error), random });
+      const retryAfterMs = retryAfterMsOf(error);
+      // A server asking for a longer wait than the policy allows (a spent quota, typically) is not waited for: the
+      // run moves on to its fallback, or fails, rather than sleeping silently for an hour.
+      const isWaitTooLong = retryAfterMs != null && retryAfterMs > policy.maxDelayMs;
+      const reason = isWaitTooLong
+        ? `${describeError(error)} (retry-after ${retryAfterMs} ms is longer than maxDelayMs ${policy.maxDelayMs} ms, so it was not waited for)`
+        : describeError(error);
+      if (isRetryable(error) && retry < policy.maxRetries && !isWaitTooLong) {
+        const delayMs = computeBackoffMs({ attempt: retry, policy, retryAfterMs, random });
         onRetry?.({ attempt: retry + 1, delayMs, label, reason, error });
         await sleep(delayMs, signal);
         continue;

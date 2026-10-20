@@ -17,6 +17,8 @@ export interface LeasedStreamParams {
   onQueued(info: QueuedInfo): void;
   /** Applied once the lease is granted, so time spent queued never counts. */
   firstEventTimeoutMs?: number;
+  /** Longest pause a 429 may put on the key (default: the server's `retry-after`, uncapped). */
+  maxRateLimitPauseMs?: number;
   sleep: Sleeper;
 }
 
@@ -34,7 +36,7 @@ function isRateLimited(error: unknown): boolean {
  * signal, so even a provider that ignores aborts cannot hold the lease after the run is stopped.
  */
 export async function* leasedStream(params: LeasedStreamParams): AsyncGenerator<ProviderEvent> {
-  const { scheduler, lease: leaseRequest, open, signal, onQueued, firstEventTimeoutMs, sleep } = params;
+  const { scheduler, lease: leaseRequest, open, signal, onQueued, firstEventTimeoutMs, maxRateLimitPauseMs = Number.POSITIVE_INFINITY, sleep } = params;
   const { key } = leaseRequest;
   const lease = await scheduler.acquire({ ...leaseRequest, signal, onQueued });
   let usedTokens: number | undefined;
@@ -43,7 +45,8 @@ export async function* leasedStream(params: LeasedStreamParams): AsyncGenerator<
   /** The stream failed by itself (opening or reading), so there is nothing to stop; a 429 also pauses the key. */
   const fail = (error: unknown): never => {
     isSettled = true;
-    if (isRateLimited(error)) scheduler.reportRateLimit({ key, retryAfterMs: retryAfterMsOf(error) ?? DEFAULT_RATE_LIMIT_PAUSE_MS });
+    // Capped: the pause stalls every agent on the key, and a run never waits longer than its policy allows anyway.
+    if (isRateLimited(error)) scheduler.reportRateLimit({ key, retryAfterMs: Math.min(retryAfterMsOf(error) ?? DEFAULT_RATE_LIMIT_PAUSE_MS, maxRateLimitPauseMs) });
     throw error;
   };
   const openOrFail = (): AsyncIterator<ProviderEvent> => {

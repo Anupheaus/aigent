@@ -195,7 +195,7 @@ const agent = aigent.agent({
 | `fallbackOnNonRetryable` | false | also fall back after a non-retryable failure such as 400 or 401 |
 
 - **What is retried:** `provider_failed` errors with `details.retryable: true`. That covers 408, 409, 429 and 5xx responses, dropped connections, streams cut off early and first-event timeouts.
-- **`retry-after`:** when the server sends this header, it is a floor on the delay. Adapters put it on the error as `details.retryAfterMs`, from either seconds or an HTTP date.
+- **`retry-after`:** when the server sends this header, it is a floor on the delay. Adapters put it on the error as `details.retryAfterMs`, from either seconds or an HTTP date. A `retry-after` longer than `maxDelayMs` (a spent quota, typically) is not waited for: the turn moves to the next fallback model at once, or fails when there is none. A 429 pauses the scheduler key for at most `maxDelayMs` too.
 - **Never replayed:** a call is retried only if it failed before its first event. Once any text, thinking or tool call has reached you, a failure ends the run instead. You never see duplicated output.
 - **Fallback order:** when a model's retries are used up, the turn moves to the next `fallbackModels` entry. Each turn starts again with the agent's own `model`. A fallback provider gets the same resolved settings. Any it cannot honour produce their warnings the first time the run uses that provider.
 - **Stopping:** `stop()`, `cancel()` and `timeoutMs` end a backoff wait at once, and nothing further is sent.

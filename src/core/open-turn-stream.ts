@@ -88,7 +88,7 @@ function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
   return {
     label,
     open: signal => leasedStream({
-      scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs,
+      scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs, maxRateLimitPauseMs: policy.maxDelayMs,
       open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }) }, streamSignal),
       onQueued: ({ position, reason, waitMs }) => emit({ type: 'queued', position, reason, ...(waitMs == null ? {} : { waitMs }) }),
     }),
