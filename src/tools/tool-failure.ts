@@ -1,5 +1,9 @@
+import type { ToolErrorCategory } from './tool-error-detail.js';
+
 export interface ToolFailureInit {
   code: string;
+  /** Default `thrown`. `denied` for refusals by a policy (outside the allowed roots, protected files...). */
+  category?: ToolErrorCategory;
   message: string;
   details?: Record<string, unknown>;
   retryable?: boolean;

@@ -5,11 +5,8 @@ import type { ContentKind, Fidelity } from '../shapers/shaper-types.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
-import { BATCH_RESULT_HELPERS } from './batch-entries.js';
-import { describeThrown } from './tool-error-detail.js';
 import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types.js';
 import { validateApprovalFields, validateEffectFields, validateResumeFields } from './tool-policies.js';
-import { batchDryRun } from './batch-dry-run.js';
 import type { DryRunOutput } from '../effects/planned-effects.js';
 import type { UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-types.js';
 import type { DescribeActivity, Tool, ToolContext, ToolResumePolicy, ToolVerifyResult } from './tool-types.js';
@@ -21,7 +18,7 @@ const DEFINITION_ID_PREFIX = 'tooldef-';
 /** Counts definitions made in this process, for `Tool.definitionId`. */
 let definitionCount = 0;
 
-interface ToolBaseInput {
+export interface ToolBaseInput {
   name: string;
   description: string;
   /** Required: same name + args always give the same result. */
@@ -90,31 +87,13 @@ export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
   applyUndo?(descriptor: UndoDescriptor, context: UndoContext): Promise<UndoOutcome>;
 }
 
-export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
-  item: TItem;
-  /** Cached tools only: normalises the arguments into the cache key (default: the arguments). */
-  cacheKey?(args: BatchArgs<TItem>): unknown;
-  /** Cached tools only: a token that changes when the data behind a result changes. */
-  validity?(args: BatchArgs<TItem>, context: ToolContext): Promise<string>;
-  maxItems: number;
-  describeActivity: DescribeActivity<{ items: z.infer<TItem>[] }>;
-  runItem(item: z.infer<TItem>, context: ToolContext): Promise<unknown>;
-  /** Tools with side effects: what one item would do, without doing it; failures are per item as with `runItem`. */
-  dryRunItem?(item: z.infer<TItem>, context: ToolContext): Promise<DryRunOutput>;
-}
-
-/** The arguments of a batch tool. */
-export interface BatchArgs<TItem extends z.ZodType> {
-  items: z.infer<TItem>[];
-}
-
 /** The cache fields every tool input may carry, checked without their argument types. */
 interface CacheFieldsInput {
   cacheKey?: unknown;
   validity?: unknown;
 }
 
-function invalid(toolName: string, message: string): never {
+export function invalid(toolName: string, message: string): never {
   throw createAigentError({ code: 'invalid_definition', message: `Tool '${toolName}': ${message}`, details: { tool: toolName } });
 }
 
@@ -162,7 +141,7 @@ function validateContextFields(input: ToolBaseInput): void {
   if (compressible !== undefined && typeof compressible !== 'boolean' && compressible !== 'allow-code') invalid(name, `compressible must be true, false or 'allow-code', got ${String(compressible)}`);
 }
 
-function isPositiveInteger(value: unknown): boolean {
+export function isPositiveInteger(value: unknown): boolean {
   return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
@@ -204,28 +183,4 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     describeActivity: describeActivity as DescribeActivity<unknown>,
     run: (parsedArgs, context) => run(parsedArgs as z.infer<TSchema>, context),
   };
-}
-
-export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
-  const { item, maxItems, runItem, dryRunItem, describeActivity, cacheKey, validity, ...base } = input;
-  // An array schema with min 1 and max below 1 could never be satisfied.
-  if (!isPositiveInteger(maxItems)) invalid(base.name, `maxItems must be a positive integer, got ${String(maxItems)}`);
-  const argsSchema = z.object({ items: z.array(item).min(1).max(maxItems) }).strict();
-  const tool = defineTool({
-    ...base,
-    args: argsSchema,
-    ...(cacheKey == null ? {} : { cacheKey: (batchArgs: z.infer<typeof argsSchema>) => cacheKey(batchArgs as BatchArgs<TItem>) }),
-    ...(validity == null ? {} : { validity: (batchArgs: z.infer<typeof argsSchema>, context: ToolContext) => validity(batchArgs as BatchArgs<TItem>, context) }),
-    describeActivity: describeActivity as DescribeActivity<z.infer<typeof argsSchema>>,
-    ...(dryRunItem == null ? {} : { dryRun: (parsed: z.infer<typeof argsSchema>, context: ToolContext) => batchDryRun({ items: parsed.items, context, dryRunItem: (batchItem, itemContext) => dryRunItem(batchItem as z.infer<TItem>, itemContext) }) }),
-    // Items are independent, so they run in parallel; each failure is isolated into its own entry.
-    run: async (parsed, context) => Promise.all(parsed.items.map(async (batchItem, index) => {
-      try {
-        return { index, ok: true as const, result: await runItem(batchItem as z.infer<TItem>, context) };
-      } catch (error) {
-        return { index, ok: false as const, error: describeThrown(error) };
-      }
-    })),
-  });
-  return { ...tool, ...BATCH_RESULT_HELPERS };
 }

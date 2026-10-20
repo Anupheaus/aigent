@@ -1,6 +1,7 @@
 // Test-only in-memory "world" with mutating tools that support dry-run and undo. Excluded from the build, never exported.
 import { z } from 'zod';
-import { defineBatchTool, defineTool } from '../tools/define-tool.js';
+import { defineTool } from '../tools/define-tool.js';
+import { defineBatchTool } from '../tools/define-batch-tool.js';
 import type { Tool } from '../tools/tool-types.js';
 
 /** A tiny file system: path to content. */

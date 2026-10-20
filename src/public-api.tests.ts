@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as api from './index.js';
 import * as contract from './testing/contract/index.js';
 import * as testing from './testing/index.js';
+import * as fsPack from './tools/packs/fs/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -13,6 +14,10 @@ describe('public API', () => {
 
   it('exports test helpers separately', () => {
     expect(Object.keys(testing).sort()).toEqual(['createBrokenCompressor', 'createFakeProvider', 'fakeCompressor', 'textTurn', 'toolTurn']);
+  });
+
+  it('exports the filesystem pack from its own entry', () => {
+    expect(Object.keys(fsPack).sort()).toEqual(['DEFAULT_SEARCH_IGNORES', 'createFsPolicy', 'createMemoryFsAccess', 'createNodeFsAccess', 'fsError', 'fsErrorCode', 'fsTools', 'matchGlob', 'parseIgnoreFile']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {

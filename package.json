@@ -32,6 +32,10 @@
     "./testing/contract": {
       "types": "./dist/testing/contract/index.d.ts",
       "import": "./dist/testing/contract/index.js"
+    },
+    "./tools/fs": {
+      "types": "./dist/tools/packs/fs/index.d.ts",
+      "import": "./dist/tools/packs/fs/index.js"
     }
   },
   "files": [

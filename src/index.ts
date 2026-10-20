@@ -35,7 +35,8 @@ export type { OpenAiTokenLimitField, ReasoningModelMatcher } from './providers/o
 export { deepseek, ollama, openai } from './providers/presets.js';
 export type { PresetOptions } from './providers/presets.js';
 export type { Directive } from './streaming/directive-parser.js';
-export { defineBatchTool, defineTool } from './tools/define-tool.js';
+export { defineTool } from './tools/define-tool.js';
+export { defineBatchTool } from './tools/define-batch-tool.js';
 export { toolFailure } from './tools/tool-failure.js';
 export type { ToolFailure, ToolFailureInit } from './tools/tool-failure.js';
 export type { ItemCounts, Tool, ToolActivityView, ToolContext, ToolOutcome, ToolResumePolicy, ToolVerifyResult } from './tools/tool-types.js';
@@ -46,7 +47,7 @@ export type { LeaseRecord } from './resume/lease.js';
 export type { InstanceRecord, InstanceRunEntry, ResumeOptions } from './resume/instance-runtime.js';
 export type { ResumeRunOptions } from './resume/agent-resume.js';
 export type {
-  ApprovalAuditRecord, ApprovalDecider, ApprovalDecision, ApprovalDecisionKind, ApprovalOptions, ApprovalPolicy, ApprovalRequest, ApprovalRisk, ApprovalRule, RequiresApproval,
+  AllowAlwaysScope, ApprovalAuditRecord, ApprovalDecider, ApprovalDecision, ApprovalDecisionKind, ApprovalDecisionScope, ApprovalOptions, ApprovalPolicy, ApprovalRequest, ApprovalRisk, ApprovalRule, RequiresApproval,
 } from './approvals/approval-types.js';
 export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';

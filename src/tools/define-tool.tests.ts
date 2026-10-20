@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBatchTool, defineTool } from './define-tool.js';
+import { defineTool } from './define-tool.js';
+import { defineBatchTool } from './define-batch-tool.js';
 import { toolFailure } from './tool-failure.js';
 import type { ToolContext } from './tool-types.js';
 
@@ -143,5 +144,31 @@ describe('defineBatchTool', () => {
     expect(tool.summarise?.(result)).toEqual({ success: false, reason: '1 of 2 items failed' });
     expect(tool.nestedFailures?.(result)).toEqual([expect.objectContaining({ code: 'nope', details: { itemIndex: 1 } })]);
     expect(tool.countItems?.(result)).toEqual({ total: 2, failed: 1 });
+  });
+  it('reports a failure with its own category (denied) when the tool says so', async () => {
+    const tool = defineBatchTool({ ...BATCH_BASE, runItem: async () => { throw toolFailure({ code: 'outside_roots', category: 'denied', message: 'outside', suggestion: 'use a root' }); } });
+    expect(await tool.run({ items: [{ id: 'a' }] }, CONTEXT)).toEqual([{ index: 0, ok: false, error: { category: 'denied', code: 'outside_roots', message: 'outside', retryable: false, suggestion: 'use a root', details: undefined } }]);
+  });
+
+  it('runs items one at a time, in order, with sequential: true', async () => {
+    const order: string[] = [];
+    const tool = defineBatchTool({
+      ...BATCH_BASE, sequential: true,
+      runItem: async item => { order.push(`start ${item.id}`); await new Promise(resolve => setTimeout(resolve, item.id === 'a' ? 20 : 0)); order.push(`end ${item.id}`); return item.id; },
+    });
+    await tool.run({ items: [{ id: 'a' }, { id: 'b' }] }, CONTEXT);
+    expect(order).toEqual(['start a', 'end a', 'start b', 'end b']);
+  });
+
+  it('passes verify, undo and applyUndo through with the batch arguments', async () => {
+    const tool = defineBatchTool({
+      ...BATCH_BASE, deterministic: false, hasSideEffects: true, resume: 'verify',
+      verify: async ({ items }) => ({ done: items.length === 1 }),
+      undo: async ({ items }) => ({ ids: items.map(({ id }) => id) }),
+      applyUndo: async () => ({ ok: true }),
+    });
+    expect(await tool.verify?.({ items: [{ id: 'a' }] }, CONTEXT)).toEqual({ done: true });
+    expect(await tool.undo?.({ items: [{ id: 'a' }] }, [], CONTEXT)).toEqual({ ids: ['a'] });
+    expect(tool.applyUndo).toBeTypeOf('function');
   });
 });

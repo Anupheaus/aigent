@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { defineBatchTool, defineTool } from './define-tool.js';
+import { defineTool } from './define-tool.js';
+import { defineBatchTool } from './define-batch-tool.js';
 import { toolFailure } from './tool-failure.js';
 import { executeToolCall } from './execute-tool-call.js';
 import { createMultiTool } from './multi-tool.js';

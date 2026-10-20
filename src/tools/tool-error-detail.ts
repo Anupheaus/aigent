@@ -26,8 +26,8 @@ export function addErrorDetails(detail: ToolErrorDetail, extra: Record<string, u
 /** Converts anything thrown (including non-Error values) into a structured failure. */
 export function describeThrown(error: unknown): ToolErrorDetail {
   if (isToolFailure(error)) {
-    const { code, message, details, retryable = false, suggestion } = error.init;
-    return { category: 'thrown', code, message, details, retryable, suggestion };
+    const { code, message, details, retryable = false, suggestion, category = 'thrown' } = error.init;
+    return { category, code, message, details, retryable, suggestion };
   }
   if (error instanceof Error) return { category: 'thrown', code: 'tool_threw', message: error.message, retryable: false };
   return { category: 'thrown', code: 'tool_threw', message: `Tool threw a non-Error value: ${describeValue(error)}`, retryable: false };

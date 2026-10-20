@@ -1,0 +1,12 @@
+export { fsTools } from './fs-tools.js';
+export type { FsApprovals, FsToolsOptions } from './fs-shared.js';
+export { createFsPolicy } from '../../../security/fs-policy.js';
+export type { CanonicalPath, FsCheckRequest, FsOperation, FsPermission, FsPolicy, FsPolicyOptions, FsRoot, PolicyDecision, PolicyDenialCode } from '../../../security/fs-policy-types.js';
+export { createNodeFsAccess } from '../../../security/fs-access-node.js';
+export { createMemoryFsAccess } from '../../../security/fs-access-memory.js';
+export type { MemoryFsEntry, MemoryFsOptions } from '../../../security/fs-access-memory.js';
+export { fsError, fsErrorCode } from '../../../security/fs-access.js';
+export type { FsAccess, FsDirEntry, FsEntryType, FsErrorCode, FsFileHandle, FsStat, FsWriteRequest, PathPlatform } from '../../../security/fs-access.js';
+export { matchGlob } from '../../../security/glob.js';
+export { DEFAULT_SEARCH_IGNORES, parseIgnoreFile } from '../../../security/ignore-rules.js';
+export type { IgnoreRule } from '../../../security/ignore-rules.js';
