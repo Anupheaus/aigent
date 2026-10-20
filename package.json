@@ -62,7 +62,7 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "vitest": ">=3.0.0"
+    "vitest": ">=3.0.0 <5"
   },
   "peerDependenciesMeta": {
     "vitest": {
