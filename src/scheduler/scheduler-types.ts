@@ -46,7 +46,7 @@ export interface LeaseRequest {
   agentName: string;
   /** Aborting removes a queued request at once and rejects it with an `aborted` AigentError, consuming nothing. */
   signal: AbortSignal;
-  /** Called once, only when the request could not be admitted at once. */
+  /** Called once, only when the request could not be admitted at once. If it throws, the request is withdrawn and `acquire` rejects with that error. */
   onQueued?(info: QueuedInfo): void;
 }
 

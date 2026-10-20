@@ -214,6 +214,26 @@ describe('createScheduler abort', () => {
   });
 });
 
+describe('createScheduler onQueued', () => {
+  it('rejects with the callback error and leaves nothing queued or in flight when onQueued throws', async () => {
+    const { scheduler } = harness({ limits: { p: { maxConcurrent: 1 } } });
+    const holder = request(scheduler);
+    await flush();
+    const thrown = new Error('listener broke');
+    const failing = scheduler.acquire({
+      key: 'p:m', estimatedTokens: 10, priority: 'interactive', agentName: 'agent', signal: new AbortController().signal,
+      onQueued: () => { throw thrown; },
+    });
+    await expect(failing).rejects.toBe(thrown);
+    expect(scheduler.snapshot().p).toMatchObject({ inFlight: 1, queued: 0 });
+    (await holder.lease).release();
+    expect(scheduler.snapshot().p).toMatchObject({ inFlight: 0, queued: 0 });
+    const next = request(scheduler);
+    await flush();
+    expect(next.isAdmitted()).toBe(true);
+  });
+});
+
 describe('createScheduler rate-limit adaptation', () => {
   it('pauses the key for retryAfterMs', async () => {
     const { scheduler, time } = harness();

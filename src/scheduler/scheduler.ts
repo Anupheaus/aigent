@@ -132,7 +132,16 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
       signal.addEventListener('abort', onAbort, { once: true });
       state.waiters.push(waiter);
       pump(state);
-      if (state.waiters.includes(waiter)) onQueued?.(queuedInfo({ state, waiter }));
+      if (!state.waiters.includes(waiter)) return;
+      try {
+        onQueued?.(queuedInfo({ state, waiter }));
+      } catch (error) {
+        // Caller code failed: withdraw the request, or it would later be admitted with nobody holding its lease.
+        removeWaiter({ state, waiter });
+        waiter.detach();
+        reject(error);
+        pump(state);
+      }
     });
   }
 
