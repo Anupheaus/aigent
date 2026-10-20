@@ -3,8 +3,8 @@ import type { IgnoreMatcher } from '../../../security/ignore-rules.js';
 import { separatorOf } from '../../../security/path-flavour.js';
 import type { FsDeps } from './fs-shared.js';
 
-/** Why an entry was left out of a listing or search; every skip is counted, never silent. */
-export type SkipReason = 'denied' | 'hidden' | 'ignored' | 'binary' | 'tooLarge' | 'unreadable';
+/** Why an entry was left out of a listing or search; every skip is counted, never silent (a skipped directory counts once). */
+export type SkipReason = 'denied' | 'hidden' | 'ignored' | 'binary' | 'tooLarge' | 'unreadable' | 'link' | 'other';
 
 export interface WalkEntry {
   /** Canonical path. */
@@ -26,7 +26,7 @@ export interface SkipReport {
 const SKIP_SAMPLES = 10;
 
 export function createSkipReport(): SkipReport & { add(reason: SkipReason, path: string): void } {
-  const counts: Record<SkipReason, number> = { denied: 0, hidden: 0, ignored: 0, binary: 0, tooLarge: 0, unreadable: 0 };
+  const counts: Record<SkipReason, number> = { denied: 0, hidden: 0, ignored: 0, binary: 0, tooLarge: 0, unreadable: 0, link: 0, other: 0 };
   const samples: Partial<Record<SkipReason, string[]>> = {};
   return {
     counts, samples,

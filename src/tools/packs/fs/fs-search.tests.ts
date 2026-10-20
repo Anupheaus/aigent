@@ -91,3 +91,29 @@ describe('fs_search', () => {
     }
   });
 });
+
+describe('fs_search bounds and skips', () => {
+  it('runs regex searches in a worker: a slow pattern stops at the budget with this thread responsive', async () => {
+    const deps = memoryDeps({ files: { '/ws/slow.txt': `${'a'.repeat(3_000)}\n`, '/ws/later.txt': 'a!\n' } });
+    let last = performance.now();
+    let longestGap = 0;
+    const ticker = setInterval(() => { const now = performance.now(); longestGap = Math.max(longestGap, now - last); last = now; }, 10);
+    const [entry] = entriesOf(await call({ tool: createFsSearch(deps), items: [{ path: '/ws', pattern: '.*a.*a.*a.*a.*!', kind: 'content', regex: true }] }));
+    clearInterval(ticker);
+    expect(entry?.result).toMatchObject({ truncated: true, stoppedBy: 'time budget', hint: expect.stringContaining('budget') });
+    expect(longestGap).toBeLessThan(250);
+  }, 30_000);
+
+  it('matches regex names in the worker and counts link entries as skipped', async () => {
+    const deps = memoryDeps({ files: { '/ws/src/app.ts': 'x', '/ws/src/app.test.ts': 'x', '/ws/link': { symlink: '/ws/src' } } });
+    const [named] = entriesOf(await call({ tool: createFsSearch(deps), items: [{ path: '/ws', pattern: '^app\\.(test\\.)?ts$', kind: 'name', regex: true }] }));
+    expect(named?.result).toMatchObject({ totalMatches: 2, files: [{ path: 'src/app.test.ts' }, { path: 'src/app.ts' }], skipped: { counts: { link: 1 } } });
+  });
+
+  it('skips a file whose invalid UTF-8 lies past the binary sample instead of searching replacement characters', async () => {
+    const bytes = new Uint8Array([...new TextEncoder().encode(`needle\n${'x'.repeat(9_000)}\n`), 0xff, 0xfe, 0x80]);
+    const deps = memoryDeps({ files: { '/ws/odd.txt': bytes } });
+    const [entry] = entriesOf(await call({ tool: createFsSearch(deps), items: [{ path: '/ws', pattern: 'needle', kind: 'content' }] }));
+    expect(entry?.result).toMatchObject({ totalMatches: 0, skipped: { counts: { binary: 1 } } });
+  });
+});

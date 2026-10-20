@@ -93,6 +93,19 @@ describe('regex_extract', () => {
     expect(tooBig?.error).toMatchObject({ code: 'input_too_large' });
     expect(Date.now() - started).toBeLessThan(5_000);
   });
+
+  it('stops a slow pattern the shape check lets through at the time budget, without blocking this thread', async () => {
+    let last = performance.now();
+    let longestGap = 0;
+    const ticker = setInterval(() => { const now = performance.now(); longestGap = Math.max(longestGap, now - last); last = now; }, 10);
+    const started = Date.now();
+    // Polynomial (about n^6 per start position) yet free of nested, alternated or adjacent repetition.
+    const [slow] = await run({ name: 'regex_extract', items: [{ text: 'a'.repeat(2_000), pattern: '.*a.*a.*a.*a.*!' }] });
+    clearInterval(ticker);
+    expect(slow?.result).toMatchObject({ count: 0, truncated: true, stoppedBy: 'time budget' });
+    expect(Date.now() - started).toBeLessThan(6_000);
+    expect(longestGap).toBeLessThan(250);
+  });
 });
 
 describe('calc', () => {
