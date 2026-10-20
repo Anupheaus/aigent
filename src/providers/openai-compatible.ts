@@ -1,0 +1,66 @@
+import { toOpenAiChatRequest } from './openai-messages.js';
+import { applyOpenAiData, createOpenAiStreamState, finishOpenAiStream } from './openai-stream.js';
+import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
+import { requestSse, throwIfAborted } from './sse-request.js';
+
+export interface OpenAiCompatibleOptions {
+  /** Provider id, the prefix in `provider:model` strings. */
+  id: string;
+  /** API root without the endpoint, e.g. `https://api.openai.com/v1`; requests go to `${baseUrl}/chat/completions`. */
+  baseUrl: string;
+  /** Sent as `authorization: Bearer <apiKey>` when set; never included in errors. */
+  apiKey?: string;
+  /** Extra request headers (e.g. organisation or project ids). */
+  headers?: Record<string, string>;
+  /** HTTP implementation; defaults to the global `fetch`. Inject one for tests or proxies. */
+  fetch?: typeof fetch;
+  /** Published context window in tokens (default 128_000). */
+  maxContextTokens?: number;
+  /** Whether the backend can return several tool calls in one turn (default true). */
+  supportsParallelToolCalls?: boolean;
+}
+
+const CHAT_COMPLETIONS_PATH = '/chat/completions';
+const DEFAULT_MAX_CONTEXT_TOKENS = 128_000;
+const TRAILING_SLASHES = /\/+$/;
+
+function buildHeaders(options: OpenAiCompatibleOptions): Record<string, string> {
+  const { apiKey, headers } = options;
+  return {
+    'content-type': 'application/json',
+    ...(apiKey == null ? {} : { authorization: `Bearer ${apiKey}` }),
+    ...headers,
+  };
+}
+
+/** A provider for any server speaking the OpenAI streaming Chat Completions API (OpenAI, DeepSeek, Ollama, vLLM, ...). */
+export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
+  const { id, baseUrl, fetch: fetchImpl = fetch, maxContextTokens = DEFAULT_MAX_CONTEXT_TOKENS, supportsParallelToolCalls = true } = options;
+  const url = `${baseUrl.replace(TRAILING_SLASHES, '')}${CHAT_COMPLETIONS_PATH}`;
+  const capabilities: ProviderCapabilities = {
+    streaming: true,
+    toolCalling: true,
+    parallelToolCalls: supportsParallelToolCalls,
+    promptCaching: false,
+    vision: false,
+    maxContextTokens,
+  };
+
+  async function* stream(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+    const state = createOpenAiStreamState(id);
+    const init = { method: 'POST', headers: buildHeaders(options), body: JSON.stringify(toOpenAiChatRequest(request)) };
+    // One chunk can carry several events; re-check the signal before each so nothing is yielded after an abort.
+    const emit = function* (events: ProviderEvent[]): Generator<ProviderEvent> {
+      for (const event of events) {
+        throwIfAborted({ providerId: id, signal });
+        yield event;
+      }
+    };
+    for await (const { data } of requestSse({ providerId: id, fetch: fetchImpl, url, init, signal })) {
+      yield* emit(applyOpenAiData(state, data));
+    }
+    yield* emit(finishOpenAiStream(state));
+  }
+
+  return { id, capabilities, stream };
+}
