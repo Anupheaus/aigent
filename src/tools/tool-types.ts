@@ -12,6 +12,20 @@ export interface ToolContext {
   callId: string;
   /** Aborts when the run is stopped; long-running tools should honour it. */
   signal: AbortSignal;
+  /**
+   * `<runId>:<callId>`: the same for every execution of this call, including a re-run after a resume, so a tool with
+   * side effects can pass it to a remote API to make the effect happen once.
+   */
+  idempotencyKey?: string;
+}
+
+/** How a resumed run treats a call that had started but not finished when the run was interrupted. */
+export type ToolResumePolicy = 'rerun' | 'verify' | 'ask' | 'skip';
+
+/** What `verify` found: whether the call's effect already happened, and the result to give the model if so. */
+export interface ToolVerifyResult {
+  done: boolean;
+  result?: unknown;
 }
 
 /** One `aigent_multi` inner call, as the model wrote it. */
@@ -118,6 +132,13 @@ export interface Tool {
   run(args: unknown, context: ToolContext): Promise<unknown>;
   /** Optional aggregate outcome for the activity renderer; default is success. */
   summarise?(result: unknown): ToolOutcome;
+  /**
+   * After a crash: `rerun` runs the call again, `verify` asks `verify` first, `ask` needs an approval (refused in
+   * unattended runs), `skip` gives the model a `skipped` failure. Default: `rerun` without side effects, else `ask`.
+   */
+  resume?: ToolResumePolicy;
+  /** Says whether an interrupted call's effect already happened (required with `resume: 'verify'`). */
+  verify?(args: unknown, context: ToolContext): Promise<ToolVerifyResult>;
   /** Failures inside a successful aggregate result (batch items, `aigent_multi` calls), reported in `TaskResult.errors`. */
   nestedFailures?(result: unknown): ToolErrorDetail[];
   /** Item totals of a batch result, for tool telemetry (`defineBatchTool` sets it). */

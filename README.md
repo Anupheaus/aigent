@@ -642,6 +642,15 @@ The report also looks at what was asked, across runs, without any model calls:
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
 
+## Checkpoints, call ledger and leases
+
+The building blocks of resumable instances (`src/resume`):
+
+- **Checkpoints** are append-only records in collection `checkpoints` (key `<instanceId>:<runId|sessionId>:<seq>`, `schemaVersion` 1), written through the keyed write queue and `redact` at each safe boundary (`start`, `message`, `turn-complete`, `compaction`, `question`, `approval`, `end`...). Every 25th record (and any record after the history was rewritten, e.g. by a compaction) is a full snapshot; the others hold only the messages appended since. A head record (`checkpoint-heads`) names the latest seq and the kept snapshots, so a restore reads the head, the latest snapshot and its tail, never the whole log. After each snapshot, records older than the last two snapshots are pruned (stores without `delete` keep them). Older schema versions are upgraded on read (`migrateCheckpoint`; v0 is the pre-release shape).
+- **Call ledger:** every tool call is recorded `started` in collection `calls` (one record per run) before the tool runs, then `done` or `failed` with the envelope the model was given. Its idempotency key `<runId>:<callId>` reaches the tool as `ToolContext.idempotencyKey`, so a tool can make a remote effect happen once.
+- **Tool resume policy:** `defineTool({ resume: 'rerun' | 'verify' | 'ask' | 'skip', verify })` says what a resumed run does with a call that had started but not finished. The default is `rerun` for tools without side effects and `ask` for tools with them; `resume: 'verify'` requires `verify(args, ctx)`, which says whether the effect already happened (`{ done, result? }`).
+- **Leases:** one live owner per instance. A lease (`leases/<instanceId>`: `{ ownerId, fence, expiresAt }`) is taken with compare-and-set; while another owner's lease is unexpired, acquiring fails with `instance_locked`. Taking over an expired lease increments the fence, a heartbeat renews it every third of its TTL until it is released, and every checkpoint, ledger and chat write of the instance goes through a fenced store that rejects a stale owner's writes with `store_conflict` (`details.fenced: true`).
+
 ## Stream directives
 
 The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. The system prompt only describes them when [feedback](#agent-feedback-enablefeedback) is on, but they are always parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:

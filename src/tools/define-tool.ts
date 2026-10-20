@@ -7,7 +7,8 @@ import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
 import { BATCH_RESULT_HELPERS } from './batch-entries.js';
 import { describeThrown } from './tool-error-detail.js';
-import type { DescribeActivity, Tool, ToolContext } from './tool-types.js';
+import { validateResumeFields } from './tool-policies.js';
+import type { DescribeActivity, Tool, ToolContext, ToolResumePolicy, ToolVerifyResult } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -59,6 +60,8 @@ interface ToolBaseInput {
    * cannot describe; the built-in `aigent_multi` is the only library tool that uses it. Arguments are still validated by zod.
    */
   strictSchema?: boolean;
+  /** After a crash: `rerun`, `verify`, `ask` or `skip` a call that had started (default `rerun`, or `ask` with side effects). */
+  resume?: ToolResumePolicy;
 }
 
 export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
@@ -69,6 +72,8 @@ export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
   validity?(args: z.infer<TSchema>, context: ToolContext): Promise<string>;
   describeActivity: DescribeActivity<z.infer<TSchema>>;
   run(args: z.infer<TSchema>, context: ToolContext): Promise<unknown>;
+  /** Required with `resume: 'verify'`: whether an interrupted call's effect already happened. */
+  verify?(args: z.infer<TSchema>, context: ToolContext): Promise<ToolVerifyResult>;
 }
 
 export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
@@ -128,6 +133,7 @@ function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivi
   if (acceptsAliases !== undefined && typeof acceptsAliases !== 'boolean') invalid(name, `acceptsAliases must be a boolean, got ${String(acceptsAliases)}`);
   if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
   validateContextFields(input);
+  validateResumeFields(input);
   validateCacheFields(input);
   validateShapingFields(input);
 }
@@ -144,7 +150,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -168,6 +174,8 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(acceptsAliases === true ? { acceptsAliases } : {}),
     ...(compactable === false ? { compactable } : {}),
     ...(compressible == null || compressible === false ? {} : { compressible }),
+    ...(resume == null ? {} : { resume }),
+    ...(verify == null ? {} : { verify: (verifyArgs: unknown, context: ToolContext) => verify(verifyArgs as z.infer<TSchema>, context) }),
     timeoutMs,
     maxResultTokens,
     describeActivity: describeActivity as DescribeActivity<unknown>,
