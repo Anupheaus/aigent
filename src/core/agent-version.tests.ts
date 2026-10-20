@@ -83,9 +83,33 @@ describe('computeAgentVersion', () => {
     ['tool hasSideEffects', { ...BASE, tools: [{ ...searchTool, hasSideEffects: true }, writeTool] }],
     ['tool timeoutMs', { ...BASE, tools: [{ ...searchTool, timeoutMs: 1 }, writeTool] }],
     ['tool maxResultTokens', { ...BASE, tools: [searchTool, { ...writeTool, maxResultTokens: 501 }] }],
-    ['fallbackModels', { ...BASE, fallbackModels: ['openai:gpt-test'] }],
+    ['fallbacks', { ...BASE, fallbacks: [{ model: 'openai:gpt-test' }] }],
+    ['a fallback model', { ...BASE, fallbacks: [{ model: 'openai:gpt-other' }] }],
     ['resilience', { ...BASE, resilience: { maxRetries: 0 } }],
   ];
+
+  it('changes when only the effective settings of a fallback model change', () => {
+    const withFallback: AgentVersionInput = { ...BASE, fallbacks: [{ model: 'openai:gpt-test', modelSettings: { temperature: 0.2 } }] };
+    const changed: AgentVersionInput = { ...BASE, fallbacks: [{ model: 'openai:gpt-test', modelSettings: { temperature: 0.4 } }] };
+    expect(computeAgentVersion(changed)).not.toBe(computeAgentVersion(withFallback));
+  });
+
+  const equivalents: [string, AgentVersionInput, AgentVersionInput][] = [
+    ['resilience {} and the defaults', { ...BASE, resilience: {} }, { ...BASE, resilience: { maxRetries: 2, baseDelayMs: 500, maxDelayMs: 20_000, jitter: 0.2, fallbackOnNonRetryable: false } }],
+    ['resilience absent and {}', BASE, { ...BASE, resilience: {} }],
+    ['resilience absent and an undefined field', BASE, { ...BASE, resilience: { maxRetries: undefined } }],
+    ['no fallbacks and []', BASE, { ...BASE, fallbacks: [] }],
+    ['limits absent and the default limits', { ...BASE, limits: undefined }, { ...BASE, limits: { maxTurns: 25, maxToolCalls: 100 } }],
+    ['limits absent and {}', { ...BASE, limits: undefined }, { ...BASE, limits: {} }],
+    ['modelSettings absent and {}', { ...BASE, modelSettings: undefined }, { ...BASE, modelSettings: {} }],
+    ['no providerOptions and empty ones', { ...BASE, modelSettings: { temperature: 0.2 } }, { ...BASE, modelSettings: { temperature: 0.2, providerOptions: { p: {} }, stop: [] } }],
+    ['an empty fallback settings object and none', { ...BASE, fallbacks: [{ model: 'o:m' }] }, { ...BASE, fallbacks: [{ model: 'o:m', modelSettings: {} }] }],
+    ['an empty persona and none', { ...BASE, persona: undefined }, { ...BASE, persona: '' }],
+  ];
+
+  it.each(equivalents)('is unchanged by noise: %s', (_case, left, right) => {
+    expect(computeAgentVersion(left)).toBe(computeAgentVersion(right));
+  });
 
   it.each(changes)('changes when %s changes', (_field, changed) => {
     expect(computeAgentVersion(changed)).not.toBe(computeAgentVersion(BASE));

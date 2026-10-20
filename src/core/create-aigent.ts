@@ -131,7 +131,12 @@ export function createAigent(options: AigentOptions): Aigent {
     // The multi tool only reaches user tools; registering it alongside them makes a user tool named aigent_multi a duplicate.
     const registry = createToolRegistry([...tools, createMultiTool({ registry: createToolRegistry(tools), now: () => clock.now() })]);
     const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbackModels, resilience });
+    // A fallback's provider layer can differ from the primary's, so each fallback's own effective settings are hashed.
+    const fallbacks = fallbackTargets.map(({ reference, providerSettings }) => ({
+      model: reference,
+      modelSettings: resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: providerSettings }),
+    }));
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy });
     const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context }, registry, limits, agentSettings, runtimeSettings, agentVersion, version };
     return {
       name,

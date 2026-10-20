@@ -180,6 +180,19 @@ describe('agentVersion', () => {
     expect(changed.agentVersion).not.toBe(first.agentVersion);
   });
 
+  it("follows a fallback provider's settings, and ignores empty or default-valued definition fields", () => {
+    const fake = createFakeProvider({ turns: [] });
+    const backup = createFakeProvider({ id: 'backup', turns: [] });
+    const definition = { name: 'a', model: 'fake:m', fallbackModels: ['backup:m'] };
+    const plain = createAigent({ providers: [fake, backup] }).agent(definition);
+    const tuned = createAigent({ providers: [fake, backup], providerModelSettings: { backup: { temperature: 0.9 } } }).agent(definition);
+    expect(tuned.agentVersion).not.toBe(plain.agentVersion);
+    const ai = createAigent({ providers: [fake, backup] });
+    const bare = ai.agent({ name: 'a', model: 'fake:m' });
+    const noisy = ai.agent({ name: 'a', model: 'fake:m', resilience: { maxRetries: 2 }, fallbackModels: [], limits: {}, modelSettings: {} });
+    expect(noisy.agentVersion).toBe(bare.agentVersion);
+  });
+
   it('follows the effective agent-level settings, including runtime defaults', () => {
     const provider = createFakeProvider({ turns: [] });
     const plain = aigentWith({ provider }).agent({ name: 'a', model: 'fake:m' });
