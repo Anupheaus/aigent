@@ -2,7 +2,9 @@ import { analyseRequest } from '../analysis/request-efficiency.js';
 import { mineSequences } from '../analysis/sequence-mining.js';
 import { suggestTools } from '../analysis/tool-suggestions.js';
 import { groupSimilarTasks } from '../analysis/trace-group.js';
+import type { AgentFeedbackRecord } from '../feedback/feedback-records.js';
 import type { RunRecord, RunTrace } from '../telemetry/run-record.js';
+import { summariseAgentFeedback } from './agent-feedback-summary.js';
 import { buildAgentReport } from './agent-report.js';
 import { compareVersions } from './compare-versions.js';
 import { groupSorted } from './finding-rules.js';
@@ -14,6 +16,8 @@ import { DEFAULT_MIN_RUNS } from './score.js';
 export interface BuildReportParams {
   /** Every stored run with its steps; the filter picks the report's runs, the rest still serve as baselines. */
   traces: RunTrace[];
+  /** Stored `aigent_feedback` entries; only those of the report's runs are summarised. */
+  agentFeedback?: AgentFeedbackRecord[];
   /** Validated here (it comes from the consumer); `undefined` means no filter. */
   filter: ReportFilter | undefined;
   generatedAt: number;
@@ -33,7 +37,7 @@ function versionKey(run: RunRecord): string {
 
 /** Turns stored runs and traces into scores, findings and an optional version comparison. Pure. */
 export function buildReport(params: BuildReportParams): Report {
-  const { traces, generatedAt, pricing } = params;
+  const { traces, agentFeedback = [], generatedAt, pricing } = params;
   const filter = parseReportFilter(params.filter);
   const { minRuns = DEFAULT_MIN_RUNS, compareVersions: versions } = filter;
   const selected = traces.filter(({ run }) => matchesFilter({ run, filter }));
@@ -51,6 +55,7 @@ export function buildReport(params: BuildReportParams): Report {
     findings: findFindings({ traces: selected, minRuns, ...(pricing == null ? {} : { pricing }) }),
     requests: groupSimilarTasks(selected).map(analyseRequest),
     toolSuggestions: suggestTools(mineSequences(selected), selected),
+    agentFeedback: summariseAgentFeedback({ records: agentFeedback, runIds: new Set(selected.map(({ run: { runId } }) => runId)) }),
     cache: emptyCacheFindings(),
     ...(versions == null ? {} : { comparison: compareVersions({ runs: comparisonRuns, versions, ...(pricing == null ? {} : { pricing }) }) }),
   };

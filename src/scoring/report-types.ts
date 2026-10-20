@@ -1,3 +1,5 @@
+import type { AgentFeedbackKind } from '../feedback/feedback-records.js';
+
 /** Which runs `ai.report()` covers. Every given field must match. */
 export interface ReportFilter {
   agentName?: string;
@@ -167,6 +169,43 @@ export interface ToolSuggestion {
   estimatedSaving: { tokensPerUse: number; turnsPerUse: number; timePerUseMs: number };
 }
 
+/** How many `aigent_feedback` entries had one kind. */
+export interface AgentFeedbackKindCount {
+  kind: AgentFeedbackKind;
+  count: number;
+}
+
+/** `aigent_feedback` entries about one tool (`relatedTool`). */
+export interface AgentFeedbackToolCount {
+  tool: string;
+  count: number;
+  /** Most frequent first, then by kind. */
+  byKind: AgentFeedbackKindCount[];
+}
+
+/** One stored `aigent_feedback` entry with its text (only entries stored with content capture on). */
+export interface AgentFeedbackQuote {
+  runId: string;
+  /** Epoch ms the entry's run was recorded. */
+  recordedAt: number;
+  kind: AgentFeedbackKind;
+  relatedTool?: string;
+  text: string;
+}
+
+/** What one agent said through `aigent_feedback` over the report's runs. */
+export interface AgentFeedbackSummary {
+  agentName: string;
+  /** Every entry, with or without stored text. */
+  total: number;
+  /** Most frequent first, then by kind. */
+  byKind: AgentFeedbackKindCount[];
+  /** Entries naming a tool, most frequent first, then by tool name. */
+  byTool: AgentFeedbackToolCount[];
+  /** The newest entries that have text, newest first; at most 10 (`MAX_RECENT_AGENT_FEEDBACK`). */
+  recent: AgentFeedbackQuote[];
+}
+
 export interface Report {
   /** Epoch ms. */
   generatedAt: number;
@@ -179,6 +218,8 @@ export interface Report {
   findings: Finding[];
   requests: RequestAnalysis[];
   toolSuggestions: ToolSuggestion[];
+  /** What each agent reported through `aigent_feedback` on the report's runs, sorted by agent name. */
+  agentFeedback: AgentFeedbackSummary[];
   cache: CacheFindings;
   comparison?: VersionComparison;
 }

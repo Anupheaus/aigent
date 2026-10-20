@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { TASK_STATUSES } from '../core/aigent-events.js';
 import { describeIssues } from '../core/describe-issues.js';
 import { createAigentError } from '../core/aigent-error.js';
-import { USER_RATINGS } from '../feedback/feedback-records.js';
+import { AGENT_FEEDBACK_KINDS, USER_RATINGS } from '../feedback/feedback-records.js';
 import { TOOL_ERROR_CATEGORIES } from '../tools/tool-error-detail.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
-import type { ResponseIndexRecord } from '../feedback/feedback-records.js';
+import type { AgentFeedbackRecord, ResponseIndexRecord } from '../feedback/feedback-records.js';
 import type { RunRecord, TraceRecord } from './run-record.js';
 
 const count = z.number().int().nonnegative();
@@ -88,6 +88,14 @@ export const traceRecordSchema = z.object({ ...recordMetaShape, steps: z.array(t
 
 const responseIndexSchema = z.object({ ...recordMetaShape, responseId: z.string().min(1) });
 
+const agentFeedbackRecordSchema = z.object({
+  ...recordMetaShape,
+  kind: z.literal('agent'),
+  callId: z.string(),
+  index: count,
+  entry: z.object({ kind: z.enum(AGENT_FEEDBACK_KINDS), text: z.string().optional(), textLength: count.optional(), relatedTool: z.string().optional() }),
+});
+
 interface ParseStoredParams {
   collection: string;
   key: string;
@@ -122,4 +130,11 @@ export function parseResponseIndex(params: ParseStoredParams): ResponseIndexReco
   const result = responseIndexSchema.safeParse(params.value);
   if (!result.success) throw invalidStoredRecord({ ...params, error: result.error });
   return result.data as ResponseIndexRecord;
+}
+
+/** Validates a stored `aigent_feedback` entry; throws `invalid_input` naming the record and every failing field. */
+export function parseAgentFeedbackRecord(params: ParseStoredParams): AgentFeedbackRecord {
+  const result = agentFeedbackRecordSchema.safeParse(params.value);
+  if (!result.success) throw invalidStoredRecord({ ...params, error: result.error });
+  return result.data as AgentFeedbackRecord;
 }

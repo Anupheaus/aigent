@@ -273,6 +273,25 @@ describe('enableFeedback on', () => {
     expect(JSON.stringify(await store.list('feedback'))).not.toContain('customer-42');
   });
 
+  it('surfaces aigent_feedback entries in ai.report() by kind and tool, quoting their texts', async () => {
+    const { ai, agent } = setup({ enableFeedback: true, turns: [
+      toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'hard', text: 'Echo needs a batch mode', relatedTool: 'echo' }, { kind: 'missing', text: 'No search tool', relatedTool: null }] } }]),
+      textTurn('done'),
+    ] });
+    const result = await agent.task({ task: 'x' });
+    await ai.feedback({ responseId: result.responseId, rating: 'correct' });
+    const report = await ai.report();
+    expect(report.agentFeedback).toEqual([{
+      agentName: 'helper', total: 2,
+      byKind: [{ kind: 'hard', count: 1 }, { kind: 'missing', count: 1 }],
+      byTool: [{ tool: 'echo', count: 1, byKind: [{ kind: 'hard', count: 1 }] }],
+      recent: [
+        { runId: result.runId, recordedAt: 1_000, kind: 'hard', relatedTool: 'echo', text: 'Echo needs a batch mode' },
+        { runId: result.runId, recordedAt: 1_000, kind: 'missing', text: 'No search tool' },
+      ],
+    }]);
+  });
+
   it('stores nothing from aigent_feedback when telemetry is disabled', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'easy', text: 'x', relatedTool: null }] } }]), textTurn('done')] });
     await agent.task({ task: 'x', disableTelemetry: true });

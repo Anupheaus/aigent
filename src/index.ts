@@ -13,7 +13,7 @@ export type {
 } from './feedback/feedback-records.js';
 export type { Redact, RedactableRecord } from './telemetry/redact.js';
 export type {
-  AgentReport, AgentScores, CacheFindings, ComparisonMetrics, Finding, FindingKind, FindingSeverity, ModelPrice, Pricing, Report, ReportFilter, RequestAnalysis,
+  AgentFeedbackKindCount, AgentFeedbackQuote, AgentFeedbackSummary, AgentFeedbackToolCount, AgentReport, AgentScores, CacheFindings, ComparisonMetrics, Finding, FindingKind, FindingSeverity, ModelPrice, Pricing, Report, ReportFilter, RequestAnalysis,
   RunMetrics, Score, ScoreLabel, ToolSuggestion, VersionComparison, VersionSide, WastedStepReason,
 } from './scoring/report-types.js';
 export type { RetentionOptions } from './telemetry/retention.js';

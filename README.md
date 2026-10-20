@@ -391,6 +391,7 @@ The report also looks at what was asked, across runs, without any model calls:
   - `superseded-search`: a search-like call that a later search replaced.
   - `unbatched`: the same tool with the same argument keys, called back to back a turn apart.
 - **`report.toolSuggestions`** mines recurring contiguous tool sequences (2 to 5 calls, in at least 3 distinct runs) that end in a step the agent reported as a success. Sequences wholly inside one `aigent_multi` batch and runs rated incorrect are ignored, and a sequence is only kept in its longest form. Each suggestion has a snake_case `name` from its tools (for example `search_then_read`), a `description`, the sequences it `replaces`, `supportingRunIds`, `proposedArgs` (the argument names and types its first call took) and `estimatedSaving` per use. The saving counts the intermediate result tokens, the extra turns and the time before the last call.
+- **`report.agentFeedback`** summarises what each agent said through `aigent_feedback` on the report's runs: `total`, counts `byKind`, counts `byTool` (`relatedTool`, each with its own kinds) and the `recent` texts, newest first, at most 10. With `captureContent: false` no text is stored, so entries are counted but never quoted.
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
 

@@ -98,7 +98,7 @@ describe('public types', () => {
     };
     const reportFilter: ReportFilter = { agentName: 'a', compareVersions: ['v1', 'v2'], minRuns: 5, includeDisabled: false };
     const toolUse: ToolUse = { calls: 1, items: 1, repeats: 0 };
-    const report: Report = { generatedAt: 0, filter: reportFilter, runCount: 1, agents: [agentReport], findings: [finding], requests: [request], toolSuggestions: [suggestion], cache, comparison };
+    const report: Report = { generatedAt: 0, filter: reportFilter, runCount: 1, agents: [agentReport], findings: [finding], requests: [request], toolSuggestions: [suggestion], agentFeedback: [], cache, comparison };
     expect({ pricing, report, toolUse }).toMatchObject({ report: { runCount: 1 } });
     expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts, feedbackRecord, outcomeSummary }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });

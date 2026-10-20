@@ -22,7 +22,7 @@ function numbersIn(value: unknown): number[] {
 describe('buildReport', () => {
   it('reports nothing, safely, for no runs', () => {
     expect(buildReport({ traces: [], filter: {}, generatedAt: GENERATED_AT })).toEqual({
-      generatedAt: GENERATED_AT, filter: { minRuns: 5 }, runCount: 0, agents: [], findings: [], requests: [], toolSuggestions: [],
+      generatedAt: GENERATED_AT, filter: { minRuns: 5 }, runCount: 0, agents: [], findings: [], requests: [], toolSuggestions: [], agentFeedback: [],
       cache: { hottestEntries: [], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] },
     });
   });
