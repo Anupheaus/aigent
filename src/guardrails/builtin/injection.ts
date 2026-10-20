@@ -1,5 +1,5 @@
 import type { Guardrail } from '../guardrail-types.js';
-import { stringsOf } from '../map-strings.js';
+import { mapStrings, stringsOf } from '../map-strings.js';
 
 /** What an instruction-override phrase in untrusted text becomes. */
 export const REMOVED_INSTRUCTION = '[instruction-like text removed]';
@@ -51,8 +51,9 @@ export function findInjection(text: string): string[] {
 
 /** The result as an inert, labelled data block: directives defused, override phrases removed. */
 function quarantine(result: unknown): string {
-  const text = typeof result === 'string' ? result : JSON.stringify(result);
-  return `${QUARANTINE_HEADING}\n<<<\n${neutraliseInstructions(text)}\n>>>`;
+  // Each string is defused before a structured result is serialised: a JSON escape (`\n`) would hide a phrase's word boundary.
+  const text = typeof result === 'string' ? neutraliseInstructions(result) : JSON.stringify(mapStrings({ value: result, change: neutraliseInstructions }));
+  return `${QUARANTINE_HEADING}\n<<<\n${text}\n>>>`;
 }
 
 /**
