@@ -12,14 +12,16 @@
 
 ## Structure
 
-`src/` folders:
+`src/` folders (tests are co-located as `*.tests.ts`):
 
-- `core`
-- `providers`
-- `tools`
-- `store`
-- `streaming`
-- `testing`
+- `core` - `createAigent`, agent loop and run control, event stream, task input, system prompt and brief, errors
+- `providers` - provider interface and normalised request/event types
+- `tools` - strict tool definitions, registry, executor, `aigent_multi`, activity renderer
+- `store` - store contract, in-memory store, keyed write queue
+- `streaming` - chunk-safe `::aigent` directive parser and schemas
+- `testing` - `FakeProvider` helpers, public as `@anupheaus/aigent/testing`
+
+Public entry points are the barrels `src/index.ts` (`@anupheaus/aigent`) and `src/testing/index.ts`; `src/public-api.tests.ts` pins their exact runtime exports.
 
 ## Rules
 

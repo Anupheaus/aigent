@@ -1,1 +1,16 @@
-export {};
+export { createAigent } from './core/create-aigent.js';
+export type { Aigent, AigentOptions } from './core/create-aigent.js';
+export type { Agent, AgentDefinition, StopOptions, TaskResult, TaskRun, TaskUsage } from './core/agent-types.js';
+export type { AigentEvent, TaskStatus } from './core/aigent-events.js';
+export type { TaskInput, TaskLimits } from './core/task-input.js';
+export { createAigentError, isAigentError } from './core/aigent-error.js';
+export type { AigentError, AigentErrorCode } from './core/aigent-error.js';
+export type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest, ProviderMessage, ToolCall, Usage } from './providers/provider-types.js';
+export { defineBatchTool, defineTool, toolFailure } from './tools/define-tool.js';
+export type { Tool, ToolActivityView, ToolContext, ToolOutcome } from './tools/tool-types.js';
+export type { ToolEnvelope } from './tools/tool-envelope.js';
+export type { ToolErrorDetail } from './tools/tool-error-detail.js';
+export { createInMemoryStore } from './store/in-memory-store.js';
+export { createWriteQueue } from './store/write-queue.js';
+export type { Store, StoredRecord } from './store/store-types.js';
+export type { WriteQueue } from './store/write-queue.js';
