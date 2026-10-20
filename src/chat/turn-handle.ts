@@ -7,6 +7,8 @@ import type { ChatReply, ChatTurn } from './chat-types.js';
 /** What a handle drives once its turn has started. */
 export interface TurnRunControl {
   runId: string;
+  /** The checkpoint stream the run writes to (the suspended run's when it continues one); default `runId`. */
+  streamId?: string;
   events: AsyncIterable<AigentEvent>;
   reply: Promise<ChatReply>;
   stop(options?: StopOptions): void;

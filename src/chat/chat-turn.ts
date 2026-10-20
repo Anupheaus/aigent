@@ -12,6 +12,7 @@ import type { PatchLog } from './apply-patch.js';
 import { buildChatBrief } from './chat-brief.js';
 import { finishTurn } from './finish-turn.js';
 import { agentMessage } from './message-builders.js';
+import type { RunRestore } from '../resume/prepare-run-resume.js';
 import type { TurnRunControl } from './turn-handle.js';
 import { createTurnRecorder } from './turn-recorder.js';
 
@@ -48,13 +49,15 @@ export interface StartChatTurnParams {
   tools?: Tool[];
   /** The message that interrupted this reply, once one did. */
   interruptedBy(): string | undefined;
+  /** Continues a turn suspended before a restart instead of answering `history`. */
+  restore?: RunRestore;
 }
 
 const EMPTY_TASK_TEXT = '(no text)';
 
 /** Starts the agent's reply: creates its message, runs the loop over the history and mirrors the run into patches. */
 export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
-  const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy } = params;
+  const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy, restore } = params;
   const { clock, ids } = services;
   const now = (): number => clock.now();
   const { context, constraints, unattended, modelSettings, signal } = settings;
@@ -66,8 +69,8 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
   let summary: RunSummary | undefined;
   const brief = buildChatBrief({ ...(context == null ? {} : { context }), ...(constraints == null ? {} : { constraints }), ...(unattended == null ? {} : { unattended }) });
   const run = startAgentRun({
-    agent, services, input, ...(tools == null ? {} : { tools }),
-    conversation: { history, messageId, ...(brief == null ? {} : { brief }), ...(steer == null ? {} : { steer }), onCommit: messages => { committed.push(...messages); } },
+    agent, services, input, ...(tools == null ? {} : { tools }), ...(restore == null ? {} : { restore }),
+    conversation: { history, messageId, sessionId: log.state().sessionId, ...(brief == null ? {} : { brief }), ...(steer == null ? {} : { steer }), onCommit: messages => { committed.push(...messages); } },
     onFinished: finished => { summary = finished; },
   });
   const recorder = createTurnRecorder({ log, ids, messageId, replyTo, branchId, now, ...(threadId == null ? {} : { threadId }) });
@@ -79,5 +82,5 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
     const by = interruptedBy();
     return finishTurn({ log, messageId, result, history: committed, agentName: agent.name, instanceId: agent.instanceId, now, ...(summary == null ? {} : { summary }), ...(by == null ? {} : { interruptedBy: by }) });
   })();
-  return { runId: run.runId, events: run, reply, stop: options => run.stop(options) };
+  return { runId: run.runId, streamId: restore?.streamId ?? run.runId, events: run, reply, stop: options => run.stop(options) };
 }

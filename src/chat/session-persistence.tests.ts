@@ -11,7 +11,7 @@ const KEY = { agentName: 'helper', sessionId: 's1' };
 const PATCH_COUNT = 250;
 
 describe('session persistence', () => {
-  it('writes patches in chunks of 100 with a snapshot at each boundary, and loads them back exactly', async () => {
+  it('writes patches in chunks of 100 with a snapshot at each boundary, and loads the snapshot plus the later patches exactly', async () => {
     const store = createInMemoryStore();
     const writer = createSessionWriter({ writer: createRecordWriter({ store, writeQueue: createWriteQueue() }), key: KEY, instanceId: 'i1' });
     const log = createPatchLog({ base: createEmptyConversation(KEY), now: () => 5 });
@@ -19,7 +19,8 @@ describe('session persistence', () => {
     for (let index = 0; index < PATCH_COUNT; index += 1) log.append({ type: 'title-updated', title: `t${index}` });
     expect(await writer.flush()).toEqual([]);
     const loaded = await loadSession({ store, key: KEY });
-    expect(loaded?.patches).toEqual(log.patches());
+    // Only the chunk after the snapshot is read: restore cost does not grow with the session.
+    expect(loaded?.patches).toEqual(log.patches(2 * PATCHES_PER_CHUNK + 1));
     expect(loaded?.record).toMatchObject({ schemaVersion: 1, sessionId: 's1', agentName: 'helper', instanceId: 'i1', seq: 2 * PATCHES_PER_CHUNK });
     expect(loaded?.record.snapshot?.title).toBe(`t${2 * PATCHES_PER_CHUNK - 1}`);
     expect((await store.list(CHATS_COLLECTION)).map(({ key }) => key).sort()).toEqual(['helper:s1', 'helper:s1:0', 'helper:s1:1', 'helper:s1:2']);

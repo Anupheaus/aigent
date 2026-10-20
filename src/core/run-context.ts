@@ -2,6 +2,7 @@ import { createContextMessage } from '../context/context-message.js';
 import type { ContextMessage } from '../context/context-message.js';
 import type { ContextMessageKind, MessageFlags } from '../context/message-flags.js';
 import type { ProviderMessage } from '../providers/provider-types.js';
+import type { StoredContext } from '../resume/checkpoint-types.js';
 
 /** One run's stored messages and what it has learnt about their size. Mutated in place by the loop, like `RunTotals`. */
 export interface RunContext {
@@ -46,6 +47,12 @@ function toContextMessage(params: { runId: string; seq: number; entry: NewContex
 export function createRunContext(params: CreateRunContextParams): RunContext {
   const { runId, createdAt, initial } = params;
   return { runId, state: initial.map((entry, seq) => toContextMessage({ runId, seq, entry, createdAt })), ratio: 1, peakTokens: 0, volatileTokens: 0, created: initial.length };
+}
+
+/** A run's context as a checkpoint stored it; new messages continue the stored numbering. */
+export function restoreRunContext(params: { runId: string; stored: StoredContext }): RunContext {
+  const { runId, stored: { messages, ratio, peakTokens, volatileTokens, created } } = params;
+  return { runId, state: messages.map((message, seq) => ({ ...message, seq })), ratio, peakTokens, volatileTokens, created };
 }
 
 /** A new message with the run's next id, not yet stored; its seq is set where it is placed. */

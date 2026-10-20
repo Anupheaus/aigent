@@ -74,6 +74,8 @@ export interface QuestionMeta {
   questionId: string;
   type: QuestionType;
   answered: boolean;
+  /** The answer, once given (so a resumed turn can hand it to the model as the call's result). */
+  answer?: JsonValue;
   /** The `ask_user` call that asked it. */
   callId: string;
 }

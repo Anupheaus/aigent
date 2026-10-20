@@ -23,6 +23,10 @@ export interface ChatQuestionsParams {
   setStatus(status: 'running' | 'waiting_for_user'): void;
   /** A batch whose turn is gone (stopped, or the session was reopened) is complete: answer it in a fresh turn. */
   resumeInFreshTurn(params: { replyTo: string; taskText: string; handle?: TurnHandle }): TurnHandle;
+  /** With checkpoints: continues the suspended turn itself (the answers become its call's result); undefined when it cannot. */
+  resumeSuspended?(params: { callId: string; replyTo: string; handle?: TurnHandle }): TurnHandle | undefined;
+  /** A turn now waits on `callId`'s questions. */
+  onSuspend?(params: { callId: string; place: QuestionPlace }): void;
 }
 
 export interface ChatQuestions {
@@ -56,7 +60,7 @@ function questionMessage(params: { id: string; question: Question; place: Questi
 
 /** Questions asked through `ask_user`: the suspended turns waiting on them and the answers that resume them. */
 export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions {
-  const { log, ids, now, setStatus, resumeInFreshTurn } = params;
+  const { log, ids, now, setStatus, resumeInFreshTurn, resumeSuspended, onSuspend } = params;
   const waiters = new Map<string, Waiter>();
 
   function askFor(place: QuestionPlace): AskUser {
@@ -69,6 +73,7 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
       waiters.set(callId, { batch: createQuestionBatch({ callId, questions }), resolve });
       // The turn is suspended inside this tool: no model request runs (and no tokens are spent) until it resolves.
       setStatus('waiting_for_user');
+      onSuspend?.({ callId, place });
       signal.addEventListener('abort', () => { waiters.delete(callId); }, { once: true });
     });
   }
@@ -120,6 +125,8 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
     }
     const isRequiredStillOpen = log.state().openQuestions.some(({ callId, question }) => callId === open.callId && question.required);
     if (isRequiredStillOpen) return { ok: true };
+    const resumed = resumeSuspended?.({ callId: open.callId, replyTo: answerMessageId, ...(handle == null ? {} : { handle }) });
+    if (resumed != null) return { ok: true, freshTurn: resumed };
     return { ok: true, freshTurn: resumeInFreshTurn({ replyTo: answerMessageId, taskText: `Answered: ${open.question.text}`, ...(handle == null ? {} : { handle }) }) };
   }
 

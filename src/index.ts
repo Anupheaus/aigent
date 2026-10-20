@@ -43,6 +43,8 @@ export { CHECKPOINT_SCHEMA_VERSION } from './resume/checkpoint-types.js';
 export type { Checkpoint, CheckpointBoundary, CheckpointHead, InFlightRound, PendingApprovalState, RunState, RunStateStatus, SessionState, StoredTaskInput } from './resume/checkpoint-types.js';
 export type { LedgerEntry } from './resume/call-ledger.js';
 export type { LeaseRecord } from './resume/lease.js';
+export type { InstanceRecord, InstanceRunEntry, ResumeOptions } from './resume/instance-runtime.js';
+export type { ResumeRunOptions } from './resume/agent-resume.js';
 export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';
 export { createScheduler } from './scheduler/scheduler.js';

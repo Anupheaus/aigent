@@ -13,6 +13,7 @@ import type { RunFeedback } from './link-previous.js';
 import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
+import type { CallLedger } from '../resume/call-ledger.js';
 import type { RunShaping } from './run-shaping.js';
 import type { RunContext } from './run-context.js';
 import { buildTurnRequest, recordPromptSize } from './run-request.js';
@@ -67,6 +68,10 @@ export interface RunTurnParams {
   maxToolCalls: number;
   /** The run's usable prompt budget; the built request is checked against it before it is sent. */
   usableBudget: number;
+  /** With `resume`: every work call is recorded before it runs. */
+  ledger?: CallLedger;
+  /** The run id the ledger and idempotency keys use (the original run's when resumed); default `runId`. */
+  ledgerRunId?: string;
   clock: Clock;
   signal: AbortSignal;
   /** Tools with side effects get this instead of `signal` (see `RunControl.sideEffectSignal`). */

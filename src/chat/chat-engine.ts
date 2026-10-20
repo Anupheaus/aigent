@@ -1,7 +1,7 @@
 import type { StopOptions } from '../core/agent-types.js';
 import type { PatchLog } from './apply-patch.js';
 import { createAskUserTool } from './ask-user-tool.js';
-import { createChatQuestions } from './chat-questions.js';
+import { createEngineQuestions } from './engine-questions.js';
 import type { ChatQuestions } from './chat-questions.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
 import { startChatTurn } from './chat-turn.js';
@@ -16,7 +16,7 @@ import type { PendingTurn } from './pending-turn.js';
 import { createSteerInbox } from './steer-inbox.js';
 import type { SteerInbox } from './steer-inbox.js';
 import { threadContext, threadWith } from './threads.js';
-import { createTurnHandle } from './turn-handle.js';
+import type { SuspendedTurns } from './suspended-turns.js';
 import type { TurnHandle, TurnRunControl } from './turn-handle.js';
 
 /** The reply in progress. */
@@ -38,6 +38,8 @@ export interface ChatEngineParams {
   onStop?: 'discard' | 'keep';
   /** Called after each finished reply (e.g. to title the session). */
   afterReply?(): void;
+  /** With checkpoints: turns suspended in `ask_user`, continued when their questions are answered after a restart. */
+  suspended?: SuspendedTurns;
 }
 
 export interface ChatEngine {
@@ -54,7 +56,7 @@ export interface ChatEngine {
 }
 
 export function createChatEngine(params: ChatEngineParams): ChatEngine {
-  const { runtime, log, settings, onStop = 'keep', afterReply } = params;
+  const { runtime, log, settings, onStop = 'keep', afterReply, suspended } = params;
   const { clock, ids } = runtime.services;
   const now = (): number => clock.now();
   let queue: PendingTurn[] = [];
@@ -65,16 +67,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     if (log.state().status !== status) log.append({ type: 'status-changed', status });
   }
 
-  const questions = createChatQuestions({
-    log, ids, now, setStatus,
-    resumeInFreshTurn: ({ replyTo, taskText, handle: given }) => {
-      const agentMessageId = ids.next('msg');
-      const handle = given ?? createTurnHandle(agentMessageId);
-      handle.setMessageId(agentMessageId);
-      accept({ agentMessageId, handle, replyTo, taskText });
-      return handle;
-    },
-  });
+  const questions = createEngineQuestions({ log, ids, now, setStatus, accept: pending => accept(pending), activeControl: () => active?.control, ...(suspended == null ? {} : { suspended }) });
 
   const publishQueue = (): void => { log.append({ type: 'queue-updated', queue: queuedMessages(queue) }); };
   const startedIds = (): ReadonlySet<string> => new Set(log.state().messages.map(({ id }) => id));
@@ -102,7 +95,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       const tools = settings.unattended === true ? [] : [createAskUserTool(questions.askFor({ agentMessageId, branchId, ...(threadId == null ? {} : { threadId }) }))];
       control = startChatTurn({
         runtime, log, settings, messageId: agentMessageId, replyTo, branchId, history, taskText, tools, steer: inbox, ...(threadId == null ? {} : { threadId }),
-        interruptedBy: () => active?.interruptedBy,
+        interruptedBy: () => active?.interruptedBy, ...(last.restore == null ? {} : { restore: last.restore }),
       });
     } catch (error) {
       // The turn could not start (e.g. invalid settings): its callers hear why, the queue moves on.

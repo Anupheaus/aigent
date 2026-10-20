@@ -2,6 +2,7 @@ import type { TaskUsage } from '../core/agent-types.js';
 import { createAigentError } from '../core/aigent-error.js';
 import type { ChatReply } from './chat-types.js';
 import type { DeliveryMode, MessageAttachment, MessageDelivery, Part } from './message.js';
+import type { RunRestore } from '../resume/prepare-run-resume.js';
 import type { TurnHandle } from './turn-handle.js';
 
 /** The user's message a turn answers, added when the turn starts. */
@@ -33,6 +34,8 @@ export interface PendingTurn {
   queuedAt?: number;
   /** It cut the previous reply short. */
   interrupted?: boolean;
+  /** Continues a turn suspended before a restart (from its checkpoint) instead of starting a new one. */
+  restore?: RunRestore;
 }
 
 const ZERO_USAGE: TaskUsage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0, turns: 0, toolCalls: 0, toolCallsPerTurn: 0, retries: 0, fallbacks: 0, durationMs: 0 };

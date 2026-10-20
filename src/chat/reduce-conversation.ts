@@ -26,13 +26,13 @@ function addMessage(params: { state: ConversationState; patch: Patch & { type: '
 }
 
 function answerQuestion(params: { state: ConversationState; body: PatchBody & { type: 'question-answered' } }): Changes {
-  const { state, body: { questionId, answerMessageId } } = params;
+  const { state, body: { questionId, answerMessageId, value } } = params;
   const open = state.openQuestions.find(({ question }) => question.id === questionId);
   const openQuestions = state.openQuestions.filter(({ question }) => question.id !== questionId);
   if (open == null) return { openQuestions };
   const messages = mapMessage({
     state, messageId: open.messageId, patchType: 'question-answered',
-    change: message => ({ ...message, meta: { ...message.meta, answerMessageId, ...(message.meta.questionMeta == null ? {} : { questionMeta: { ...message.meta.questionMeta, answered: true } }) } }),
+    change: message => ({ ...message, meta: { ...message.meta, answerMessageId, ...(message.meta.questionMeta == null ? {} : { questionMeta: { ...message.meta.questionMeta, answered: true, answer: value } }) } }),
   });
   return { openQuestions, messages };
 }

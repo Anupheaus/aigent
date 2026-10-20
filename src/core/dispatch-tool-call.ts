@@ -11,6 +11,10 @@ import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
 import { describeThrown } from '../tools/tool-error-detail.js';
 import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
+import { hashArgs, idempotencyKeyOf } from '../resume/call-ledger.js';
+import type { CallLedger } from '../resume/call-ledger.js';
+import type { ExecuteToolCallParams } from '../tools/execute-tool-call.js';
+import { describeError } from './describe-value.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { shapeWith } from './run-shaping.js';
@@ -67,6 +71,25 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
   };
 }
 
+/**
+ * Runs the call, recorded in the ledger first when there is one: the `started` entry is stored before the tool runs,
+ * so a resumed run never runs a finished call again. A call whose start cannot be recorded is not run.
+ */
+async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; turn: number }): Promise<ExecutedToolCall> {
+  const { execute, ledger, turn } = params;
+  const { call } = execute;
+  if (ledger == null) return executeToolCall(execute);
+  try {
+    await ledger.begin({ callId: call.id, tool: call.name, args: call.args, argsHash: hashArgs(call.args), turn });
+  } catch (error) {
+    return rejectToolCall({ call, error: { category: 'denied', code: 'ledger_unavailable', retryable: true, message: `The call was not run because its start could not be recorded: ${describeError(error)}` } });
+  }
+  const executed = await executeToolCall(execute);
+  // The effect happened either way; a lost `done` only means a resume treats the call by its resume policy.
+  await ledger.complete(call.id, executed.envelope).catch(() => undefined);
+  return executed;
+}
+
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
 export function dispatchToolCall(params: DispatchParams): void {
   const { turn } = params;
@@ -106,7 +129,8 @@ export function dispatchToolCall(params: DispatchParams): void {
 
   // Side-effecting tools outlive an unforced immediate stop, so a write is never left half-done.
   const toolSignal = registry.get(name)?.hasSideEffects === true ? turn.sideEffectSignal : signal;
-  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal };
+  const ledgerRunId = turn.ledgerRunId ?? runId;
+  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ledgerRunId, callId }) };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
@@ -115,10 +139,15 @@ export function dispatchToolCall(params: DispatchParams): void {
     totals.toolCalls += 1;
   }
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
-  const execution = executeToolCall({
-    registry, call, context, now: () => clock.now(),
-    ...(cache == null ? {} : { cache }),
-    ...(shaping == null ? {} : { shape: shapeWith(shaping) }),
+  // Bookkeeping tools only change run state, which the checkpoint holds; ask_user is ledgered so a suspended turn can resume.
+  const ledger = isCommentary && name !== ASK_USER_TOOL_NAME ? undefined : turn.ledger;
+  const execution = runLedgered({
+    execute: {
+      registry, call, context, now: () => clock.now(),
+      ...(cache == null ? {} : { cache }),
+      ...(shaping == null ? {} : { shape: shapeWith(shaping) }),
+    },
+    turn: totals.turns, ...(ledger == null ? {} : { ledger }),
   })
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
 

@@ -7,6 +7,10 @@ export interface OriginalStore {
   put(text: string): string;
   get(handle: string): string | undefined;
   handles(): string[];
+  /** Every `[handle, text]`, in issue order (for checkpoints). */
+  entries(): [string, string][];
+  /** Puts back entries from a checkpoint; later handles continue after them. */
+  restore(entries: readonly [string, string][]): void;
 }
 
 export function createOriginalStore(): OriginalStore {
@@ -19,5 +23,7 @@ export function createOriginalStore(): OriginalStore {
     },
     get: handle => byHandle.get(handle),
     handles: () => [...byHandle.keys()],
+    entries: () => [...byHandle.entries()],
+    restore: entries => { for (const [handle, text] of entries) byHandle.set(handle, text); },
   };
 }

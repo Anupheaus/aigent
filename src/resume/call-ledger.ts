@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { createAigentError } from '../core/aigent-error.js';
+import { canonicalJson } from '../core/canonical-json.js';
 import type { Clock } from '../core/runtime-services.js';
 import type { Store } from '../store/store-types.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
@@ -56,6 +58,11 @@ export interface CreateCallLedgerParams {
   clock: Clock;
   /** A resumed run's stored entries. */
   loaded?: LedgerEntry[];
+}
+
+/** sha-256 of the arguments' canonical JSON, so a ledger entry can be matched without comparing values. */
+export function hashArgs(args: unknown): string {
+  return createHash('sha256').update(canonicalJson(args ?? null)).digest('hex');
 }
 
 export function idempotencyKeyOf(params: { runId: string; callId: string }): string {

@@ -34,6 +34,9 @@ import { evalCompression } from '../compression/eval-compression.js';
 import type { CompressionEvalReport, EvalCompressionParams } from '../compression/eval-compression.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import { previewPrompt } from './preview.js';
+import { createAgentResume } from '../resume/agent-resume.js';
+import { createInstanceRuntime } from '../resume/instance-runtime.js';
+import { createAigentError } from './aigent-error.js';
 import { createChat } from '../chat/create-chat.js';
 import { parseChatOptions } from '../chat/chat-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
@@ -68,6 +71,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
   const isPrefixMonitorEnabled = volatile.warnOnPrefixChange ?? !isProduction;
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
+  const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper(), ownerId: ids.next('owner') });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   // result.feedback goes through the same tracked path as ai.feedback.
@@ -77,6 +81,7 @@ export function createAigent(options: AigentOptions): Aigent {
     ...(activity == null ? {} : { activity }),
     activityTimers: createTimerSleeper(),
     ...(toolCache == null ? {} : { cache: toolCache }),
+    ...(resume == null ? {} : { resume }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -107,6 +112,7 @@ export function createAigent(options: AigentOptions): Aigent {
     // Loop because a run or feedback call may be started while we wait for the earlier ones.
     while (activeWork.size > 0) await Promise.all([...activeWork]);
     await services.writeQueue.flush();
+    await resume?.close();
   }
 
   const agentContext: AgentResolutionContext = {
@@ -114,13 +120,20 @@ export function createAigent(options: AigentOptions): Aigent {
     ...(runtimeSettings == null ? {} : { runtimeSettings }), ...(options.enableFeedback == null ? {} : { enableFeedback: options.enableFeedback }), ...(toolCache == null ? {} : { toolCache }),
   };
 
+  /** The latest definition given for each agent name, so `restoreAgent` can rebuild an instance. */
+  const definitions = new Map<string, AgentDefinition>();
+
   function agent(definition: AgentDefinition): Agent {
     const resolved = resolveAgent({ definition, context: agentContext });
     const { name, instanceId, agentVersion } = resolved;
+    definitions.set(name, definition);
+    const restore = createAgentResume({ agent: resolved, services });
     return {
       name,
       instanceId,
       agentVersion,
+      ready: restore.ready,
+      resume: resumeOptions => { const run = restore.resume(resumeOptions); return run == null ? undefined : track(run); },
       task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
       chat: rawOptions => createChat({
@@ -131,8 +144,20 @@ export function createAigent(options: AigentOptions): Aigent {
     };
   }
 
+  async function restoreAgent(instanceId: string): Promise<Agent> {
+    if (resume == null) throw createAigentError({ code: 'invalid_input', message: 'restoreAgent needs createAigent({ resume })', details: { instanceId } });
+    const record = await resume.read(instanceId);
+    if (record == null) throw createAigentError({ code: 'invalid_input', message: `No stored agent instance '${instanceId}'`, details: { instanceId } });
+    const definition = definitions.get(record.agentName);
+    if (definition == null) throw createAigentError({ code: 'invalid_input', message: `Instance '${instanceId}' belongs to agent '${record.agentName}'; define it with ai.agent first so its tools are known`, details: { instanceId, agentName: record.agentName } });
+    const restored = agent({ ...definition, instanceId });
+    await restored.ready;
+    return restored;
+  }
+
   return {
     agent,
+    restoreAgent,
     close,
     trace: runId => readTrace({ store, runId }),
     purge: async filter => purgeRecords({ store, filter }),

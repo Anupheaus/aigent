@@ -52,13 +52,18 @@ export interface StoredSession {
   patches: Patch[];
 }
 
-/** Reads a stored session with all its patches, or undefined when it was never stored. */
+/**
+ * Reads a stored session: its snapshot and the patches after it (from the chunk holding the first later patch), or
+ * every patch when there is no snapshot. Undefined when it was never stored. Restore cost stays bounded however long
+ * the session grew; the earlier patches are folded into the snapshot.
+ */
 export async function loadSession(params: { store: Store; key: SessionKey }): Promise<StoredSession | undefined> {
   const { store, key } = params;
   const stored = await store.get<ChatSessionRecord>(CHATS_COLLECTION, sessionRecordKey(key));
   if (stored == null) return undefined;
   const patches: Patch[] = [];
-  for (let chunk = 0; ; chunk += 1) {
+  const firstChunk = stored.value.snapshot == null ? 0 : chunkOf(stored.value.seq + 1);
+  for (let chunk = firstChunk; ; chunk += 1) {
     const record = await store.get<ChatChunkRecord>(CHATS_COLLECTION, chunkKey({ key, chunk }));
     if (record == null) break;
     patches.push(...record.value.patches);

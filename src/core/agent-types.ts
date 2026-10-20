@@ -3,6 +3,7 @@ import type { Usage } from '../providers/provider-types.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { CompressionOptions, PromptPreview } from '../compression/compressor-types.js';
+import type { ResumeRunOptions } from '../resume/agent-resume.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -168,6 +169,17 @@ export interface Agent {
    * with a store, persistence by `sessionId`. Validates `options` synchronously (throws `invalid_input`).
    */
   chat(options?: ChatOptions): Chat;
+  /**
+   * Settles once the instance is open: with `createAigent({ resume })` its lease is taken (rejects `instance_locked`
+   * while another runtime holds it) and its interrupted runs are loaded. Resolves at once without `resume`.
+   */
+  ready: Promise<void>;
+  /**
+   * Continues the latest interrupted run (or `runId`) from its last checkpoint: the identical next request, finished
+   * calls never run again, started ones per their tool's `resume` policy. Undefined when there is nothing to resume
+   * (or `resume` is off). Throws `invalid_input` before `ready` has resolved.
+   */
+  resume(options?: ResumeRunOptions): TaskRun | undefined;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

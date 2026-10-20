@@ -13,7 +13,11 @@ import { createRunCompaction } from './run-compaction.js';
 import type { RunCompactionSettings } from './run-compaction.js';
 import { compressCommitted } from './run-compression.js';
 import type { RunCompression } from './run-compression.js';
-import { appendContextMessages, createRunContext } from './run-context.js';
+import { reconcileInterruptedRound } from '../resume/reconcile-calls.js';
+import type { AskToRerun, RestoredRun } from '../resume/reconcile-calls.js';
+import type { RunCheckpoints } from '../resume/checkpoint-hooks.js';
+import { createRunCheckpointer } from './run-checkpointer.js';
+import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
 import type { NewContextMessage } from './run-context.js';
 import type { RunControl } from './run-control.js';
 import { createRunOriginals } from './run-originals.js';
@@ -63,6 +67,14 @@ export interface RunAgentTurnsParams {
   onCommit?(messages: ProviderMessage[]): void;
   /** Steering messages, delivered at the next safe boundary as user messages. */
   steer?: SteerSource;
+  /** With `resume`: the run's checkpoints and call ledger. */
+  checkpoints?: RunCheckpoints;
+  /** A resumed run's checkpoint and ledger; `initial` is then ignored. */
+  restore?: RestoredRun;
+  /** No user: interrupted calls that need approval are refused. */
+  isUnattended?: boolean;
+  /** The approval gate for re-running interrupted calls with side effects. */
+  askToRerun?: AskToRerun;
   emit(event: AigentEvent): void;
 }
 
@@ -74,16 +86,19 @@ const PROVIDER_FAILED_ABORT_REASON = 'the run failed because the provider failed
  * Never rejects for those cases.
  */
 export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, initial, limits, clock, control, telemetry, cache, shaping, planning, emit, keepPartialRound = false, onCommit, steer } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, initial, limits, clock, control, telemetry, cache, shaping, planning, emit, keepPartialRound = false, onCommit, steer, restore } = params;
   const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController, sideEffectSignal } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
-  const context = createRunContext({ runId, createdAt: startedAt, initial });
-  const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0, compactionTokens: 0 };
+  const context = restore == null ? createRunContext({ runId, createdAt: startedAt, initial }) : restoreRunContext({ runId, stored: restore.state.context });
+  const totals: RunTotals = restore == null ? { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0, compactionTokens: 0 } : structuredClone(restore.state.totals);
   const originals = createRunOriginals({
     registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }), ...(params.compression == null ? {} : { compression: params.compression.settings }),
+    ...(restore == null ? {} : { restored: { originals: restore.state.originals, hasResultOriginal: restore.state.hasResultOriginal } }),
   });
+  const checkpointer = createRunCheckpointer({ ...(params.checkpoints == null ? {} : { hooks: params.checkpoints }), context, totals, planning, originals, ...(shaping == null ? {} : { shaping }) });
+  const { ledger, ledgerRunId } = checkpointer;
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';
@@ -95,8 +110,32 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     onCommit?.(messages.map(({ message }) => message));
   };
   const fail = (error: unknown): void => { status = 'failed'; failure = describeError(error); emit({ type: 'error', message: failure }); };
+  /** Writes a checkpoint; a write that fails (the store is gone, or another owner took over) fails the run. */
+  const checkpoint = async (at: Parameters<typeof checkpointer.at>[0]): Promise<boolean> => {
+    try {
+      await checkpointer.at(at);
+      return true;
+    } catch (error) {
+      fail(error);
+      abortController.abort(PROVIDER_FAILED_ABORT_REASON);
+      return false;
+    }
+  };
+
+  let isReady = true;
+  if (restore != null) {
+    const round = await reconcileInterruptedRound({
+      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, isUnattended: params.isUnattended ?? false, now: () => clock.now(), emit,
+      ...(ledger == null ? {} : { ledger }), ...(params.askToRerun == null ? {} : { askToRerun: params.askToRerun }),
+    });
+    // Not reported through onCommit: a chat already holds this round (the cut-short reply), so its history is not repeated.
+    if (round.messages.length > 0) appendContextMessages({ context, messages: round.messages, createdAt: clock.now() });
+    totals.turns = round.turn;
+  }
+  isReady = await checkpoint({ boundary: restore == null ? 'start' : 'turn-complete' });
 
   for (;;) {
+    if (!isReady) break;
     // Covers an abort that landed while tools ran after the stream had already finished.
     if (signal.aborted) { status = abortedStatus(control.abortReason()); break; }
     if (control.isGracefulStopRequested()) { status = 'stopped'; break; }
@@ -106,6 +145,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     if (steered.length > 0) commit(steered.map(message => ({ message, kind: 'user' })));
     totals.turns += 1;
     syncPinned({ context, planning, now: clock.now() });
+    const compactionsBefore = compactor.stats().compactions;
     try {
       // A turn boundary: every result of the previous round is stored, so no call can be separated from its result.
       await compactor.beforeTurn({ remainingTurns: limits.maxTurns - totals.turns + 1 });
@@ -114,13 +154,16 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
       fail(error);
       break;
     }
+    // This turn's request is not sent yet, so it is not counted in the checkpoint.
+    if (compactor.stats().compactions > compactionsBefore && !await checkpoint({ boundary: 'compaction', turnsDone: totals.turns - 1 })) break;
     const registry = originals.registry();
     const work = createTurnWork();
     let turn: TurnStreamResult;
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock, signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock,
+        ...(ledger == null ? {} : { ledger }), ...(ledgerRunId == null ? {} : { ledgerRunId }), signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });
@@ -142,10 +185,16 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
       break;
     }
 
+    // The response is in: a resume completes this round from here rather than asking the model again.
+    const inFlight = { turn: totals.turns, assistant: { role: 'assistant' as const, text: turn.visible, ...(turn.calls.length > 0 ? { toolCalls: turn.calls } : {}), ...(turn.thinkingBlocks.length > 0 ? { thinkingBlocks: turn.thinkingBlocks } : {}) } };
+    const isRecorded = turn.calls.length === 0 || await checkpoint({ boundary: 'message', inFlight });
     const drained = await drainWork({ work, signal, emit });
     const executed = await compressCommitted({ executed: drained, originals, clock, signal, emit, ...(params.compression == null ? {} : { compression: params.compression }) });
     commit(turnMessages({ turn, executed, registry }));
     errors.push(...failedDetails(executed));
+    // A round cut short by a stop is not checkpointed: its response (the 'message' checkpoint) stays the latest, so a
+    // suspended ask_user turn can be continued with real answers instead of its aborted results.
+    if (!isRecorded || (!signal.aborted && !await checkpoint({ boundary: 'turn-complete' }))) break;
     if (turn.calls.length === 0) {
       answer = turn.visible.trim();
       if (turn.finishReason === 'length') status = 'incomplete';
@@ -153,6 +202,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     }
   }
 
+  if (params.checkpoints != null) await checkpointer.close(status).catch((error: unknown) => emit({ type: 'warning', message: `The run's final checkpoint was not written: ${describeError(error)}` }));
   return buildTurnsResult({
     ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, ...(failure == null ? {} : { failure }) },
     totals, context, compactor, planning, durationMs: clock.now() - startedAt,

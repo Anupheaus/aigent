@@ -13,6 +13,14 @@ export interface RunOriginals {
   keep(text: string): string;
   /** The run's current registry (the agent's tools, plus `result_original` once originals can exist). */
   registry(): ToolRegistry;
+  /** The kept originals and whether `result_original` is registered, for checkpoints. */
+  snapshot(): OriginalsSnapshot;
+}
+
+/** A run's originals as a checkpoint stores them. */
+export interface OriginalsSnapshot {
+  originals: [string, string][];
+  hasResultOriginal: boolean;
 }
 
 export interface CreateRunOriginalsParams {
@@ -24,6 +32,8 @@ export interface CreateRunOriginalsParams {
   isFeedbackEnabled: boolean;
   /** The agent's compression; when it compresses tool results, `result_original` is registered from the start. */
   compression?: ResolvedCompression;
+  /** A resumed run's originals: kept again, with `result_original` registered when it was. */
+  restored?: OriginalsSnapshot;
 }
 
 /** Compressed results keep originals on any turn, so their tool must be in the very first request's tool list. */
@@ -37,9 +47,13 @@ function compressesToolResults(params: { registry: ToolRegistry; compression?: R
  * compaction changes the prompt prefix anyway, so the tool list changes only where the prefix already does.
  */
 export function createRunOriginals(params: CreateRunOriginalsParams): RunOriginals {
-  const { shaping, isFeedbackEnabled } = params;
+  const { shaping, isFeedbackEnabled, restored } = params;
   let current = params.registry;
-  if (shaping != null) return { keep: text => shaping.state.originals.put(text), registry: () => current };
+  if (shaping != null) {
+    shaping.state.originals.restore(restored?.originals ?? []);
+    const { originals } = shaping.state;
+    return { keep: text => originals.put(text), registry: () => current, snapshot: () => ({ originals: originals.entries(), hasResultOriginal: true }) };
+  }
   let store: OriginalStore | undefined;
   const register = (): OriginalStore => {
     const originals = createOriginalStore();
@@ -47,12 +61,14 @@ export function createRunOriginals(params: CreateRunOriginalsParams): RunOrigina
     current = createToolRegistry([...current.list(), isFeedbackEnabled ? withFeedbackFields(tool) : tool]);
     return originals;
   };
-  if (compressesToolResults(params)) store = register();
+  if (compressesToolResults(params) || restored?.hasResultOriginal === true) store = register();
+  store?.restore(restored?.originals ?? []);
   return {
     keep: text => {
       store ??= register();
       return store.put(text);
     },
     registry: () => current,
+    snapshot: () => ({ originals: store?.entries() ?? [], hasResultOriginal: store != null }),
   };
 }

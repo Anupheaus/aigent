@@ -313,7 +313,7 @@ The user can always send. `send(input, { delivery })` (default: the chat's `whil
 
 In chat (unless `unattended`) the agent has the `ask_user` tool: a batch of 1 to 10 questions of type `text`, `number`, `confirm`, `single_choice` or `multi_choice` (choices need 2 to 20 options), each with `required` and optional `default`, `min` and `max`. The turn then waits inside the tool, making no model request and spending no tokens, with status `waiting_for_user`; each question appears as a `question` message and in `openQuestions`. `chat.answer(questionId, value)` validates the answer (an invalid one stays open and the result says precisely why) and adds an `answer` message; question and answer messages link both ways and are never compacted. Once every required question of the batch is answered, the model gets one result per question and the turn resumes. While exactly one question is open, a plain `send(text)` (no delivery, thread or attachments) that is a valid answer answers it.
 
-Stopping or closing a waiting turn cancels it and leaves its questions open. They are stored with the session, so they survive a reopen; answering them then starts a fresh turn that sees the answers (resuming the suspended turn itself needs checkpoints, which arrive with the resume slice). Without a user (`unattended`, or a task without `onQuestion`) a call to `ask_user` is refused with a `denied` result, so the ambiguity policy applies. In task mode, `agent.task({ ..., onQuestion: async questions => ({ [id]: value }) })` answers each batch.
+Stopping or closing a waiting turn cancels it and leaves its questions open. They are stored with the session, so they survive a reopen. With `createAigent({ resume })` answering them continues the suspended turn itself, even in a new process: the same model turn gets the answers as its `ask_user` result, from its checkpoint (see "Resuming agent instances"). Without `resume`, answering starts a fresh turn that sees the answers as user text. Without a user (`unattended`, or a task without `onQuestion`) a call to `ask_user` is refused with a `denied` result, so the ambiguity policy applies. In task mode, `agent.task({ ..., onQuestion: async questions => ({ [id]: value }) })` answers each batch.
 
 ### Threads, branches and forks
 
@@ -641,6 +641,24 @@ The report also looks at what was asked, across runs, without any model calls:
 - **`report.agentFeedback`** summarises what each agent said through `aigent_feedback` on the report's runs: `total`, counts `byKind`, counts `byTool` (`relatedTool`, each with its own kinds) and the `recent` texts, newest first, at most 10. With `captureContent: false` no text is stored, so entries are counted but never quoted.
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
+
+## Resuming agent instances
+
+```ts
+const ai = createAigent({ providers, store, resume: { lease: { ttlMs: 30_000 } } });
+const agent = ai.agent({ ...definition, instanceId: 'support-bot-7' });
+await agent.ready;                 // lease taken (instance_locked while another runtime holds it)
+const run = agent.resume();        // the latest interrupted run, or undefined
+const result = await (run ?? agent.task(input));
+// or: const restored = await ai.restoreAgent('support-bot-7'); (its definition must have been given to ai.agent)
+```
+
+- **What is written:** with `resume`, every run (task or chat turn) writes checkpoints at `start`, after each compaction, when a model response with tool calls is in (`message`), after each round (`turn-complete`) and at its end; every work call is recorded in the call ledger before it runs. The instance record (`instances/<instanceId>`) lists the instance's runs, their status and its chat sessions.
+- **`agent.resume({ runId?, onQuestion?, signal? })`** continues the latest run that had not ended (or was stopped gracefully) from its last checkpoint, with the same run id: plan, todo, totals, `result_original` originals and the alias table are restored, and the next request is the one the run would have sent (the prompt prefix is byte-identical, so the provider's prompt cache can still hit). A response that was in when the run stopped is not asked for again: its round is completed from the ledger. Finished calls are never executed again (their recorded result is used); calls that had started follow their tool's `resume` policy (`rerun`, `verify`, `ask`: refused with an `approval_denied` result the model sees in unattended runs, or `skip`: a `skipped` result). Calls that never started run as new calls. A model response lost mid-stream is lost: the model is asked again, with any calls that had started completed first.
+- **Chats:** a turn suspended in `ask_user` records its suspension in the session's checkpoints; after a restart (`agent.chat({ sessionId })`), answering its questions continues that turn rather than starting a new one. A reopened session reads its latest snapshot and only the patches after it, so restore cost does not grow with the session.
+- **Leases:** `ai.agent({ instanceId })` opens the instance at once (`agent.ready`); a second runtime gets `instance_locked` until the lease expires, then takes over with a higher fence, and the old owner's late writes are rejected (its runs fail with `store_conflict`). `ai.close()` releases every lease. `lease: false` turns leases off.
+- **Agent versions:** restoring an instance with a different `agentVersion` emits a `warning` on its next run and records the new version; the restore proceeds.
+- **Determinism:** restore reproduces state, not the model's randomness: a response lost in the crash may come back different, but the prompt and every recorded result are identical.
 
 ## Checkpoints, call ledger and leases
 

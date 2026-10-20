@@ -10,6 +10,7 @@ import type { Redact } from '../telemetry/redact.js';
 import type { RetentionOptions } from '../telemetry/retention.js';
 import type { RunTrace } from '../telemetry/run-record.js';
 import type { ActivityOptions } from './activity.js';
+import type { ResumeOptions } from '../resume/instance-runtime.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -63,11 +64,21 @@ export interface AigentOptions {
   volatile?: VolatileOptions;
   /** Activity updates (task and chat): at most one per `throttleMs` (default 250), a heartbeat every `heartbeatMs` (default 5000) while busy. */
   activity?: ActivityOptions;
+  /**
+   * Resumable instances: every run and chat turn writes checkpoints and a call ledger to the store (an in-memory one
+   * without `store`), and each instance is held by a lease (`{ ttlMs: 30_000 }` by default; false for none).
+   */
+  resume?: ResumeOptions;
 }
 
 export interface Aigent {
   /** Validates the definition (throws `invalid_definition` / `unknown_provider`) and returns the agent. */
   agent(definition: AgentDefinition): Agent;
+  /**
+   * Restores a stored instance (needs `resume`): its agent's definition must have been given to `ai.agent` in this
+   * runtime. Resolves once the instance is open (lease taken); rejects `instance_locked` or `invalid_input`.
+   */
+  restoreAgent(instanceId: string): Promise<Agent>;
   /**
    * Resolves once every run and `ai.feedback` call started so far (and any started while closing) has settled and every pending store
    * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.

@@ -14,6 +14,7 @@ import { createSender } from './chat-send.js';
 import { buildSession, openStoredSession } from './chat-session.js';
 import type { OpenSession } from './chat-session.js';
 import { titleSession } from './chat-title.js';
+import { createSuspendedTurns } from './suspended-turns.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
 import type { Chat } from './chat-types.js';
 import { createEmptyConversation } from './conversation.js';
@@ -65,10 +66,14 @@ export function createChat(params: CreateChatParams): Chat {
     sideWork.add(titling);
   }
 
-  const load = (session: OpenSession): void => { loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings, afterReply, ...(options.onStop == null ? {} : { onStop: options.onStop }) }) }; };
+  // With checkpoints, a stored session's suspended turns can be continued after a restart.
+  const suspended = stored == null || services.resume == null ? undefined : createSuspendedTurns({ runtime: services.resume, agent, sessionId, clock, track });
+  const load = (session: OpenSession): void => {
+    loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings, afterReply, ...(options.onStop == null ? {} : { onStop: options.onStop }), ...(suspended == null ? {} : { suspended }) }) };
+  };
   const sessionParams = { key, instanceId: agent.instanceId, clock, ...(seed == null ? {} : { seed }) };
   // An in-memory session is ready at once; a stored one is read first (methods wait for it on their own).
-  const ready = stored != null ? openStoredSession({ ...sessionParams, persistence: stored }).then(load) : Promise.resolve(load(buildSession(sessionParams)));
+  const ready = stored != null ? Promise.all([openStoredSession({ ...sessionParams, persistence: stored }), suspended?.load()]).then(([session]) => load(session)) : Promise.resolve(load(buildSession(sessionParams)));
   track(ready);
 
   function whenLoaded(work: (current: Loaded) => void): void {

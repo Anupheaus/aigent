@@ -18,6 +18,8 @@ import type { VolatileOptions } from '../context/volatile-block.js';
 import { startAgentRun } from './start-agent-run.js';
 import { createAskUserTool } from '../chat/ask-user-tool.js';
 import { askThrough } from '../chat/task-questions.js';
+import type { InstanceRuntime } from '../resume/instance-runtime.js';
+import type { RunRestore } from '../resume/prepare-run-resume.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { StaticPrompt } from './static-prompt.js';
@@ -95,6 +97,8 @@ export interface RuntimeServices {
    * replace with an instant sleeper.
    */
   activityTimers: Sleeper;
+  /** `createAigent({ resume })`: instances, leases and checkpoints. Absent: runs are not checkpointed. */
+  resume?: InstanceRuntime;
 }
 
 export interface StartTaskRunParams {
@@ -102,12 +106,19 @@ export interface StartTaskRunParams {
   services: RuntimeServices;
   /** Already validated. */
   input: TaskInput;
+  /** Continues an interrupted run (`agent.resume`). */
+  restore?: RunRestore & { runId: string; hadUser: boolean };
 }
+
+/** `ask_user` for a resumed run whose user is gone: offered (so the tools, and the prompt prefix, stay the same) but refused. */
+const NO_USER_ANYMORE = async (): Promise<never> => { throw new Error('No user is attached to this resumed run; make a reasonable assumption and state it'); };
 
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
-  const { input: { onQuestion, unattended } } = params;
+  const { input: { onQuestion, unattended }, restore } = params;
   // Without a user to answer, ask_user is not offered (a call is refused and the ambiguity policy applies).
-  const tools = onQuestion == null || unattended === true ? [] : [createAskUserTool(askThrough(onQuestion))];
-  return startAgentRun({ ...params, tools });
+  const hasUser = onQuestion != null && unattended !== true;
+  const ask = onQuestion == null ? NO_USER_ANYMORE : askThrough(onQuestion);
+  const tools = hasUser || restore?.hadUser === true ? [createAskUserTool(ask)] : [];
+  return startAgentRun({ ...params, tools, ...(restore == null ? {} : { restore, runId: restore.runId }) });
 }
