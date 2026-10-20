@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { createAigentError } from '../core/aigent-error.js';
 import { toStrictJsonSchema } from './strict-schema.js';
-import { describeThrown } from './tool-error-detail.js';
+import { addErrorDetails, describeThrown } from './tool-error-detail.js';
+import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { DescribeActivity, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 export { isToolFailure, toolFailure } from './tool-failure.js';
@@ -69,11 +70,23 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
   };
 }
 
+type BatchEntry =
+  | { index: number; ok: true; result: unknown }
+  | { index: number; ok: false; error: ToolErrorDetail };
+
+function batchEntries(result: unknown): BatchEntry[] {
+  return Array.isArray(result) ? result as BatchEntry[] : [];
+}
+
 function summariseBatch(result: unknown): ToolOutcome {
-  const entries = Array.isArray(result) ? result as { ok: boolean }[] : [];
+  const entries = batchEntries(result);
   const failed = entries.filter(entry => !entry.ok).length;
   if (failed === 0) return { success: true, reason: `${entries.length} of ${entries.length} items succeeded` };
   return { success: false, reason: `${failed} of ${entries.length} items failed` };
+}
+
+function batchFailures(result: unknown): ToolErrorDetail[] {
+  return batchEntries(result).flatMap(entry => (entry.ok ? [] : [addErrorDetails(entry.error, { itemIndex: entry.index })]));
 }
 
 export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
@@ -92,5 +105,5 @@ export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<T
       }
     })),
   });
-  return { ...tool, summarise: summariseBatch };
+  return { ...tool, summarise: summariseBatch, nestedFailures: batchFailures };
 }

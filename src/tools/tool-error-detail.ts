@@ -15,6 +15,11 @@ export interface ToolErrorDetail {
   suggestion?: string;
 }
 
+/** Copy of `detail` with `extra` merged into its details, e.g. to say which inner call or batch item failed. */
+export function addErrorDetails(detail: ToolErrorDetail, extra: Record<string, unknown>): ToolErrorDetail {
+  return { ...detail, details: { ...detail.details, ...extra } };
+}
+
 /** Converts anything thrown (including non-Error values) into a structured failure. */
 export function describeThrown(error: unknown): ToolErrorDetail {
   if (isToolFailure(error)) {

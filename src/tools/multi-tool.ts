@@ -2,35 +2,103 @@ import { z } from 'zod';
 import { describeError } from '../core/describe-value.js';
 import { defineTool } from './define-tool.js';
 import { executeToolCall } from './execute-tool-call.js';
+import { addErrorDetails } from './tool-error-detail.js';
+import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
-import type { Tool, ToolOutcome } from './tool-types.js';
+import type { MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
 const MAX_ID_LENGTH = 64;
+/** Longest `argsJson` accepted per inner call, in characters; bounds what one model call can make us parse. */
+const MAX_ARGS_JSON_LENGTH = 100_000;
 
 const multiArgsSchema = z.object({
   calls: z.array(z.object({
     id: z.string().min(1).max(MAX_ID_LENGTH),
     tool: z.string().min(1).max(MAX_ID_LENGTH),
     // JSON string because a strict schema cannot describe arbitrary per-tool argument objects.
-    argsJson: z.string().max(100_000),
+    argsJson: z.string().max(MAX_ARGS_JSON_LENGTH),
   }).strict()).min(1).max(MAX_MULTI_CALLS),
 }).strict().refine(
   value => new Set(value.calls.map(call => call.id)).size === value.calls.length,
   { message: 'call ids must be unique within one aigent_multi call', path: ['calls'] },
 );
 
+type MultiCall = z.infer<typeof multiArgsSchema>['calls'][number];
+
+export interface CreateMultiToolOptions {
+  /** The tools inner calls may reach (never `aigent_multi` itself). */
+  registry: ToolRegistry;
+  /** The run's clock, so inner call timings come from the same injected time source. */
+  now(): number;
+}
+
+interface InnerCallParams {
+  call: MultiCall;
+  context: ToolContext;
+  reserveToolCall(): boolean;
+}
+
+function envelopesOf(result: unknown): ToolEnvelope[] {
+  return Array.isArray(result) ? result as ToolEnvelope[] : [];
+}
+
 function summariseMulti(result: unknown): ToolOutcome {
-  const envelopes = Array.isArray(result) ? result as ToolEnvelope[] : [];
+  const envelopes = envelopesOf(result);
   const failed = envelopes.filter(envelope => !envelope.ok).length;
   if (failed === 0) return { success: true, reason: `${envelopes.length} of ${envelopes.length} calls succeeded` };
   return { success: false, reason: `${failed} of ${envelopes.length} calls failed` };
 }
 
+function hasCallBudget(context: ToolContext): context is MultiToolContext {
+  return typeof (context as Partial<MultiToolContext>).reserveToolCall === 'function';
+}
+
+/** Inner tools get the plain public context; the run budget is only for this tool. Without a budget (direct use) calls are unlimited. */
+function splitContext(context: ToolContext): Omit<InnerCallParams, 'call'> {
+  if (!hasCallBudget(context)) return { context, reserveToolCall: () => true };
+  const { reserveToolCall, ...publicContext } = context;
+  return { context: publicContext, reserveToolCall };
+}
+
+function failure(call: MultiCall, error: ToolErrorDetail): ToolEnvelope {
+  return { id: call.id, tool: call.tool, ok: false, error };
+}
+
 /** Built-in tool that runs several different tools in one model call, returning one envelope per call. */
-export function createMultiTool(registry: ToolRegistry): Tool {
+export function createMultiTool(options: CreateMultiToolOptions): Tool {
+  const { registry, now } = options;
+
+  async function runInnerCall(params: InnerCallParams): Promise<ToolEnvelope> {
+    const { call, context, reserveToolCall } = params;
+    if (call.tool === MULTI_TOOL_NAME) {
+      return failure(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
+    }
+    let parsedArgs: unknown;
+    try {
+      parsedArgs = JSON.parse(call.argsJson);
+    } catch (error) { // model-written JSON is untrusted input
+      return failure(call, { category: 'validation', code: 'invalid_args_json', retryable: true, message: `argsJson for call '${call.id}' is not valid JSON: ${describeError(error)}` });
+    }
+    // Each inner call is a real tool call, so it takes from the run's maxToolCalls budget like a top-level call.
+    if (!reserveToolCall()) {
+      return failure(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
+    }
+    const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: parsedArgs }, context, now });
+    return executed.envelope;
+  }
+
+  /** Inner failures, plus failures nested inside successful inner results (e.g. batch items), tagged with the inner call. */
+  function nestedFailures(result: unknown): ToolErrorDetail[] {
+    return envelopesOf(result).flatMap(envelope => {
+      const { id: callId, tool } = envelope;
+      const details = envelope.ok ? registry.get(tool)?.nestedFailures?.(envelope.result) ?? [] : [envelope.error];
+      return details.map(detail => addErrorDetails(detail, { callId, tool }));
+    });
+  }
+
   const tool = defineTool({
     name: MULTI_TOOL_NAME,
     description: 'Run several tool calls at once. Each call needs a unique id, the tool name and its arguments as a JSON string. Returns one result per call in order; only retry the ones that failed.',
@@ -38,19 +106,10 @@ export function createMultiTool(registry: ToolRegistry): Tool {
     deterministic: false,
     cache: false,
     describeActivity: args => ({ title: `Running ${args.calls.length} tool calls`, detail: args.calls.map(call => call.tool).join(', ') }),
-    run: async (args, context) => Promise.all(args.calls.map(async (call): Promise<ToolEnvelope> => {
-      if (call.tool === MULTI_TOOL_NAME) {
-        return { id: call.id, tool: call.tool, ok: false, error: { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' } };
-      }
-      let parsedArgs: unknown;
-      try {
-        parsedArgs = JSON.parse(call.argsJson);
-      } catch (error) { // model-written JSON is untrusted input
-        return { id: call.id, tool: call.tool, ok: false, error: { category: 'validation', code: 'invalid_args_json', retryable: true, message: `argsJson for call '${call.id}' is not valid JSON: ${describeError(error)}` } };
-      }
-      const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: parsedArgs }, context, now: Date.now });
-      return executed.envelope;
-    })),
+    run: async (args, context) => {
+      const split = splitContext(context);
+      return Promise.all(args.calls.map(call => runInnerCall({ call, ...split })));
+    },
   });
-  return { ...tool, summarise: summariseMulti };
+  return { ...tool, summarise: summariseMulti, nestedFailures };
 }

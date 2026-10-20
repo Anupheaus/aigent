@@ -59,5 +59,6 @@ describe('defineBatchTool', () => {
       { index: 1, ok: false, error: expect.objectContaining({ code: 'nope', category: 'thrown', retryable: false }) },
     ]);
     expect(tool.summarise?.(result)).toEqual({ success: false, reason: '1 of 2 items failed' });
+    expect(tool.nestedFailures?.(result)).toEqual([expect.objectContaining({ code: 'nope', details: { itemIndex: 1 } })]);
   });
 });

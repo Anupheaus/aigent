@@ -75,7 +75,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const provider = resolveProvider(providerId);
     const instanceId = definition.instanceId ?? ids.next('agent');
     // The multi tool only reaches user tools; registering it alongside them makes a user tool named aigent_multi a duplicate.
-    const registry = createToolRegistry([...tools, createMultiTool(createToolRegistry(tools))]);
+    const registry = createToolRegistry([...tools, createMultiTool({ registry: createToolRegistry(tools), now: () => clock.now() })]);
     const resolved = { name, instanceId, model, provider, prompt: { persona, skillset, context }, registry, limits };
     return {
       name,

@@ -24,7 +24,10 @@ export interface AgentDefinition {
 export interface TaskUsage extends Usage {
   /** Model requests made. */
   turns: number;
-  /** Tool calls actually executed (calls refused by `maxToolCalls` are not counted). */
+  /**
+   * Tool calls actually executed, counting each call inside `aigent_multi` (the wrapper itself is not counted).
+   * Calls refused by `maxToolCalls` are not counted. A batch tool call counts once, whatever its item count.
+   */
   toolCalls: number;
   durationMs: number;
 }
@@ -36,7 +39,11 @@ export interface TaskResult {
   agentName: string;
   instanceId: string;
   usage: TaskUsage;
-  /** Every tool failure with full detail. */
+  /**
+   * Every tool failure with full detail, including failures inside successful aggregate results: failed batch items
+   * (`details.itemIndex`) and failed `aigent_multi` inner calls (`details.callId`, `details.tool`), each with the
+   * enclosing call's id in `details.parentCallId`.
+   */
   errors: ToolErrorDetail[];
   /** Set when status is 'failed'. */
   failure?: string;

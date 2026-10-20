@@ -6,7 +6,9 @@ import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
 import { describeThrown } from '../tools/tool-error-detail.js';
+import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
+import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
 import type { AigentEvent } from './aigent-events.js';
 import type { Clock } from './runtime-services.js';
 
@@ -51,6 +53,11 @@ export interface TurnStreamResult {
   finishReason?: FinishReason;
 }
 
+interface ReserveToolCallParams {
+  totals: RunTotals;
+  maxToolCalls: number;
+}
+
 interface DispatchParams {
   call: ToolCall;
   turn: RunTurnParams;
@@ -71,6 +78,14 @@ function addUsage(totals: RunTotals, usage: Usage): void {
   totals.usage.cachedTokens += usage.cachedTokens;
 }
 
+/** Takes one call from the run's `maxToolCalls` budget; false once it is spent. */
+function reserveToolCall(params: ReserveToolCallParams): boolean {
+  const { totals, maxToolCalls } = params;
+  if (totals.toolCalls >= maxToolCalls) return false;
+  totals.toolCalls += 1;
+  return true;
+}
+
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
 function dispatchToolCall(params: DispatchParams): void {
   const { call, turn } = params;
@@ -88,9 +103,17 @@ function dispatchToolCall(params: DispatchParams): void {
     return;
   }
 
-  totals.toolCalls += 1;
+  const baseContext: ToolContext = { agentName, instanceId, runId, signal };
+  let context: ToolContext = baseContext;
+  if (name === MULTI_TOOL_NAME) {
+    // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
+    const multiContext: MultiToolContext = { ...baseContext, reserveToolCall: () => reserveToolCall({ totals, maxToolCalls }) };
+    context = multiContext;
+  } else {
+    totals.toolCalls += 1;
+  }
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
-  const execution = executeToolCall({ registry, call, context: { agentName, instanceId, runId, signal }, now: () => clock.now() })
+  const execution = executeToolCall({ registry, call, context, now: () => clock.now() })
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
   work.executions.push(execution.then(reportResult));
 

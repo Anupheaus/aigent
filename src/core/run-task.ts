@@ -1,5 +1,6 @@
 import type { Provider, ProviderMessage } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
+import { addErrorDetails } from '../tools/tool-error-detail.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import { isAigentError } from './aigent-error.js';
@@ -64,8 +65,19 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return signal.aborted || (isAigentError(error) && error.code === 'aborted');
 }
 
-function failedDetails(executed: ExecutedToolCall[]): ToolErrorDetail[] {
-  return executed.flatMap(({ envelope }) => (envelope.ok ? [] : [envelope.error]));
+interface FailedDetailsParams {
+  executed: ExecutedToolCall[];
+  registry: ToolRegistry;
+}
+
+/** Every failure of a turn: failed calls, plus failures nested inside successful aggregate results (batch items, aigent_multi calls). */
+function failedDetails(params: FailedDetailsParams): ToolErrorDetail[] {
+  const { executed, registry } = params;
+  return executed.flatMap(({ envelope }) => {
+    if (!envelope.ok) return [envelope.error];
+    const nested = registry.get(envelope.tool)?.nestedFailures?.(envelope.result) ?? [];
+    return nested.map(detail => addErrorDetails(detail, { parentCallId: envelope.id }));
+  });
 }
 
 /** The assistant message (with its tool calls) followed by one tool message per call, in call order. */
@@ -127,13 +139,13 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
         // Tools dispatched mid-stream must not outlive a failed run.
         abortController.abort();
       }
-      errors.push(...failedDetails(await drainWork({ work, signal, emit })));
+      errors.push(...failedDetails({ executed: await drainWork({ work, signal, emit }), registry }));
       break;
     }
 
     const executed = await drainWork({ work, signal, emit });
     messages.push(...turnMessages({ turn, executed }));
-    errors.push(...failedDetails(executed));
+    errors.push(...failedDetails({ executed, registry }));
     if (turn.calls.length === 0) {
       answer = turn.visible.trim();
       if (turn.finishReason === 'length') status = 'incomplete';

@@ -183,6 +183,49 @@ describe('agent.task', () => {
   });
 });
 
+describe('agent.task aigent_multi and batch accounting', () => {
+  it('counts every aigent_multi inner call toward maxToolCalls and refuses the rest', async () => {
+    let echoRuns = 0;
+    const counted = defineTool({ name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
+    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', argsJson: '{"text":"x"}' }));
+    const { agent, provider } = setup([toolTurn([{ id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')], [counted]);
+    const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
+    expect(echoRuns).toBe(1);
+    expect(result.usage.toolCalls).toBe(1);
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: 'tool_call_limit', details: { callId: 'b', tool: 'echo', parentCallId: 'm1' } }),
+      expect.objectContaining({ code: 'tool_call_limit', details: { callId: 'c', tool: 'echo', parentCallId: 'm1' } }),
+    ]);
+    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-1)!.text!);
+    expect(multiEnvelope).toMatchObject({ id: 'm1', tool: 'aigent_multi', ok: true, result: [{ id: 'a', ok: true, result: 'x' }, { id: 'b', ok: false }, { id: 'c', ok: false }] });
+  });
+
+  it('refuses aigent_multi outright once the budget is spent', async () => {
+    const calls = [{ id: 'a', tool: 'echo', argsJson: '{"text":"x"}' }];
+    const { agent } = setup([toolTurn([{ id: 'e1', name: 'echo', args: { text: 'x' } }, { id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')]);
+    const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
+    expect(result.usage.toolCalls).toBe(1);
+    expect(result.errors).toEqual([expect.objectContaining({ code: 'tool_call_limit' })]);
+  });
+
+  it('reports failures inside aigent_multi and batch results in TaskResult.errors', async () => {
+    const batch = defineBatchTool({ name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, describeActivity: () => ({ title: 'r' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('unreadable'); return batchItem.id; } });
+    const { agent } = setup([
+      toolTurn([
+        { id: 'b1', name: 'read_all', args: { items: [{ id: 'ok' }, { id: 'bad' }] } },
+        { id: 'm1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'echo', argsJson: '{"text":5}' }] } },
+      ]),
+      textTurn('fine'),
+    ], [echoTool, batch]);
+    const result = await agent.task({ task: 'x' });
+    expect(result.status).toBe('completed');
+    expect(result.errors).toEqual([
+      expect.objectContaining({ code: 'tool_threw', message: 'unreadable', details: { itemIndex: 1, parentCallId: 'b1' } }),
+      expect.objectContaining({ category: 'validation', details: { callId: 'x', tool: 'echo', parentCallId: 'm1' } }),
+    ]);
+  });
+});
+
 describe('agent.task tool failure containment', () => {
   it('settles with a TaskResult when a tool throws a value that cannot be turned into a string', async () => {
     const hostile = defineTool({
