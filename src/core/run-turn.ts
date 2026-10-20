@@ -13,6 +13,7 @@ import type { RunFeedback } from './link-previous.js';
 import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
+import type { RunShaping } from './run-shaping.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
 
@@ -57,6 +58,8 @@ export interface RunTurnParams {
   telemetry: RunTelemetry;
   /** The runtime's tool-result cache; absent when caching is off. */
   cache?: ToolCache;
+  /** The run's shaping; absent when nothing can be shaped. */
+  shaping?: RunShaping;
   emit(event: AigentEvent): void;
 }
 

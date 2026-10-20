@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { hashSchema } from '../cache/cache-key.js';
+import { CONTENT_KINDS, FIDELITIES } from '../shapers/shaper-types.js';
+import type { ContentKind, Fidelity } from '../shapers/shaper-types.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
-import { addErrorDetails, describeThrown } from './tool-error-detail.js';
-import type { ToolErrorDetail } from './tool-error-detail.js';
-import type { DescribeActivity, ItemCounts, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import { BATCH_RESULT_HELPERS } from './batch-entries.js';
+import { describeThrown } from './tool-error-detail.js';
+import type { DescribeActivity, Tool, ToolContext } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -21,6 +23,10 @@ interface ToolBaseInput {
   cacheTtlMs?: number;
   /** Contract version label; bump it to invalidate cached results. */
   version?: string;
+  /** What the result contains (`file-content`, `web-page`, `command-output`...). */
+  contentKind?: ContentKind;
+  /** Default `verbatim`. `lossy-ok` (which needs `contentKind`) lets shapers for that kind shorten what the model sees. */
+  fidelity?: Fidelity;
   hasSideEffects?: boolean;
   timeoutMs?: number;
   maxResultTokens?: number;
@@ -76,6 +82,13 @@ function validateCacheFields(input: ToolBaseInput & CacheFieldsInput): void {
   if (!cache && (cacheKey !== undefined || validity !== undefined)) invalid(name, 'cacheKey and validity only apply to cached tools (cache: true)');
 }
 
+function validateShapingFields(input: ToolBaseInput): void {
+  const { name, contentKind, fidelity } = input;
+  if (contentKind !== undefined && !(CONTENT_KINDS as readonly unknown[]).includes(contentKind)) invalid(name, `contentKind must be one of ${CONTENT_KINDS.join(', ')}, got ${String(contentKind)}`);
+  if (fidelity !== undefined && !(FIDELITIES as readonly unknown[]).includes(fidelity)) invalid(name, `fidelity must be one of ${FIDELITIES.join(', ')}, got ${String(fidelity)}`);
+  if (fidelity === 'lossy-ok' && contentKind === undefined) invalid(name, "fidelity 'lossy-ok' needs a contentKind, so only shapers declared for that kind can run");
+}
+
 function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown }): void {
   const { name, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
@@ -86,6 +99,7 @@ function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivi
   if (cache && !deterministic && (cacheTtlMs == null || cacheTtlMs <= 0)) invalid(name, 'a cached non-deterministic tool needs a positive cacheTtlMs');
   if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
   validateCacheFields(input);
+  validateShapingFields(input);
 }
 
 function isPositiveInteger(value: unknown): boolean {
@@ -94,7 +108,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -107,6 +121,8 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     cache,
     cacheTtlMs,
     ...(version == null ? {} : { version }),
+    ...(contentKind == null ? {} : { contentKind }),
+    ...(fidelity == null ? {} : { fidelity }),
     ...(cacheKey == null ? {} : { cacheKey: (cacheArgs: unknown) => cacheKey(cacheArgs as z.infer<TSchema>) }),
     ...(validity == null ? {} : { validity: (validityArgs: unknown, context: ToolContext) => validity(validityArgs as z.infer<TSchema>, context) }),
     hasSideEffects,
@@ -115,30 +131,6 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     describeActivity: describeActivity as DescribeActivity<unknown>,
     run: (parsedArgs, context) => run(parsedArgs as z.infer<TSchema>, context),
   };
-}
-
-type BatchEntry =
-  | { index: number; ok: true; result: unknown }
-  | { index: number; ok: false; error: ToolErrorDetail };
-
-function batchEntries(result: unknown): BatchEntry[] {
-  return Array.isArray(result) ? result as BatchEntry[] : [];
-}
-
-function summariseBatch(result: unknown): ToolOutcome {
-  const entries = batchEntries(result);
-  const failed = entries.filter(entry => !entry.ok).length;
-  if (failed === 0) return { success: true, reason: `${entries.length} of ${entries.length} items succeeded` };
-  return { success: false, reason: `${failed} of ${entries.length} items failed` };
-}
-
-function countBatchItems(result: unknown): ItemCounts {
-  const entries = batchEntries(result);
-  return { total: entries.length, failed: entries.filter(entry => !entry.ok).length };
-}
-
-function batchFailures(result: unknown): ToolErrorDetail[] {
-  return batchEntries(result).flatMap(entry => (entry.ok ? [] : [addErrorDetails(entry.error, { itemIndex: entry.index })]));
 }
 
 export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
@@ -161,5 +153,5 @@ export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<T
       }
     })),
   });
-  return { ...tool, summarise: summariseBatch, nestedFailures: batchFailures, countItems: countBatchItems };
+  return { ...tool, ...BATCH_RESULT_HELPERS };
 }

@@ -1,5 +1,6 @@
 import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { Usage } from '../providers/provider-types.js';
+import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
@@ -35,6 +36,11 @@ export interface AgentDefinition {
    * directive instructions. Wins over `createAigent({ enableFeedback })`; default on unless `NODE_ENV` is `production`.
    */
   enableFeedback?: boolean;
+  /**
+   * Shaping of `lossy-ok` tool results: `'off'`, or `{ allow: [names] }` for only those built-in shapers. Default: every
+   * built-in shaper. Verbatim results are never shaped whatever this says. A task's own `shapers` wins.
+   */
+  shapers?: ShapersSetting;
 }
 
 export interface TaskUsage extends Usage {

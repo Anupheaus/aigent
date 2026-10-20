@@ -90,6 +90,8 @@ export type FindingKind =
   | 'expensive-run'
   | 'slow-run'
   | 'truncation-frequent'
+  /** A shaper whose output was not smaller than its input, summed over the agent's runs. */
+  | 'net-negative-shaper'
   /** Reserved for the guardrails slice. */
   | 'guardrail';
 

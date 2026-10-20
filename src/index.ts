@@ -48,3 +48,5 @@ export type { UpdateRecordParams } from './store/update-record.js';
 export type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store/store-types.js';
 export type { WriteQueue } from './store/write-queue.js';
 export type { CacheEntry, CacheEntryStats, CacheOptions, DeterministicCandidate, FrequentInvalidation, HotCacheEntry } from './cache/cache-types.js';
+export type { ContentKind, Fidelity, ShapersSetting, ShapingNote } from './shapers/shaper-types.js';
+export type { ShapedStepRecord } from './telemetry/run-record.js';

@@ -7,7 +7,7 @@ import type {
   RunMetrics, Score, ScoreLabel, ToolSuggestion, VersionComparison, VersionSide, WastedStepReason, ToolUse,
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
-import type { CacheEntry, CacheEntryStats, CacheOptions, DeterministicCandidate, FrequentInvalidation, HotCacheEntry } from './index.js';
+import type { CacheEntry, CacheEntryStats, CacheOptions, ContentKind, DeterministicCandidate, Fidelity, FrequentInvalidation, HotCacheEntry, ShapedStepRecord, ShapersSetting, ShapingNote } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
 // Compile-time check: every type that appears in a public signature can be named by consumers.
@@ -115,5 +115,14 @@ describe('public types', () => {
     const candidate: DeterministicCandidate = { tool: 'search', repeatedIdenticalCalls: 3 };
     const invalidation: FrequentInvalidation = { tool: 'read', invalidations: 3, lookups: 4 };
     expect({ options, entry, hot, candidate, invalidation }).toMatchObject({ entry: { tool: 'read' } });
+  });
+
+  it('lets consumers name the shaping types', () => {
+    const kind: ContentKind = 'web-page';
+    const fidelity: Fidelity = 'lossy-ok';
+    const shapers: ShapersSetting = { allow: ['fold-repeats'] };
+    const note: ShapingNote = { shaper: 'fold-repeats', note: 'folded', handle: 'H1' };
+    const step: ShapedStepRecord = { shaper: 'fold-repeats', tokensBefore: 10, tokensAfter: 4 };
+    expect({ kind, fidelity, shapers, note, step }).toMatchObject({ kind: 'web-page' });
   });
 });

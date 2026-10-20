@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
 import { canonicalJson } from './canonical-json.js';
@@ -8,7 +9,7 @@ import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskLimits } from './task-input.js';
 
 /** The tool fields that change how an agent behaves; code (`run`, renderers) is not hashable and is left out. */
-export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version'>;
+export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity'>;
 
 /** A fallback model and the settings it would be sent. */
 export interface AgentVersionFallback {
@@ -38,13 +39,15 @@ export interface AgentVersionInput {
   resilience?: Partial<ResiliencePolicy>;
   /** The resolved flag: it changes the prompt and the tool list. Absent means off. */
   enableFeedback?: boolean;
+  /** The agent's `shapers`; absent means the default (every built-in shaper). */
+  shapers?: ShapersSetting;
 }
 
 const HASH_ALGORITHM = 'sha256';
 
 function versionTool(tool: AgentVersionTool): AgentVersionTool {
-  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version } = tool;
-  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version };
+  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity } = tool;
+  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -84,7 +87,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -93,6 +96,7 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     limits: effectiveLimits(limits),
     resilience: effectivePolicy(resilience),
     enableFeedback,
+    ...(shapers == null ? {} : { shapers }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

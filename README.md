@@ -323,6 +323,38 @@ Traces can contain sensitive content (task text, answers, tool arguments). Conte
 
 A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
 
+## Shaping tool results (verbatim by default)
+
+Tool results reach the model **verbatim by default**: nothing alters a result unless its tool opts in. A tool opts in by declaring what its result contains and that a lossy, shorter form is acceptable:
+
+```ts
+const runCommand = defineTool({
+  name: 'run_command', description: 'Run a shell command', args: z.object({ command: z.string() }).strict(),
+  deterministic: false, cache: false,
+  contentKind: 'command-output', // file-content | web-page | command-output | structured-data | search-hits | prose | log | binary-ref
+  fidelity: 'lossy-ok',          // default 'verbatim'; 'lossy-ok' needs a contentKind
+  describeActivity: ({ command }) => ({ title: command }),
+  run: async ({ command }) => exec(command),
+});
+```
+
+**Rules.** A shaper runs on a result only when the tool declared `fidelity: 'lossy-ok'` **and** the shaper's `appliesTo` lists the tool's `contentKind`. Every shaper must declare a non-empty `appliesTo` (registering one without it throws `invalid_definition`). No built-in shaper lists `file-content` or `binary-ref`, so file bytes are never shaped, even by a tool that declares them `lossy-ok`. Results of `aigent_multi` inner calls are not shaped. The cache always holds the original; shaping applies to the copy the model sees, before `maxResultTokens` truncation. Trace sizes (`resultBytes`, `resultTokens`) are the original's.
+
+| Shaper | Applies to | What it does |
+| --- | --- | --- |
+| `dedupe-reads` | structured-data, search-hits, prose | a result identical to an earlier call's in the run becomes `Same as call <id> (unchanged)` |
+| `strip-noise` | command-output | removes ANSI escapes, carriage-return progress overwrites, trailing whitespace and runs of more than 2 blank lines |
+| `fold-repeats` | log, command-output | 3 or more identical consecutive lines become `line (xN)` |
+| `html-boilerplate` | web-page | removes scripts, styles, `nav`, `footer`, `aside` and comments, and collapses whitespace |
+| `tabular` | structured-data | an array of 3 or more flat objects with the same keys becomes `{ columns, rows }` (lossless) |
+| `aliases` | structured-data, search-hits | long strings (24+ characters) repeated in a result become `F1`, `F2`... |
+
+**What the model sees.** A shaped result is `{ result: <shaped>, shaping: [{ shaper, note, handle }] }`; a verbatim result is unchanged. The `note` says what was removed and names a handle (`H1`, `H2`... per run) under which the verbatim original is kept. The built-in **`result_original`** tool (`{ handles: [1 to 10 handles] }`, one envelope per handle with `{ handle, text }`) returns the originals; it is registered only when a tool declares `lossy-ok` and shaping is not off.
+
+**Aliases.** The `aliases` note gives the legend (`F1 = "src/components/theme/ThemeProvider.tsx"`). The model may write an alias in tool arguments: an argument string that is exactly a known alias token is expanded (at any depth; substrings, keys and unknown tokens are left alone) before the arguments are validated, cached, traced or run. The alias table is run state.
+
+**Control.** `ai.agent({ shapers: 'off' | { allow: ['fold-repeats', ...] } })` turns shaping off or limits it to the named built-in shapers; a task's own `shapers` wins. Unknown names fail with `invalid_definition` (agent) or `invalid_input` (task). Each trace step records `shaped: [{ shaper, tokensBefore, tokensAfter }]`, and `ai.report()` adds a `net-negative-shaper` finding for a shaper whose output, summed over an agent's runs, was not smaller than its input.
+
 ## Tool-result cache
 
 Results of tools declared `cache: true` are cached, so a repeated call is served without running the tool again. It is on by default; `createAigent({ cache: false })` turns it off and `cache: { maxEntries, maxBytes, maxEntryBytes }` sets its limits (defaults 1,000 entries, 64 MiB, 256 KiB per result; each must be a positive integer, otherwise `invalid_definition`).
@@ -404,6 +436,7 @@ const report = await ai.report({ agentName: 'writer', since: Date.now() - 86_400
   | `high-retry-rate` | an agent retries provider calls on a fifth of its turns or more |
   | `claimed-success-user-incorrect` | the agent reported success but the user rated the answer incorrect |
   | `slow-run`, `expensive-run` | a run takes 3 times the agent's median duration or cost (tokens without pricing) |
+  | `net-negative-shaper` | a shaper's output, summed over the agent's runs, was not smaller than its input |
 
   `guardrail` is reserved for the guardrails slice. Cache findings are in `report.cache` (see [Tool-result cache](#tool-result-cache)).
 - **`compareVersions`** gives `comparison.before` and `comparison.after` (runs, and medians of duration, tokens, turns, tool calls per turn, cost and reliability) and their `deltas` (after minus before). Values are null where a side has no data.
@@ -453,6 +486,7 @@ Phase 1 foundation core, implemented in this slice:
 - Scoring against rolling per-version baselines, findings, version comparison and `ai.report()`
 - Request analysis (similar-task groups, cheapest successful path, wasted steps) and tool suggestions from mined sequences
 - Tool-result cache with global and per-instance scopes, validity tokens, TTL, single-flight, LRU eviction and per-entry statistics
+- Verbatim-safe shaper pipeline for `lossy-ok` results, originals by handle (`result_original`) and an alias table
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 

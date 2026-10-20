@@ -28,6 +28,17 @@ describe('findFindings', () => {
     expect(findFindings({ traces: cleanTraces(), minRuns: MIN_RUNS })).toEqual([]);
   });
 
+  it('flags a shaper whose output was not smaller than its input over the agent\'s runs, and not one that saved tokens', () => {
+    const traces = [1, 2].map(startedAt => fixtureTrace({
+      run: { startedAt },
+      steps: [{ tool: 'sh', shaped: [{ shaper: 'aliases', tokensBefore: 10, tokensAfter: 12 }, { shaper: 'fold-repeats', tokensBefore: 50, tokensAfter: 20 }] }],
+    }));
+    const findings = findFindings({ traces, minRuns: MIN_RUNS }).filter(({ kind }) => kind === 'net-negative-shaper');
+    expect(findings).toEqual([expect.objectContaining({
+      id: 'net-negative-shaper:helper:aliases', severity: 'warn', subject: 'aliases', evidence: { applications: 2, tokensBefore: 20, tokensAfter: 24 },
+    })]);
+  });
+
   it('flags a tool much slower than the agent\'s other calls', () => {
     const slow = fixtureTrace({ run: { startedAt: 50 }, steps: repeated(3, { tool: 'read', durationMs: 5_000, argsSummary: '{"path":"a"}', turn: 1 }).map((step, turn) => ({ ...step, turn: turn + 1 })) });
     expect(findingsFor([slow])).toContainEqual(expect.objectContaining({

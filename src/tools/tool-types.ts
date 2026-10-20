@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { ContentKind, Fidelity } from '../shapers/shaper-types.js';
 import type { JsonSchema } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from './execute-tool-call.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
@@ -79,6 +80,10 @@ export interface Tool {
   version?: string;
   /** Hash of the argument schema as defined (set by `defineTool`), so schema wrappers never change cache keys. */
   schemaHash?: string;
+  /** What the result contains; shapers declare the kinds they may touch. */
+  contentKind?: ContentKind;
+  /** Absent means `verbatim`: nothing may alter the result. `lossy-ok` lets shapers for its `contentKind` run. */
+  fidelity?: Fidelity;
   hasSideEffects: boolean;
   timeoutMs: number;
   maxResultTokens?: number;

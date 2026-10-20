@@ -2,6 +2,7 @@ import type { RunTrace } from '../telemetry/run-record.js';
 import { compareFindings, groupSorted } from './finding-rules.js';
 import type { Finding, Pricing } from './report-types.js';
 import { runFindings } from './run-findings.js';
+import { shaperFindings } from './shaper-findings.js';
 import { toolFindings } from './tool-findings.js';
 
 export interface FindFindingsParams {
@@ -20,6 +21,7 @@ export function findFindings(params: FindFindingsParams): Finding[] {
   const { traces, minRuns, pricing } = params;
   const findings = groupSorted({ items: traces, keyOf: ({ run }) => run.agentName }).flatMap(([agentName, agentTraces]) => [
     ...toolFindings({ agentName, traces: agentTraces }),
+    ...shaperFindings({ agentName, traces: agentTraces }),
     ...runFindings({ agentName, runs: agentTraces.map(({ run }) => run), minRuns, ...(pricing == null ? {} : { pricing }) }),
   ]);
   return findings.sort(compareFindings);

@@ -53,6 +53,13 @@ export interface StepOutcome {
   source: OutcomeSource;
 }
 
+/** What one shaper did to a result's size. */
+export interface ShapedStepRecord {
+  shaper: string;
+  tokensBefore: number;
+  tokensAfter: number;
+}
+
 /** One tool call of a run, in start order. Inner `aigent_multi` calls are steps too, linked by `parentCallId`. */
 export interface TraceStep {
   /** 0-based position in start order. */
@@ -83,6 +90,8 @@ export interface TraceStep {
   cacheHit?: boolean;
   /** On a cache hit: the original call's duration, which the hit saved. */
   savedMs?: number;
+  /** Shapers that changed what the model saw, with estimated tokens before and after each. */
+  shaped?: ShapedStepRecord[];
   /** UTF-8 bytes of the full result (or error), before truncation. */
   resultBytes: number;
   /** Estimated tokens of the full result (or error), before truncation. */

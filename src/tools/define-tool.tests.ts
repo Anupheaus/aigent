@@ -68,6 +68,17 @@ describe('defineTool', () => {
     expect(defineTool({ ...BASE, args: z.object({ id: z.number() }).strict() }).schemaHash).not.toBe(tool.schemaHash);
   });
 
+  it('keeps contentKind and fidelity, leaving fidelity absent (verbatim) by default', () => {
+    expect(defineTool(BASE).fidelity).toBeUndefined();
+    expect(defineTool({ ...BASE, contentKind: 'web-page', fidelity: 'lossy-ok' })).toMatchObject({ contentKind: 'web-page', fidelity: 'lossy-ok' });
+  });
+
+  it('rejects unknown kinds and fidelities, and lossy-ok without a contentKind', () => {
+    expect(() => defineTool({ ...BASE, contentKind: 'html' as 'web-page' })).toThrow(/contentKind must be one of/);
+    expect(() => defineTool({ ...BASE, contentKind: 'log', fidelity: 'lossy' as 'lossy-ok' })).toThrow(/fidelity must be one of/);
+    expect(() => defineTool({ ...BASE, fidelity: 'lossy-ok' })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('needs a contentKind') }));
+  });
+
   it('rejects cache fields that cannot work', () => {
     expect(() => defineTool({ ...BASE, version: '' })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('version') }));
     expect(() => defineTool({ ...BASE, cacheKey: 'id' as unknown as () => unknown })).toThrow(/cacheKey must be a function/);

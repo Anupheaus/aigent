@@ -7,6 +7,7 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResultData } from './agent-types.js';
+import type { RunShaping } from './run-shaping.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -45,6 +46,8 @@ export interface RunTaskParams {
   telemetry: RunTelemetry;
   /** The runtime's tool-result cache; absent when caching is off. */
   cache?: ToolCache;
+  /** The run's shaping; absent when nothing can be shaped. */
+  shaping?: RunShaping;
   emit(event: AigentEvent): void;
 }
 
@@ -119,7 +122,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, shaping, emit } = params;
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
@@ -144,6 +147,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
       turn = await runTurn({
         runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit,
         ...(cache == null ? {} : { cache }),
+        ...(shaping == null ? {} : { shaping }),
       });
       endTurn();
     } catch (error) {

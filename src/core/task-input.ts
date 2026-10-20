@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createAigentError } from './aigent-error.js';
 import { describeIssues } from './describe-issues.js';
+import { shapersSettingSchema } from '../shapers/shapers-setting.js';
 import { modelSettingsSchema } from './model-settings.js';
 
 const limitsSchema = z.object({
@@ -28,6 +29,8 @@ export const taskInputSchema = z.object({
   limits: limitsSchema.optional(),
   /** Task-level model settings; they win over the agent's, field by field. */
   modelSettings: modelSettingsSchema.optional(),
+  /** Overrides the agent's `shapers` for this task. */
+  shapers: shapersSettingSchema.optional(),
   signal: z.instanceof(AbortSignal).optional(),
 }).strict();
 

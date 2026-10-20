@@ -36,6 +36,7 @@ import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-servic
 import { startTaskRun } from './start-task-run.js';
 import type { ModelTarget, ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import { parseAgentLimits, parseTaskInput } from './task-input.js';
+import { parseAgentShapers } from '../shapers/shapers-setting.js';
 
 export interface AigentOptions {
   /** Every provider agents may use; ids must be unique. */
@@ -223,6 +224,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const limits = parseAgentLimits({ agentName: name, limits: definition.limits });
     const agentSettings = parseModelSettings({ owner: `Agent '${name}'`, settings: definition.modelSettings });
     const policy = parseResiliencePolicy({ agentName: name, resilience });
+    const shapers = parseAgentShapers({ agentName: name, shapers: definition.shapers });
     const target = resolveTarget(definition.model);
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const instanceId = definition.instanceId ?? ids.next('agent');
@@ -238,9 +240,10 @@ export function createAigent(options: AigentOptions): Aigent {
       model: reference,
       modelSettings: resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: providerSettings }),
     }));
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback });
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }) });
     const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context, enableFeedback }, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
       ...(feedbackCollector == null ? {} : { feedbackCollector }),
+      ...(shapers == null ? {} : { shapers }),
     };
     return {
       name,

@@ -4,6 +4,7 @@ import type { Provider } from '../providers/provider-types.js';
 import type { Scheduler } from '../scheduler/scheduler-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
 import { measureQueueWait } from '../telemetry/measure-queue.js';
+import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent } from './aigent-events.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
@@ -16,6 +17,7 @@ import type { ProviderTarget, TurnRouting } from './open-turn-stream.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
+import { setUpRunShaping } from './run-shaping.js';
 import { runTask } from './run-task.js';
 import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
 import type { TelemetrySettings } from './run-telemetry.js';
@@ -52,6 +54,8 @@ export interface ResolvedAgent {
   version?: string;
   /** Present when feedback is enabled; holds each run's `aigent_feedback` entries until they are stored. */
   feedbackCollector?: FeedbackCollector;
+  /** The definition's `shapers`, validated. */
+  shapers?: ShapersSetting;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -118,13 +122,15 @@ function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: 
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
-  const { name: agentName, instanceId, targets, resilience, prompt, registry, agentVersion, version } = agent;
+  const { name: agentName, instanceId, targets, resilience, prompt, agentVersion, version } = agent;
   const { clock, ids, sleep, random, scheduler } = services;
   const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
   const responseId = ids.next('resp');
   const { feedbackCollector } = agent;
   const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
+  const shapersSetting = input.shapers ?? agent.shapers;
+  const { registry, shaping } = setUpRunShaping({ registry: agent.registry, settings: shapersSetting, isFeedbackEnabled: feedbackCollector != null });
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });
@@ -143,6 +149,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
       resultData = await runTask({
         runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
         ...(services.cache == null ? {} : { cache: services.cache }),
+        ...(shaping == null ? {} : { shaping }),
         routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
