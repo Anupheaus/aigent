@@ -4,7 +4,7 @@ import { createWriteQueue } from '../store/write-queue.js';
 import { createMultiTool } from '../tools/multi-tool.js';
 import { createToolRegistry } from '../tools/tool-registry.js';
 import { createAigentError } from './aigent-error.js';
-import type { Agent, AgentDefinition } from './agent-types.js';
+import type { Agent, AgentDefinition, TaskRun } from './agent-types.js';
 import { createSystemClock, createUuidGenerator } from './runtime-services.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 import { startTaskRun } from './start-task-run.js';
@@ -23,7 +23,10 @@ export interface AigentOptions {
 export interface Aigent {
   /** Validates the definition (throws `invalid_definition` / `unknown_provider`) and returns the agent. */
   agent(definition: AgentDefinition): Agent;
-  /** Resolves once every pending store write has settled. */
+  /**
+   * Resolves once every run started so far (and any started while closing) has settled and every pending store
+   * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.
+   */
   close(): Promise<void>;
 }
 
@@ -60,6 +63,21 @@ export function createAigent(options: AigentOptions): Aigent {
   const { providers, store, clock = createSystemClock(), ids = createUuidGenerator() } = options;
   const providersById = indexProviders(providers);
   const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue() };
+  /** Settles (never rejects) when its run has finished, including writing its record. */
+  const activeRuns = new Set<Promise<void>>();
+
+  function track(run: TaskRun): TaskRun {
+    const settled = Promise.resolve(run).then(() => undefined, () => undefined);
+    activeRuns.add(settled);
+    void settled.then(() => activeRuns.delete(settled));
+    return run;
+  }
+
+  async function close(): Promise<void> {
+    // Loop because a run may be started while we wait for the earlier ones.
+    while (activeRuns.size > 0) await Promise.all([...activeRuns]);
+    await services.writeQueue.flush();
+  }
 
   function resolveProvider(providerId: string): Provider {
     const provider = providersById.get(providerId);
@@ -80,9 +98,9 @@ export function createAigent(options: AigentOptions): Aigent {
     return {
       name,
       instanceId,
-      task: rawInput => startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) }),
+      task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
     };
   }
 
-  return { agent, close: () => services.writeQueue.flush() };
+  return { agent, close };
 }

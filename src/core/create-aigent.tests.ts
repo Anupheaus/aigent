@@ -166,6 +166,20 @@ describe('agent.task', () => {
     await ai.close();
   });
 
+  it('close waits for in-flight runs so their records are written before it resolves', async () => {
+    const store = createInMemoryStore();
+    const { agent, ai } = setup([textTurn('slow answer', { delayMs: 20 }), textTurn('second', { delayMs: 5 })], [echoTool], { store });
+    const first = agent.task({ task: 'x' });
+    const second = agent.task({ task: 'y' });
+    await ai.close();
+    expect((await store.list('runs')).map(record => record.key).sort()).toEqual([first.runId, second.runId].sort());
+  });
+
+  it('close resolves immediately when nothing is running', async () => {
+    const { ai } = setup([]);
+    await expect(ai.close()).resolves.toBeUndefined();
+  });
+
   it('writes nothing when disableTelemetry is set', async () => {
     const store = createInMemoryStore();
     const { agent } = setup([textTurn('ok')], [echoTool], { store });
