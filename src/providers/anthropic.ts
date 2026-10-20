@@ -1,4 +1,5 @@
 import { toAnthropicMessagesRequest } from './anthropic-messages.js';
+import { ANTHROPIC_SUPPORTED_SETTINGS, anthropicUnsupportedSettings } from './anthropic-settings.js';
 import { applyAnthropicMessage, createAnthropicStreamState, finishAnthropicStream } from './anthropic-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
 import { collectSecrets, redactingErrors } from './secret-redaction.js';
@@ -11,9 +12,9 @@ export interface AnthropicOptions {
   baseUrl?: string;
   /** HTTP implementation; defaults to the global `fetch`. Inject one for tests or proxies. */
   fetch?: typeof fetch;
-  /** `max_tokens` when a request sets no `maxOutputTokens` (default 4096); the API requires one. */
+  /** `max_tokens` when a request sets no `maxOutputTokens` setting (default 4096); the API requires one. */
   defaultMaxTokens?: number;
-  /** Marks the system prompt as an ephemeral cache breakpoint (default true). */
+  /** Marks the system prompt as an ephemeral cache breakpoint (default true); a request's `promptCaching` setting overrides it. */
   promptCaching?: boolean;
   /** Published context window in tokens (default 200_000). */
   maxContextTokens?: number;
@@ -49,6 +50,7 @@ export function anthropic(options: AnthropicOptions): Provider {
     promptCaching,
     vision: false,
     maxContextTokens,
+    supportedSettings: [...ANTHROPIC_SUPPORTED_SETTINGS],
   };
 
   const secrets = collectSecrets(headers);
@@ -71,5 +73,5 @@ export function anthropic(options: AnthropicOptions): Provider {
     redactingErrors({ events: streamEvents(request, signal), secrets })
   );
 
-  return { id: PROVIDER_ID, capabilities, stream };
+  return { id: PROVIDER_ID, capabilities, stream, unsupportedSettings: anthropicUnsupportedSettings };
 }

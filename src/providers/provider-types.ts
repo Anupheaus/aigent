@@ -1,3 +1,5 @@
+import type { ModelSettings } from '../core/model-settings.js';
+
 /** JSON Schema document (plain JSON). */
 export type JsonSchema = Record<string, unknown>;
 
@@ -31,11 +33,18 @@ export interface ProviderToolSpec {
   strict: boolean;
 }
 
+/** The settings an adapter receives: model settings minus the runtime-only ones (`contextSize`, `showThinking`). */
+export type ProviderSettings = Omit<ModelSettings, 'contextSize' | 'showThinking'>;
+
 export interface ProviderRequest {
   model: string;
   messages: ProviderMessage[];
   tools: ProviderToolSpec[];
-  maxOutputTokens?: number;
+  /**
+   * Resolved settings, already stripped of anything the provider declared it cannot honour. Absent when none are set.
+   * Adapters map what they support and ignore the rest.
+   */
+  settings?: ProviderSettings;
 }
 
 export interface Usage {
@@ -61,6 +70,8 @@ export interface ProviderCapabilities {
   vision: boolean;
   /** Published context window in tokens. */
   maxContextTokens: number;
+  /** Settings this provider can map; the run warns about and leaves out any other setting before calling it. */
+  supportedSettings: (keyof ProviderSettings)[];
 }
 
 export interface Provider {
@@ -72,4 +83,9 @@ export interface Provider {
    * event, and none when the backend reported no usage (never invented zeros), then a final `done`.
    */
   stream(request: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>;
+  /**
+   * Supported settings this provider cannot honour in this combination (e.g. `temperature` while thinking is on).
+   * Pure; the run warns about and leaves out each one before calling `stream`.
+   */
+  unsupportedSettings?(settings: ProviderSettings): (keyof ProviderSettings)[];
 }

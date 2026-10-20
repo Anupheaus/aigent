@@ -133,6 +133,42 @@ The default `npm test` never touches the network. The tests in `src/providers/li
 AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
 ```
 
+## Model settings
+
+Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is shallow-merged across levels, higher levels winning per key.
+
+```ts
+const aigent = createAigent({
+  providers: [anthropic({ apiKey }), deepseek({ apiKey: deepseekKey })],
+  modelSettings: { maxOutputTokens: 4000 },
+  providerModelSettings: { deepseek: { temperature: 0.2 } },
+});
+const agent = aigent.agent({ name: 'writer', model: 'anthropic:claude-sonnet-5-5', modelSettings: { effort: 'medium' }, version: 'prompt-b' });
+agent.task({ task: 'Draft the summary', modelSettings: { temperature: 0.7, thinking: 'off' } });
+```
+
+| Setting | Values | OpenAI-compatible | Anthropic |
+| --- | --- | --- | --- |
+| `maxOutputTokens` | positive integer | `max_tokens` | `max_tokens` (default `defaultMaxTokens`) |
+| `temperature` | 0 to 2 | `temperature` | `temperature`, dropped while thinking is on (the API requires the default) |
+| `topP` | 0 to 1 | `top_p` | `top_p` |
+| `thinking` | `'off'`, `'on'`, `{ budgetTokens }` (at least 1024) | not supported | `'on'` uses a budget of `min(maxOutputTokens - 1, 8000)` (8000 when `maxOutputTokens` is unset, never below 1024) |
+| `effort` | `'low'`, `'medium'`, `'high'`, `'max'` | `reasoning_effort` (`max` sends `high`), not sent when `thinking` is `'off'` | a thinking budget of 2048, 8000, 16000 or 32000 when `thinking` is unset |
+| `promptCaching` | boolean | not supported | overrides the adapter's `promptCaching` option |
+| `stop` | up to 4 non-empty strings | `stop` | `stop_sequences` |
+| `seed` | non-negative integer | `seed` | not supported |
+| `providerOptions` | object | merged into the request body last | merged into the request body last |
+| `contextSize` | positive integer | runtime only, never sent | runtime only, never sent |
+| `showThinking` | boolean (default true) | runtime only: `false` hides `thinking-delta` events | same |
+
+With Anthropic thinking on, `max_tokens` must exceed the budget, so it is raised to the budget + 1024 when it would not.
+
+Invalid values are rejected up front: agent, `createAigent` and per-provider settings throw `invalid_definition` naming each bad field, and task settings throw `invalid_input`. A setting the provider cannot honour is never sent. The run emits one `warning` event per such setting instead, for example `Provider 'deepseek' does not support setting 'thinking'; ignored`. A provider lists what it can map in `capabilities.supportedSettings`. It can also reject combinations through `unsupportedSettings(settings)`, such as Anthropic's `temperature` with thinking on.
+
+### Agent versions
+
+Every agent has an `agentVersion`: a sha-256 of everything that shapes its behaviour. That covers the model, persona, skillset, context, effective settings (agent, runtime and provider levels), limits, the definition's `version` label, each tool's contract (name, description, schema and flags) and the library version. It does not depend on `name` or `instanceId`, or on key order. Each run record in the `runs` collection stores `agentVersion`, `model`, the resolved `settings` and the `version` label, so results can be compared across agent revisions.
+
 ## Stopping a run
 
 ```ts
@@ -188,6 +224,7 @@ Phase 1 foundation core, implemented in this slice:
 - `FakeProvider` test helpers (`@anupheaus/aigent/testing`, no test-runner dependency)
 - `describeProviderContract`, the vitest suite every provider must pass (`@anupheaus/aigent/testing/contract`; needs `vitest`, an optional peer dependency)
 - Streaming provider adapters: `anthropic` and `openAiCompatible`, with the `deepseek`, `openai` and `ollama` presets
+- Model settings resolved task > agent > runtime > provider and mapped per provider, and the agent version hash
 
 Roadmap (later slices, each with its own spec): model settings (thinking and effort), retry and fallback, vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
 

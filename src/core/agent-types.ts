@@ -3,6 +3,7 @@ import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
+import type { ModelSettings } from './model-settings.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 
 export interface AgentDefinition {
@@ -17,6 +18,10 @@ export interface AgentDefinition {
   tools?: Tool[];
   /** Defaults for every task; a task's own limits win field by field. */
   limits?: TaskLimits;
+  /** Model settings for every task; a task's own settings win field by field, and these win over `createAigent`'s. */
+  modelSettings?: ModelSettings;
+  /** Human version label (e.g. `2024-06-prompt-b`), stored on run records and part of `agentVersion`. */
+  version?: string;
   /** Supply to restore a known instance; generated otherwise. */
   instanceId?: string;
 }
@@ -72,6 +77,11 @@ export type TaskRun = StreamRun<AigentEvent, TaskResult> & {
 export interface Agent {
   name: string;
   instanceId: string;
+  /**
+   * Lowercase hex sha-256 of everything behaviour-relevant in the definition (model, prompt parts, effective settings,
+   * limits, version label, tool contracts, library version); independent of `name` and `instanceId`. Stored on run records.
+   */
+  agentVersion: string;
   /** Validates `input` synchronously (throws `invalid_input`), then runs the task in the background. */
   task(input: TaskInput): TaskRun;
 }

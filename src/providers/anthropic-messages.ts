@@ -1,3 +1,5 @@
+import { toAnthropicSettingsFields } from './anthropic-settings.js';
+import type { AnthropicSettingsFields } from './anthropic-settings.js';
 import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall } from './provider-types.js';
 
 /** Wire shapes of the Anthropic Messages API request (only the fields we send). */
@@ -39,19 +41,21 @@ export interface AnthropicTool {
   input_schema: JsonSchema;
 }
 
-export interface AnthropicMessagesRequest {
+export interface AnthropicMessagesRequest extends AnthropicSettingsFields {
   model: string;
-  max_tokens: number;
   stream: true;
   system?: string | AnthropicTextBlock[];
   messages: AnthropicMessage[];
   tools?: AnthropicTool[];
 }
 
+/** The request plus any `providerOptions` fields, which may add or override anything. */
+export type AnthropicMessagesBody = AnthropicMessagesRequest & Record<string, unknown>;
+
 export interface AnthropicRequestSettings {
-  /** Used when the request has no `maxOutputTokens`; the API rejects requests without `max_tokens`. */
+  /** Used when the request has no `maxOutputTokens` setting; the API rejects requests without `max_tokens`. */
   defaultMaxTokens: number;
-  /** Marks the system block as an ephemeral cache breakpoint. */
+  /** Marks the system block as an ephemeral cache breakpoint, unless the request's `promptCaching` setting says otherwise. */
   promptCaching: boolean;
 }
 
@@ -217,17 +221,19 @@ function toAnthropicTool(tool: ProviderToolSpec): AnthropicTool {
   return { name, description, input_schema: parameters };
 }
 
-/** Translates a normalised request into the Anthropic streaming Messages API body. */
-export function toAnthropicMessagesRequest(request: ProviderRequest, settings: AnthropicRequestSettings): AnthropicMessagesRequest {
-  const { model, messages, tools, maxOutputTokens } = request;
-  const { defaultMaxTokens, promptCaching } = settings;
+/** Translates a normalised request into the Anthropic streaming Messages API body; `providerOptions` are merged last. */
+export function toAnthropicMessagesRequest(request: ProviderRequest, adapterSettings: AnthropicRequestSettings): AnthropicMessagesBody {
+  const { model, messages, tools, settings = {} } = request;
+  const { defaultMaxTokens } = adapterSettings;
+  const promptCaching = settings.promptCaching ?? adapterSettings.promptCaching;
   const system = toSystem({ messages, promptCaching });
   return {
     model,
-    max_tokens: maxOutputTokens ?? defaultMaxTokens,
     stream: true,
+    ...toAnthropicSettingsFields({ settings, defaultMaxTokens }),
     ...(system == null ? {} : { system }),
     messages: toAnthropicMessages(messages),
     ...(tools.length === 0 ? {} : { tools: tools.map(toAnthropicTool) }),
+    ...settings.providerOptions,
   };
 }

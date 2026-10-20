@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { createAigentError } from './aigent-error.js';
+import { describeIssues } from './describe-issues.js';
+import { modelSettingsSchema } from './model-settings.js';
 
 const limitsSchema = z.object({
   maxTurns: z.number().int().positive().optional(),
@@ -22,15 +24,13 @@ export const taskInputSchema = z.object({
   label: z.string().optional(),
   scope: z.record(z.string(), z.string()).optional(),
   limits: limitsSchema.optional(),
+  /** Task-level model settings; they win over the agent's, field by field. */
+  modelSettings: modelSettingsSchema.optional(),
   signal: z.instanceof(AbortSignal).optional(),
 }).strict();
 
 export type TaskInput = z.infer<typeof taskInputSchema>;
 export type TaskLimits = z.infer<typeof limitsSchema>;
-
-function describeIssues(error: z.ZodError): string {
-  return error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
-}
 
 export interface ParseAgentLimitsParams {
   agentName: string;

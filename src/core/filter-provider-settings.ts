@@ -1,0 +1,44 @@
+import { PROVIDER_SETTING_KEYS } from '../providers/provider-settings.js';
+import type { Provider, ProviderSettings } from '../providers/provider-types.js';
+import type { ModelSettings } from './model-settings.js';
+
+export interface FilterProviderSettingsParams {
+  provider: Provider;
+  /** Fully resolved settings, runtime-only fields included. */
+  settings: ModelSettings;
+}
+
+export interface FilteredProviderSettings {
+  /** What may be sent; absent when nothing is left. */
+  settings?: ProviderSettings;
+  /** One message per setting left out. */
+  warnings: string[];
+}
+
+type SettingsRecord = Record<string, unknown>;
+
+/** The provider-facing settings that are actually set, in `PROVIDER_SETTING_KEYS` order. */
+function providerFacing(settings: ModelSettings): ProviderSettings {
+  const record = settings as SettingsRecord;
+  return Object.fromEntries(PROVIDER_SETTING_KEYS.filter(key => record[key] !== undefined).map(key => [key, record[key]])) as ProviderSettings;
+}
+
+/**
+ * Splits resolved settings into what `provider` can honour and a warning for each setting it cannot: first those
+ * outside `capabilities.supportedSettings`, then those its `unsupportedSettings` check rejects in this combination.
+ * The check sees the full settings, since a dropped field (e.g. `thinking: 'off'`) can decide another's fate.
+ */
+export function filterProviderSettings(params: FilterProviderSettingsParams): FilteredProviderSettings {
+  const { provider: { id, capabilities: { supportedSettings }, unsupportedSettings }, settings } = params;
+  const facing = providerFacing(settings);
+  const present = Object.keys(facing) as (keyof ProviderSettings)[];
+  const unsupported = new Set(present.filter(key => !supportedSettings.includes(key)));
+  const conflicting = new Set((unsupportedSettings?.(facing) ?? []).filter(key => present.includes(key) && !unsupported.has(key)));
+  const warnings = present.flatMap(key => {
+    if (unsupported.has(key)) return [`Provider '${id}' does not support setting '${key}'; ignored`];
+    if (conflicting.has(key)) return [`Provider '${id}' cannot honour setting '${key}' together with the other settings of this request; ignored`];
+    return [];
+  });
+  const kept = Object.fromEntries(Object.entries(facing).filter(([key]) => !unsupported.has(key as keyof ProviderSettings) && !conflicting.has(key as keyof ProviderSettings)));
+  return Object.keys(kept).length === 0 ? { warnings } : { settings: kept as ProviderSettings, warnings };
+}

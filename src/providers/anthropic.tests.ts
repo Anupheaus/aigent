@@ -105,8 +105,8 @@ describe('anthropic request', () => {
     });
   });
 
-  it('uses maxOutputTokens over defaultMaxTokens, and defaultMaxTokens over the built-in default', async () => {
-    expect((await bodyFor({ request: { ...REQUEST, maxOutputTokens: 256 }, options: { defaultMaxTokens: 1000 } })).max_tokens).toBe(256);
+  it('uses the maxOutputTokens setting over defaultMaxTokens, and defaultMaxTokens over the built-in default', async () => {
+    expect((await bodyFor({ request: { ...REQUEST, settings: { maxOutputTokens: 256 } }, options: { defaultMaxTokens: 1000 } })).max_tokens).toBe(256);
     expect((await bodyFor({ request: REQUEST, options: { defaultMaxTokens: 1000 } })).max_tokens).toBe(1000);
   });
 
@@ -557,6 +557,7 @@ describe('anthropic capabilities', () => {
     expect(provider.id).toBe('anthropic');
     expect(provider.capabilities).toEqual({
       streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: true, vision: false, maxContextTokens: 200_000,
+      supportedSettings: ['maxOutputTokens', 'temperature', 'topP', 'thinking', 'effort', 'promptCaching', 'stop', 'providerOptions'],
     });
   });
 

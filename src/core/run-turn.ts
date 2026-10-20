@@ -1,6 +1,6 @@
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, Provider, ProviderEvent, ProviderMessage, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, Provider, ProviderEvent, ProviderMessage, ProviderSettings, ToolCall, Usage } from '../providers/provider-types.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
@@ -30,12 +30,22 @@ export interface TurnWork {
   activityController: AbortController;
 }
 
+/** Where a turn's request goes, with the settings that provider can honour. */
+export interface ProviderTarget {
+  provider: Provider;
+  /** Model id without the provider prefix. */
+  model: string;
+  /** Already filtered for this provider; absent when none are set. */
+  settings?: ProviderSettings;
+}
+
 export interface RunTurnParams {
   runId: string;
   agentName: string;
   instanceId: string;
-  model: string;
-  provider: Provider;
+  target: ProviderTarget;
+  /** Whether `thinking-delta` events are emitted. */
+  showThinking: boolean;
   registry: ToolRegistry;
   maxToolCalls: number;
   clock: Clock;
@@ -146,13 +156,13 @@ function stopStream(iterator: AsyncIterator<ProviderEvent>): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, model, provider, registry, signal, messages, totals, emit } = params;
+  const { runId, target: { provider, model, settings }, showThinking, registry, signal, messages, totals, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
-  const iterator = provider.stream({ model, messages: [...messages], tools: registry.specs() }, signal)[Symbol.asyncIterator]();
+  const iterator = provider.stream({ model, messages: [...messages], tools: registry.specs(), ...(settings == null ? {} : { settings }) }, signal)[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
     for (;;) {
@@ -166,7 +176,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       const event = raced.value.value;
       switch (event.type) {
         case 'text-delta': visible += emitParsed(parser.push(event.text), emit); break;
-        case 'thinking-delta': emit(event); break;
+        case 'thinking-delta': if (showThinking) emit(event); break;
         case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
         case 'usage': addUsage(totals, event.usage); emit(event); break;
         case 'done': finishReason = event.finishReason; break;

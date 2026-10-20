@@ -1,4 +1,5 @@
 import { createAigentError } from '../core/aigent-error.js';
+import { PROVIDER_SETTING_KEYS } from '../providers/provider-settings.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest, ToolCall, Usage } from '../providers/provider-types.js';
 
 /** One scripted model response. */
@@ -24,7 +25,7 @@ export interface FakeProviderOptions {
 }
 
 export interface FakeProvider extends Provider {
-  /** Deep copies of every request received, in order. */
+  /** Deep copies of every request received (including its `settings`), in order. */
   requests: ProviderRequest[];
 }
 
@@ -36,6 +37,8 @@ const FAKE_CAPABILITIES: ProviderCapabilities = {
   promptCaching: false,
   vision: false,
   maxContextTokens: 128_000,
+  // Every setting, so tests see exactly what the run resolved in `requests[n].settings`.
+  supportedSettings: [...PROVIDER_SETTING_KEYS],
 };
 
 function chunkText(text: string, chunkSize: number): string[] {

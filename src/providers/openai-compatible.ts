@@ -1,4 +1,5 @@
 import { toOpenAiChatRequest } from './openai-messages.js';
+import { OPENAI_SUPPORTED_SETTINGS, openAiUnsupportedSettings } from './openai-settings.js';
 import { applyOpenAiData, createOpenAiStreamState, finishOpenAiStream } from './openai-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
 import { collectSecrets, redactingErrors } from './secret-redaction.js';
@@ -45,6 +46,7 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     promptCaching: false,
     vision: false,
     maxContextTokens,
+    supportedSettings: [...OPENAI_SUPPORTED_SETTINGS],
   };
 
   const headers = buildHeaders(options);
@@ -70,5 +72,5 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     redactingErrors({ events: streamEvents(request, signal), secrets })
   );
 
-  return { id, capabilities, stream };
+  return { id, capabilities, stream, unsupportedSettings: openAiUnsupportedSettings };
 }

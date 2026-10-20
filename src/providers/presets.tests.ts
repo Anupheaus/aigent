@@ -15,7 +15,10 @@ async function drain(provider: Provider): Promise<void> {
   for await (const event of provider.stream(REQUEST, new AbortController().signal)) void event;
 }
 
-const DEFAULT_CAPABILITIES = { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 128_000 };
+const DEFAULT_CAPABILITIES = {
+  streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 128_000,
+  supportedSettings: ['maxOutputTokens', 'temperature', 'topP', 'stop', 'seed', 'effort', 'providerOptions'],
+};
 
 describe.each([
   { preset: deepseek, id: 'deepseek', url: 'https://api.deepseek.com/chat/completions' },

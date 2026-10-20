@@ -103,12 +103,12 @@ describe('openAiCompatible request', () => {
     });
   });
 
-  it('maps tools with their strict flag and maxOutputTokens to max_tokens', async () => {
+  it('maps tools with their strict flag and the maxOutputTokens setting to max_tokens', async () => {
     const { requests, events } = streaming(sseBody([finishChunk('stop')]));
     const parameters = { type: 'object', properties: { q: { type: 'string' } }, required: ['q'], additionalProperties: false };
     await events({
       ...REQUEST,
-      maxOutputTokens: 256,
+      settings: { maxOutputTokens: 256 },
       tools: [
         { name: 'search', description: 'Search things', parameters, strict: true },
         { name: 'aigent_multi', description: 'Batch', parameters: { type: 'object' }, strict: false },
@@ -550,6 +550,7 @@ describe('openAiCompatible capabilities', () => {
     expect(provider.id).toBe('x');
     expect(provider.capabilities).toEqual({
       streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 128_000,
+      supportedSettings: ['maxOutputTokens', 'temperature', 'topP', 'stop', 'seed', 'effort', 'providerOptions'],
     });
   });
 

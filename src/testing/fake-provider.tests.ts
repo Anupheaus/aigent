@@ -20,6 +20,13 @@ describe('createFakeProvider', () => {
     expect(provider.requests).toHaveLength(2);
   });
 
+  it('declares every setting supported and records the settings it receives', async () => {
+    const provider = createFakeProvider({ turns: [textTurn('ok')] });
+    expect(provider.capabilities.supportedSettings).toEqual(['maxOutputTokens', 'temperature', 'topP', 'thinking', 'effort', 'promptCaching', 'stop', 'seed', 'providerOptions']);
+    await collect(provider.stream({ ...REQUEST, settings: { temperature: 0.2, providerOptions: { a: 1 } } }, new AbortController().signal));
+    expect(provider.requests[0]?.settings).toEqual({ temperature: 0.2, providerOptions: { a: 1 } });
+  });
+
   it('emits tool calls with finishReason tool_calls', async () => {
     const provider = createFakeProvider({ turns: [toolTurn([{ id: 'c1', name: 'x', args: { a: 1 } }])] });
     const events = await collect(provider.stream(REQUEST, new AbortController().signal));

@@ -1,3 +1,5 @@
+import { toOpenAiSettingsFields } from './openai-settings.js';
+import type { OpenAiSettingsFields } from './openai-settings.js';
 import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall } from './provider-types.js';
 
 /** Wire shapes of the OpenAI Chat Completions request (only the fields we send). */
@@ -17,14 +19,16 @@ export interface OpenAiTool {
   function: { name: string; description: string; parameters: JsonSchema; strict: boolean };
 }
 
-export interface OpenAiChatRequest {
+export interface OpenAiChatRequest extends OpenAiSettingsFields {
   model: string;
   messages: OpenAiMessage[];
   stream: true;
   stream_options: { include_usage: true };
   tools?: OpenAiTool[];
-  max_tokens?: number;
 }
+
+/** The request plus any `providerOptions` fields, which may add or override anything. */
+export type OpenAiChatBody = OpenAiChatRequest & Record<string, unknown>;
 
 function toOpenAiToolCall(call: ToolCall): OpenAiToolCall {
   const { id, name, args } = call;
@@ -78,15 +82,16 @@ function toOpenAiTool(tool: ProviderToolSpec): OpenAiTool {
   return { type: 'function', function: { name, description, parameters, strict } };
 }
 
-/** Translates a normalised request into the OpenAI streaming Chat Completions body. */
-export function toOpenAiChatRequest(request: ProviderRequest): OpenAiChatRequest {
-  const { model, messages, tools, maxOutputTokens } = request;
+/** Translates a normalised request into the OpenAI streaming Chat Completions body; `providerOptions` are merged last. */
+export function toOpenAiChatRequest(request: ProviderRequest): OpenAiChatBody {
+  const { model, messages, tools, settings = {} } = request;
   return {
     model,
     messages: toOpenAiMessages(messages),
     stream: true,
     stream_options: { include_usage: true },
     ...(tools.length === 0 ? {} : { tools: tools.map(toOpenAiTool) }),
-    ...(maxOutputTokens == null ? {} : { max_tokens: maxOutputTokens }),
+    ...toOpenAiSettingsFields(settings),
+    ...settings.providerOptions,
   };
 }

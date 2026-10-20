@@ -390,7 +390,7 @@ describe('agent.task tool failure containment', () => {
   });
 });
 
-const SCRIPTED_CAPABILITIES: Provider['capabilities'] = { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000 };
+const SCRIPTED_CAPABILITIES: Provider['capabilities'] = { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000, supportedSettings: [] };
 
 /** An agent over a hand-written provider stream, for failure modes the FakeProvider cannot script. */
 function scriptedAgent(options: { stream: Provider['stream']; tools?: Tool[] }) {
@@ -494,7 +494,7 @@ describe('agent.task run control', () => {
       let nextCount = 0;
       const provider: Provider = {
         id: 'stubborn',
-        capabilities: { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000 },
+        capabilities: SCRIPTED_CAPABILITIES,
         stream: () => ({
           [Symbol.asyncIterator]: () => ({
             next: (): Promise<IteratorResult<ProviderEvent>> => {
