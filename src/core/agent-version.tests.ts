@@ -37,6 +37,10 @@ describe('computeAgentVersion', () => {
     expect(computeAgentVersion(BASE)).toMatch(HEX_SHA_256);
   });
 
+  it('treats todo as on when absent, so earlier versions keep their hash', () => {
+    expect(computeAgentVersion({ ...BASE, todo: true })).toBe(computeAgentVersion(BASE));
+  });
+
   it('changes with the resolved enableFeedback flag, and treats it as off when absent', () => {
     expect(computeAgentVersion({ ...BASE, enableFeedback: true })).not.toBe(computeAgentVersion({ ...BASE, enableFeedback: false }));
     expect(computeAgentVersion({ ...BASE, enableFeedback: false })).toBe(computeAgentVersion(BASE));
@@ -92,6 +96,7 @@ describe('computeAgentVersion', () => {
     ['tool contentKind', { ...BASE, tools: [{ ...searchTool, contentKind: 'search-hits' }, writeTool] }],
     ['tool fidelity', { ...BASE, tools: [{ ...searchTool, contentKind: 'search-hits', fidelity: 'lossy-ok' }, writeTool] }],
     ['shapers', { ...BASE, shapers: 'off' }],
+    ['todo turned off', { ...BASE, todo: false }],
     ['fallbacks', { ...BASE, fallbacks: [{ model: 'openai:gpt-test' }] }],
     ['a fallback model', { ...BASE, fallbacks: [{ model: 'openai:gpt-other' }] }],
     ['resilience', { ...BASE, resilience: { maxRetries: 0 } }],

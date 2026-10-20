@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createAigentError } from './aigent-error.js';
 import { describeIssues } from './describe-issues.js';
+import { planSchema } from '../planning/plan-schema.js';
 import { shapersSettingSchema } from '../shapers/shapers-setting.js';
 import { modelSettingsSchema } from './model-settings.js';
 
@@ -31,6 +32,8 @@ export const taskInputSchema = z.object({
   modelSettings: modelSettingsSchema.optional(),
   /** Overrides the agent's `shapers` for this task. */
   shapers: shapersSettingSchema.optional(),
+  /** Consumer-supplied plan (up to 50 items); the agent reports progress with `plan_complete` or `::aigent plan`. */
+  plan: planSchema.optional(),
   signal: z.instanceof(AbortSignal).optional(),
 }).strict();
 

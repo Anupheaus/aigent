@@ -41,6 +41,8 @@ export interface AgentVersionInput {
   enableFeedback?: boolean;
   /** The agent's `shapers`; absent means the default (every built-in shaper). */
   shapers?: ShapersSetting;
+  /** False when the built-in `todo` tool is turned off; absent means on. */
+  todo?: boolean;
 }
 
 const HASH_ALGORITHM = 'sha256';
@@ -87,7 +89,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -97,6 +99,8 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     resilience: effectivePolicy(resilience),
     enableFeedback,
     ...(shapers == null ? {} : { shapers }),
+    // Only the non-default value is hashed, so versions computed before the todo tool existed are unchanged.
+    ...(todo ? {} : { todo }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

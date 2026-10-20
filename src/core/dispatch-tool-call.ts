@@ -1,4 +1,6 @@
 import { FEEDBACK_TOOL_NAME } from '../feedback/feedback-tool.js';
+import { PLAN_COMPLETE_TOOL_NAME } from '../planning/plan-complete-tool.js';
+import { TODO_TOOL_NAME } from '../planning/todo-tool.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { FinishStep } from '../telemetry/trace-recorder.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
@@ -12,6 +14,12 @@ import { expandAliases } from '../shapers/alias-table.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { shapeWith } from './run-shaping.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
+
+/**
+ * Bookkeeping, not work: `aigent_feedback`, `plan_complete` and `todo` are never refused for the budget, never
+ * counted against it, carry no `previous` and never receive outcomes.
+ */
+export const COMMENTARY_TOOLS: ReadonlySet<string> = new Set([FEEDBACK_TOOL_NAME, PLAN_COMPLETE_TOOL_NAME, TODO_TOOL_NAME]);
 
 interface ReserveToolCallParams {
   totals: RunTotals;
@@ -29,7 +37,7 @@ interface DispatchParams {
  */
 function withoutPrevious(params: DispatchParams): ToolCall {
   const { call, turn: { totals, telemetry: { recorder, feedback }, emit } } = params;
-  if (!feedback.isEnabled || call.name === FEEDBACK_TOOL_NAME) return call;
+  if (!feedback.isEnabled || COMMENTARY_TOOLS.has(call.name)) return call;
   const topLevel = { ...call, args: linkPrevious({ call, turn: totals.turns, recorder, feedback, emit }) };
   return call.name === MULTI_TOOL_NAME ? { ...topLevel, args: stripMultiPrevious({ call: topLevel, emit }) } : topLevel;
 }
@@ -78,7 +86,7 @@ export function dispatchToolCall(params: DispatchParams): void {
 
   // aigent_feedback is commentary, not work: it is never refused for the budget and never counted against it, so
   // reporting feedback cannot starve real calls or inflate usage.toolCalls and toolCallsPerTurn.
-  const isCommentary = name === FEEDBACK_TOOL_NAME;
+  const isCommentary = COMMENTARY_TOOLS.has(name);
   if (!isCommentary && totals.toolCalls >= maxToolCalls) {
     const error = { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit of ${maxToolCalls} reached` } as const;
     work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportNotRun));

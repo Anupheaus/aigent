@@ -68,16 +68,16 @@ describe('enableFeedback off', () => {
     const bodies = JSON.stringify(provider.requests);
     for (const absent of ['previous', 'aigent_feedback', '::aigent']) expect(bodies).not.toContain(absent);
     expect(provider.requests[0]?.messages[0]?.text).toBe(buildSystemPrompt({ persona: 'Calm' }));
-    expect(provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_multi', 'echo']);
+    expect(provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_multi', 'echo', 'todo']);
   });
 
   it('follows createAigent({ enableFeedback }) unless the agent sets its own value', async () => {
     const off = setup({ turns: [textTurn('ok')], options: { enableFeedback: false } });
     await off.agent.task({ task: 'x' });
-    expect(off.provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_multi', 'echo']);
+    expect(off.provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_multi', 'echo', 'todo']);
     const overridden = setup({ turns: [textTurn('ok')], options: { enableFeedback: false }, enableFeedback: true });
     await overridden.agent.task({ task: 'x' });
-    expect(overridden.provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo']);
+    expect(overridden.provider.requests[0]?.tools.map(({ name }) => name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo', 'todo']);
   });
 
   it('gives the flag a part in agentVersion', () => {
@@ -95,9 +95,9 @@ describe('enableFeedback on', () => {
     const [request] = provider.requests as [ProviderRequest];
     expect(request.messages[0]?.text).toBe(buildSystemPrompt({ persona: 'Calm', enableFeedback: true }));
     expect(request.messages[0]?.text).toContain(FEEDBACK_PROMPT_ADDENDUM);
-    expect(request.tools.map(({ name }) => name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo']);
+    expect(request.tools.map(({ name }) => name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo', 'todo']);
     const previousIn = request.tools.map(({ name, parameters }) => ({ name, hasPrevious: 'previous' in ((parameters.properties ?? {}) as object) }));
-    expect(previousIn).toEqual([{ name: 'aigent_feedback', hasPrevious: false }, { name: 'aigent_multi', hasPrevious: true }, { name: 'echo', hasPrevious: true }]);
+    expect(previousIn).toEqual([{ name: 'aigent_feedback', hasPrevious: false }, { name: 'aigent_multi', hasPrevious: true }, { name: 'echo', hasPrevious: true }, { name: 'todo', hasPrevious: false }]);
   });
 
   it('strips previous before the tool runs, from the tool-call event and from recorded args, and links it to the prior step', async () => {

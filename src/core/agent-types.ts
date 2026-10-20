@@ -1,5 +1,6 @@
 import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { Usage } from '../providers/provider-types.js';
+import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -41,6 +42,8 @@ export interface AgentDefinition {
    * built-in shaper. Verbatim results are never shaped whatever this says. A task's own `shapers` wins.
    */
   shapers?: ShapersSetting;
+  /** False removes the built-in `todo` tool (the agent's own todo list). Default true. */
+  todo?: boolean;
 }
 
 export interface TaskUsage extends Usage {
@@ -83,6 +86,10 @@ export interface TaskResult {
   failure?: string;
   /** Set when the run was stopped ('stopped' → graceful, 'cancelled' → immediate). */
   stopMode?: 'graceful' | 'immediate';
+  /** The task's plan with final statuses and evidence, when one was supplied. */
+  plan?: PlanItemState[];
+  /** The agent's todo list at the end, when it kept one. */
+  todo?: TodoItem[];
   /** Shortcut for `ai.feedback({ responseId, ...feedback })`. Not enumerable, so the result stays plain data. */
   feedback(feedback: Omit<UserFeedback, 'responseId'>): Promise<void>;
 }

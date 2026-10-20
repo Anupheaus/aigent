@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TASK_STATUSES } from '../core/aigent-events.js';
+import { PLAN_STATUSES } from '../streaming/directive-schemas.js';
 import { describeIssues } from '../core/describe-issues.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { AGENT_FEEDBACK_KINDS, USER_RATINGS } from '../feedback/feedback-records.js';
@@ -59,6 +60,11 @@ export const runRecordSchema = z.object({
   outcomeSummary: z.object({ claimedSuccess: count, claimedFailure: count }),
   toolUse: z.object({ calls: count, items: count, repeats: count }),
   userVerdict: z.enum(USER_RATINGS).optional(),
+  plan: z.array(z.object({
+    id: z.string(), status: z.enum(PLAN_STATUSES), label: z.string().optional(), description: z.string().optional(),
+    acceptanceCriteria: z.array(z.string()).optional(), evidence: z.string().optional(),
+  })).optional(),
+  todo: z.array(z.object({ id: z.string(), status: z.enum(PLAN_STATUSES), label: z.string().optional(), description: z.string().optional() })).optional(),
 });
 
 export const traceStepSchema = z.object({

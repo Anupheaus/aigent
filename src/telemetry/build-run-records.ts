@@ -76,7 +76,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task }, result: { responseId, status, usage, errors, answer }, agent: { version }, targets, facts } = params;
+  const { input: { label, unattended = false, task }, result: { responseId, status, usage, errors, answer, plan, todo }, agent: { version }, targets, facts } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -95,6 +95,9 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     outcomeSummary: summariseOutcomes(steps),
     toolUse,
     ...(captureContent ? { task, answer } : {}),
+    // Without content capture only ids and statuses are kept: labels, criteria and evidence are content.
+    ...(plan == null ? {} : { plan: captureContent ? plan : plan.map(({ id, status }) => ({ id, status })) }),
+    ...(todo == null ? {} : { todo: captureContent ? todo : todo.map(({ id, status }) => ({ id, status })) }),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

@@ -3,6 +3,7 @@ import type { ToolActivityView } from '../tools/tool-types.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { QueueReason } from '../scheduler/scheduler-types.js';
+import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 
 /** Every way a run can end. */
 export const TASK_STATUSES = ['completed', 'incomplete', 'failed', 'cancelled', 'stopped', 'limit_reached'] as const;
@@ -24,6 +25,10 @@ export type AigentEvent =
   | { type: 'fallback'; from: string; to: string; reason: string }
   /** The provider call is waiting for the scheduler; emitted only when it could not start at once. */
   | { type: 'queued'; position: number; reason: QueueReason; waitMs?: number }
+  /** The plan changed (through `plan_complete` or an `::aigent plan` directive); `items` is the whole plan, `changed` the ids that changed. */
+  | { type: 'plan-update'; items: PlanItemState[]; changed: string[] }
+  /** The agent's todo list changed; `items` is the whole list, `changed` the ids that changed. */
+  | { type: 'todo-update'; items: TodoItem[]; changed: string[] }
   | { type: 'error'; message: string }
   /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
   | { type: 'done'; status: TaskStatus; responseId: string };

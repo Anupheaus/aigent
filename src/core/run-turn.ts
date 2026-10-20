@@ -15,6 +15,9 @@ import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
 import type { RunShaping } from './run-shaping.js';
 import { requestMessages } from './run-volatile.js';
+import { applyPlanningDirective } from '../planning/apply-directives.js';
+import type { RunPlanning } from '../planning/run-planning.js';
+import type { RunMessage } from './run-planning-setup.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
@@ -54,7 +57,7 @@ export interface RunTurnParams {
   clock: Clock;
   signal: AbortSignal;
   /** Conversation so far; copied into the request, never mutated. */
-  messages: ProviderMessage[];
+  messages: RunMessage[];
   totals: RunTotals;
   work: TurnWork;
   telemetry: RunTelemetry;
@@ -64,6 +67,8 @@ export interface RunTurnParams {
   shaping?: RunShaping;
   /** The run's trailing volatile block. */
   volatile: RunVolatile;
+  /** The run's plan and todo list; plan and todo directives update it. */
+  planning: RunPlanning;
   emit(event: AigentEvent): void;
 }
 
@@ -81,13 +86,15 @@ export interface TurnStreamResult {
 /** Emits parsed text, directives and warnings, recording outcome directives on the trace; returns the visible text. */
 function emitParsed(output: ParseOutput, turn: RunTurnParams): string {
   const { text, directives, warnings } = output;
-  const { emit, totals: { turns }, telemetry: { recorder } } = turn;
+  const { emit, totals: { turns }, telemetry: { recorder }, planning } = turn;
   if (text !== '') emit({ type: 'text-delta', text });
   for (const directive of directives) {
     // A directive reports on results the model has seen: the last step of an earlier turn, even when it arrives after
     // this turn's own tool calls.
     if (directive.type === 'outcome') recorder.attachOutcome({ outcome: directive.data, source: 'directive', turn: turns });
     emit({ type: 'directive', directive });
+    // Applied as it arrives, so a directive and a tool call of the same turn take effect in stream order.
+    applyPlanningDirective({ planning, directive, emit });
   }
   for (const message of warnings) emit({ type: 'warning', message });
   return text;

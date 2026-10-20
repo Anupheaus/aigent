@@ -13,6 +13,7 @@ import { createRunTimer } from '../telemetry/run-timer.js';
 import { summariseToolUse } from '../telemetry/summarise-tool-use.js';
 import { createTraceRecorder } from '../telemetry/trace-recorder.js';
 import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
+import { COMMENTARY_TOOLS } from './dispatch-tool-call.js';
 import type { RunTelemetry } from './run-turn.js';
 
 /** Per-runtime telemetry configuration, from `createAigent`. */
@@ -63,7 +64,7 @@ export function createRunTelemetry(params: CreateRunTelemetryParams): RunTelemet
   const { now, runId, settings: { captureContent }, enableFeedback } = params;
   return {
     // aigent_feedback is commentary, not work, so outcomes never attach to it.
-    recorder: createTraceRecorder({ now, captureContent, argsDigestKey: runId, nonOutcomeTools: [FEEDBACK_TOOL_NAME] }),
+    recorder: createTraceRecorder({ now, captureContent, argsDigestKey: runId, nonOutcomeTools: [...COMMENTARY_TOOLS] }),
     timer: createRunTimer({ now }),
     feedback: { isEnabled: enableFeedback, hasWarnedMissing: false },
   };
@@ -75,7 +76,7 @@ export async function persistRunTelemetry(params: PersistRunTelemetryParams): Pr
   if (writer == null) return undefined;
   const recordedAt = now();
   const steps = recorder.steps();
-  const toolUse = summariseToolUse({ steps, nonWorkTools: [MULTI_TOOL_NAME, FEEDBACK_TOOL_NAME] });
+  const toolUse = summariseToolUse({ steps, nonWorkTools: [MULTI_TOOL_NAME, ...COMMENTARY_TOOLS] });
   const { meta, run: runRecord, trace } = buildRunRecords({
     ...run,
     facts: { timings: timer.snapshot(), steps, toolUse, captureContent, recordedAt, ...(expiresInMs == null ? {} : { expiresAt: recordedAt + expiresInMs }) },

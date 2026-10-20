@@ -135,6 +135,24 @@ export interface ToolUse {
   repeats: number;
 }
 
+/** A plan item as stored: id and status always; the text fields only with content capture on. */
+export interface StoredPlanItem {
+  id: string;
+  status: 'pending' | 'in_progress' | 'done' | 'blocked';
+  label?: string;
+  description?: string;
+  acceptanceCriteria?: string[];
+  evidence?: string;
+}
+
+/** A todo item as stored: id and status always; the text fields only with content capture on. */
+export interface StoredTodoItem {
+  id: string;
+  status: 'pending' | 'in_progress' | 'done' | 'blocked';
+  label?: string;
+  description?: string;
+}
+
 /** One document in the `runs` collection, keyed by run id. */
 export interface RunRecord extends RecordMeta {
   /** Stable id of the run's answer, used by `ai.feedback`. */
@@ -174,6 +192,10 @@ export interface RunRecord extends RecordMeta {
   toolUse: ToolUse;
   /** The latest user rating (`ai.feedback`), copied here so scoring needs no join; it overrides the agent's claims. */
   userVerdict?: UserRating;
+  /** The task's plan with final statuses, when one was supplied. */
+  plan?: StoredPlanItem[];
+  /** The agent's todo list at the end, when it kept one. */
+  todo?: StoredTodoItem[];
 }
 
 /** One document in the `traces` collection, keyed by run id. */

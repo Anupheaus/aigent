@@ -8,13 +8,13 @@ const MAX_DESCRIPTION_LENGTH = 1000;
 
 export const PLAN_STATUSES = ['pending', 'in_progress', 'done', 'blocked'] as const;
 
-const planUpdateSchema = z.object({
+export const planUpdateSchema = z.object({
   id: z.string().min(1),
   status: z.enum(PLAN_STATUSES),
   evidence: z.string().max(MAX_EVIDENCE_LENGTH).optional(),
 }).strict();
 
-const todoOpSchema = z.object({
+export const todoOpSchema = z.object({
   op: z.enum(['add', 'edit', 'delete', 'set_status']),
   id: z.string().min(1).optional(),
   label: z.string().min(1).max(MAX_LABEL_LENGTH).optional(),

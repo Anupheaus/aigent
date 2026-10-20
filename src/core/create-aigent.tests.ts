@@ -54,7 +54,7 @@ describe('agent.task', () => {
     expect(provider.requests[0]?.messages[1]).toMatchObject({ role: 'user', text: '# Task\nSay it' });
     expect(provider.requests[0]?.model).toBe('test-model');
     // Feedback is on by default outside production (vitest runs with NODE_ENV=test), which adds aigent_feedback.
-    expect(provider.requests[0]?.tools.map(tool => tool.name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo']);
+    expect(provider.requests[0]?.tools.map(tool => tool.name)).toEqual(['aigent_feedback', 'aigent_multi', 'echo', 'todo']);
   });
 
   it('keeps completed thinking blocks on the assistant message it replays, without emitting them to the consumer', async () => {
@@ -73,7 +73,7 @@ describe('agent.task', () => {
   it('marks aigent_multi as the only non-strict tool in the provider request', async () => {
     const { agent, provider } = setup({ turns: [textTurn('ok')] });
     await agent.task({ task: 'x' });
-    expect(provider.requests[0]?.tools.map(({ name, strict }) => ({ name, strict }))).toEqual([{ name: 'aigent_feedback', strict: true }, { name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
+    expect(provider.requests[0]?.tools.map(({ name, strict }) => ({ name, strict }))).toEqual([{ name: 'aigent_feedback', strict: true }, { name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }, { name: 'todo', strict: true }]);
   });
 
   it('runs tools in a loop and feeds structured envelopes back', async () => {

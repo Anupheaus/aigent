@@ -243,6 +243,7 @@ A run yields these events, in order, ending with `done`:
 | --- | --- |
 | `text-delta`, `thinking-delta` | model output (thinking is hidden when `showThinking` is false) |
 | `tool-call`, `tool-activity`, `tool-result` | a tool call, its activity rows and its result envelope |
+| `plan-update`, `todo-update` | the plan or the todo list changed (see [Plan and todo](#plan-and-todo)) |
 | `directive` | a parsed `::aigent` directive |
 | `usage` | token usage reported by the provider for a turn |
 | `queued` | a provider call is waiting for the scheduler |
@@ -347,6 +348,31 @@ createAigent({ providers, volatile: { dateTime: { granularity: 'hour' }, timezon
 - `timezone`: an IANA name (default `UTC`); `locale` is named in the block when set. An unknown timezone or option fails with `invalid_definition`.
 - `progress: false` leaves the turn and tool-call counters out. With no date, no progress and no sections, no block is sent.
 - **Prefix monitor:** each run checks that each request's history starts with the previous request's history unchanged. If an earlier message (or a tool spec) changes without a deliberate rewrite (the pinned plan block) or a compaction, the run emits one `warning` per run: "Prompt prefix changed between turns without a compaction; ...". It is on unless `NODE_ENV` is `production`; `volatile.warnOnPrefixChange` turns it on or off explicitly.
+
+## Plan and todo
+
+A task may bring a **plan**; every agent also keeps its own **todo list**.
+
+```ts
+const run = agent.task({
+  task: 'Explain how theming works',
+  plan: [
+    { id: 'find', label: 'Find the provider', description: 'Locate the theme provider component', acceptanceCriteria: ['Path and line reported'] },
+    { id: 'explain', label: 'Explain it', description: 'Explain how themes are applied', acceptanceCriteria: ['Covers context and CSS variables'] },
+  ],
+});
+for await (const event of run) if (event.type === 'plan-update') render(event.items);
+const { status, plan, todo } = await run;
+```
+
+- **Plan:** up to 50 items, each `{ id (1 to 40 chars, unique), label (1 to 80), description (1 to 1,000), acceptanceCriteria (1 to 20, each 1 to 300) }`; duplicate ids, empty criteria and other problems fail with `invalid_input` naming the item. Items start `pending`.
+- **`plan_complete`** (registered only when a plan is supplied): `{ updates: [{ id, status, evidence? (at most 500) }] }`, 1 to 50 updates, one envelope per update (`{ index, ok, result: { id, changed } }` or `{ index, ok: false, error }`), so valid updates apply even when others fail. Rules, each with its own error code: an unknown id is `unknown_plan_item` (the `suggestion` lists the valid ids); `done` without evidence is `evidence_required`; leaving `done` (or leaving `blocked` for `pending` / `in_progress`) without evidence giving the reason is `status_regression` (with evidence it is allowed and recorded); repeating the current status is an idempotent success.
+- **`todo`** (registered for every agent unless `ai.agent({ todo: false })`): `{ ops: [{ op: 'add' | 'edit' | 'delete' | 'set_status', id?, label?, description?, status? }] }`, 1 to 50 ops, one envelope per op. `add` needs a label and generates `t1`, `t2`... unless it gives an id. The list holds at most 100 items and its pinned definitions at most 8,000 characters; past either, `add` fails with `todo_full` telling the agent to delete or merge items. Items are never dropped silently.
+- **Directives:** `::aigent plan {"updates":[...]}` and `::aigent todo {"ops":[...]}` go through the same rules as the tools. They apply as they arrive in the stream, so a directive and a tool call in the same turn take effect in arrival order. A rejected entry emits a `warning` with the precise reason, and a one-line correction appears in the next request's volatile block (`## Corrections`).
+- **Prompt layout:** the definitions (plan ids, labels, descriptions and criteria; todo ids, labels and descriptions) go in one pinned `user` message directly after the task brief. It changes only when definitions change (todo items added, edited or deleted), which the prefix monitor accepts. Statuses never go there: they are rendered in the volatile block as `## Plan status` and `## Todo status`.
+- **Events:** `{ type: 'plan-update', items, changed }` and `{ type: 'todo-update', items, changed }` (the whole plan or list, and the ids that changed), emitted as soon as a change applies.
+- **Result:** `TaskResult.plan` (when a plan was supplied) and `TaskResult.todo` (when the list is not empty) hold the final items. A run that would otherwise be `completed` is `incomplete` while any plan or todo item is not `done`. The run record stores `plan` and `todo`; with `captureContent: false` only their ids and statuses.
+- `plan_complete` and `todo`, like `aigent_feedback`, are bookkeeping: they never count against `maxToolCalls` or toward `usage.toolCalls`, carry no `previous` field and never receive outcomes.
 
 ## Shaping tool results (verbatim by default)
 
@@ -513,6 +539,7 @@ Phase 1 foundation core, implemented in this slice:
 - Tool-result cache with global and per-instance scopes, validity tokens, TTL, single-flight, LRU eviction and per-entry statistics
 - Verbatim-safe shaper pipeline for `lossy-ok` results, originals by handle (`result_original`) and an alias table
 - A trailing volatile block (date and time, progress, statuses) and a prompt-prefix stability monitor
+- Consumer plans (`plan_complete`), the agent's todo list (`todo`), pinned definitions and plan/todo directives
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 

@@ -168,7 +168,7 @@ describe('end to end through openAiCompatible', () => {
     expect(result).toMatchObject({ status: 'completed', usage: { toolCalls: 1 } });
     expect(result.errors).toEqual([]);
     const tools = sentBody(requests[0]).tools as { function: { name: string; strict: boolean; parameters: { required: string[]; properties: Record<string, { type: unknown }> } } }[];
-    expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_feedback', strict: true }, { name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
+    expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_feedback', strict: true }, { name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }, { name: 'todo', strict: true }]);
     const echoParameters = tools[2]?.function.parameters;
     expect(echoParameters?.required).toEqual(['text', 'previous']);
     expect(echoParameters?.properties.previous?.type).toEqual(['object', 'null']);
@@ -183,7 +183,7 @@ describe('end to end through openAiCompatible', () => {
     expect(result).toMatchObject({ status: 'completed', usage: { turns: 2, toolCalls: 2 } });
     expect(result.errors).toEqual([]);
     const tools = sentBody(requests[0]).tools as { function: { name: string; strict: boolean } }[];
-    expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
+    expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }, { name: 'todo', strict: true }]);
     const messages = sentBody(requests[1]).messages as Record<string, unknown>[];
     expect(envelopeOf(messages.at(-2)?.content)).toEqual({
       id: 'call_multi',
@@ -290,9 +290,9 @@ describe('end to end through anthropic', () => {
 
     expect(result).toMatchObject({ status: 'completed', usage: { turns: 2, toolCalls: 2 } });
     expect(result.errors).toEqual([]);
-    // Anthropic has no strict flag, so neither tool carries one.
+    // Anthropic has no strict flag, so no tool carries one (aigent_multi, echo and the built-in todo).
     const tools = sentBody(requests[0]).tools as Record<string, unknown>[];
-    expect(tools.map(tool => Object.keys(tool).sort())).toEqual([['description', 'input_schema', 'name'], ['description', 'input_schema', 'name']]);
+    expect(tools.map(tool => Object.keys(tool).sort())).toEqual([['description', 'input_schema', 'name'], ['description', 'input_schema', 'name'], ['description', 'input_schema', 'name']]);
     const messages = sentBody(requests[1]).messages as { content: Record<string, unknown>[] }[];
     expect(messages[1]?.content.at(-1)).toEqual({ type: 'tool_use', id: 'call_multi', name: 'aigent_multi', input: MULTI_CALL.args });
     expect(envelopeOf(messages[2]?.content[0]?.content)).toMatchObject({ id: 'call_multi', ok: true });

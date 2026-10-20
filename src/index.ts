@@ -51,3 +51,5 @@ export type { CacheEntry, CacheEntryStats, CacheOptions, DeterministicCandidate,
 export type { ContentKind, Fidelity, ShapersSetting, ShapingNote } from './shapers/shaper-types.js';
 export type { ShapedStepRecord } from './telemetry/run-record.js';
 export type { TimeGranularity, VolatileOptions } from './context/volatile-block.js';
+export type { PlanItem, PlanItemState, PlanStatus, TodoItem } from './planning/plan-schema.js';
+export type { StoredPlanItem, StoredTodoItem } from './telemetry/run-record.js';

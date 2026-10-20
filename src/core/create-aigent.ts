@@ -1,12 +1,9 @@
-import { createToolCache } from '../cache/tool-cache.js';
-import type { CacheOptions, ToolCache } from '../cache/cache-types.js';
+import type { CacheOptions } from '../cache/cache-types.js';
 import type { Provider } from '../providers/provider-types.js';
 import { createScheduler } from '../scheduler/scheduler.js';
 import type { Scheduler, SchedulerOptions } from '../scheduler/scheduler-types.js';
-import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { PurgeFilter, Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
-import type { WriteQueue } from '../store/write-queue.js';
 import { purgeRecords } from '../telemetry/purge-records.js';
 import { readTrace } from '../telemetry/read-trace.js';
 import { createRecordWriter } from '../telemetry/record-writer.js';
@@ -30,6 +27,7 @@ import { parseModelReference } from './model-reference.js';
 import { parseModelSettings } from './model-settings.js';
 import type { ModelSettings } from './model-settings.js';
 import { parseResiliencePolicy } from './resilience-policy.js';
+import { resolveToolCache } from './resolve-tool-cache.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createMathRandom, createSystemClock, createTimerSleeper, createUuidGenerator } from './runtime-services.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -143,22 +141,6 @@ function parseProviderModelSettings(params: { settings: Record<string, ModelSett
   }));
 }
 
-interface ResolveToolCacheParams {
-  cache: CacheOptions | false | undefined;
-  store: Store | undefined;
-  captureContent: boolean;
-  writeQueue: WriteQueue;
-  clock: Clock;
-}
-
-/** The runtime's cache, kept out of the consumer's store when there is none or content capture is off. */
-function resolveToolCache(params: ResolveToolCacheParams): ToolCache | undefined {
-  const { cache, store, captureContent, writeQueue, clock } = params;
-  if (cache === false) return undefined;
-  const cacheStore = store != null && captureContent ? store : createInMemoryStore();
-  return createToolCache({ store: cacheStore, writeQueue, now: () => clock.now(), ...(cache == null ? {} : { options: cache }) });
-}
-
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
 }
@@ -251,10 +233,11 @@ export function createAigent(options: AigentOptions): Aigent {
       model: reference,
       modelSettings: resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: providerSettings }),
     }));
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }) });
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback, ...(shapers == null ? {} : { shapers }), ...(definition.todo === false ? { todo: false } : {}) });
     const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context, enableFeedback }, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
       ...(feedbackCollector == null ? {} : { feedbackCollector }),
       ...(shapers == null ? {} : { shapers }),
+      isTodoEnabled: definition.todo !== false,
     };
     return {
       name,

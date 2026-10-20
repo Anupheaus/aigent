@@ -9,6 +9,9 @@ import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResultData } from './agent-types.js';
 import type { RunShaping } from './run-shaping.js';
 import type { RunVolatile } from './run-volatile.js';
+import type { RunPlanning } from '../planning/run-planning.js';
+import { finalStatus, planningResult, syncPinned } from './run-planning-setup.js';
+import type { RunMessage } from './run-planning-setup.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -51,6 +54,8 @@ export interface RunTaskParams {
   shaping?: RunShaping;
   /** The run's volatile block, minus the limits this function adds. */
   volatile: Omit<RunVolatile, 'maxTurns'>;
+  /** The run's plan and todo list. */
+  planning: RunPlanning;
   emit(event: AigentEvent): void;
 }
 
@@ -125,12 +130,12 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, shaping, emit } = params;
+  const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, shaping, planning, emit } = params;
   const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
-  const messages: ProviderMessage[] = [{ role: 'system', text: buildSystemPrompt(prompt) }, { role: 'user', text: buildTaskBrief(input) }];
+  const messages: RunMessage[] = [{ role: 'system', text: buildSystemPrompt(prompt) }, { role: 'user', text: buildTaskBrief(input) }];
   const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0 };
   const errors: ToolErrorDetail[] = [];
   let answer = '';
@@ -143,13 +148,14 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     if (control.isGracefulStopRequested()) { status = 'stopped'; break; }
     if (totals.turns >= limits.maxTurns) { status = 'limit_reached'; break; }
     totals.turns += 1;
+    syncPinned({ messages, planning, monitor: volatile.monitor });
 
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit, volatile,
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });
@@ -182,7 +188,8 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
 
   const { usage, turns, toolCalls, retries, fallbacks } = totals;
   const result: TaskResultData = {
-    status, answer, runId, responseId, agentName, instanceId, errors,
+    ...planningResult(planning),
+    status: finalStatus({ status, planning }), answer, runId, responseId, agentName, instanceId, errors,
     usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt },
   };
   if (failure != null) result.failure = failure;

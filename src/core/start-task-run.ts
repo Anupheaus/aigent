@@ -18,6 +18,7 @@ import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
 import { setUpRunShaping } from './run-shaping.js';
+import { setUpRunPlanning } from './run-planning-setup.js';
 import { createStabilityMonitor } from '../context/stability-monitor.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { runTask } from './run-task.js';
@@ -58,6 +59,8 @@ export interface ResolvedAgent {
   feedbackCollector?: FeedbackCollector;
   /** The definition's `shapers`, validated. */
   shapers?: ShapersSetting;
+  /** The agent has the built-in `todo` tool (`todo` is not false). */
+  isTodoEnabled: boolean;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -136,7 +139,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { feedbackCollector } = agent;
   const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
   const shapersSetting = input.shapers ?? agent.shapers;
-  const { registry, shaping } = setUpRunShaping({ registry: agent.registry, settings: shapersSetting, isFeedbackEnabled: feedbackCollector != null });
+  const { registry: shapingRegistry, shaping } = setUpRunShaping({ registry: agent.registry, settings: shapersSetting, isFeedbackEnabled: feedbackCollector != null });
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });
@@ -147,6 +150,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const stream = createEventStream<AigentEvent, TaskResult>();
   const emit = (event: AigentEvent): void => stream.push(event);
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });
+  const { registry, planning } = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
 
   async function execute(): Promise<void> {
     for (const message of primary.warnings) emit({ type: 'warning', message });
@@ -156,7 +160,8 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
         runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
         ...(services.cache == null ? {} : { cache: services.cache }),
         ...(shaping == null ? {} : { shaping }),
-        volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [] },
+        volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
+        planning,
         routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
