@@ -29,7 +29,10 @@ export interface SchedulerOptions {
 }
 
 export interface QueuedInfo {
-  /** 1-based place in the key's queue when the request joined it. */
+  /**
+   * 1-based place in admission order (lane first, then fairness across agents) when the request joined the queue;
+   * not its arrival order. Later arrivals can move it.
+   */
   position: number;
   reason: QueueReason;
   /** Known wait for a time-based reason (budget refill or pause), in ms. */

@@ -114,6 +114,24 @@ describe('createScheduler lanes and fairness', () => {
     expect(order).toEqual(['quiet', 'noisy', 'noisy']);
   });
 
+  it('reports position as the place in admission order: an interactive request behind five background ones is next', async () => {
+    const { scheduler } = harness({ limits: { p: { maxConcurrent: 1 } } });
+    await request(scheduler).lease;
+    const background = Array.from({ length: 5 }, () => request(scheduler, { priority: 'background', agentName: 'batch' }));
+    const interactive = request(scheduler, { agentName: 'user' });
+    expect(background.map(tracked => tracked.queued[0]?.position)).toEqual([1, 2, 3, 4, 5]);
+    expect(interactive.queued).toEqual([{ position: 1, reason: 'concurrency' }]);
+  });
+
+  it('reports position after fairness: a never-served agent goes ahead of a busy agent queued earlier', async () => {
+    const { scheduler } = harness({ limits: { p: { maxConcurrent: 1 } } });
+    await request(scheduler, { agentName: 'noisy' }).lease;
+    const noisy = [request(scheduler, { agentName: 'noisy' }), request(scheduler, { agentName: 'noisy' })];
+    const quiet = request(scheduler, { agentName: 'quiet' });
+    expect(noisy.map(tracked => tracked.queued[0]?.position)).toEqual([1, 2]);
+    expect(quiet.queued[0]?.position).toBe(1);
+  });
+
   it('promotes a background request that waited maxBackgroundWaitMs ahead of newer interactive ones', async () => {
     const { scheduler, time } = harness({ limits: { p: { maxConcurrent: 1 } }, maxBackgroundWaitMs: 1_000 });
     const holder = await request(scheduler).lease;

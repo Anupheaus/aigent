@@ -2,7 +2,7 @@ import { createAigentError } from '../core/aigent-error.js';
 import { createSystemClock, createTimerSleeper } from '../core/runtime-services.js';
 import { blockFor, chargeAdmission, createKeyState } from './key-state.js';
 import type { AdmissionBlock, KeyState, Waiter } from './key-state.js';
-import { pickNextWaiter } from './pick-next-waiter.js';
+import { pickNextWaiter, queuePosition } from './pick-next-waiter.js';
 import { parseSchedulerOptions } from './scheduler-options.js';
 import type { Lease, LeaseRequest, ProviderLimits, QueuedInfo, Scheduler, SchedulerOptions, SchedulerSnapshot } from './scheduler-types.js';
 
@@ -114,7 +114,8 @@ export function createScheduler(options: SchedulerOptions = {}): Scheduler {
       ?? (head == null ? undefined : blockFor({ state, estimatedTokens: head.request.estimatedTokens, now }))
       ?? FALLBACK_BLOCK;
     const { reason, waitMs } = block;
-    return { position: state.waiters.indexOf(waiter) + 1, reason, ...(waitMs == null ? {} : { waitMs }) };
+    const position = queuePosition({ waiter, waiters: state.waiters, now, maxBackgroundWaitMs, lastServed: state.lastServed });
+    return { position, reason, ...(waitMs == null ? {} : { waitMs }) };
   }
 
   function acquire(request: LeaseRequest): Promise<Lease> {

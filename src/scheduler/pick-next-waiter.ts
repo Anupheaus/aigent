@@ -45,3 +45,29 @@ export function pickNextWaiter<T extends QueuedRequest>(params: PickNextParams<T
   }
   return best;
 }
+
+export interface QueuePositionParams<T extends QueuedRequest> extends PickNextParams<T> {
+  /** One of `waiters`. */
+  waiter: T;
+}
+
+/**
+ * The 1-based place `waiter` holds in admission order now: `pickNextWaiter` applied repeatedly, each pick counting as
+ * that agent's latest admission, so lanes and fairness are reflected rather than arrival order. Later arrivals can
+ * change it.
+ */
+export function queuePosition<T extends QueuedRequest>(params: QueuePositionParams<T>): number {
+  const { waiter, waiters, now, maxBackgroundWaitMs, lastServed } = params;
+  const remaining = [...waiters];
+  const served = new Map(lastServed);
+  let admissions = Math.max(0, ...served.values());
+  for (let position = 1; remaining.length > 0; position += 1) {
+    const next = pickNextWaiter({ waiters: remaining, now, maxBackgroundWaitMs, lastServed: served });
+    if (next == null || next === waiter) return position;
+    remaining.splice(remaining.indexOf(next), 1);
+    admissions += 1;
+    served.set(next.agentName, admissions);
+  }
+  // Not queued: it would be admitted after everything ahead of it.
+  return waiters.length + 1;
+}
