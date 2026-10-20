@@ -16,6 +16,15 @@ describe('findProtectedSpans', () => {
     expect(findProtectedSpans(text)).toEqual(spans);
   });
 
+  it.each([
+    ["any n't contraction, with either apostrophe", "You don’t delete it and they weren't told.", ['don’t', "weren't"]],
+    ['exception and limit words', 'Approve refunds unless asked, except main; avoid it, none, nothing, neither, nobody.', ['unless', 'except', 'avoid', 'none', 'nothing', 'neither', 'nobody']],
+    ['comparisons and order words', 'Use at most 3 retries, at least 2, less than 9, more than 1, fewer than 4, before and after.', ['at most 3', 'at least 2', 'less than 9', 'more than 1', 'fewer than 4', 'before', 'after']],
+    ['signed numbers', 'Set the offset to -5 or +2 and keep it ≤10.', ['-5', '+2', '≤10']],
+  ])('finds %s', (_name, text, spans) => {
+    expect(findProtectedSpans(text)).toEqual(spans);
+  });
+
   it('merges overlapping matches into the outermost span, in text order', () => {
     const text = 'Use `createAigent(3)` at /tmp/x.ts';
     expect(findProtectedRanges(text).map(({ start, end }) => text.slice(start, end))).toEqual(['`createAigent(3)`', '/tmp/x.ts']);

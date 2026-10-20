@@ -73,6 +73,33 @@ describe('compressText', () => {
     expect((await setup({ compressor: dropOne }).run('Do not run it and do not stop it before the whole job has finished running.')).warning).toBeDefined();
   });
 
+  it.each([
+    ['a curly-apostrophe negation', 'You don’t delete production data.', 'You delete production data.'],
+    ['a contraction outside any list', "The files weren't changed by the job.", 'The files changed by the job.'],
+    ['"unless"', 'Approve refunds unless the amount exceeds the limit.', 'Approve refunds.'],
+    ['"except"', 'Delete all branches except main.', 'Delete all branches.'],
+    ['a minus sign', 'Set the offset to -5 for this run.', 'Set the offset to 5 for this run.'],
+    ['"at most"', 'Use at most 3 retries for this job.', 'Use 3 retries for this job.'],
+    ['"Avoid"', 'Avoid calling the billing service directly.', 'Try calling the billing service directly.'],
+    ['"nothing" and "none"', 'Nothing was found and none of the jobs ran.', 'Was found and of the jobs ran.'],
+    ['reordered spans', 'Edit src/app.ts only; never edit src/db.ts.', 'Edit src/db.ts only; never edit src/app.ts.'],
+    ['an inserted negation', 'Delete the logs after the export finishes.', 'Do not delete the logs after the export finishes.'],
+  ])('rejects output that changed %s', async (_name, source, output) => {
+    const rewriting = { id: 'rw', version: '1', compress: async () => ({ text: output }) };
+    const text = source.padEnd(source.length + 400, ' ');
+    expect((await setup({ compressor: rewriting, minTokens: 0 }).run(text)).warning).toBe('Compression of context dropped protected content and was ignored');
+  });
+
+  it('re-checks a cache hit against the current protection rules and recompresses one that fails them', async () => {
+    const first = await setup().run(INSTRUCTION);
+    // A store shared with an older release (or tampered with) holds an entry that dropped every "not".
+    const { cache, run } = setup();
+    await cache.set({ key: first.key, entry: { text: INSTRUCTION.replaceAll('not ', ''), isRejected: false, compressorId: 'fake', compressorVersion: '1', recordedAt: 0 } });
+    const again = await run(INSTRUCTION);
+    expect(again.cacheHit).toBe(false);
+    expect(again.text).toBe(first.text);
+  });
+
   it('uses the original with a warning when the compressor throws', async () => {
     const failing = { id: 'f', version: '1', compress: async () => { throw new Error('model missing'); } };
     expect(await setup({ compressor: failing }).run(PROSE)).toMatchObject({ text: PROSE, warning: 'Compression of context failed (model missing) and was ignored' });

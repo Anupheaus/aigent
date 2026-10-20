@@ -8,6 +8,7 @@ import type { CompressionCache, CompressedEntry } from './compression-cache.js';
 import type { ResolvedCompression } from './compression-options.js';
 import type { CompressedText, CompressionField } from './compressor-types.js';
 import { findProtectedSpans } from './protect.js';
+import { keepsProtected, PROTECTION_VERSION } from './protection-check.js';
 
 const HASH_ALGORITHM = 'sha256';
 
@@ -21,31 +22,10 @@ export interface CompressTextParams {
   signal?: AbortSignal;
 }
 
-/** sha-256 over the source, the compressor's id and version, and every parameter that changes its output. */
+/** sha-256 over the source, the compressor's id and version, every parameter that changes its output and the protection rules. */
 function cacheKey(params: { text: string; compression: ResolvedCompression }): string {
   const { text, compression: { compressor: { id, version }, targetRatio, forceKeep } } = params;
-  return createHash(HASH_ALGORITHM).update(canonicalJson({ source: text, compressor: { id, version }, params: { targetRatio, forceKeep } })).digest('hex');
-}
-
-/** The exact substrings the output must still contain. */
-function requiredSpans(params: { text: string; forceKeep: string[] }): string[] {
-  const { text, forceKeep } = params;
-  return [...findProtectedSpans(text), ...forceKeep.filter(entry => text.includes(entry))];
-}
-
-/** Whole occurrences of `span` in `text`: a span that starts or ends with a word character must not touch another. */
-function occurrences(params: { text: string; span: string }): number {
-  const { text, span } = params;
-  const escaped = span.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const before = /^\w/.test(span) ? '(?<!\\w)' : '';
-  const after = /\w$/.test(span) ? '(?!\\w)' : '';
-  return [...text.matchAll(new RegExp(`${before}${escaped}${after}`, 'g'))].length;
-}
-
-/** Every required span occurs in the output at least as often as in the source ("not" inside "notes" does not count). */
-function keepsRequired(params: { text: string; output: string; required: string[] }): boolean {
-  const { text, output, required } = params;
-  return [...new Set(required)].every(span => occurrences({ text: output, span }) >= occurrences({ text, span }));
+  return createHash(HASH_ALGORITHM).update(canonicalJson({ source: text, compressor: { id, version }, params: { targetRatio, forceKeep }, protection: PROTECTION_VERSION })).digest('hex');
 }
 
 function rejectedWarning(field: CompressionField): string {
@@ -96,10 +76,10 @@ async function askCompressor(params: CompressTextParams & { required: string[] }
 async function runCompressor(params: CompressTextParams & { recordedAt: number }): Promise<{ entry: CompressedEntry; failure?: string }> {
   const { text, compression: { compressor, forceKeep }, recordedAt, signal } = params;
   const base = { compressorId: compressor.id, compressorVersion: compressor.version, recordedAt };
-  const required = requiredSpans({ text, forceKeep });
+  const required = findProtectedSpans(text, forceKeep);
   try {
     const output = await askCompressor({ ...params, required });
-    if (!keepsRequired({ text, output, required })) return { entry: { ...base, text, isRejected: true } };
+    if (!keepsProtected({ text, output, forceKeep })) return { entry: { ...base, text, isRejected: true } };
     // Output that is not shorter is no compression at all; the original is sent as is.
     return { entry: { ...base, text: output.length < text.length ? output : text, isRejected: false } };
   } catch (error) {
@@ -119,7 +99,9 @@ export async function compressText(params: CompressTextParams): Promise<Compress
   const unchanged: CompressedEntry = { text, isRejected: false, compressorId: '', compressorVersion: '', recordedAt: 0 };
   if (estimateTokens(text) < minTokens) return toResult({ text, field, key, entry: unchanged, cacheHit: false, latencyMs: 0, isSkipped: true });
   const cached = await cache.get(key);
-  if (cached != null) return toResult({ text, field, key, entry: cached, cacheHit: true, latencyMs: 0 });
+  // Re-checked on every hit (it is cheap): an entry from a shared store is not trusted blindly.
+  const isTrusted = cached != null && (cached.isRejected || cached.text === text || keepsProtected({ text, output: cached.text, forceKeep: params.compression.forceKeep }));
+  if (cached != null && isTrusted) return toResult({ text, field, key, entry: cached, cacheHit: true, latencyMs: 0 });
   const startedAt = now();
   const { entry, failure } = await runCompressor({ ...params, recordedAt: startedAt });
   const latencyMs = now() - startedAt;
