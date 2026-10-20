@@ -53,6 +53,8 @@ export interface InstanceRecord {
 export interface InterruptedRun {
   state: RunState;
   ledger: LedgerEntry[];
+  /** Set when checkpoints after the loaded one are missing (see `Checkpoint.stale`). */
+  stale?: { missingSeq: number; latestSeq: number };
 }
 
 /** An opened instance: its lease (when on), fenced writes and what was restored. */
@@ -109,7 +111,7 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
     for (const { runId, status, mode } of record?.runs ?? []) {
       if (mode !== 'task' || !RESUMABLE.has(status)) continue;
       const checkpoint = await readLatestCheckpoint({ store, instanceId: record?.instanceId ?? '', streamId: runId });
-      if (checkpoint?.state.kind === 'run') interrupted.set(runId, { state: checkpoint.state, ledger: await loadCallLedger({ store, runId }) });
+      if (checkpoint?.state.kind === 'run') interrupted.set(runId, { state: checkpoint.state, ledger: await loadCallLedger({ store, runId }), ...(checkpoint.stale == null ? {} : { stale: checkpoint.stale }) });
     }
     return interrupted;
   }

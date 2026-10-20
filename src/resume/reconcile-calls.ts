@@ -19,6 +19,8 @@ export interface RestoredRun {
   ledger: LedgerEntry[];
   /** Call id → the envelope to give the model (e.g. the answers to a suspended `ask_user`). */
   overrides?: ReadonlyMap<string, ToolEnvelope>;
+  /** The checkpoint is not the stream's latest: later records are missing (see `Checkpoint.stale`). */
+  stale?: { missingSeq: number; latestSeq: number };
 }
 
 /** The completed round, and the number of turns the run had made once its request had been sent. */
@@ -47,14 +49,15 @@ export interface ReconcileParams {
 
 /**
  * The top-level calls of the round the run was in when it stopped: its response's calls when a checkpoint recorded
- * it, else the ledger's calls from the request that was in flight (later than every counted turn). Older ledger
- * entries belong to rounds already committed, or summarised away by a compaction, and are never replayed.
+ * it, else the ledger's calls from the request that was in flight (the turn after the counted ones). Older ledger
+ * entries belong to rounds already committed, or summarised away by a compaction, and are never replayed; later ones
+ * (only with a stale checkpoint) belong to rounds the checkpoint never saw, which are not rebuilt either.
  */
 function interruptedCalls(restored: RestoredRun): ToolCall[] {
   const { state: { inFlight, totals, context: { messages } }, ledger } = restored;
   const committed = new Set(messages.flatMap(({ message: { toolCallId } }) => (toolCallId == null ? [] : [toolCallId])));
   const fromLedger = (): ToolCall[] => ledger
-    .filter(({ parentCallId, turn }) => parentCallId == null && turn > totals.turns)
+    .filter(({ parentCallId, turn }) => parentCallId == null && turn === totals.turns + 1)
     .map(({ callId, tool, args }) => ({ id: callId, name: tool, args }));
   const calls = inFlight?.assistant.toolCalls ?? fromLedger();
   return calls.filter(({ id }) => !committed.has(id));

@@ -82,7 +82,7 @@ export function createSuspendedTurns(params: CreateSuspendedTurnsParams): Suspen
           const { instance } = await open();
           const checkpoint = await readLatestCheckpoint({ store: instance.store, instanceId: agent.instanceId, streamId: turn.runId });
           if (checkpoint?.state.kind !== 'run') throw createAigentError({ code: 'invalid_input', message: `The suspended turn's run '${turn.runId}' has no checkpoint to continue from`, details: { runId: turn.runId, sessionId } });
-          return { state: checkpoint.state, ledger: await loadCallLedger({ store: instance.store, runId: turn.runId }), overrides: new Map([[turn.callId, envelope]]) };
+          return { state: checkpoint.state, ledger: await loadCallLedger({ store: instance.store, runId: turn.runId }), overrides: new Map([[turn.callId, envelope]]), ...(checkpoint.stale == null ? {} : { stale: checkpoint.stale }) };
         },
       };
     },

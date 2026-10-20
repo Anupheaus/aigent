@@ -122,6 +122,11 @@ export interface Checkpoint {
   isSnapshot: boolean;
   messagesFrom?: number;
   state: RunState | SessionState;
+  /**
+   * Set by the reader (never stored) when records between this one and the head are missing: the state is older than
+   * the stream's latest, and a resume from it says so.
+   */
+  stale?: { missingSeq: number; latestSeq: number };
 }
 
 /** Where a checkpoint stream stands, read first so a restore reads only the latest snapshot and its tail. */

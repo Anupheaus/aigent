@@ -57,6 +57,10 @@ export async function prepareRunResume(params: PrepareRunResumeParams): Promise<
   const instance = await runtime.open({ instanceId: agent.instanceId, agentName: agent.name, agentVersion: agent.agentVersion });
   for (const message of instance.takeWarnings()) emit({ type: 'warning', message });
   const restored = await restore?.load();
+  if (restored?.stale != null) {
+    const { missingSeq, latestSeq } = restored.stale;
+    emit({ type: 'warning', message: `Resuming run '${restore?.streamId}' from an older checkpoint: records ${missingSeq} to ${latestSeq} are missing, so work done after it (including tool effects) is not in the resumed context; check for repeated effects` });
+  }
   const streamId = restore?.streamId ?? runId;
   const head = restore == null ? undefined : await readCheckpointHead({ store: instance.store, instanceId: agent.instanceId, streamId });
   if (restored != null) {

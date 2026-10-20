@@ -7,6 +7,8 @@ import type { Checkpoint, CheckpointBoundary, CheckpointHead, RunState, SessionS
 import { checkpointKey, headKey } from './checkpoint-reader.js';
 
 export const DEFAULT_SNAPSHOT_EVERY = 25;
+/** Attempts per record write; a transient store failure is retried before the checkpoint is given up. */
+const WRITE_ATTEMPTS = 3;
 export const DEFAULT_KEEP_SNAPSHOTS = 2;
 
 /** `createAigent({ resume })` checkpoint settings. */
@@ -70,6 +72,25 @@ export function createCheckpointWriter(params: CreateCheckpointWriterParams): Ch
     snapshots = kept;
   }
 
+  /**
+   * Creates the record, retrying a transient failure. A retry that finds the record already there checks it is this
+   * one (the failed attempt landed after all); any other record means another writer owns the stream.
+   */
+  async function createRecord(checkpoint: Checkpoint): Promise<void> {
+    const key = checkpointKey({ ...ref, seq: checkpoint.seq });
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        if (await records.create({ queueKey, record: { collection: CHECKPOINTS_COLLECTION, key, value: checkpoint } })) return;
+        const existing = (await store.get<Checkpoint>(CHECKPOINTS_COLLECTION, key))?.value;
+        if (attempt > 1 && existing?.at === checkpoint.at && existing.boundary === checkpoint.boundary && existing.fence === checkpoint.fence) return;
+        throw createAigentError({ code: 'store_conflict', message: `Checkpoint ${checkpoint.seq} of '${headKey(ref)}' already exists; another writer owns this stream`, details: { ...ref, seq: checkpoint.seq } });
+      } catch (error) {
+        const isConflict = (error as { code?: unknown }).code === 'store_conflict';
+        if (isConflict || attempt >= WRITE_ATTEMPTS) throw error;
+      }
+    }
+  }
+
   /** Writes run one at a time (an approval can be checkpointed while a turn's checkpoint is being written). */
   let tail: Promise<unknown> = Promise.resolve();
 
@@ -81,18 +102,19 @@ export function createCheckpointWriter(params: CreateCheckpointWriterParams): Ch
 
   async function writeNext(params: { boundary: CheckpointBoundary; state: RunState | SessionState }): Promise<Checkpoint> {
     const { boundary, state } = params;
-    seq += 1;
+    // Taken only once the record is stored: a write that fails leaves no gap for the reader to stop at.
+    const nextSeq = seq + 1;
     const next = fingerprints(state);
     const from = previous == null ? undefined : appendedFrom({ previous, next });
     const lastSnapshot = snapshots.at(-1) ?? 0;
-    const isSnapshot = from == null || state.kind !== 'run' || seq - lastSnapshot >= snapshotEvery;
+    const isSnapshot = from == null || state.kind !== 'run' || nextSeq - lastSnapshot >= snapshotEvery;
     const stored: RunState | SessionState = isSnapshot || state.kind !== 'run' ? state : { ...state, context: { ...state.context, messages: state.context.messages.slice(from) } };
     const checkpoint: Checkpoint = {
       schemaVersion: CHECKPOINT_SCHEMA_VERSION, instanceId, ...(stream.kind === 'run' ? { runId: stream.id } : { sessionId: stream.id }),
-      seq, boundary, at: clock.now(), fence: fence(), isSnapshot, ...(isSnapshot ? {} : { messagesFrom: from }), state: stored,
+      seq: nextSeq, boundary, at: clock.now(), fence: fence(), isSnapshot, ...(isSnapshot ? {} : { messagesFrom: from }), state: stored,
     };
-    const isCreated = await records.create({ queueKey, record: { collection: CHECKPOINTS_COLLECTION, key: checkpointKey({ ...ref, seq }), value: checkpoint } });
-    if (!isCreated) throw createAigentError({ code: 'store_conflict', message: `Checkpoint ${seq} of '${headKey(ref)}' already exists; another writer owns this stream`, details: { ...ref, seq } });
+    await createRecord(checkpoint);
+    seq = nextSeq;
     previous = next;
     if (isSnapshot) snapshots.push(seq);
     const nextHead: CheckpointHead = { ...ref, kind: stream.kind, latestSeq: seq, snapshots: [...snapshots], updatedAt: clock.now(), ...(state.kind === 'run' ? { status: state.status } : {}) };

@@ -1,5 +1,6 @@
 import type { AigentEvent } from '../core/aigent-events.js';
 import { createAigentError } from '../core/aigent-error.js';
+import { describeError } from '../core/describe-value.js';
 import type { Clock } from '../core/runtime-services.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import { hashArgs } from '../resume/call-ledger.js';
@@ -114,7 +115,8 @@ export function createApprovalCenter(params: CreateApprovalCenterParams): Approv
       else signal.addEventListener('abort', onAbort, { once: true });
     });
     emit({ type: 'approval-request', requestId, callId: call.id, tool: call.name, argsSummary: summariseArgs({ args: call.args, captureContent: true }), activity: activityOf({ tool, args: call.args }), ...(state.risk == null ? {} : { risk: state.risk }), ...(reason == null ? {} : { reason }) });
-    await onPending?.().catch(() => undefined);
+    // The request still waits (a person may answer it), but a restart would lose it: the caller is told.
+    await onPending?.().catch((error: unknown) => emit({ type: 'warning', message: `Approval request '${requestId}' could not be checkpointed, so it will not survive a restart: ${describeError(error)}` }));
     const given = await decision;
     waiters.delete(requestId);
     if (given != null) return settleDecision({ gate, requestId, decision: given });

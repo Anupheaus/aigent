@@ -45,8 +45,9 @@ export async function readLatestCheckpoint(params: StreamRef & { store: Store })
   let folded: Checkpoint | undefined;
   for (let seq = snapshotSeq; seq <= head.latestSeq; seq += 1) {
     const stored = await store.get<unknown>(CHECKPOINTS_COLLECTION, checkpointKey({ ...params, seq }));
-    // A record missing from the tail (a write that never landed) ends the readable stream there.
-    if (stored == null) break;
+    // A record missing before the head (lost, or removed outside the library): the stream is readable only up to
+    // here, and the caller is told rather than handed an older state as if it were the latest.
+    if (stored == null) return folded == null ? undefined : { ...folded, stale: { missingSeq: seq, latestSeq: head.latestSeq } };
     const record = migrateCheckpoint(stored.value);
     folded = folded == null ? record : foldCheckpoint({ base: folded, next: record });
   }
