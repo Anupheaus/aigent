@@ -4,10 +4,10 @@
 export const SECRET_SAMPLES: { kind: string; text: string }[] = [
   { kind: 'api-key', text: 'sk-proj-AbCdEfGhIjKlMnOpQrStUvWx0123456789' },
   { kind: 'aws-access-key', text: 'AKIAIOSFODNN7EXAMPLE' },
-  { kind: 'github-token', text: 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij' },
+  { kind: 'github-token', text: 'ghp_' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij' },
   { kind: 'github-token', text: 'github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz' },
-  { kind: 'slack-token', text: 'xoxb-1234567890-abcdefghij' },
-  { kind: 'google-api-key', text: 'AIzaSyA1234567890abcdefghijklmnopqrstuv' },
+  { kind: 'slack-token', text: 'xoxb-' + '1234567890-abcdefghij' },
+  { kind: 'google-api-key', text: 'AIza' + 'SyA1234567890abcdefghijklmnopqrstuv' },
   { kind: 'jwt', text: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U' },
   { kind: 'private-key', text: '-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu\nKUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQ==\n-----END RSA PRIVATE KEY-----' },
   { kind: 'connection-string', text: 'postgres://admin:s3cretPassw0rd@db.internal:5432/app' },

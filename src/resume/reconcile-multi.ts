@@ -28,6 +28,7 @@ export async function reconcileMulti(params: ReconcileParams & { call: ToolCall 
   }
   const { calls } = parsed.value as InnerCallArgs;
   const envelopes: ToolEnvelope[] = [];
+  const settledCalls: ExecutedToolCall[] = [];
   // One at a time, in call order: each may ask for approval, and the order keeps the outcome deterministic.
   for (const inner of calls) {
     const innerCall: ToolCall = { id: inner.id, name: inner.tool, args: inner.args };
@@ -35,8 +36,12 @@ export async function reconcileMulti(params: ReconcileParams & { call: ToolCall 
       ? rejectToolCall({ call: innerCall, error: nestedMultiError() })
       : await reconcileCall({ ...params, call: innerCall, ledgerId: innerLedgerId({ parentCallId: call.id, innerId: inner.id }), parentCallId: call.id });
     envelopes.push(settled.envelope);
+    settledCalls.push(settled);
   }
   const envelope: ToolEnvelope = { id: call.id, tool: MULTI_TOOL_NAME, ok: true, result: envelopes };
   if (entry != null) await params.ledger?.complete(call.id, envelope).catch(() => undefined);
-  return restoredCall(envelope);
+  // What the inner calls did (or would have done) belongs to the wrapper, as in a live run.
+  const plannedEffects = settledCalls.flatMap(({ plannedEffects: planned = [] }) => planned);
+  const effects = settledCalls.flatMap(({ effects: captured = [] }) => captured);
+  return { ...restoredCall(envelope), ...(plannedEffects.length === 0 ? {} : { plannedEffects }), ...(effects.length === 0 ? {} : { effects }) };
 }

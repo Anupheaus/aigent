@@ -50,9 +50,10 @@ function unavailable(params: { call: ToolCall; what: string; error: unknown }): 
 
 /** The context the call's tool sees: the same key as its first execution, and the signal a live run would give it. */
 function contextOf(params: ReconcileCallParams & { tool?: Tool }): ToolContext {
-  const { call, ledgerId, ids, signal, sideEffectSignal, tool } = params;
+  const { call, ledgerId, ids, signal, sideEffectSignal, tool, dryRun } = params;
   const toolSignal = tool?.hasSideEffects === true && sideEffectSignal != null ? sideEffectSignal : signal;
-  return { ...ids, callId: call.id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ids.runId, callId: ledgerId }) };
+  // A resumed dry run stays a dry run: its mutating calls are simulated, never run for real.
+  return { ...ids, callId: call.id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ids.runId, callId: ledgerId }), ...(dryRun === true ? { dryRun: true } : {}) };
 }
 
 /** Runs a call (again), recorded in the ledger first like any call. */
@@ -71,7 +72,9 @@ async function execute(params: ReconcileCallParams & { tool?: Tool }): Promise<E
 
 /** Runs the call (again) once the approval gate allows it; refused calls get the gate's result. */
 async function gated(params: ReconcileCallParams & { tool?: Tool; force?: { reason: string } }): Promise<ExecutedToolCall> {
-  const { call, ledgerId, tool, force, gate } = params;
+  const { call, ledgerId, tool, force, gate, dryRun } = params;
+  // A simulated call changes nothing, so there is nothing for a person to approve (as in a live dry run).
+  if (dryRun === true && tool?.hasSideEffects === true) return execute(params);
   if (tool != null && gate != null) {
     // The request is keyed by the ledger id, like the request the live run made for this call.
     const outcome = await gate({ call: { ...call, id: ledgerId }, tool, ...(force == null ? {} : { force }) });

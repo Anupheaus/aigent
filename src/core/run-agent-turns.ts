@@ -157,10 +157,11 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   };
 
   let isReady = true;
+  const { effects } = params;
   if (restore != null) {
     const round = await reconcileInterruptedRound({
       restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
-      ...(ledger == null ? {} : { ledger }),
+      ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }),
       ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),
     });
     // Not reported through onCommit: a chat already holds this round (the cut-short reply), so its history is not repeated.

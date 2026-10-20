@@ -45,6 +45,10 @@ export interface ReconcileParams {
   now(): number;
   emit(event: AigentEvent): void;
   gate?: ReconcileGate;
+  /** The run is a dry run: (re-)run calls are simulated like any of its calls, and need no approval. */
+  dryRun?: boolean;
+  /** Takes what each settled call did or would have done (the run's effect log and planned effects). */
+  record?(executed: ExecutedToolCall): void;
 }
 
 /**
@@ -76,13 +80,14 @@ function thinkingOf(params: { restored: RestoredRun; ids: ReadonlySet<string> })
  * their tool's `resume` policy, and an `aigent_multi` call is settled call by call. Empty when the round was committed.
  */
 export async function reconcileInterruptedRound(params: ReconcileParams): Promise<ReconciledRound> {
-  const { restored, registry, emit } = params;
+  const { restored, registry, emit, record } = params;
   const { state: { inFlight, totals }, ledger } = restored;
   const calls = interruptedCalls(restored);
   if (calls.length === 0) return { messages: [], turn: totals.turns };
   const executed: ExecutedToolCall[] = [];
   for (const call of calls) {
     const result = call.name === MULTI_TOOL_NAME ? await reconcileMulti({ ...params, call }) : await reconcileCall({ ...params, call, ledgerId: call.id });
+    record?.(result);
     emit({ type: 'tool-result', callId: call.id, envelope: result.envelope });
     executed.push(result);
   }
