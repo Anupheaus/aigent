@@ -1,0 +1,92 @@
+import type { FsPermission } from '../../../security/fs-policy-types.js';
+import type { ProcessResult } from '../../../security/process-runner.js';
+import { separatorOf } from '../../../security/path-flavour.js';
+import { toolFailure } from '../../tool-failure.js';
+import { executingKeys, gitSandbox, hardenedSettings } from './git-config-guard.js';
+import type { GitDeps } from './git-shared.js';
+
+/** A repository the policy allows: its canonical root and the git executable. */
+export interface GitRepo {
+  path: string;
+  file: string;
+}
+
+/** `runGit`. */
+export interface GitCall {
+  deps: GitDeps;
+  repo: GitRepo;
+  /** The subcommand and its arguments, built by the tool from validated fields. */
+  args: string[];
+  signal: AbortSignal;
+  /** Hooks run only for a commit configured with `runHooks`. */
+  runHooks?: boolean;
+  /** Further `-c` settings (after the hardening, so they win). */
+  settings?: string[];
+  /** Exit codes that are not failures (default 0 only). */
+  okExitCodes?: number[];
+}
+
+function failed(params: { code: string; message: string; category?: 'denied' | 'thrown'; details?: Record<string, unknown> }): never {
+  throw toolFailure({ retryable: false, ...params });
+}
+
+/**
+ * Checks a repository through the policy: `git` must be allowed, the root must pass the cwd policy (and `write` for
+ * writes), and it must be the top of a work tree with a real `.git` directory (git never searches upwards here).
+ */
+export async function openRepo(params: { deps: GitDeps; repo?: string; permission?: FsPermission }): Promise<GitRepo> {
+  const { deps: { policy }, repo, permission = 'read' } = params;
+  const decision = await policy.checkCommand({ command: 'git', args: [], ...(repo == null ? {} : { cwd: repo }) });
+  if (!decision.allowed) failed({ category: 'denied', code: decision.code, message: decision.message });
+  const { cwdPolicy, access } = policy;
+  if (permission !== 'read') {
+    const write = await cwdPolicy.check({ path: decision.cwd, permission, access });
+    if (!write.allowed) failed({ category: 'denied', code: write.code, message: write.message });
+  }
+  const gitDir = `${decision.cwd}${separatorOf(access.platform)}.git`;
+  const type = await access.lstat(gitDir).then(({ type: found }) => found, () => undefined);
+  if (type !== 'directory') failed({ code: 'not_a_repository', message: `'${decision.cwd}' is not the root of a git work tree with a .git directory`, details: { repo: decision.cwd } });
+  return { path: decision.cwd, file: decision.file };
+}
+
+/** The policy's scrubbed environment without any inherited `GIT_*`, plus the variables that pin and harden git. */
+async function gitEnvironment(params: { deps: GitDeps; repo: GitRepo }): Promise<Record<string, string>> {
+  const { deps: { policy }, repo } = params;
+  const { globalConfig } = await gitSandbox();
+  const base = Object.fromEntries(Object.entries(policy.environment()).filter(([name]) => !/^GIT_/i.test(name)));
+  return {
+    ...base,
+    GIT_DIR: `${repo.path}${separatorOf(policy.access.platform)}.git`, GIT_WORK_TREE: repo.path,
+    GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: globalConfig,
+    GIT_LITERAL_PATHSPECS: '1', GIT_PAGER: 'cat', PAGER: 'cat', GIT_ASKPASS: '', SSH_ASKPASS: '',
+  };
+}
+
+async function spawnGit(params: { deps: GitDeps; repo: GitRepo; argv: string[]; signal: AbortSignal }): Promise<ProcessResult> {
+  const { deps: { policy, runner }, repo, argv, signal } = params;
+  const env = await gitEnvironment(params);
+  try {
+    return await runner.run({ file: repo.file, args: argv, cwd: repo.path, env, signal, timeoutMs: policy.limits.timeoutMs, maxOutputBytes: policy.limits.maxOutputBytes });
+  } catch (error) {
+    return failed({ code: 'spawn_failed', message: `git could not be started: ${error instanceof Error ? error.message : String(error)}` });
+  }
+}
+
+/**
+ * Runs git hardened: every config key that could run a program is overridden (found by listing the repository's
+ * effective config, which runs nothing), then pager, fsmonitor, hooks, `ext::` and signing are pinned off, with no
+ * optional locks. A timeout, a stop or an unexpected exit code is a failure with git's message.
+ */
+export async function runGit(call: GitCall): Promise<ProcessResult> {
+  const { deps, repo, args, signal, runHooks = false, settings = [], okExitCodes = [0] } = call;
+  const { hooksDir } = await gitSandbox();
+  const hardened = hardenedSettings({ hooksDir, runHooks });
+  const asConfig = (entries: string[]): string[] => entries.flatMap(entry => ['-c', entry]);
+  const listed = await spawnGit({ deps, repo, signal, argv: [...asConfig(hardened), 'config', '--list', '--name-only', '--includes'] });
+  const overrides = executingKeys(listed.exitCode === 0 ? listed.stdout.split(/\r?\n/).filter(name => name !== '') : []).map(name => `${name}=`);
+  const result = await spawnGit({ deps, repo, signal, argv: [...asConfig([...overrides, ...hardened, ...settings]), '--no-optional-locks', ...args] });
+  if (result.timedOut) failed({ code: 'timeout', message: `git ${args[0] ?? ''} did not finish in time and was stopped` });
+  if (result.aborted) failed({ code: 'aborted', message: `git ${args[0] ?? ''} was stopped because the run was stopped` });
+  if (!okExitCodes.includes(result.exitCode ?? -1)) failed({ code: 'git_failed', message: `git ${args[0] ?? ''} failed (exit ${String(result.exitCode)}): ${result.stderr.trim().slice(0, 500)}`, details: { exitCode: result.exitCode } });
+  return result;
+}

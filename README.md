@@ -799,6 +799,22 @@ const agent = ai.agent({ name: 'builder', model, tools: shellTools({ policy }) }
 - **Environment:** the child gets only allowlisted variables (`env.allow`, default `DEFAULT_ENV_ALLOW`: `PATH`, home, temp, locale and Windows system directories; compared case-insensitively on Windows) plus `env.set`; credentials such as `AWS_*`, `*_TOKEN` and `NPM_TOKEN` never reach it. `PATH` is always set: to `searchDirs` when given (on Windows libuv would otherwise copy the parent's).
 - **Side effects:** `shell_run` has side effects (`risk: 'high'`, `resume: 'ask'`, no undo). A dry run executes nothing and returns the resolved program, argv, working directory and the environment's variable names. `approvals: 'by-policy'` (the default) asks for commands whose `requiresApproval` is true (or whose predicate matches the argv); `'always'` asks for every call. Unattended runs are refused unless an `approvals.allow` rule grants the call.
 
+### Git (`@anupheaus/aigent/tools/git`)
+
+```ts
+import { createShellPolicy } from '@anupheaus/aigent/tools/shell';
+import { gitTools } from '@anupheaus/aigent/tools/git';
+
+const policy = createShellPolicy({ commands: [{ name: 'git', resolvedPath: '/usr/bin/git' }], cwdPolicy });
+const agent = ai.agent({ name: 'reviewer', model, tools: gitTools({ policy, enableWrites: { commit: true, push: { remotes: ['origin'], branches: ['feature/x'] } }, identity: { name: 'Bot', email: 'bot@example.com' } }) });
+```
+
+- **Read tools** (batch, up to 10 items, `repo` per item: a work-tree root with a `.git` directory inside the policy's `cwdPolicy` roots; default the first root): **`git_status`** `{ repo? }` → `{ branch, commit, upstream?, ahead, behind, entries: [{ path, index, worktree, origPath? }] }` from `--porcelain=v2 -z`, never cached. **`git_diff`** `{ repo?, from?, to?, paths?, staged?, contextLines? (≤ 20), maxBytes? }` → `{ diff, stat: { files, insertions, deletions }, truncated }` (no colour, external diff or textconv; cut with a marker). **`git_log`** `{ repo?, ref?, paths?, limit? (≤ 200), since?, author?, grep? }` → `commits: [{ hash, author, date, subject }]` (author and message filters are literal text). **`git_blame`** `{ repo?, path, startLine?, endLine?, ref? }` → `lines: [{ line, hash, author, date, text }]` (at most 2,000). `git_log` and `git_diff` are cached only when pinned to full commit hashes (`ref`, or `from` and `to`).
+- **Validation:** git never gets a raw argv. Refs must match `^[A-Za-z0-9][A-Za-z0-9._/@^~{}-]{0,199}$` without `..` (`invalid_ref`); paths must pass the `FsPolicy` (deny globs included, so `.git/config` is refused), stay inside the repository and never start with `-` or `:`, and go after `--` with literal pathspecs.
+- **Hardening:** every call carries `-c core.pager=cat -c core.fsmonitor=false -c core.hooksPath=<empty dir> -c protocol.ext.allow=never` (plus no signatures, colour or credential helper) and `--no-optional-locks`; every config key of the repository that could run a program (filters, textconv and diff drivers, pagers, editors, credential and ssh commands, fsmonitor, receive-pack...) is found by listing the effective config (which runs nothing) and cleared. The environment is the policy's scrubbed one without any inherited `GIT_*`, plus `GIT_DIR`/`GIT_WORK_TREE` (git never searches upwards), `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GIT_CONFIG_NOSYSTEM=1`, an empty `GIT_CONFIG_GLOBAL` and `GIT_LITERAL_PATHSPECS=1`.
+- **`git_commit`** (only with `enableWrites.commit`) `{ repo?, message, paths }` stages and commits exactly those paths (never `-a`, never empty, never amending), always asks for approval (`risk: 'medium'`), runs no hooks unless `enableWrites.commit: { runHooks: true }`, dry-runs as the status of what would be committed, undoes with a soft reset to the previous HEAD only while HEAD is still that commit, and on resume verifies HEAD's message and those paths. Without `identity` the repository's own `user.name`/`user.email` are used.
+- **`git_push`** (only with `enableWrites.push`) `{ repo?, remote, branch }` pushes an allowed branch to the same branch of an allowed remote with a refspec without `+` (never forced: a non-fast-forward is refused by git), always asks for approval (`risk: 'high'`), has no undo, and dry-runs with `git push --dry-run`.
+
 ### Code intelligence (`@anupheaus/aigent/tools/code`)
 
 ```ts

@@ -56,6 +56,10 @@
     "./tools/shell": {
       "types": "./dist/tools/packs/shell/index.d.ts",
       "import": "./dist/tools/packs/shell/index.js"
+    },
+    "./tools/git": {
+      "types": "./dist/tools/packs/git/index.d.ts",
+      "import": "./dist/tools/packs/git/index.js"
     }
   },
   "files": [
