@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { findSecrets, openSecretStart, redactSecrets } from './builtin/secrets.js';
+import { findSecrets, openSecretStart } from './builtin/secret-patterns.js';
+import { redactSecrets } from './builtin/secrets.js';
 import { BENIGN_CORPUS, SECRET_SAMPLES } from './fixtures.test-support.js';
 import { createStreamHoldback } from './stream-holdback.js';
 
@@ -47,6 +48,17 @@ describe('stream hold-back', () => {
         const { emitted, text } = streamed([full.slice(0, position), full.slice(position)]);
         expect(text).toBe(redactSecrets(full).text);
         for (const piece of emitted) expect(piece.includes(secret.slice(0, 12)) && !piece.includes('[REDACTED')).toBe(false);
+      }
+    }
+  });
+
+  it.each([16, 17, 24, 64])('never leaks a secret split at any position with holdBackChars %i', hold => {
+    for (const { text: secret } of SECRET_SAMPLES) {
+      const full = `the value ${secret} end`;
+      for (let position = 0; position <= full.length; position += 1) {
+        const guard = createStreamHoldback({ holdBackChars: hold, openStart: openSecretStart, spans: findSecrets, release: segment => redactSecrets(segment).text });
+        const emitted = [guard.push(full.slice(0, position)), guard.push(full.slice(position)), guard.end()];
+        expect(emitted.join('')).not.toContain(secret);
       }
     }
   });

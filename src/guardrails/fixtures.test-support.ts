@@ -13,6 +13,18 @@ export const SECRET_SAMPLES: { kind: string; text: string }[] = [
   { kind: 'connection-string', text: 'postgres://admin:s3cretPassw0rd@db.internal:5432/app' },
   { kind: 'password', text: 'password: "Tr0ub4dor&3xyz"' },
   { kind: 'password', text: 'API_KEY=a8f5f167f44f4964e6c998dee827110c' },
+  // Env-style names with a prefix or suffix, values without digits, short quoted passwords.
+  { kind: 'password', text: 'DB_PASSWORD=S3cr3tPassw0rd' },
+  { kind: 'password', text: 'MYSQL_ROOT_PASSWORD=CorrectHorseBatteryStaple' },
+  { kind: 'password', text: "secret_key = 'f00b4rBazQux'" },
+  { kind: 'password', text: '"aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"' },
+  { kind: 'password', text: '"PASSWORD": "hunter2"' },
+  { kind: 'bearer-token', text: 'Authorization: Bearer abcdef0123456789ABCDEFghij' },
+  { kind: 'stripe-key', text: 'sk_' + 'live_4eC39HqLyjWDarjtT1zdp7dc' },
+  { kind: 'stripe-key', text: 'rk_test_51H8abcdefghijklmnopqrstu' },
+  { kind: 'npm-token', text: 'npm_' + 'abcdefghijklmnopqrstuvwxyz0123456789' },
+  { kind: 'gitlab-token', text: 'glpat-' + 'abcdefghij0123456789' },
+  { kind: 'huggingface-token', text: 'hf_' + 'abcdefghijklmnopqrstuvwxyzABCDEFGH' },
 ];
 
 /** Ordinary text and code that must never be flagged as a secret (hashes, ids, code that mentions tokens). */

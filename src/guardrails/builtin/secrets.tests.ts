@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BENIGN_CORPUS, SECRET_SAMPLES } from '../fixtures.test-support.js';
-import { findSecrets, redactSecrets, secretGuardrails } from './secrets.js';
+import { findSecrets } from './secret-patterns.js';
+import { redactSecrets, secretGuardrails } from './secrets.js';
 
 const CONTEXT = { runId: 'r', agentName: 'a', stage: 'output' as const, warn: () => undefined };
 
@@ -15,6 +16,16 @@ describe('secret detection', () => {
 
   it('keeps the name of a key=value secret and redacts only its value', () => {
     expect(redactSecrets('password: "Tr0ub4dor&3xyz"').text).toBe('password: "[REDACTED:password]"');
+  });
+
+  it('redacts an unterminated private key through to the end of the text', () => {
+    const cut = 'key:\n-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7';
+    expect(redactSecrets(cut).text).toBe('key:\n[REDACTED:private-key]');
+  });
+
+  it('sees through zero-width characters inside a secret', () => {
+    const hidden = 'key sk-proj-AbCdEfGh​IjKlMnOpQrStUvWx0123456789 end';
+    expect(redactSecrets(hidden).text).toBe('key [REDACTED:api-key] end');
   });
 
   it.each(BENIGN_CORPUS)('never flags ordinary text: %s', text => {

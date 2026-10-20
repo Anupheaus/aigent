@@ -1,4 +1,4 @@
-import { findSecrets, openSecretStart } from '../guardrails/builtin/secrets.js';
+import { findSecrets, openSecretStart } from '../guardrails/builtin/secret-patterns.js';
 import { findPii } from '../guardrails/builtin/pii.js';
 import { defaultGuardrails } from '../guardrails/builtin/index-builtins.js';
 import { OUTPUT_SCHEMA_NAME } from '../guardrails/builtin/output-schema.js';
