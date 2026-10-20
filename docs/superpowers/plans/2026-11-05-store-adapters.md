@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check, `node:fs/promises`. `mongodb` optional peer dependency (adapter dynamically imported; tests use a faithful in-memory fake `Collection` double implementing the subset used; a gated live test exists but is NOT run here).
 
-**Spec:** master plan "Store interface (atomic primitives)", "Concurrency-safe by design", Phase 6 in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`.
+**Spec:** master plan "Store interface (atomic primitives)", "Concurrency-safe by design", Phase 6 in `docs/design/master-plan.md`.
 
 ## Global Constraints
 

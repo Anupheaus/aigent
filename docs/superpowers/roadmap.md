@@ -1,6 +1,6 @@
 # Roadmap and progress
 
-Source of truth for scope: the approved master plan (`C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`). Each slice below has its own spec and plan in `docs/superpowers/{specs,plans}/` and ends reviewed, fixed, and pushed on branch `phase-1-foundation`.
+Source of truth for scope: the approved master plan (`docs/design/master-plan.md`). Each slice below has its own spec and plan in `docs/superpowers/{specs,plans}/` and ends reviewed, fixed, and pushed on branch `phase-1-foundation`.
 
 Standing rules: no downloads other than npm packages (no Ollama/models), no live API calls, no publishing, commits and pushes to the feature branch are authorised. Decisions taken autonomously are recorded in each slice's plan under "Rulings".
 

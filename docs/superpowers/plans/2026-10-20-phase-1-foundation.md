@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 7 (strict, ESM, NodeNext), zod 4, vitest 3, fast-check 4, Node 20+.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-phase-1-foundation-design.md` (vision: `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`).
+**Spec:** `docs/superpowers/specs/2026-10-20-phase-1-foundation-design.md` (vision: `docs/design/master-plan.md`).
 
 ## Global Constraints
 

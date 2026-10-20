@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. `typescript` (already a devDependency; becomes an optional peerDependency for the code pack). No other new dependencies; HTML-to-text extraction is implemented in-house (small tokenizer, tested).
 
-**Spec:** master plan sections "Built-in tool library" (HTTP/web, Code intelligence), "Security (later packs): SSRF…" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; slice plans so far; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`.
+**Spec:** master plan sections "Built-in tool library" (HTTP/web, Code intelligence), "Security (later packs): SSRF…" in `docs/design/master-plan.md`; slice plans so far; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`.
 
 ## Global Constraints
 

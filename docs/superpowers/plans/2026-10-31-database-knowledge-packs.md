@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. `mongodb` as an optional peer dependency (adapter only; tests use a fake `DbAccess` and the in-memory implementation — **no live MongoDB** in this run; a gated live test is provided). In-house BM25, cosine, chunkers. Embeddings via provider embedding endpoints are an adapter (`openAiEmbedder` using injected fetch; tested with mocked HTTP) and a deterministic `hashEmbedder` for tests/offline.
 
-**Spec:** master plan sections "Database (read-only parameterised db_query, MongoDB first)", "Retrieval / RAG pack (knowledge)", security bullets for database/knowledge in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`.
+**Spec:** master plan sections "Database (read-only parameterised db_query, MongoDB first)", "Retrieval / RAG pack (knowledge)", security bullets for database/knowledge in `docs/design/master-plan.md`; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`.
 
 ## Global Constraints
 

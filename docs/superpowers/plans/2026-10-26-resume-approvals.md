@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. Nothing new.
 
-**Spec:** master plan sections "Resumable agent instances (must-have)", "Human approvals", "Determinism notes", resume verification bullets in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; slice plans so far (esp. chat, layout/compaction, cache/shapers) for the state that must be checkpointed.
+**Spec:** master plan sections "Resumable agent instances (must-have)", "Human approvals", "Determinism notes", resume verification bullets in `docs/design/master-plan.md`; slice plans so far (esp. chat, layout/compaction, cache/shapers) for the state that must be checkpointed.
 
 ## Global Constraints
 

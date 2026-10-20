@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. Nothing new to install.
 
-**Spec:** master plan phases 3, 4, 5 and "Efficiency", "Request-level analysis… tool suggestions" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; telemetry/feedback, memory, cache plans.
+**Spec:** master plan phases 3, 4, 5 and "Efficiency", "Request-level analysis… tool suggestions" in `docs/design/master-plan.md`; telemetry/feedback, memory, cache plans.
 
 ## Global Constraints
 

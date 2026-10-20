@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest. No new runtime dependencies for core; MCP uses a minimal in-house JSON-RPC 2.0 client (stdio via `child_process`, HTTP via `fetch`). The Claude Code package takes `@anthropic-ai/claude-agent-sdk` as an optional peer, imported dynamically behind an interface; tests use fakes only. **Nothing is published; no real SDK/CLI is run in this slice** (the research spike is documented as pending and gated).
 
-**Spec:** master plan sections "Claude Code subscription provider (no API key) — researched, with caveats", "MCP interop", "Plugins" verification bullets in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`.
+**Spec:** master plan sections "Claude Code subscription provider (no API key) — researched, with caveats", "MCP interop", "Plugins" verification bullets in `docs/design/master-plan.md`.
 
 ## Global Constraints
 

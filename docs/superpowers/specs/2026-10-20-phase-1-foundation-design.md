@@ -1,6 +1,6 @@
 # Phase 1 Foundation: Design
 
-The full product vision and all phases are in the approved master plan (`C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`). This spec fixes the scope and decisions for the first implementation slice, "Phase 1 foundation core". Later slices (1a to 1g, 2 to 6) each get their own spec and plan.
+The full product vision and all phases are in the approved master plan (`docs/design/master-plan.md`). This spec fixes the scope and decisions for the first implementation slice, "Phase 1 foundation core". Later slices (1a to 1g, 2 to 6) each get their own spec and plan.
 
 ## Scope of this slice
 

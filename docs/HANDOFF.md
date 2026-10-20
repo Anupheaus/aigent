@@ -14,7 +14,7 @@ Written 2026-10-21 at the end of an autonomous session. Another session can pick
 
 | What | Where |
 |---|---|
-| Product vision and requirements (approved master plan, ~135 KB) | `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md` (outside the repo; read it for any scope question) |
+| Product vision and requirements (approved master plan, ~135 KB) | `docs/design/master-plan.md` (read it for any scope question) |
 | Roadmap/status table | `docs/superpowers/roadmap.md` |
 | Per-slice spec/plan (each has Global Constraints, Review Focus, binding interfaces) | `docs/superpowers/plans/*.md` (one per slice, listed in section 5) and `docs/superpowers/specs/*.md` |
 | Repo rules for agents | `AGENTS.md` (also see `C:\code\personal\agents\agents.md`, `coding-standards.md`, `patterns.md`) |

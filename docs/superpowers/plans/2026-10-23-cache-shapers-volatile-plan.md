@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. `node:crypto` for hashing. Nothing new to install.
 
-**Spec:** master plan sections "Tool-result cache, flagged in the tool API", "Context economy / shaper pipeline and safety rule", "Prompt hygiene: volatile content goes last", "Consumer-supplied plan", "Agent-owned todo list", "Inline status updates" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; earlier slice plans for conventions.
+**Spec:** master plan sections "Tool-result cache, flagged in the tool API", "Context economy / shaper pipeline and safety rule", "Prompt hygiene: volatile content goes last", "Consumer-supplied plan", "Agent-owned todo list", "Inline status updates" in `docs/design/master-plan.md`; earlier slice plans for conventions.
 
 ## Global Constraints
 

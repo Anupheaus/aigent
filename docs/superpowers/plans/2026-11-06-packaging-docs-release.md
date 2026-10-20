@@ -8,7 +8,7 @@
 
 **Tech Stack:** `@changesets/cli`, `typedoc`, `@microsoft/api-extractor` (dev dependencies; npm install allowed), `react` + `@types/react` + `react-dom` for the React example (dev dependencies of the examples workspace only), vitest for smoke tests.
 
-**Spec:** master plan "Packaging, CI, docs and examples" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`.
+**Spec:** master plan "Packaging, CI, docs and examples" in `docs/design/master-plan.md`.
 
 ## Global Constraints
 

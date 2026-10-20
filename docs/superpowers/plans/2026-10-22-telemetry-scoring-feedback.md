@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. Nothing new to install.
 
-**Spec:** master plan sections "Efficiency and speed scoring", "Agent feedback / enableFeedback", "Tool telemetry", "Outcome feedback on the previous tool use", "Request-level analysis", "User feedback on responses", "Agent versioning", "Privacy defaults" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; slices 1-3 plans/reports under `docs/superpowers/plans/` and `.superpowers/sdd/`.
+**Spec:** master plan sections "Efficiency and speed scoring", "Agent feedback / enableFeedback", "Tool telemetry", "Outcome feedback on the previous tool use", "Request-level analysis", "User feedback on responses", "Agent versioning", "Privacy defaults" in `docs/design/master-plan.md`; slices 1-3 plans/reports under `docs/superpowers/plans/` and `.superpowers/sdd/`.
 
 ## Global Constraints
 

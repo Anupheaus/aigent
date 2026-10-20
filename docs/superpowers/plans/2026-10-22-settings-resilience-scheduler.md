@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, vitest, fast-check. Nothing new to install.
 
-**Spec:** master plan sections "Model settings, context size and compaction", "Shared rate limiting and fair scheduling", "Agent versioning", "Gap-analysis decisions (provider resilience)" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; foundation spec `docs/superpowers/specs/2026-10-20-phase-1-foundation-design.md`.
+**Spec:** master plan sections "Model settings, context size and compaction", "Shared rate limiting and fair scheduling", "Agent versioning", "Gap-analysis decisions (provider resilience)" in `docs/design/master-plan.md`; foundation spec `docs/superpowers/specs/2026-10-20-phase-1-foundation-design.md`.
 
 ## Global Constraints
 

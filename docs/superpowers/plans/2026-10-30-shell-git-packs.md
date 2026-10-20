@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check, `node:child_process`. No new dependencies. Git tests create temp repos by running the real `git` binary when present (skipped with a clear reason when git is not installed).
 
-**Spec:** master plan sections "Built-in tool library" (Shell/process, Git), "Security (later packs): command injection, allowlist bypass, env leakage, runaway output; write-gating for git" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`; approvals/dry-run/undo plan.
+**Spec:** master plan sections "Built-in tool library" (Shell/process, Git), "Security (later packs): command injection, allowlist bypass, env leakage, runaway output; write-gating for git" in `docs/design/master-plan.md`; pack conventions in `docs/superpowers/plans/2026-10-28-fs-data-meta-packs.md`; approvals/dry-run/undo plan.
 
 ## Global Constraints
 

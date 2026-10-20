@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. Nothing new.
 
-**Spec:** master plan sections "Guardrails (built-in + extensible)", "Side-effect safety: dry-run and undo" and their verification bullets in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; slice plans so far (approvals, resume ledger, telemetry).
+**Spec:** master plan sections "Guardrails (built-in + extensible)", "Side-effect safety: dry-run and undo" and their verification bullets in `docs/design/master-plan.md`; slice plans so far (approvals, resume ledger, telemetry).
 
 ## Global Constraints
 

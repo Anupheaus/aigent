@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, vitest (for bench self-tests), fast-check, the library's own packs (`fs`, `data`, `code`). TypeScript compiler API (already available). No new dependencies.
 
-**Spec:** master plan sections "Optimisation programme", "Test design rules: target baselines, no hints, traps and decoys", "The rounds", "API verification additions (bench bullets)" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; fs/code pack plans.
+**Spec:** master plan sections "Optimisation programme", "Test design rules: target baselines, no hints, traps and decoys", "The rounds", "API verification additions (bench bullets)" in `docs/design/master-plan.md`; fs/code pack plans.
 
 ## Global Constraints
 

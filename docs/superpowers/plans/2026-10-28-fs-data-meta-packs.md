@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check, `node:fs/promises`, `node:path`. No new dependencies (CSV parsing and diffing are implemented in-house, small and tested).
 
-**Spec:** master plan sections "Built-in tool library", "Filesystem", "Security (1b)", approvals/dry-run/undo sections in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`.
+**Spec:** master plan sections "Built-in tool library", "Filesystem", "Security (1b)", approvals/dry-run/undo sections in `docs/design/master-plan.md`.
 
 ## Global Constraints
 

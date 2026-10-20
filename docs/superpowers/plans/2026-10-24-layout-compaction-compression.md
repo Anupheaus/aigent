@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript strict ESM, zod, vitest, fast-check. No new dependencies; LLMLingua is NOT implemented (it needs a model download) — only the interface, a deterministic fake, and docs.
 
-**Spec:** master plan sections "Model settings, context size and compaction (cache-friendly)", "Prompt compression (LLMLingua) as an optional plugin", "Context economy" in `C:\Users\email\.claude\plans\i-want-to-create-hazy-church.md`; previous slice plans (esp. `2026-10-23-cache-shapers-volatile-plan.md` for the volatile block, `pinned` flag, original handles, prefix hash).
+**Spec:** master plan sections "Model settings, context size and compaction (cache-friendly)", "Prompt compression (LLMLingua) as an optional plugin", "Context economy" in `docs/design/master-plan.md`; previous slice plans (esp. `2026-10-23-cache-shapers-volatile-plan.md` for the volatile block, `pinned` flag, original handles, prefix hash).
 
 ## Global Constraints
 
