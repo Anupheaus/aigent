@@ -14,7 +14,7 @@ import { idempotencyKeyOf, innerLedgerId } from '../resume/call-ledger.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { runDispatchedCall } from './run-dispatched-call.js';
-import { delegationFor } from './delegation-context.js';
+import { delegationFor, toolCallsCommitted } from './delegation-context.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
 
 /**
@@ -53,7 +53,8 @@ function withoutPrevious(params: DispatchParams): ToolCall {
 /** Takes one call from the run's `maxToolCalls` budget; false once it is spent. */
 function reserveToolCall(params: ReserveToolCallParams): boolean {
   const { totals, maxToolCalls } = params;
-  if (totals.toolCalls >= maxToolCalls) return false;
+  // Delegated sub-runs' calls (finished or reserved) count against the same budget.
+  if (toolCallsCommitted(totals) >= maxToolCalls) return false;
   totals.toolCalls += 1;
   return true;
 }
@@ -115,7 +116,7 @@ export function dispatchToolCall(params: DispatchParams): void {
     work.executions.push(Promise.resolve(rejectToolCall({ call, error: NO_USER_ERROR })).then(reportNotRun));
     return;
   }
-  if (!isCommentary && totals.toolCalls >= maxToolCalls) {
+  if (!isCommentary && toolCallsCommitted(totals) >= maxToolCalls) {
     const error = { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit of ${maxToolCalls} reached` } as const;
     work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportNotRun));
     return;

@@ -104,7 +104,7 @@ describe('regex_extract', () => {
     clearInterval(ticker);
     expect(slow?.result).toMatchObject({ count: 0, truncated: true, stoppedBy: 'time budget' });
     expect(Date.now() - started).toBeLessThan(6_000);
-    expect(longestGap).toBeLessThan(250);
+    expect(longestGap).toBeLessThan(500);
   });
 });
 

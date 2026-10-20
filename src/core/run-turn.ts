@@ -34,8 +34,10 @@ import type { RunCallIds } from './run-call-ids.js';
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
   usage: Usage;
-  /** What delegated sub-runs used; absent until a sub-run finishes. */
+  /** What delegated sub-runs used; absent until a sub-run finishes. Their tool calls count against `maxToolCalls`. */
   delegated?: DelegatedUsage;
+  /** Tool calls reserved for sub-runs still in flight (they count against `maxToolCalls` until released). */
+  delegationReserved?: number;
   turns: number;
   /** Tool calls actually started. */
   toolCalls: number;

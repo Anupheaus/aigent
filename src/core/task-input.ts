@@ -54,6 +54,7 @@ export const taskInputSchema = z.object({
   parent: z.object({
     agentName: z.string().min(1), instanceId: z.string().min(1), runId: z.string().min(1), callId: z.string().min(1),
     depth: z.number().int().min(1).max(MAX_DELEGATION_DEPTH),
+    ancestors: z.array(z.string().min(1)).max(MAX_DELEGATION_DEPTH).optional(),
   }).strict().optional(),
 }).strict();
 

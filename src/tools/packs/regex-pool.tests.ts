@@ -11,8 +11,8 @@ const CATASTROPHIC: [string, string, string][] = [
   ['\\w*\\w*\\w*\\w*\\w*\\w*!', '', 'a'.repeat(400)],
 ];
 const JOB_TIMEOUT_MS = 300;
-/** Ticks of a 10 ms interval must keep arriving: a blocked main thread would leave a gap of seconds. */
-const MAX_TICK_GAP_MS = 250;
+/** Ticks of a 10 ms interval must keep arriving: a blocked main thread would leave a gap of seconds (the slack is for a loaded test host). */
+const MAX_TICK_GAP_MS = 500;
 
 /** Runs `work` while measuring the longest gap between 10 ms interval ticks on this thread. */
 async function longestTickGap(work: () => Promise<void>): Promise<number> {

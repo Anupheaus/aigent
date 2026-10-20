@@ -150,7 +150,11 @@ export function createAigent(options: AigentOptions): Aigent {
     const { agentName, input } = request;
     const entry = agentsByName.get(agentName);
     if (entry == null) return undefined;
-    return { run: entry.agent.task(input), price: usage => costOfUsage({ model: entry.model, usage, ...(pricing == null ? {} : { pricing }) }) ?? undefined };
+    // A delegated tool-call budget may only lower the agent's own limit, never raise it.
+    const own = definitions.get(agentName)?.limits?.maxToolCalls;
+    const granted = input.limits?.maxToolCalls;
+    const limits = granted == null || own == null ? input.limits : { ...input.limits, maxToolCalls: Math.min(own, granted) };
+    return { run: entry.agent.task({ ...input, ...(limits == null ? {} : { limits }) }), price: usage => costOfUsage({ model: entry.model, usage, ...(pricing == null ? {} : { pricing }) }) ?? undefined };
   }
   /** `allow_always` decisions: per agent instance unless a decision widened them. */
   const allowAlways = createAllowAlwaysRules();

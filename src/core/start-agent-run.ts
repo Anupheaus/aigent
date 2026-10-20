@@ -145,7 +145,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras()] },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
           steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
-          delegation: { depth: input.parent?.depth ?? 0, ...(services.startSubRun == null ? {} : { startSubRun: services.startSubRun }), isUnattended: input.unattended === true, priority },
+          delegation: { depth: input.parent?.depth ?? 0, ancestors: [...input.parent?.ancestors ?? (input.parent == null ? [] : [input.parent.agentName]), agentName], inFlight: 0, ...(services.startSubRun == null ? {} : { startSubRun: services.startSubRun }), isUnattended: input.unattended === true, priority },
           guardrails: { checks: guardrails, answer: answerShape, outputRetries }, ...(guarded.blocked == null ? {} : { inputBlocked: guarded.blocked }), effects,
           ...(checkpoints == null ? {} : { checkpoints }), ...(restored == null ? {} : { restore: restored }),
           ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),

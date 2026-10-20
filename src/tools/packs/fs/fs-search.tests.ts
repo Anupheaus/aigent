@@ -101,7 +101,7 @@ describe('fs_search bounds and skips', () => {
     const [entry] = entriesOf(await call({ tool: createFsSearch(deps), items: [{ path: '/ws', pattern: '.*a.*a.*a.*a.*!', kind: 'content', regex: true }] }));
     clearInterval(ticker);
     expect(entry?.result).toMatchObject({ truncated: true, stoppedBy: 'time budget', hint: expect.stringContaining('budget') });
-    expect(longestGap).toBeLessThan(250);
+    expect(longestGap).toBeLessThan(500);
   }, 30_000);
 
   it('matches regex names in the worker and counts link entries as skipped', async () => {

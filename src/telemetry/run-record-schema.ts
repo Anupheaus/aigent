@@ -85,7 +85,7 @@ export const runRecordSchema = z.object({
   plannedEffects: z.array(z.object({
     tool: z.string(), callId: z.string(), kind: z.string(), target: z.string(), summary: z.string(), before: z.string().optional(), after: z.string().optional(), reversible: z.boolean(),
   })).optional(),
-  parent: z.object({ agentName: z.string(), instanceId: z.string(), runId: z.string(), callId: z.string(), depth: count }).optional(),
+  parent: z.object({ agentName: z.string(), instanceId: z.string(), runId: z.string(), callId: z.string(), depth: count, ancestors: z.array(z.string()).optional() }).optional(),
 });
 
 export const traceStepSchema = z.object({

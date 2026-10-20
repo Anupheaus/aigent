@@ -44,7 +44,7 @@ describe('delegate', () => {
     expect(delegated).toMatchObject({ ok: true, result: { agent: 'helper', status: 'completed', answer: 'the answer is 42', truncated: false, errors: [], usage: { inputTokens: 10, outputTokens: 5, turns: 1 } } });
     expect(result.usage.delegated).toEqual({ runs: 1, inputTokens: 10, outputTokens: 5, cachedTokens: 0, turns: 1, toolCalls: 0 });
     const child = await ai.trace(delegated.result.runId);
-    expect(child?.run.parent).toEqual({ agentName: 'lead', instanceId: lead.instanceId, runId: result.runId, callId: 'd1', depth: 1 });
+    expect(child?.run.parent).toEqual({ agentName: 'lead', instanceId: lead.instanceId, runId: result.runId, callId: 'd1', depth: 1, ancestors: ['lead'] });
     expect((await ai.trace(result.runId))?.run.usage.delegated).toMatchObject({ runs: 1 });
     await ai.close();
   });
@@ -60,10 +60,15 @@ describe('delegate', () => {
     await other.ai.close();
   });
 
-  it('enforces a depth of at most 3', async () => {
-    const turns = [delegateCall('d1', {}), delegateCall('d2', {}), delegateCall('d3', {}), delegateCall('d4', {}), textTurn('deepest'), textTurn('l2'), textTurn('l1'), textTurn('top')];
-    const { ai, lead, provider } = setup({ turns, helperTargets: ['helper'] });
-    await run(lead);
+  // Replaces the earlier depth test, which reached depth 4 by letting 'helper' delegate to itself: that is a cycle,
+  // now refused, so the chain is built from distinct agents.
+  it('enforces a depth of at most 3 along a chain of distinct agents', async () => {
+    const call = (id: string, agent: string) => toolTurn([{ id, name: 'delegate', args: { agent, task: 'go deeper', returnBudgetTokens: null } }]);
+    const provider = createFakeProvider({ turns: [call('d1', 'a'), call('d2', 'b'), call('d3', 'c'), call('d4', 'd'), textTurn('c done'), textTurn('b done'), textTurn('a done'), textTurn('top')] });
+    const ai = createAigent({ providers: [provider], store: createInMemoryStore(), enableFeedback: false });
+    const chain = ['lead', 'a', 'b', 'c', 'd'];
+    const agents = chain.map((name, index) => ai.agent({ name, model: 'fake:m', todo: false, tools: metaTools({ delegateTargets: index + 1 < chain.length ? [chain[index + 1] as string] : [] }) }));
+    await run(agents[0] as ReturnType<typeof setup>['lead']);
     expect(resultOf(provider, 4, 'd4')).toMatchObject({ ok: false, error: { code: 'depth_limit' } });
     await ai.close();
   });
