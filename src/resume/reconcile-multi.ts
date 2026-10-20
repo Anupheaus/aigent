@@ -20,7 +20,7 @@ interface InnerCallArgs {
 export async function reconcileMulti(params: ReconcileParams & { call: ToolCall }): Promise<ExecutedToolCall> {
   const { call, restored: { ledger }, registry } = params;
   const entry = ledger.find(({ callId }) => callId === call.id);
-  if (entry?.envelope != null && entry.status !== 'started') return restoredCall(entry.envelope);
+  if (entry?.envelope != null && entry.status !== 'started') return { ...restoredCall(entry.envelope), ...(entry.effects == null ? {} : { effects: entry.effects }) };
   const multi = registry.get(MULTI_TOOL_NAME);
   const parsed = multi == null ? undefined : parseToolArgs(multi.argsSchema, call.args);
   if (parsed == null || !parsed.ok) {
@@ -39,7 +39,7 @@ export async function reconcileMulti(params: ReconcileParams & { call: ToolCall 
     settledCalls.push(settled);
   }
   const envelope: ToolEnvelope = { id: call.id, tool: MULTI_TOOL_NAME, ok: true, result: envelopes };
-  if (entry != null) await params.ledger?.complete(call.id, envelope).catch(() => undefined);
+  if (entry != null) await params.ledger?.complete(call.id, { envelope }).catch(() => undefined);
   // What the inner calls did (or would have done) belongs to the wrapper, as in a live run.
   const plannedEffects = settledCalls.flatMap(({ plannedEffects: planned = [] }) => planned);
   const effects = settledCalls.flatMap(({ effects: captured = [] }) => captured);

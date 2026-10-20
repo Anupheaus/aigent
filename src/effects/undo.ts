@@ -5,6 +5,7 @@ import type { Clock } from '../core/runtime-services.js';
 import type { WriteQueue } from '../store/write-queue.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { EffectLog } from './effect-log.js';
+import { hashDescriptor } from './descriptor-hash.js';
 import type { EffectLogEntry, UndoOutcome, UndoReport, UndoResult, UndoTarget } from './undo-types.js';
 
 export interface UndoEffectsParams {
@@ -62,12 +63,22 @@ async function undoOne(params: UndoEffectsParams & { entry: EffectLogEntry }): P
   if (status === 'undone') return { ...base, status: 'already_undone' };
   if (descriptor == null) return { ...base, status: 'unavailable', message: entry.message ?? `Tool '${toolName}' recorded no undo data, so this effect cannot be undone` };
   if (expiresAt != null && clock.now() > expiresAt) return { ...base, status: 'expired' };
+  if (entry.descriptorHash != null && hashDescriptor(descriptor) !== entry.descriptorHash) {
+    return { ...base, status: 'unavailable', message: `The undo data of call '${callId}' (${toolName}) was changed before it was stored (by redact), so applying it could write the changed content back; it was not applied` };
+  }
   const tool = registry.get(toolName);
   const { applyUndo } = tool ?? {};
   if (tool == null || applyUndo == null) return { ...base, status: 'unavailable', message: `Tool '${toolName}' is not available to agent '${agent.name}' with applyUndo, so this effect cannot be undone` };
   const outcome = await applyWithin({ apply: signal => applyUndo(descriptor, { agentName: agent.name, instanceId: agent.instanceId, runId, callId, effectId, signal }), timeoutMs: tool.timeoutMs });
-  await log.recordUndo({ effect: entry, ok: outcome.ok, ...(outcome.message == null ? {} : { message: outcome.message }) });
-  return outcome.ok ? { ...base, status: 'undone' } : { ...base, status: 'failed', message: outcome.message ?? 'applyUndo reported a failure' };
+  let unrecorded: string | undefined;
+  try {
+    await log.recordUndo({ effect: entry, ok: outcome.ok, ...(outcome.message == null ? {} : { message: outcome.message }) });
+  } catch (error) {
+    // The undo happened (or failed) either way: the result says so, and the rest still run.
+    unrecorded = `the undo was not recorded in the effect log: ${error instanceof Error ? error.message : String(error)}`;
+  }
+  const messages = [outcome.message ?? (outcome.ok ? undefined : 'applyUndo reported a failure'), unrecorded].filter((text): text is string => text != null);
+  return { ...base, status: outcome.ok ? 'undone' : 'failed', ...(messages.length === 0 ? {} : { message: messages.join('; ') }) };
 }
 
 /**

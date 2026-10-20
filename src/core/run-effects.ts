@@ -19,11 +19,19 @@ export interface CreateRunEffectsParams {
   /** Where the run's effects are appended (absent: they are not recorded). */
   log?: EffectLog;
   ids: { agentName: string; instanceId: string; runId: string };
+  /** The run id effect keys use: the interrupted run's when resumed, so an effect recorded again is stored once. */
+  keyRunId?: string;
   emit(event: AigentEvent): void;
 }
 
+/** The stable effect-log key of the n-th effect of a top-level call. */
+export function effectIdOf(params: { runId: string; callId: string; index: number }): string {
+  const { runId, callId, index } = params;
+  return `effect:${runId}:${callId}:${index}`;
+}
+
 export function createRunEffects(params: CreateRunEffectsParams): RunEffects {
-  const { dryRun, log, ids, emit } = params;
+  const { dryRun, log, ids, emit, keyRunId = ids.runId } = params;
   const planned: PlannedEffect[] = [];
   const writes: Promise<void>[] = [];
   return {
@@ -34,8 +42,8 @@ export function createRunEffects(params: CreateRunEffectsParams): RunEffects {
         planned.push(...plannedEffects);
         emit({ type: 'planned-effects', callId, effects: plannedEffects });
       }
-      for (const effect of effects) {
-        const write = log?.append({ effect, ...ids }).catch((error: unknown) => emit({ type: 'warning', message: `The effect of call '${effect.callId}' (${effect.tool}) was not recorded, so it cannot be undone: ${error instanceof Error ? error.message : String(error)}` }));
+      for (const [index, effect] of effects.entries()) {
+        const write = log?.append({ effect, effectId: effectIdOf({ runId: keyRunId, callId, index }), ...ids }).catch((error: unknown) => emit({ type: 'warning', message: `The effect of call '${effect.callId}' (${effect.tool}) was not recorded, so it cannot be undone: ${error instanceof Error ? error.message : String(error)}` }));
         if (write != null) writes.push(write);
       }
     },

@@ -1,5 +1,6 @@
 import type { Tool, ToolContext } from '../tools/tool-types.js';
 import type { CapturedEffect, UndoDescriptor } from './undo-types.js';
+import { hashDescriptor } from './descriptor-hash.js';
 
 function isPlainJson(value: unknown): value is UndoDescriptor {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -24,7 +25,7 @@ export async function captureEffect(params: { tool: Tool; args: unknown; result:
     const descriptor = await tool.undo(args, result, context);
     if (descriptor === undefined) return { ...base, message: `Tool '${tool.name}' gave no undo data for this call, so it cannot be undone` };
     if (!isPlainJson(descriptor)) return { ...base, message: `Tool '${tool.name}' gave undo data that is not a plain JSON object, so this call cannot be undone` };
-    return { ...base, descriptor: structuredClone(descriptor) };
+    return { ...base, descriptor: structuredClone(descriptor), descriptorHash: hashDescriptor(descriptor) };
   } catch (error) {
     return { ...base, message: `Capturing undo data for tool '${tool.name}' failed: ${error instanceof Error ? error.message : String(error)}` };
   }

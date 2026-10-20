@@ -8,6 +8,7 @@ import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import { CALLS_COLLECTION } from './checkpoint-types.js';
+import type { CapturedEffect } from '../effects/undo-types.js';
 
 /** One tool call's lifecycle: written `started` before the tool runs, then `done` or `failed` with what it returned. */
 export interface LedgerEntry {
@@ -30,6 +31,11 @@ export interface LedgerEntry {
   status: 'started' | 'done' | 'failed';
   /** What the model was (or will be) given for the call, once it finished. */
   envelope?: ToolEnvelope;
+  /**
+   * The effects the call had, with their undo data: a resumed run records them again when the effect-log write was
+   * lost in a crash (effect-log keys are stable, so a write that did happen is not repeated).
+   */
+  effects?: CapturedEffect[];
   startedAt: number;
   finishedAt?: number;
 }
@@ -50,11 +56,17 @@ export interface BeginCallParams {
   thinkingBlocks?: ThinkingBlock[];
 }
 
+/** How a call finished: what the model is given, and the effects it had. */
+export interface CallOutcome {
+  envelope: ToolEnvelope;
+  effects?: CapturedEffect[];
+}
+
 /** The run's record of every call, so a resumed run never executes a finished call again. */
 export interface CallLedger {
   /** Resolves once the `started` entry is stored; the tool must not run before. */
   begin(params: BeginCallParams): Promise<LedgerEntry>;
-  complete(callId: string, envelope: ToolEnvelope): Promise<void>;
+  complete(callId: string, outcome: CallOutcome): Promise<void>;
   fail(callId: string, error: ToolErrorDetail): Promise<void>;
   get(callId: string): LedgerEntry | undefined;
   /** Every entry, in begin order. */
@@ -108,11 +120,11 @@ export function createCallLedger(params: CreateCallLedgerParams): CallLedger {
     });
   }
 
-  function finish(params: { callId: string; status: 'done' | 'failed'; envelope: ToolEnvelope }): Promise<void> {
-    const { callId, status, envelope } = params;
+  function finish(params: { callId: string; status: 'done' | 'failed'; envelope: ToolEnvelope; effects?: CapturedEffect[] }): Promise<void> {
+    const { callId, status, envelope, effects = [] } = params;
     const entry = byCall.get(callId);
     if (entry == null) throw createAigentError({ code: 'invalid_input', message: `Call '${callId}' of run '${runId}' was never begun in the ledger`, details: { runId, callId } });
-    return store({ ...entry, status, envelope, finishedAt: clock.now() });
+    return store({ ...entry, status, envelope, ...(effects.length === 0 ? {} : { effects }), finishedAt: clock.now() });
   }
 
   return {
@@ -124,7 +136,7 @@ export function createCallLedger(params: CreateCallLedgerParams): CallLedger {
       await store(entry);
       return entry;
     },
-    complete: (callId, envelope) => finish({ callId, status: envelope.ok ? 'done' : 'failed', envelope }),
+    complete: (callId, { envelope, effects }) => finish({ callId, status: envelope.ok ? 'done' : 'failed', envelope, ...(effects == null ? {} : { effects }) }),
     fail: (callId, error) => finish({ callId, status: 'failed', envelope: { id: callId, tool: byCall.get(callId)?.tool ?? '', ok: false, error } }),
     get: callId => byCall.get(callId),
     entries: () => [...byCall.values()],

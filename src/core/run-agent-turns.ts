@@ -251,6 +251,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     errors.push(...failedDetails(executed));
     // A round cut short by a stop is not checkpointed: its response (the 'message' checkpoint) stays the latest, so a
     // suspended ask_user turn can be continued with real answers instead of its aborted results.
+    // The round's effects are in the log before the checkpoint commits it; a crash before then replays them from the ledger.
+    await effects?.flush();
     if (!isRecorded || (!signal.aborted && !await checkpoint({ boundary: 'turn-complete' }))) break;
     if (turn.calls.length === 0) {
       const settled = await settleAnswer({ text: turn.raw.trim(), streamed: turn.visible, ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: Math.min(outputRetries, limits.maxTurns - totals.turns), emit });

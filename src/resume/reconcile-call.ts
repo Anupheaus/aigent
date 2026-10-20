@@ -71,7 +71,7 @@ async function execute(params: ReconcileCallParams & { tool?: Tool }): Promise<E
     return unavailable({ call, what: 'recording its start', error });
   }
   const executed = await guarded(params, await executeToolCall({ registry, call, context: contextOf(params), now }));
-  await ledger?.complete(ledgerId, executed.envelope).catch(() => undefined);
+  await ledger?.complete(ledgerId, { envelope: executed.envelope, ...(executed.effects == null ? {} : { effects: executed.effects }) }).catch(() => undefined);
   return executed;
 }
 
@@ -99,7 +99,7 @@ export async function reconcileCall(params: ReconcileCallParams): Promise<Execut
   const entry = ledger.find(({ callId }) => callId === ledgerId);
   // Finished calls are never executed again: the model gets what they returned (checked again: a ledger written before
   // results were guarded there may hold one raw).
-  if (entry?.envelope != null && entry.status !== 'started') return guarded(params, restoredCall({ ...entry.envelope, id: call.id }));
+  if (entry?.envelope != null && entry.status !== 'started') return guarded(params, { ...restoredCall({ ...entry.envelope, id: call.id }), ...(entry.effects == null ? {} : { effects: entry.effects }) });
   const tool = registry.get(call.name);
   // Never started (begin is written before a tool runs), or a tool that no longer exists: run it as a new call.
   if (entry == null || tool == null) return gated({ ...params, ...(tool == null ? {} : { tool }) });
@@ -114,7 +114,7 @@ export async function reconcileCall(params: ReconcileCallParams): Promise<Execut
     }
     if (verified.done) {
       const checked = await guarded(params, restoredCall({ id: call.id, tool: call.name, ok: true, result: verified.result ?? null }));
-      await params.ledger?.complete(ledgerId, checked.envelope).catch(() => undefined);
+      await params.ledger?.complete(ledgerId, { envelope: checked.envelope }).catch(() => undefined);
       return checked;
     }
     return gated({ ...params, tool });

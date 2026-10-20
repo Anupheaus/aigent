@@ -106,7 +106,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const answerShape = { ...(input.outOfScope == null ? {} : { outOfScope: input.outOfScope }), ...(input.output == null ? {} : { output: input.output }), ...(input.outputFormat == null ? {} : { outputFormat: input.outputFormat }) };
   const guardrails = createRunGuardrails({ options: services.guardrails, ids: { runId, agentName }, run: answerShape, emit });
   const isDryRun = input.dryRun === true;
-  const effects = createRunEffects({ dryRun: isDryRun, ...(services.effects == null ? {} : { log: services.effects }), ids: { agentName, instanceId, runId }, emit });
+  const effects = createRunEffects({ dryRun: isDryRun, ...(services.effects == null ? {} : { log: services.effects }), ids: { agentName, instanceId, runId }, ...(params.restore == null ? {} : { keyRunId: params.restore.streamId }), emit });
   const outputOptions = services.guardrails.builtins?.['output-schema'];
   const outputRetries = outputOptions === false ? 0 : outputOptions?.retries ?? DEFAULT_OUTPUT_RETRIES;
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;

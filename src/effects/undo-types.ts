@@ -38,6 +38,11 @@ export interface EffectLogEntry {
   at: number;
   /** Absent when the tool cannot undo the call (or capturing its descriptor failed). */
   descriptor?: UndoDescriptor;
+  /**
+   * sha-256 of the descriptor as captured (before `redact`); undo refuses a descriptor that no longer matches it, since
+   * applying redacted undo data would write the redacted content back.
+   */
+  descriptorHash?: string;
   status: EffectStatus;
   /** Epoch ms after which the undo data is no longer honoured (`undo: { retentionMs }`). */
   expiresAt?: number;
@@ -86,6 +91,8 @@ export interface CapturedEffect {
   callId: string;
   tool: string;
   descriptor?: UndoDescriptor;
+  /** See `EffectLogEntry.descriptorHash`. */
+  descriptorHash?: string;
   /** Why there is no descriptor when capturing it failed. */
   message?: string;
 }

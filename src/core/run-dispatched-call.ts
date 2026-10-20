@@ -65,7 +65,7 @@ async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: Ca
   }
   const executed = await run();
   // The effect happened either way; a lost `done` only means a resume treats the call by its resume policy.
-  await ledger.complete(ledgerId, executed.envelope).catch(() => undefined);
+  await ledger.complete(ledgerId, { envelope: executed.envelope, ...(executed.effects == null ? {} : { effects: executed.effects }) }).catch(() => undefined);
   return executed;
 }
 
