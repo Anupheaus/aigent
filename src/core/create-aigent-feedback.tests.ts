@@ -199,6 +199,20 @@ describe('enableFeedback on', () => {
     });
   });
 
+  it('passes aigent_feedback entries through redact like every other record', async () => {
+    const SECRET = 'customer-42';
+    const redacted: string[] = [];
+    const { agent, store } = setup({
+      enableFeedback: true,
+      options: { redact: ({ collection, key, value }) => { redacted.push(collection); return { collection, key, value: JSON.parse(JSON.stringify(value).replaceAll(SECRET, '[x]')) }; } },
+      turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'hard', text: `Data for ${SECRET} was missing`, relatedTool: null }] } }]), textTurn('done')],
+    });
+    const result = await agent.task({ task: 'x' });
+    expect([...new Set(redacted)].sort()).toEqual(['feedback', 'responses', 'runs', 'traces']);
+    expect((await store.get('feedback', `${result.runId}:f1:0`))?.value).toMatchObject({ entry: { text: 'Data for [x] was missing' } });
+    expect(JSON.stringify(await store.list('feedback'))).not.toContain(SECRET);
+  });
+
   it('stores nothing from aigent_feedback when telemetry is disabled', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'easy', text: 'x', relatedTool: null }] } }]), textTurn('done')] });
     await agent.task({ task: 'x', disableTelemetry: true });
