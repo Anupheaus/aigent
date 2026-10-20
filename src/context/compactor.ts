@@ -6,6 +6,7 @@ import { applyCompaction } from './apply-compaction.js';
 import type { CompactionChanges } from './apply-compaction.js';
 import type { CompactionPolicy } from './compaction-policy.js';
 import type { ContextMessage } from './context-message.js';
+import { fitSummaryInput, SUMMARY_MAX_TOKENS } from './fit-summary-input.js';
 import { planCompaction } from './plan-compaction.js';
 import type { StubAction } from './plan-compaction.js';
 import { duplicateResultStub, toolResultStub } from './tool-result-stub.js';
@@ -32,6 +33,8 @@ export interface CreateCompactorParams {
   context: CompactableContext;
   policy: CompactionPolicy;
   usableBudget: number;
+  /** Prompt tokens the summariser model can take; a summary request is cut to the oldest rounds that fit. */
+  summariserBudget: number;
   /** Raw (uncalibrated) estimate of the next request: the stored messages, tools and volatile block. */
   estimateRaw(): number;
   /** Keeps a verbatim original and returns its `result_original` handle. */
@@ -67,7 +70,7 @@ function isAbort(error: unknown): boolean {
 
 /** Compaction for one run, serialised: a call while another is running returns without doing anything. */
 export function createCompactor(params: CreateCompactorParams): Compactor {
-  const { context, policy, usableBudget, estimateRaw, keepOriginal, summarise, createSummary, emit, onCompacted } = params;
+  const { context, policy, usableBudget, summariserBudget, estimateRaw, keepOriginal, summarise, createSummary, emit, onCompacted } = params;
   const stats: CompactorStats = { compactions: 0, tokensSaved: 0 };
   let isCompacting = false;
   let hasWarnedNonCompactable = false;
@@ -107,22 +110,33 @@ export function createCompactor(params: CreateCompactorParams): Compactor {
     return { stubs: new Map(replacements), dedupes: new Map(), summarise: [] };
   }
 
+  /** The stubbing fallback when no summary is written; returns whether it changed the state. */
+  function stubInstead(spareStubs: readonly StubAction[]): boolean {
+    if (spareStubs.length === 0) return false;
+    applyStage({ stage: 'stubbed', changes: stubChanges(spareStubs), affected: spareStubs.length });
+    return true;
+  }
+
   /** Runs the summary stage; returns whether it changed the state. */
   async function summariseStage(params: { summarise: readonly string[]; spareStubs: readonly StubAction[] }): Promise<boolean> {
     const { summarise: ids, spareStubs } = params;
     const previousSummary = context.state.find(({ kind }) => kind === 'summary')?.message.text;
-    const messages = context.state.filter(({ id }) => ids.includes(id));
+    const planned = context.state.filter(({ id }) => ids.includes(id));
+    const messages = fitSummaryInput({ ...(previousSummary == null ? {} : { previousSummary }), messages: planned, budget: summariserBudget });
+    if (messages.length === 0) {
+      emit({ type: 'warning', message: `Compaction summary skipped: even the oldest round exceeds the summariser's ${summariserBudget}-token budget; stubbed stale tool results instead` });
+      return stubInstead(spareStubs);
+    }
     try {
       const { text } = await summarise({ ...(previousSummary == null ? {} : { previousSummary }), messages });
       const summary = createSummary(text);
-      applyStage({ stage: 'summarised', changes: { stubs: new Map(), dedupes: new Map(), summarise: ids, summary }, affected: messages.length, summaryTokens: summary.tokens });
+      if (summary.tokens > SUMMARY_MAX_TOKENS) throw createAigentError({ code: 'provider_failed', message: `the summary is ~${summary.tokens} tokens, over the ${SUMMARY_MAX_TOKENS}-token cap` });
+      applyStage({ stage: 'summarised', changes: { stubs: new Map(), dedupes: new Map(), summarise: messages.map(({ id }) => id), summary }, affected: messages.length, summaryTokens: summary.tokens });
       return true;
     } catch (error) {
       if (isAbort(error)) throw error;
       emit({ type: 'warning', message: `Compaction summary failed (${describeError(error)}); stubbed stale tool results instead` });
-      if (spareStubs.length === 0) return false;
-      applyStage({ stage: 'stubbed', changes: stubChanges(spareStubs), affected: spareStubs.length });
-      return true;
+      return stubInstead(spareStubs);
     }
   }
 

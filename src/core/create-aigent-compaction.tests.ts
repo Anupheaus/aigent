@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { estimatePromptTokens } from '../context/estimate-prompt-tokens.js';
 import { computePrefixHash } from '../context/prefix-hash.js';
 import { SUMMARISER_PROMPT, SUMMARY_HEADING } from '../context/summarise.js';
+import { SUMMARY_MAX_OUTPUT_TOKENS } from './run-settings.js';
 import type { ProviderRequest, Usage } from '../providers/provider-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
 import type { FakeTurn } from '../testing/fake-provider.js';
@@ -119,6 +120,15 @@ describe('createAigent compaction', () => {
     expect(last.messages.filter(({ volatile }) => volatile !== true).at(-1)?.toolCallId).toBe(`k${ROUNDS - 1}`);
     // Old fetch results riding in kept rounds were stubbed, so the kept block stays small.
     expect(last.messages.find(({ toolCallId }) => toolCallId === 'f0')?.text ?? '').not.toContain('page 0: ');
+  });
+
+  it('sends the summariser a bounded request: run stop/seed/thinking stripped and its output capped', async () => {
+    const { summariser, agent } = setup({ turns: [...fetchTurns(ROUNDS), textTurn('done', { usage: NO_INPUT })], definition: { compaction: { compactTo: 0.2 }, modelSettings: { contextSize: CONTEXT_SIZE, stop: ['END'], seed: 7, temperature: 0.3 } } });
+    await agent.task({ task: 'Fetch' });
+    const [request] = summariser.requests;
+    expect(request?.settings).toMatchObject({ maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS });
+    expect(request?.settings).not.toHaveProperty('stop');
+    expect(request?.settings).not.toHaveProperty('seed');
   });
 
   it('never compacts mid tool round: every compaction comes after all results of the round before it', async () => {

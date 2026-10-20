@@ -22,6 +22,8 @@ import { stopStream } from './stop-stream.js';
 export interface RunCompactionSettings {
   policy: CompactionPolicy;
   usableBudget: number;
+  /** Prompt tokens the summariser's first model can take. */
+  summariserBudget: number;
   /** `compactionModel` when set, otherwise the run's own models; scheduler and resilience apply as for any turn. */
   summariser: TurnRouting;
 }
@@ -78,9 +80,9 @@ async function writeSummary(params: SummariseParams): Promise<WrittenSummary> {
 
 /** The run's compactor, wired to its stored messages, originals, volatile block and summariser. */
 export function createRunCompaction(params: CreateRunCompactionParams): Compactor {
-  const { settings: { policy, usableBudget }, context, originals, volatile, clock, emit } = params;
+  const { settings: { policy, usableBudget, summariserBudget }, context, originals, volatile, clock, emit } = params;
   return createCompactor({
-    context, policy, usableBudget, emit,
+    context, policy, usableBudget, summariserBudget, emit,
     // The volatile block is not rebuilt here: building it consumes one-shot sections (corrections) meant for the request.
     estimateRaw: () => estimatePromptTokens({ messages: toProviderMessages(context.state), tools: originals.registry().specs() }) + context.volatileTokens,
     keepOriginal: text => originals.keep(text),

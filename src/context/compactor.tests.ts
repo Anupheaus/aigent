@@ -17,8 +17,8 @@ interface Harness {
   compactor: ReturnType<typeof createCompactor>;
 }
 
-function harness(params: { state: ContextMessage[]; usableBudget: number; summarise?: CreateCompactorParams['summarise']; policy?: Partial<typeof DEFAULT_COMPACTION_POLICY> }): Harness {
-  const { state, usableBudget, policy } = params;
+function harness(params: { state: ContextMessage[]; usableBudget: number; summarise?: CreateCompactorParams['summarise']; policy?: Partial<typeof DEFAULT_COMPACTION_POLICY>; summariserBudget?: number }): Harness {
+  const { state, usableBudget, policy, summariserBudget = 1_000_000 } = params;
   const context: CompactableContext = { state, ratio: 1 };
   const events: AigentEvent[] = [];
   const originals: string[] = [];
@@ -30,7 +30,7 @@ function harness(params: { state: ContextMessage[]; usableBudget: number; summar
     return { text: 'Goal: test', usageTokens: 50 };
   });
   const compactor = createCompactor({
-    context, usableBudget, policy: { ...DEFAULT_COMPACTION_POLICY, minSavingTokens: 0, keepRecent: 2, ...policy },
+    context, usableBudget, summariserBudget, policy: { ...DEFAULT_COMPACTION_POLICY, minSavingTokens: 0, keepRecent: 2, ...policy },
     estimateRaw: () => stateTokens(context.state),
     keepOriginal: text => { originals.push(text); return `H${originals.length}`; },
     summarise,
@@ -92,6 +92,31 @@ describe('createCompactor', () => {
     await run.compactor.beforeTurn({ remainingTurns: 10 }).catch(() => undefined);
     expect(run.compactor.stats().compactions).toBe(0);
     expect(run.compacted).toEqual([]);
+  });
+
+  it('rejects a summary over the size cap as a summariser failure and stubs instead', async () => {
+    const state = rounds(30, 80);
+    const chatty = async (): Promise<WrittenSummary> => ({ text: 'word '.repeat(5_000), usageTokens: 10 });
+    const run = harness({ state, usableBudget: Math.ceil(stateTokens(state) / 0.9), policy: { compactTo: 0.3 }, summarise: chatty });
+    await run.compactor.beforeTurn({ remainingTurns: 10 }).catch(() => undefined);
+    expect(run.events).toContainEqual({ type: 'warning', message: expect.stringMatching(/Compaction summary failed \(the summary is ~\d+ tokens, over the 800-token cap\)/) });
+    expect(run.context.state.some(({ kind }) => kind === 'summary')).toBe(false);
+  });
+
+  it('summarises only the oldest rounds that fit the summariser budget, and falls back to stubs when none fit', async () => {
+    const state = rounds(30, 80);
+    const tokens = stateTokens(state);
+    const small = harness({ state, usableBudget: Math.ceil(tokens / 0.9), policy: { compactTo: 0.3 }, summariserBudget: 600 });
+    await small.compactor.beforeTurn({ remainingTurns: 10 }).catch(() => undefined);
+    const [call] = small.summariseCalls;
+    expect(call?.messages.length).toBeGreaterThan(0);
+    expect(call?.messages.length).toBeLessThan(52);
+    expect(call?.messages[0]?.id).toBe('r:m2');
+    expect(call?.messages.filter(({ kind }) => kind === 'assistant').length).toBe(call?.messages.filter(({ kind }) => kind === 'tool').length);
+    const tiny = harness({ state: rounds(30, 80), usableBudget: Math.ceil(tokens / 0.9), policy: { compactTo: 0.3 }, summariserBudget: 10 });
+    await tiny.compactor.beforeTurn({ remainingTurns: 10 }).catch(() => undefined);
+    expect(tiny.summariseCalls).toEqual([]);
+    expect(tiny.events).toContainEqual({ type: 'warning', message: expect.stringMatching(/Compaction summary skipped: .*exceeds the summariser's 10-token budget/) });
   });
 
   it('rethrows an abort from the summariser instead of falling back', async () => {

@@ -37,11 +37,27 @@ export interface CompactionSettingsParams {
   settings: ModelSettings;
 }
 
-/** The run's usable budget (from the primary model) and its summariser: `compactionModel`, else the run's own models. */
+/** Output tokens a summary may use; the summariser is asked for well under this (see `SUMMARISER_PROMPT`). */
+export const SUMMARY_MAX_OUTPUT_TOKENS = 1_024;
+
+/** The summariser gets the run's sampling settings but none that would cut it short or lengthen it oddly. */
+function asSummariserTarget(target: ProviderTarget): ProviderTarget {
+  const { stop: _stop, seed: _seed, thinking: _thinking, ...kept } = target.settings ?? {};
+  return { ...target, settings: { ...kept, maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS } };
+}
+
+/**
+ * The run's usable budget (from the smallest window of its models, fallbacks included, so a fallback is never sent an
+ * oversized request), its summariser (`compactionModel`, else the run's own models, with bounded settings) and the
+ * prompt budget of the summariser's first model.
+ */
 export function compactionSettings(params: CompactionSettingsParams): RunCompactionSettings {
   const { agent, input, routing, settings: { contextSize, maxOutputTokens } } = params;
-  const { compaction: policy, compactionTarget, targets: [{ provider }] } = agent;
-  const { usable } = resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) });
-  const summariser: TurnRouting = compactionTarget == null ? routing : { ...routing, targets: [toProviderTarget({ target: compactionTarget, agent, input })] };
-  return { policy, usableBudget: usable, summariser };
+  const { compaction: policy, compactionTarget, targets } = agent;
+  const usableBudget = Math.min(...targets.map(({ provider }) => resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) }).usable));
+  const [first, ...rest]: TurnRouting['targets'] = compactionTarget == null ? routing.targets : [toProviderTarget({ target: compactionTarget, agent, input })];
+  const summariser: TurnRouting = { ...routing, targets: [asSummariserTarget(first), ...rest.map(asSummariserTarget)] };
+  const summariserProvider = compactionTarget?.provider ?? targets[0].provider;
+  const summariserBudget = resolveContextBudget({ maxContextTokens: summariserProvider.capabilities.maxContextTokens, ...(compactionTarget == null && contextSize != null ? { contextSize } : {}), maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS }).usable;
+  return { policy, usableBudget, summariser, summariserBudget };
 }
