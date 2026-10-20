@@ -83,7 +83,8 @@ export function createFsWrite(deps: FsDeps): Tool {
           const decision = await deps.policy.check({ path, permission: 'read', access });
           return decision.allowed && await access.readFile(decision.canonicalPath).then(sha256, () => undefined) === sha256(encodeUtf8(content));
         }));
-        return { done: hashes.every(Boolean), result: items.map(({ path }) => ({ path, verified: true })) };
+        // The same shape as a run's result: one batch entry per item.
+        return { done: hashes.every(Boolean), result: items.map(({ path }, index) => ({ index, ok: true, result: { path, verified: true } })) };
       },
       undo: async (_args, result) => undoDescriptor(result),
       applyUndo: async descriptor => applyUndoSteps({ deps, descriptor }),

@@ -84,8 +84,15 @@ async function hashAt(params: { deps: FsDeps; path: string }): Promise<string | 
   return access.readFile(path).then(sha256, () => undefined);
 }
 
+/** Whether something is at `path`; any error but "not there" is thrown (never taken as "exists", which could loop). */
 async function exists(params: { deps: FsDeps; path: string }): Promise<boolean> {
-  return params.deps.access.lstat(params.path).then(() => true, error => fsErrorCode(error) !== 'ENOENT');
+  try {
+    await params.deps.access.lstat(params.path);
+    return true;
+  } catch (error) {
+    if (fsErrorCode(error) === 'ENOENT') return false;
+    throw error;
+  }
 }
 
 /** Reverses one step; a failure says why (changed since, path taken, no backup). */

@@ -16,6 +16,8 @@ export const MAX_SEGMENT_CHARS = 255;
 
 /** Control characters (NUL included) are never part of a usable path. */
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+/** Invisible formatting characters (bidirectional overrides, zero-width spaces...), which can make a name read as another. */
+const FORMAT_CHARS = /\p{Cf}/u;
 /** Characters Windows forbids in names (`:` is checked separately: it marks alternate data streams). */
 const WIN_FORBIDDEN = /[<>"|?*]/;
 /** Reserved device names, with or without an extension (`NUL`, `com1.txt`, `CONIN$`...). */
@@ -66,6 +68,7 @@ export function lexicalPath(params: { path: string; platform: PathPlatform; base
   const { path, platform, base, allowUnc = false } = params;
   if (path === '') return { ok: false, message: 'the path is empty' };
   if (CONTROL_CHARS.test(path)) return { ok: false, message: 'the path contains a NUL or control character' };
+  if (FORMAT_CHARS.test(path)) return { ok: false, message: 'the path contains an invisible formatting character (such as a bidirectional override or zero-width space)' };
   if (path.length > MAX_PATH_CHARS) return { ok: false, message: `the path is longer than ${MAX_PATH_CHARS} characters` };
   const anchored = anchor({ path, platform, base, allowUnc });
   if (!anchored.ok) return anchored;
