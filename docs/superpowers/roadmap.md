@@ -13,9 +13,9 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 5 | Tool-result cache, shaper pipeline (verbatim-safe), volatile block, plan/todo tools | done |
 | 6 | Context layout, compaction, `Compressor` interface | done |
 | 7 | Chat: conversation model, patches, ask_user, queue/steer, threads, forks | done |
-| 8 | Resumable instances: checkpoints, leases, exactly-once; approvals | built (review pending) |
-| 9 | Guardrails, dry-run and undo | built (review pending) |
-| 10 | Filesystem pack + FsPolicy, data/format pack, agent/meta pack (delegate) | todo |
+| 8 | Resumable instances: checkpoints, leases, exactly-once; approvals | done |
+| 9 | Guardrails, dry-run and undo | built (fixes in progress) |
+| 10 | Filesystem pack + FsPolicy, data/format pack, agent/meta pack (delegate) | built (review pending) |
 | 11 | HTTP/web pack, code-intelligence pack | todo |
 | 12 | Shell pack, git pack | todo |
 | 13 | Database pack, knowledge/RAG pack | todo |
