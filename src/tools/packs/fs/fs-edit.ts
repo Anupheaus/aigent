@@ -36,7 +36,7 @@ async function readEditable(params: { deps: FsDeps; path: string }) {
 /** Applies one item's edits in memory, then writes the file at once (temp file and rename): all edits or none. */
 async function editOne(params: { deps: FsDeps; item: EditItem; context: ToolContext }): Promise<unknown> {
   const { deps, item: { path, edits }, context } = params;
-  const allowed = await allowPath({ deps, path, permission: 'write' });
+  const allowed = await allowPath({ deps, path, permission: 'write', gate: { kind: 'write', tool: FS_EDIT_TOOL_NAME } });
   return onDisk({
     path,
     work: async () => {

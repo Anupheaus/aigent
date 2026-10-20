@@ -86,11 +86,21 @@ const MISSING_CODES: ReadonlySet<string> = new Set(['ENOENT', 'ENOTDIR']);
 
 /**
  * Resolves symlinks (and on Windows short names and junctions) through `access.realpath` for the longest prefix that
- * exists, then re-attaches the segments after it, which are lexical and hold no `..`. The result is the one string
+ * exists (with `followFinalLink: false`, of the parent only: the last name is kept, so a final link stays the link),
+ * then re-attaches the segments after it, which are lexical and hold no `..`. The result is the one string
  * every later operation must use.
  */
-export async function resolveExisting(params: { parts: PathParts; platform: PathPlatform; access: FsAccess }): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
-  const { parts, platform, access } = params;
+export async function resolveExisting(params: { parts: PathParts; platform: PathPlatform; access: FsAccess; followFinalLink?: boolean }): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
+  const { parts, platform, access, followFinalLink = true } = params;
+  const last = parts.segments.at(-1);
+  if (!followFinalLink && last != null) {
+    // The parent is resolved; the last name is kept as written, so a link there stays the link.
+    const parent = await resolveExisting({ parts: { root: parts.root, segments: parts.segments.slice(0, -1) }, platform, access });
+    if (!parent.ok) return parent;
+    const resolvedParent = splitAbsolute({ path: parent.path, platform });
+    if (resolvedParent == null) return { ok: false, message: `'${parent.path}' is not an absolute path` };
+    return { ok: true, path: joinParts({ parts: { root: resolvedParent.root, segments: [...resolvedParent.segments, last] }, platform }) };
+  }
   for (let length = parts.segments.length; length >= 0; length -= 1) {
     const prefix = joinParts({ parts: { root: parts.root, segments: parts.segments.slice(0, length) }, platform });
     let real: string;

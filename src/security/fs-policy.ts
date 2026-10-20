@@ -3,7 +3,7 @@ import { lexicalPath, relativeTo, resolveExisting } from './canonical-path.js';
 import type { FsAccess, PathPlatform } from './fs-access.js';
 import type { CanonicalPath, FsPermission, FsPolicy, FsPolicyOptions, FsRoot, PolicyDecision } from './fs-policy-types.js';
 import { globRegExp } from './glob.js';
-import { comparable, isCaseSensitiveByDefault, separatorOf, splitAbsolute } from './path-flavour.js';
+import { comparable, isCaseSensitiveByDefault, joinParts, separatorOf, splitAbsolute } from './path-flavour.js';
 
 const MIB = 1_048_576;
 const DEFAULT_MAX_FILES = 10_000;
@@ -49,14 +49,24 @@ export function createFsPolicy(options: FsPolicyOptions): FsPolicy {
     return permission === 'read' ? DEFAULT_DENY_ALL : [...DEFAULT_DENY_ALL, ...DEFAULT_DENY_CHANGES];
   }
 
-  async function canonicalise(params: { path: string; access: FsAccess }): Promise<CanonicalPath> {
+  function lexicalParts(params: { path: string; access: FsAccess }): ReturnType<typeof lexicalPath> {
     const { path, access } = params;
     const platform = platformOf(access);
     const base = splitAbsolute({ path: cwd ?? roots[0]?.path ?? separatorOf(platform), platform }) ?? { root: separatorOf(platform), segments: [] };
     const allowUnc = roots.some(root => root.path.startsWith('\\\\') || root.path.startsWith('//'));
-    const lexical = lexicalPath({ path, platform, base, allowUnc });
-    if (!lexical.ok) return lexical;
-    return resolveExisting({ parts: lexical.parts, platform, access });
+    return lexicalPath({ path, platform, base, allowUnc });
+  }
+
+  function lexical(params: { path: string; access: FsAccess }): CanonicalPath {
+    const parts = lexicalParts(params);
+    return parts.ok ? { ok: true, path: joinParts({ parts: parts.parts, platform: platformOf(params.access) }) } : parts;
+  }
+
+  async function canonicalise(params: { path: string; access: FsAccess; followFinalLink?: boolean }): Promise<CanonicalPath> {
+    const { access, followFinalLink = true } = params;
+    const parts = lexicalParts(params);
+    if (!parts.ok) return parts;
+    return resolveExisting({ parts: parts.parts, platform: platformOf(access), access, followFinalLink });
   }
 
   /** Roots in canonical form (a root that does not exist yet stays lexical). */
@@ -79,9 +89,9 @@ export function createFsPolicy(options: FsPolicyOptions): FsPolicy {
   const describeRoots = (): string => roots.map(({ path, label, permissions }) => `${label ?? path} (${permissions.join(', ')})`).join('; ');
 
   async function check(request: Parameters<FsPolicy['check']>[0]): Promise<PolicyDecision> {
-    const { path, permission, access, bytes } = request;
+    const { path, permission, access, bytes, followFinalLink = true } = request;
     if (roots.length === 0) return { allowed: false, code: 'no_roots', message: 'No filesystem roots are configured, so every path is refused', suggestion: 'Configure createFsPolicy({ roots: [{ path, permissions }] }) for the directories the agent may use' };
-    const canonical = await canonicalise({ path, access });
+    const canonical = await canonicalise({ path, access, followFinalLink });
     if (!canonical.ok) return { allowed: false, code: 'invalid_path', message: `Path '${path}' cannot be used: ${canonical.message}`, suggestion: 'Use a plain absolute path, or a path relative to the workspace root' };
     const separator = separatorOf(platformOf(access));
     const matches = (await canonicalRoots(access)).filter(({ path: rootPath }) => isWithin({ path: canonical.path, root: rootPath, separator, caseSensitive: caseSensitive(access) }));
@@ -97,7 +107,7 @@ export function createFsPolicy(options: FsPolicyOptions): FsPolicy {
   }
 
   return {
-    check, canonicalise, isDenied,
+    check, canonicalise, lexical, isDenied,
     needsApproval: operation => approval?.(operation) ?? false,
     limits: { maxReadBytes, maxWriteBytes, maxFiles },
     caseSensitive,

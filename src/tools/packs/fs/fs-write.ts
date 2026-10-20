@@ -30,7 +30,7 @@ async function writeOne(params: { deps: FsDeps; item: WriteItem; context: ToolCo
   const { deps, item: { path, content, overwrite = false, createDirs = false }, context } = params;
   const { access } = deps;
   const data = encodeUtf8(content);
-  const allowed = await allowPath({ deps, path, permission: 'write', bytes: data.length });
+  const allowed = await allowPath({ deps, path, permission: 'write', bytes: data.length, gate: { kind: 'write', tool: FS_WRITE_TOOL_NAME } });
   return onDisk({
     path,
     work: async () => {

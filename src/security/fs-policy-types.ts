@@ -60,6 +60,11 @@ export interface FsCheckRequest {
   access: FsAccess;
   /** Writes: the size of the content, checked against `maxWriteBytes`. */
   bytes?: number;
+  /**
+   * Default true. False resolves every segment but the last, so a final symlink or junction names itself (its own
+   * place is checked), not its target: what deleting, moving or describing a link acts on.
+   */
+  followFinalLink?: boolean;
 }
 
 /** The canonical form of a path, or why it is unusable. */
@@ -69,8 +74,10 @@ export type CanonicalPath = { ok: true; path: string } | { ok: false; message: s
 export interface FsPolicy {
   /** Canonicalises the path, then checks roots, permissions, deny globs and size. */
   check(request: FsCheckRequest): Promise<PolicyDecision>;
-  /** Absolute, separators normalised, `..` applied, symlinks of the existing prefix resolved. */
-  canonicalise(params: { path: string; access: FsAccess }): Promise<CanonicalPath>;
+  /** Absolute, separators normalised, `..` applied, symlinks of the existing prefix resolved (see `followFinalLink`). */
+  canonicalise(params: { path: string; access: FsAccess; followFinalLink?: boolean }): Promise<CanonicalPath>;
+  /** The lexical part of `canonicalise` only (no disk access, so links are not resolved): for synchronous checks. */
+  lexical(params: { path: string; access: FsAccess }): CanonicalPath;
   /** Whether the canonical path is refused by a deny glob for this permission (used while walking directories). */
   isDenied(params: { path: string; root: string; permission: FsPermission; access: FsAccess }): boolean;
   needsApproval(operation: FsOperation): boolean;

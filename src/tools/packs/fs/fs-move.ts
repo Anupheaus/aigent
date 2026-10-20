@@ -22,8 +22,10 @@ async function moveOne(params: { deps: FsDeps; item: MoveItem; context: ToolCont
   const { deps, item: { from, to, overwrite = false }, context } = params;
   const { access } = deps;
   // Moving takes the source away (delete) and creates the target (write).
-  const source = await allowPath({ deps, path: from, permission: 'delete' });
-  const target = await allowPath({ deps, path: to, permission: 'write' });
+  // A link is moved itself (rename never follows it), so both ends are checked without following a final link.
+  const gate = { kind: 'write', tool: FS_MOVE_TOOL_NAME } as const;
+  const source = await allowPath({ deps, path: from, permission: 'delete', followFinalLink: false, gate });
+  const target = await allowPath({ deps, path: to, permission: 'write', followFinalLink: false, gate });
   return onDisk({
     path: from,
     work: async () => {
@@ -61,8 +63,8 @@ export function createFsMove(deps: FsDeps): Tool {
       },
       runItem: (item, context) => moveOne({ deps, item, context }),
       dryRunItem: async ({ from, to, overwrite = false }) => {
-        const source = await allowPath({ deps, path: from, permission: 'delete' });
-        const target = await allowPath({ deps, path: to, permission: 'write' });
+        const source = await allowPath({ deps, path: from, permission: 'delete', followFinalLink: false });
+        const target = await allowPath({ deps, path: to, permission: 'write', followFinalLink: false });
         const isReplacing = await pathExists({ deps, path: target.path });
         if (isReplacing && !overwrite) return { result: { from: source.path, to: target.path, wouldFail: 'already_exists' }, effects: [] };
         return [{ kind: 'file.move', target: source.path, summary: `move ${source.path} to ${target.path}${isReplacing ? ' (replacing it)' : ''}`, reversible: !isReplacing || deps.backupDir != null }];
@@ -70,7 +72,7 @@ export function createFsMove(deps: FsDeps): Tool {
       // Done when the source is gone and the target is there.
       verify: async ({ items }) => {
         const states = await Promise.all(items.map(async ({ from, to }) => {
-          const [source, target] = await Promise.all([policy.canonicalise({ path: from, access }), policy.canonicalise({ path: to, access })]);
+          const [source, target] = await Promise.all([policy.canonicalise({ path: from, access, followFinalLink: false }), policy.canonicalise({ path: to, access, followFinalLink: false })]);
           if (!source.ok || !target.ok) return false;
           return !await pathExists({ deps, path: source.path }) && await pathExists({ deps, path: target.path });
         }));

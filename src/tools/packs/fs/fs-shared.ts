@@ -46,12 +46,32 @@ export function resolveDeps(options: FsToolsOptions): FsDeps {
 /** Upper bound on items in one filesystem call. */
 export const MAX_FS_ITEMS = 50;
 
+/** A mutating tool's approval gate, so the run-time check can tell whether the gate asked about a path. */
+export interface ApprovalGate {
+  kind: 'write' | 'delete';
+  tool: string;
+}
+
+/** `allowPath`. */
+export interface AllowPathRequest {
+  deps: FsDeps;
+  path: string;
+  permission: FsPermission;
+  bytes?: number;
+  /** Default true; false checks a final link itself (see `FsCheckRequest.followFinalLink`). */
+  followFinalLink?: boolean;
+  /** Mutating tools: refuse when the canonical path needs approval the gate did not ask for. */
+  gate?: ApprovalGate;
+}
+
 /** The canonical path the policy allows (and its root); throws a `denied` failure the model can act on otherwise. */
-export async function allowPath(params: { deps: FsDeps; path: string; permission: FsPermission; bytes?: number }): Promise<{ path: string; root: string }> {
-  const { deps: { policy, access }, path, permission, bytes } = params;
-  const decision = await policy.check({ path, permission, access, ...(bytes == null ? {} : { bytes }) });
-  if (decision.allowed) return { path: decision.canonicalPath, root: decision.root };
-  throw toolFailure({ category: 'denied', code: decision.code, message: decision.message, retryable: false, ...(decision.suggestion == null ? {} : { suggestion: decision.suggestion }), details: { path, permission } });
+export async function allowPath(params: AllowPathRequest): Promise<{ path: string; root: string }> {
+  const { deps, path, permission, bytes, followFinalLink = true, gate } = params;
+  const { policy, access } = deps;
+  const decision = await policy.check({ path, permission, access, followFinalLink, ...(bytes == null ? {} : { bytes }) });
+  if (!decision.allowed) throw toolFailure({ category: 'denied', code: decision.code, message: decision.message, retryable: false, ...(decision.suggestion == null ? {} : { suggestion: decision.suggestion }), details: { path, permission } });
+  if (gate != null) confirmApproved({ deps, gate, requested: path, canonical: decision.canonicalPath, permission });
+  return { path: decision.canonicalPath, root: decision.root };
 }
 
 const FS_CODE_MESSAGES: Record<string, { code: string; message: string; suggestion?: string }> = {
@@ -100,9 +120,31 @@ export function countTitle(params: { verb: string; noun: string; paths: string[]
   return paths.length === 1 && only != null ? `${verb} ${baseName(only)}` : `${verb} ${paths.length} ${noun}`;
 }
 
-/** Whether a mutating operation needs approval under the tools' mode and the policy's own rule. */
+const isGatedByMode = (params: { approvals: FsApprovals; kind: 'write' | 'delete' }): boolean => params.approvals === 'writes' || (params.approvals === 'deletes' && params.kind === 'delete');
+
+/** Whether the policy's rule wants the operation approved, judged on the path's lexical canonical form. */
+function ruleAsks(params: { deps: FsDeps; path: string; permission: FsPermission; tool: string }): boolean {
+  const { deps: { policy, access }, path, permission, tool } = params;
+  const lexical = policy.lexical({ path, access });
+  // An unusable path is refused when the call runs; asking first fails closed.
+  return !lexical.ok || policy.needsApproval({ path: lexical.path, permission, tool });
+}
+
+/**
+ * Whether a mutating operation needs approval under the tools' mode and the policy's own rule. The rule sees the
+ * canonical form (absolute, `..` applied, separators normalised), never the model's spelling; a link that hides a
+ * protected path from this synchronous check is caught when the call runs (`allowPath` with `gate`).
+ */
 export function needsApproval(params: { deps: FsDeps; kind: 'write' | 'delete'; paths: { path: string; permission: FsPermission }[]; tool: string }): boolean {
-  const { deps: { approvals, policy }, kind, paths, tool } = params;
-  if (approvals === 'writes' || (approvals === 'deletes' && kind === 'delete')) return true;
-  return paths.some(({ path, permission }) => policy.needsApproval({ path, permission, tool }));
+  const { deps, kind, paths, tool } = params;
+  if (isGatedByMode({ approvals: deps.approvals, kind })) return true;
+  return paths.some(({ path, permission }) => ruleAsks({ deps, path, permission, tool }));
+}
+
+/** Refuses an operation whose resolved path needs approval that the gate did not ask for (a link changed the path). */
+function confirmApproved(params: { deps: FsDeps; gate: ApprovalGate; requested: string; canonical: string; permission: FsPermission }): void {
+  const { deps, gate: { kind, tool }, requested, canonical, permission } = params;
+  if (isGatedByMode({ approvals: deps.approvals, kind }) || !deps.policy.needsApproval({ path: canonical, permission, tool })) return;
+  if (ruleAsks({ deps, path: requested, permission, tool })) return;
+  throw toolFailure({ category: 'denied', code: 'approval_required', retryable: false, message: `'${requested}' resolves to '${canonical}', which needs approval, but the call was not approved for it`, suggestion: `Use the path '${canonical}' itself, so approval is asked for it`, details: { path: requested, canonicalPath: canonical, permission } });
 }

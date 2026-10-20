@@ -20,7 +20,8 @@ type DeleteItem = z.infer<typeof deleteItem>;
 async function deleteOne(params: { deps: FsDeps; item: DeleteItem; context: ToolContext }): Promise<unknown> {
   const { deps, item: { path, recursive = false }, context } = params;
   const { access } = deps;
-  const allowed = await allowPath({ deps, path, permission: 'delete' });
+  // A link is deleted itself, never its target: the final segment is not followed.
+  const allowed = await allowPath({ deps, path, permission: 'delete', followFinalLink: false, gate: { kind: 'delete', tool: FS_DELETE_TOOL_NAME } });
   if (allowed.path === allowed.root) throw toolFailure({ category: 'denied', code: 'root_protected', message: `'${path}' is an allowed root and cannot be deleted`, suggestion: 'Delete the entries inside it instead' });
   return onDisk({
     path,
@@ -54,7 +55,7 @@ export function createFsDelete(deps: FsDeps): Tool {
       },
       runItem: (item, context) => deleteOne({ deps, item, context }),
       dryRunItem: async ({ path, recursive = false }) => {
-        const allowed = await allowPath({ deps, path, permission: 'delete' });
+        const allowed = await allowPath({ deps, path, permission: 'delete', followFinalLink: false });
         const stat = await access.lstat(allowed.path).catch(() => undefined);
         if (stat == null) return { result: { path: allowed.path, wouldFail: 'not_found' }, effects: [] };
         if (stat.type === 'directory' && !recursive) return { result: { path: allowed.path, wouldFail: 'is_a_directory' }, effects: [] };
@@ -63,7 +64,7 @@ export function createFsDelete(deps: FsDeps): Tool {
       // Done when every path is gone.
       verify: async ({ items }) => {
         const gone = await Promise.all(items.map(async ({ path }) => {
-          const canonical = await policy.canonicalise({ path, access });
+          const canonical = await policy.canonicalise({ path, access, followFinalLink: false });
           return canonical.ok && !await pathExists({ deps, path: canonical.path });
         }));
         return { done: gone.every(Boolean) };
