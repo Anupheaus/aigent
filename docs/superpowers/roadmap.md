@@ -8,7 +8,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 |---|-------|--------|
 | 1 | Foundation core (loop, tools, store, directives) | done |
 | 2 | Providers (OpenAI-compatible, Anthropic, contract suite) | done |
-| 3 | Model settings, provider resilience (retry/fallback), shared scheduler | todo |
+| 3 | Model settings, provider resilience (retry/fallback), shared scheduler | done |
 | 4 | Run records, scoring, report, feedback tools, user feedback, analysis | todo |
 | 5 | Tool-result cache, shaper pipeline (verbatim-safe), volatile block, plan/todo tools | todo |
 | 6 | Context layout, compaction, `Compressor` interface | todo |
