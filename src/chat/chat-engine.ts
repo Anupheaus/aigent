@@ -1,6 +1,7 @@
 import type { StopOptions } from '../core/agent-types.js';
 import type { PatchLog } from './apply-patch.js';
 import { createAskUserTool } from './ask-user-tool.js';
+import { closedError } from './chat-closed.js';
 import { createEngineQuestions } from './engine-questions.js';
 import type { ChatQuestions } from './chat-questions.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
@@ -51,6 +52,11 @@ export interface ChatEngine {
   followActive(handle: TurnHandle): boolean;
   /** Stops the running turn (as close does: `onStop` does not apply). */
   stopActive(options: StopOptions): void;
+  /**
+   * Closes the engine for good: a waiting turn is stopped, a turn that asks later is stopped as it asks, queued messages
+   * are settled `cancelled` instead of starting, and new messages are refused.
+   */
+  close(): void;
   /** Resolves once no turn runs and nothing is queued. */
   idle(): Promise<void>;
 }
@@ -62,12 +68,13 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
   let queue: PendingTurn[] = [];
   let active: ActiveTurn | undefined;
   let idleWaiters: (() => void)[] = [];
+  let isClosing = false;
 
   function setStatus(status: 'idle' | 'running' | 'waiting_for_user'): void {
     if (log.state().status !== status) log.append({ type: 'status-changed', status });
   }
 
-  const questions = createEngineQuestions({ log, ids, now, setStatus, accept: pending => accept(pending), activeControl: () => active?.control, ...(suspended == null ? {} : { suspended }) });
+  const questions = createEngineQuestions({ log, ids, now, setStatus, accept: pending => accept(pending), activeControl: () => active?.control, isClosing: () => isClosing, ...(suspended == null ? {} : { suspended }) });
 
   const publishQueue = (): void => { log.append({ type: 'queue-updated', queue: queuedMessages(queue) }); };
   const startedIds = (): ReadonlySet<string> => new Set(log.state().messages.map(({ id }) => id));
@@ -124,7 +131,8 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       queue.push(...leftovers.map(pending => ({ ...pending, queuedAt: pending.queuedAt ?? now() })));
       publishQueue();
     }
-    if (ended != null) afterReply?.();
+    if (ended != null && !isClosing) afterReply?.();
+    if (isClosing) settleQueue();
     const { taken, rest } = takeNext(queue);
     if (taken.length > 0) {
       queue = rest;
@@ -137,6 +145,15 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
     const waiters = idleWaiters;
     idleWaiters = [];
     for (const wake of waiters) wake();
+  }
+
+  /** Settles every queued message `cancelled` (closing: nothing more starts). */
+  function settleQueue(): void {
+    if (queue.length === 0) return;
+    const settled = queue;
+    queue = [];
+    publishQueue();
+    for (const pending of settled) settleCancelled(pending);
   }
 
   function enqueue(pending: PendingTurn): void {
@@ -161,6 +178,7 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
   }
 
   function accept(pending: PendingTurn): void {
+    if (isClosing) { pending.handle.fail(closedError(log.state().sessionId)); return; }
     pending.handle.onEarlyStop(() => cancelEarly(pending));
     const running = active;
     const action = routeDelivery({ mode: pending.delivery ?? 'queue', isBusy: running != null, hasQueue: queue.length > 0 });
@@ -198,6 +216,12 @@ export function createChatEngine(params: ChatEngineParams): ChatEngine {
       return true;
     },
     stopActive: options => active?.control.stop(options),
+    close: () => {
+      isClosing = true;
+      // Without a running turn nothing calls finished(): the queue is settled here.
+      if (active == null) settleQueue();
+      else if (log.state().status === 'waiting_for_user') active.control.stop({ mode: 'immediate' });
+    },
     idle: () => (active == null && queue.length === 0 ? Promise.resolve() : new Promise(resolve => idleWaiters.push(resolve))),
   };
 }

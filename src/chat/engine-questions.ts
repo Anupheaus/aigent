@@ -17,6 +17,8 @@ export interface EngineQuestionsParams {
   accept(pending: PendingTurn): void;
   /** The running turn's control, when one runs. */
   activeControl(): TurnRunControl | undefined;
+  /** The chat is closing: a turn that asks now is stopped instead of waiting (its questions stay open). */
+  isClosing(): boolean;
   suspended?: SuspendedTurns;
 }
 
@@ -34,7 +36,7 @@ function handleFor(params: { ids: IdGenerator; given?: TurnHandle }): { agentMes
  * suspended turn from its checkpoint when one was recorded, and otherwise starts a fresh turn that sees the answers.
  */
 export function createEngineQuestions(params: EngineQuestionsParams): ChatQuestions {
-  const { log, ids, now, setStatus, accept, activeControl, suspended } = params;
+  const { log, ids, now, setStatus, accept, activeControl, isClosing, suspended } = params;
   return createChatQuestions({
     log, ids, now, setStatus,
     resumeInFreshTurn: ({ replyTo, taskText, handle: given }) => {
@@ -44,7 +46,10 @@ export function createEngineQuestions(params: EngineQuestionsParams): ChatQuesti
     },
     onSuspend: ({ callId, place: { agentMessageId } }) => {
       const control = activeControl();
-      if (control != null) suspended?.suspend({ runId: control.streamId ?? control.runId, callId, agentMessageId, patchSeq: log.state().seq });
+      if (control == null) return;
+      suspended?.suspend({ runId: control.streamId ?? control.runId, callId, agentMessageId, patchSeq: log.state().seq });
+      // Nobody answers once close has begun: waiting would hang close (and so ai.close()).
+      if (isClosing()) control.stop({ mode: 'immediate' });
     },
     resumeSuspended: ({ callId, replyTo, handle: given }) => {
       const turn = suspended?.find(callId);

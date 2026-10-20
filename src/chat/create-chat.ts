@@ -5,6 +5,7 @@ import { createRecordWriter } from '../telemetry/record-writer.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { PatchLog } from './apply-patch.js';
 import { attachmentSaver, prepareAttachments } from './attachments.js';
+import { closedError } from './chat-closed.js';
 import { createChatEngine } from './chat-engine.js';
 import type { ChatEngine } from './chat-engine.js';
 import { rateReply, reactTo } from './chat-feedback.js';
@@ -96,12 +97,19 @@ export function createChat(params: CreateChatParams): Chat {
     prepareAttachments: attachments => prepareAttachments({ attachments, options: options.attachments ?? {}, vision: agent.targets[0].provider.capabilities.vision, model: agent.targets[0].reference, save, now }),
   });
 
+  let isClosed = false;
+  /** Anything that would change a closed session throws instead (sends fail their own turn in the engine). */
+  function requireOpen(): void {
+    if (isClosed) throw closedError(sessionId);
+  }
+
   async function close(): Promise<void> {
+    isClosed = true;
     await ready;
     if (loaded == null) return;
     const { engine, session: { log, writer } } = loaded;
-    // A turn waiting for an answer could wait forever: it is cancelled, and its questions stay open (and stored).
-    if (log.state().status === 'waiting_for_user') engine.stopActive({ mode: 'immediate' });
+    // A turn waiting for an answer (now or once it asks) could wait forever: it is cancelled, its questions stay open (and stored).
+    engine.close();
     await engine.idle();
     await Promise.all([...sideWork]);
     writer?.snapshot(log.state());
@@ -125,6 +133,7 @@ export function createChat(params: CreateChatParams): Chat {
     feedback: async feedback => { await ready; await rateReply({ log: requireLog(), submit: services.submitFeedback, feedback }); },
     react: async (messageId, rating, comment) => { await ready; await reactTo({ log: requireLog(), submit: services.submitFeedback, messageId, rating, ...(comment == null ? {} : { comment }) }); },
     answer: (questionId, value) => {
+      if (isClosed) return { ok: false, error: closedError(sessionId).message };
       const result = requireLoaded().engine.questions.answer({ questionId, value });
       return result.ok ? { ok: true } : { ok: false, error: result.error };
     },
@@ -134,11 +143,11 @@ export function createChat(params: CreateChatParams): Chat {
       remove: (id: string) => requireLoaded().engine.queue.remove(id),
     }),
     thread: messageId => threadOf({ ...navigation(), messageId }),
-    fork: (forkOptions = {}) => createChat({ ...params, options: { ...options, sessionId: ids.next('chat') }, seed: forkSeed({ parent: requireLog(), ...(forkOptions.atMessageId == null ? {} : { atMessageId: forkOptions.atMessageId }) }) }),
+    fork: (forkOptions = {}) => { requireOpen(); return createChat({ ...params, options: { ...options, sessionId: ids.next('chat') }, seed: forkSeed({ parent: requireLog(), ...(forkOptions.atMessageId == null ? {} : { atMessageId: forkOptions.atMessageId }) }) }); },
     branches: () => requireLog().state().branches,
     selectBranch: branchId => selectBranch({ log: requireLog(), branchId }),
-    edit: (messageId, newText) => branchAndRun({ ...navigation(), messageId, reason: 'edit', newText }),
-    regenerate: messageId => branchAndRun({ ...navigation(), messageId, reason: 'regenerate' }),
+    edit: (messageId, newText) => { requireOpen(); return branchAndRun({ ...navigation(), messageId, reason: 'edit', newText }); },
+    regenerate: messageId => { requireOpen(); return branchAndRun({ ...navigation(), messageId, reason: 'regenerate' }); },
     pin: messageId => setPinned({ log: requireLog(), messageId, pinned: true }),
     unpin: messageId => setPinned({ log: requireLog(), messageId, pinned: false }),
     close: () => { unregister(); const closing = close(); track(closing); return closing; },
