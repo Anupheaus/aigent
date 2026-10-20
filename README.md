@@ -350,6 +350,37 @@ await result.feedback({ rating: 'correct' });   // the same, with the responseId
 
 When off, requests contain none of these (no tool, no field, no directive instructions), so it adds zero tokens. The resolved flag is part of `agentVersion`. Without outcomes (the production default), scoring and request analysis fall back to timings, tokens, errors and user feedback.
 
+## Scoring and `ai.report()`
+
+`ai.report(filter?)` turns the stored runs into scores and findings, with no model calls:
+
+```ts
+const ai = createAigent({ providers, store, pricing: { 'anthropic:claude-sonnet-5-5': { inputPerMTokUsd: 3, outputPerMTokUsd: 15, cachedInputPerMTokUsd: 0.3 } } });
+const report = await ai.report({ agentName: 'writer', since: Date.now() - 86_400_000, compareVersions: ['v1', 'v2'] });
+```
+
+- **Filter:** `agentName`, `instanceId`, `agentVersion` (hash or `version` label), `since` (start time), `label`, `unattended`, `includeDisabled` (only `false`: `disableTelemetry` runs are never stored), `compareVersions: [before, after]` and `minRuns` (default 5). An invalid filter rejects with `invalid_input`. Without a store the report is empty. Stored records that do not match the schema are left out.
+- **Scores** (`report.agents[]`, one per agent name and version): `speed`, `tokenEfficiency` (cached input weighted 0.1), `turnEfficiency` (tool calls per turn and turn count), `toolEfficiency` (batch items per call and calls that are not repeats), `cost` (needs `pricing`, keyed `provider:model`) and `reliability`. Each is `{ value, label, evidence }`.
+- **Baselines:** a score is relative to the agent version's own rolling baseline. Each run is compared with the median of the up to 50 runs of that version before it, and the per-run scores are averaged. Runs outside the filter still count as history. 50 means "as usual" and 100 "twice as good or better". A run with fewer than `minRuns` earlier runs is not scored; with none scored, the value is null and the label `insufficient-data`. Labels are `fast` / `slow` for speed and `efficient` / `inefficient` otherwise (60 and above, 40 and below), with `average` in between.
+- **Reliability** is the percentage of scored runs that completed with no more tool failures than their baseline's median. The user's verdict overrides it: a run rated `incorrect` is never reliable, even if the agent claimed success, and one rated `correct` always is. Labels: `efficient` at 90 or more, `inefficient` below 70.
+- Each agent entry also has `totals`, `medians` and `p90s` (duration, tokens, turns, tool calls, tool calls per turn, cost).
+- **Findings** (`report.findings`) are sorted by severity (`bad`, `warn`, `info`) then id, and each carries its evidence:
+
+  | Kind | When |
+  | --- | --- |
+  | `slow-tool` | a tool's median call takes 2 s or more and 3 times the agent's typical call |
+  | `failing-tool` | a quarter of a tool's calls fail (`bad` at half) |
+  | `verbose-tool` | a tool's median result is 2,000 tokens or more |
+  | `truncation-frequent` | a quarter of a tool's results were truncated |
+  | `unbatched-repeats` | one run calls a tool 3 or more times with the same argument keys, in separate calls |
+  | `too-many-turns` | a run takes 5 or more turns at 1.5 tool calls per turn or fewer |
+  | `high-retry-rate` | an agent retries provider calls on a fifth of its turns or more |
+  | `claimed-success-user-incorrect` | the agent reported success but the user rated the answer incorrect |
+  | `slow-run`, `expensive-run` | a run takes 3 times the agent's median duration or cost (tokens without pricing) |
+
+  `guardrail` is reserved for the guardrails slice, and `report.cache` stays empty until the tool-result cache slice.
+- **`compareVersions`** gives `comparison.before` and `comparison.after` (runs, and medians of duration, tokens, turns, tool calls per turn, cost and reliability) and their `deltas` (after minus before). Values are null where a side has no data.
+
 ## Stream directives
 
 The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. The system prompt only describes them when [feedback](#agent-feedback-enablefeedback) is on, but they are always parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
@@ -378,8 +409,9 @@ Phase 1 foundation core, implemented in this slice:
 - Versioned run records and step traces with tool telemetry, the `redact` hook, content capture, retention hints, `ai.trace` and `ai.purge`
 - `enableFeedback`: the `previous` outcome field, `::aigent outcome` linking and the `aigent_feedback` tool
 - User feedback on responses: `ai.feedback` / `result.feedback`, with amendable history and `userVerdict` on the run record
+- Scoring against rolling per-version baselines, findings, version comparison and `ai.report()`
 
-Roadmap (later slices, each with its own spec): vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
+Roadmap (later slices, each with its own spec): vision, chat sessions, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
 ## License
 

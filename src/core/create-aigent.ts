@@ -8,6 +8,9 @@ import { readTrace } from '../telemetry/read-trace.js';
 import { createRecordWriter } from '../telemetry/record-writer.js';
 import type { Redact } from '../telemetry/redact.js';
 import { parseRetention } from '../telemetry/retention.js';
+import { parsePricing } from '../scoring/pricing.js';
+import { readReport } from '../scoring/read-report.js';
+import type { Pricing, Report, ReportFilter } from '../scoring/report-types.js';
 import type { RetentionOptions } from '../telemetry/retention.js';
 import type { RunTrace } from '../telemetry/run-record.js';
 import { createFeedbackCollector } from '../feedback/feedback-collector.js';
@@ -61,6 +64,8 @@ export interface AigentOptions {
   retention?: RetentionOptions;
   /** Default for agents that do not set `enableFeedback`; when absent, on unless `NODE_ENV` is `production`. */
   enableFeedback?: boolean;
+  /** Model prices keyed `provider:model`, so `ai.report()` can score cost; cost is null without them. */
+  pricing?: Pricing;
 }
 
 export interface Aigent {
@@ -84,6 +89,11 @@ export interface Aigent {
    * for an invalid payload, an unknown `responseId` (including disableTelemetry runs) or no store.
    */
   feedback(feedback: UserFeedback): Promise<void>;
+  /**
+   * Scores (against each agent version's own rolling baseline), findings and an optional version comparison over the
+   * stored runs that match `filter`. Rejects with `invalid_input` for an invalid filter; empty without a store.
+   */
+  report(filter?: ReportFilter): Promise<Report>;
 }
 
 function indexProviders(providers: Provider[]): Map<string, Provider> {
@@ -126,6 +136,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
   const providersById = indexProviders(providers);
   const { expiresInMs } = parseRetention(options.retention) ?? {};
+  const pricing = parsePricing(options.pricing);
   const runtimeSettings = parseModelSettings({ owner: 'createAigent', settings: options.modelSettings });
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
   const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
@@ -194,5 +205,6 @@ export function createAigent(options: AigentOptions): Aigent {
     trace: runId => readTrace({ store, runId }),
     purge: async filter => purgeRecords({ store, filter }),
     feedback: submitFeedback,
+    report: async filter => readReport({ store, filter, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) }),
   };
 }

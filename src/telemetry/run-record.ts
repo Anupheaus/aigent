@@ -109,6 +109,16 @@ export interface OutcomeSummary {
   claimedFailure: number;
 }
 
+/** How the run used its tools, from its trace (wrappers and commentary left out). */
+export interface ToolUse {
+  /** Tool calls that did work, inner `aigent_multi` calls included. */
+  calls: number;
+  /** Work items: a batch call's items, one for any other call. */
+  items: number;
+  /** Calls with the same tool and argument summary as an earlier call of the run. */
+  repeats: number;
+}
+
 /** One document in the `runs` collection, keyed by run id. */
 export interface RunRecord extends RecordMeta {
   /** Stable id of the run's answer, used by `ai.feedback`. */
@@ -145,6 +155,7 @@ export interface RunRecord extends RecordMeta {
   answer?: string;
   /** Outcomes the agent reported on its steps (`previous` and `outcome` directives). */
   outcomeSummary: OutcomeSummary;
+  toolUse: ToolUse;
   /** The latest user rating (`ai.feedback`), copied here so scoring needs no join; it overrides the agent's claims. */
   userVerdict?: UserRating;
 }

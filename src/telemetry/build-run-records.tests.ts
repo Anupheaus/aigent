@@ -23,7 +23,7 @@ const STEPS: TraceStep[] = [
   step({ index: 2, callId: 'b', durationMs: 5 }),
 ];
 
-const FACTS: RunFacts = { timings: { startedAt: 100, firstTokenMs: 3, modelMs: 12, queuedMs: 4 }, steps: STEPS, captureContent: true, recordedAt: 200 };
+const FACTS: RunFacts = { timings: { startedAt: 100, firstTokenMs: 3, modelMs: 12, queuedMs: 4 }, steps: STEPS, toolUse: { calls: 2, items: 2, repeats: 1 }, captureContent: true, recordedAt: 200 };
 
 function target(overrides: Partial<ProviderTarget> & Pick<ProviderTarget, 'label'>): ProviderTarget {
   return { provider: createFakeProvider({ turns: [] }), model: 'm', warnings: [], dropped: [], ...overrides };
@@ -49,7 +49,8 @@ describe('buildRunRecords', () => {
       runtimeSettings: { contextSize: 8_000, showThinking: false }, unattended: true, status: 'completed', usage: RESULT.usage,
       // toolMs sums top-level steps only: an inner aigent_multi call is part of its parent's time.
       timings: { startedAt: 100, firstTokenMs: 3, durationMs: 50, modelMs: 12, toolMs: 35, queuedMs: 4 },
-      stepCount: 3, failureCount: 1, outcomeSummary: { claimedSuccess: 0, claimedFailure: 0 }, task: 'find the file', answer: 'the answer', recordedAt: 200,
+      stepCount: 3, failureCount: 1, outcomeSummary: { claimedSuccess: 0, claimedFailure: 0 }, toolUse: { calls: 2, items: 2, repeats: 1 },
+      task: 'find the file', answer: 'the answer', recordedAt: 200,
     } satisfies RunRecord);
   });
 

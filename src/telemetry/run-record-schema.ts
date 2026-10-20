@@ -57,6 +57,7 @@ export const runRecordSchema = z.object({
   task: z.string().optional(),
   answer: z.string().optional(),
   outcomeSummary: z.object({ claimedSuccess: count, claimedFailure: count }),
+  toolUse: z.object({ calls: count, items: count, repeats: count }),
   userVerdict: z.enum(USER_RATINGS).optional(),
 });
 

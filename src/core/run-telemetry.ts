@@ -10,7 +10,9 @@ import type { RecordWriter } from '../telemetry/record-writer.js';
 import type { RedactableRecord } from '../telemetry/redact.js';
 import type { RecordMeta } from '../telemetry/run-record.js';
 import { createRunTimer } from '../telemetry/run-timer.js';
+import { summariseToolUse } from '../telemetry/summarise-tool-use.js';
 import { createTraceRecorder } from '../telemetry/trace-recorder.js';
+import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { RunTelemetry } from './run-turn.js';
 
 /** Per-runtime telemetry configuration, from `createAigent`. */
@@ -62,9 +64,11 @@ export async function persistRunTelemetry(params: PersistRunTelemetryParams): Pr
   const { now, telemetry: { recorder, timer }, settings: { writer, captureContent, expiresInMs }, run, feedback } = params;
   if (writer == null) return undefined;
   const recordedAt = now();
+  const steps = recorder.steps();
+  const toolUse = summariseToolUse({ steps, nonWorkTools: [MULTI_TOOL_NAME, FEEDBACK_TOOL_NAME] });
   const { meta, run: runRecord, trace } = buildRunRecords({
     ...run,
-    facts: { timings: timer.snapshot(), steps: recorder.steps(), captureContent, recordedAt, ...(expiresInMs == null ? {} : { expiresAt: recordedAt + expiresInMs }) },
+    facts: { timings: timer.snapshot(), steps, toolUse, captureContent, recordedAt, ...(expiresInMs == null ? {} : { expiresAt: recordedAt + expiresInMs }) },
   });
   const { runId, agentName, responseId } = runRecord;
   const responseIndex: ResponseIndexRecord = { ...meta, responseId };

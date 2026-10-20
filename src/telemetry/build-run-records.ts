@@ -3,7 +3,7 @@ import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderTarget } from '../core/open-turn-stream.js';
 import type { TaskInput } from '../core/task-input.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
-import type { OutcomeSummary, RecordMeta, RunRecord, RunRecordFallback, RuntimeOnlySettings, TraceRecord, TraceStep } from './run-record.js';
+import type { OutcomeSummary, RecordMeta, RunRecord, RunRecordFallback, RuntimeOnlySettings, ToolUse, TraceRecord, TraceStep } from './run-record.js';
 import type { MeasuredTimings } from './run-timer.js';
 
 /** What identifies the agent on every record. */
@@ -22,6 +22,7 @@ export interface RunRecordTargets {
 export interface RunFacts {
   timings: MeasuredTimings;
   steps: TraceStep[];
+  toolUse: ToolUse;
   /** False leaves the task, answer and argument values out. */
   captureContent: boolean;
   recordedAt: number;
@@ -77,7 +78,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
   const { input: { label, unattended = false, task }, result: { responseId, status, usage, errors, answer }, agent: { version }, targets, facts } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
-  const { timings, steps, captureContent } = facts;
+  const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
   const runtime = runtimeOnly(runtimeSettings);
   const run: RunRecord = {
@@ -92,6 +93,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     stepCount: steps.length,
     failureCount: errors.length,
     outcomeSummary: summariseOutcomes(steps),
+    toolUse,
     ...(captureContent ? { task, answer } : {}),
   };
   return { meta, run, trace: { ...meta, steps } };

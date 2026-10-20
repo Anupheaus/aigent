@@ -3,6 +3,8 @@ import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
   RunRecord, RunRecordFallback, RuntimeOnlySettings, SettingsContext, OpenAiTokenLimitField, ReasoningModelMatcher, Sleeper, ThinkingBlock, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
   QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
+  AgentReport, AgentScores, CacheFindings, ComparisonMetrics, Finding, FindingKind, FindingSeverity, ModelPrice, Pricing, Report, ReportFilter, RequestAnalysis,
+  RunMetrics, Score, ScoreLabel, ToolSuggestion, VersionComparison, VersionSide, WastedStepReason, ToolUse,
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
@@ -71,6 +73,33 @@ describe('public types', () => {
     const userRecord: UserFeedbackRecord = { ...meta, kind: 'user', responseId: 'resp_1', rating, history: [historyEntry] };
     const responseIndex: ResponseIndexRecord = { ...meta, responseId: 'resp_1' };
     expect({ userFeedback, userRecord, responseIndex }).toMatchObject({ userFeedback: { rating: 'partial' } });
+    const price: ModelPrice = { inputPerMTokUsd: 3, outputPerMTokUsd: 15 };
+    const pricing: Pricing = { 'anthropic:claude-sonnet-5-5': price };
+    const scoreLabel: ScoreLabel = 'fast';
+    const score: Score = { value: 75, label: scoreLabel, evidence: 'e' };
+    const scores: AgentScores = { speed: score, tokenEfficiency: score, turnEfficiency: score, toolEfficiency: score, cost: score, reliability: score };
+    const metrics: RunMetrics = { durationMs: 1, tokens: 1, turns: 1, toolCalls: 1, toolCallsPerTurn: 1, costUsd: null };
+    const agentReport: AgentReport = { agentName: 'a', agentVersion: 'v', runs: 1, scores, totals: { tokens: 1, costUsd: null, durationMs: 1, turns: 1, toolCalls: 1 }, medians: metrics, p90s: metrics };
+    const findingKind: FindingKind = 'slow-tool';
+    const severity: FindingSeverity = 'warn';
+    const finding: Finding = { id: 'slow-tool:a:read', kind: findingKind, severity, label: 'slow', agentName: 'a', subject: 'read', message: 'm', evidence: {} };
+    const cache: CacheFindings = { hottestEntries: [finding], hitRates: [], deterministicCandidates: [], frequentInvalidations: [] };
+    const comparisonMetrics: ComparisonMetrics = { durationMs: 1, tokens: null, turns: null, toolCallsPerTurn: null, costUsd: null, reliability: null };
+    const side: VersionSide = { version: 'v', runs: 1, medians: comparisonMetrics };
+    const comparison: VersionComparison = { before: side, after: side, deltas: comparisonMetrics };
+    const wasted: WastedStepReason = 'repeat-call';
+    const request: RequestAnalysis = {
+      groupId: 'g', sampleTask: 't', runs: 1, successfulRuns: 1, typical: { medianTokens: 1, medianTurns: 1, medianToolCalls: 1 },
+      wastedSteps: [{ runId: 'r', stepIndex: 0, reason: wasted }], potentialSaving: { tokens: 0, turns: 0 },
+    };
+    const suggestion: ToolSuggestion = {
+      name: 'search_then_read', description: 'd', replaces: ['search -> read'], supportingRunIds: ['r'], proposedArgs: [{ name: 'query', type: 'string' }],
+      estimatedSaving: { tokensPerUse: 1, turnsPerUse: 1, timePerUseMs: 1 },
+    };
+    const reportFilter: ReportFilter = { agentName: 'a', compareVersions: ['v1', 'v2'], minRuns: 5, includeDisabled: false };
+    const toolUse: ToolUse = { calls: 1, items: 1, repeats: 0 };
+    const report: Report = { generatedAt: 0, filter: reportFilter, runCount: 1, agents: [agentReport], findings: [finding], requests: [request], toolSuggestions: [suggestion], cache, comparison };
+    expect({ pricing, report, toolUse }).toMatchObject({ report: { runCount: 1 } });
     expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts, feedbackRecord, outcomeSummary }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
