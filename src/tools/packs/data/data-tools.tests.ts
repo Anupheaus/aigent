@@ -62,6 +62,18 @@ describe('text_diff', () => {
     expect(changed?.result).toMatchObject({ identical: false, added: 1, removed: 1, unchanged: 2, diff: expect.stringContaining('-b\n+B') });
     expect(same?.result).toMatchObject({ identical: true, diff: '' });
   });
+
+  it('refuses oversized sides and diffs an empty side against many lines quickly', async () => {
+    const started = Date.now();
+    const many = Array.from({ length: 50_000 }, (_unused, index) => `line ${index}`).join('\n');
+    const [fromEmpty, tooLong, tooManyLines] = await run({ name: 'text_diff', items: [
+      { a: '', b: many }, { a: 'x'.repeat(1_000_001), b: '' }, { a: '\n'.repeat(100_000), b: '' },
+    ] });
+    expect(fromEmpty?.result).toMatchObject({ added: 50_000, removed: 0, minimal: true });
+    expect(tooLong?.error).toMatchObject({ code: 'input_too_large' });
+    expect(tooManyLines?.error).toMatchObject({ code: 'input_too_large' });
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
 });
 
 describe('regex_extract', () => {

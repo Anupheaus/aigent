@@ -70,3 +70,14 @@ describe('fs_write', () => {
     expect([ask(writes, 'a'), ask(none, 'a'), ask(byPolicy, 'a'), ask(byPolicy, 'cfg.prod')]).toEqual([true, false, false, true]);
   });
 });
+
+describe('fs_write dry-run diff bounds', () => {
+  it('summarises a large new file and a full rewrite quickly, without quadratic memory', async () => {
+    const lines = (prefix: string): string => Array.from({ length: 60_000 }, (_unused, index) => `${prefix}${index}`).join('\n');
+    const deps = memoryDeps({ files: { '/ws/big.txt': lines('old ') }, policy: { maxWriteBytes: 4_000_000 } });
+    const started = Date.now();
+    const planned = await call({ tool: createFsWrite(deps), items: [{ path: '/ws/new.txt', content: lines('n') }, { path: '/ws/big.txt', content: lines('new '), overwrite: true }], context: { dryRun: true } });
+    expect(planned.plannedEffects?.map(({ summary }) => summary)).toEqual([expect.stringContaining('+60000 -0 lines'), expect.stringContaining('+60000 -60000 lines')]);
+    expect(Date.now() - started).toBeLessThan(10_000);
+  });
+});
