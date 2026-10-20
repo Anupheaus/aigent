@@ -1,4 +1,3 @@
-import type { StabilityMonitor } from '../context/stability-monitor.js';
 import { createPlanCompleteTool } from '../planning/plan-complete-tool.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import { renderPinned } from '../planning/render-pinned.js';
@@ -11,7 +10,7 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskInput } from './task-input.js';
 
-/** A stored history message; `pinned` marks the plan/todo definitions, which compaction must never drop. */
+/** A stored history message; `pinned` marks the plan definitions, which compaction must never drop. */
 export interface RunMessage extends ProviderMessage {
   pinned?: boolean;
 }
@@ -40,21 +39,20 @@ export function setUpRunPlanning(params: SetUpRunPlanningParams): { registry: To
 export interface SyncPinnedParams {
   messages: RunMessage[];
   planning: RunPlanning;
-  monitor: StabilityMonitor;
 }
 
 /**
- * Inserts or rewrites the pinned definitions message when the definitions changed. A rewrite is a deliberate prefix
- * change, so the stability monitor is told to accept it.
+ * Inserts the pinned plan definitions before the first request. They never change afterwards (the todo list lives in
+ * the volatile block), so later calls find the message unchanged and the prefix stays byte-stable; any rewrite would be
+ * a real prefix change, which the stability monitor is left to report.
  */
 export function syncPinned(params: SyncPinnedParams): void {
-  const { messages, planning, monitor } = params;
+  const { messages, planning } = params;
   const text = renderPinned(planning.state);
   const current = messages[PINNED_INDEX];
   const hasPinned = current?.pinned === true;
   if (hasPinned && current.text === text) return;
   if (text == null && !hasPinned) return;
-  monitor.acceptChange();
   if (text == null) { messages.splice(PINNED_INDEX, 1); return; }
   const pinned: RunMessage = { role: 'user', text, pinned: true };
   if (hasPinned) messages[PINNED_INDEX] = pinned;

@@ -149,7 +149,9 @@ describe('createAigent plan', () => {
 });
 
 describe('createAigent todo', () => {
-  it('pins todo definitions after the first add, rewrites them only when definitions change, and warns about no prefix change', async () => {
+  // Replaced (review I4): the old test locked in rewriting the pinned message (index 2) on every todo add/edit/delete,
+  // which shifted every later message and lost the provider cache from message 2 on each turn.
+  it('keeps todo items (definitions and statuses) in the volatile block, so todo changes never touch the prefix', async () => {
     const { agent, provider } = setup({ turns: [
       toolTurn([{ id: 'a', name: 'todo', args: { ops: [{ op: 'add', label: 'Read' }, { op: 'add', label: 'Write' }] } }]),
       toolTurn([{ id: 'b', name: 'todo', args: { ops: [{ op: 'set_status', id: 't1', status: 'done' }] } }]),
@@ -160,10 +162,14 @@ describe('createAigent todo', () => {
     const events = await collect(run);
     const { requests } = provider;
     expect(requests[0]?.messages.map(({ role }) => role)).toEqual(['system', 'user', 'user']);
-    expect(requests[1]?.messages[2]).toEqual({ role: 'user', text: expect.stringContaining('- t1: Read\n- t2: Write') });
-    expect(requests[2]?.messages[2]).toEqual(requests[1]?.messages[2]);
-    expect(requests[2]?.messages.at(-1)?.text).toContain('## Todo status\n- t1: done\n- t2: pending');
-    expect(requests[3]?.messages[2]?.text).not.toContain('t2');
+    // Every request's stored history (all but the trailing volatile block) starts with the previous request's.
+    requests.slice(1).forEach((request, index) => {
+      const previous = requests[index]!.messages.slice(0, -1);
+      expect(request.messages.slice(0, previous.length)).toEqual(previous);
+    });
+    expect(requests[1]?.messages.at(-1)?.text).toContain('## Todo\nYour own list; change it with the todo tool or an ::aigent todo directive.\n- t1 [pending]: Read\n- t2 [pending]: Write');
+    expect(requests[2]?.messages.at(-1)?.text).toContain('- t1 [done]: Read\n- t2 [pending]: Write');
+    expect(requests[3]?.messages.at(-1)?.text).not.toContain('t2');
     expect(events.filter(({ type }) => type === 'todo-update').map(event => (event.type === 'todo-update' ? event.changed : []))).toEqual([['t1', 't2'], ['t1'], ['t2']]);
     expect(events.filter(event => event.type === 'warning')).toEqual([]);
     // The only item left (t1) is done.

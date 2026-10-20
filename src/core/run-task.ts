@@ -150,7 +150,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     if (control.isGracefulStopRequested()) { status = 'stopped'; break; }
     if (totals.turns >= limits.maxTurns) { status = 'limit_reached'; break; }
     totals.turns += 1;
-    syncPinned({ messages, planning, monitor: volatile.monitor });
+    syncPinned({ messages, planning });
 
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;

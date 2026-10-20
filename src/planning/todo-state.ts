@@ -2,12 +2,12 @@ import type { TodoOp } from '../streaming/directive-schemas.js';
 import type { TodoItem } from './plan-schema.js';
 import { itemFailure } from './plan-state.js';
 import type { ItemResult, PlanningState } from './plan-state.js';
-import { renderTodoDefinitions } from './render-pinned.js';
+import { renderTodoBody } from './render-pinned.js';
 
 /** Most items the todo list holds. */
 export const MAX_TODO_ITEMS = 100;
-/** Most characters the pinned todo definitions may take. */
-export const MAX_TODO_PINNED_CHARS = 8_000;
+/** Most characters the todo section of the volatile block may take. */
+export const MAX_TODO_CHARS = 8_000;
 const GENERATED_ID_PREFIX = 't';
 
 interface OpParams {
@@ -38,8 +38,8 @@ function addItem(params: OpParams): ItemResult {
   if (state.todo.length >= MAX_TODO_ITEMS) return todoFull(`${MAX_TODO_ITEMS} items at most`);
   const item: TodoItem = { id: id ?? '', label, ...(description == null ? {} : { description }), status };
   // Measured before an id is generated, so a refused add does not use one up.
-  if (renderTodoDefinitions([...state.todo, { ...item, id: id ?? `${GENERATED_ID_PREFIX}${state.nextTodoNumber}` }]).length > MAX_TODO_PINNED_CHARS) {
-    return todoFull(`its definitions may take ${MAX_TODO_PINNED_CHARS} characters at most`);
+  if (renderTodoBody([...state.todo, { ...item, id: id ?? `${GENERATED_ID_PREFIX}${state.nextTodoNumber}` }]).length > MAX_TODO_CHARS) {
+    return todoFull(`its definitions may take ${MAX_TODO_CHARS} characters at most`);
   }
   item.id = id ?? nextGeneratedId(state);
   state.todo.push(item);
@@ -73,8 +73,8 @@ function changeItem(params: OpParams): ItemResult {
   }
   if (label == null && description == null) return itemFailure({ code: 'nothing_to_edit', message: `op 'edit' on '${id}' needs a label or a description` });
   const edited: TodoItem = { ...found, ...(label == null ? {} : { label }), ...(description == null ? {} : { description }) };
-  if (renderTodoDefinitions(state.todo.map(item => (item === found ? edited : item))).length > MAX_TODO_PINNED_CHARS) {
-    return todoFull(`its definitions may take ${MAX_TODO_PINNED_CHARS} characters at most`);
+  if (renderTodoBody(state.todo.map(item => (item === found ? edited : item))).length > MAX_TODO_CHARS) {
+    return todoFull(`its definitions may take ${MAX_TODO_CHARS} characters at most`);
   }
   Object.assign(found, edited);
   return { ok: true, id, changed: true };
@@ -83,13 +83,5 @@ function changeItem(params: OpParams): ItemResult {
 /** Applies todo ops in order, each validated on its own; a full list is an error, never a silent drop. */
 export function applyTodoOps(params: { state: PlanningState; ops: TodoOp[] }): ItemResult[] {
   const { state, ops } = params;
-  let isDefinitionChanged = false;
-  const results = ops.map(op => {
-    const result = op.op === 'add' ? addItem({ state, op }) : changeItem({ state, op });
-    // Statuses live in the volatile block; only definition changes rewrite the pinned message.
-    if (result.ok && result.changed && op.op !== 'set_status') isDefinitionChanged = true;
-    return result;
-  });
-  if (isDefinitionChanged) state.definitionsVersion += 1;
-  return results;
+  return ops.map(op => (op.op === 'add' ? addItem({ state, op }) : changeItem({ state, op })));
 }

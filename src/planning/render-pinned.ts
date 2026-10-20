@@ -10,34 +10,33 @@ function planLines(item: PlanItemState): string[] {
   return [`- ${id}: ${label}`, `  ${description}`, '  Acceptance criteria:', ...acceptanceCriteria.map(criterion => `  - ${criterion}`)];
 }
 
-/** One todo definition line. */
-export function todoLine(item: Pick<TodoItem, 'id' | 'label' | 'description'>): string {
-  const { id, label, description } = item;
-  return `- ${id}: ${label}${description == null ? '' : ` (${description})`}`;
+/** One todo line: id, status, label and description. */
+function todoLine(item: TodoItem): string {
+  const { id, status, label, description } = item;
+  return `- ${id} [${status}]: ${label}${description == null ? '' : ` (${description})`}`;
 }
 
-/** The todo definitions as pinned, for the size cap. */
-export function renderTodoDefinitions(todo: TodoItem[]): string {
-  return [`# Todo`, TODO_INSTRUCTIONS, ...todo.map(todoLine)].join('\n');
+/** The todo section body (instructions and one line per item); also what the size cap measures. */
+export function renderTodoBody(todo: TodoItem[]): string {
+  return [TODO_INSTRUCTIONS, ...todo.map(todoLine)].join('\n');
 }
 
 /**
- * The pinned definitions message: plan ids, labels, descriptions and criteria, and todo ids and labels. Statuses are
- * never here (they go in the volatile block), so it changes only when definitions do. Undefined when there is nothing.
+ * The pinned definitions message: plan ids, labels, descriptions and criteria. The consumer's plan never changes during
+ * a run, so the message is inserted once and stays byte-stable. Statuses and the agent's own todo list (which changes
+ * often) are never here: they go in the volatile block. Undefined without a plan.
  */
 export function renderPinned(state: PlanningState): string | undefined {
-  const { plan, todo } = state;
-  const sections: string[] = [];
-  if (plan.length > 0) sections.push(['# Plan', PLAN_INSTRUCTIONS, ...plan.flatMap(planLines)].join('\n'));
-  if (todo.length > 0) sections.push(renderTodoDefinitions(todo));
-  return sections.length === 0 ? undefined : sections.join('\n\n');
+  const { plan } = state;
+  if (plan.length === 0) return undefined;
+  return ['# Plan', PLAN_INSTRUCTIONS, ...plan.flatMap(planLines)].join('\n');
 }
 
-/** `## Plan status` and `## Todo status` for the volatile block. */
+/** `## Plan status` and `## Todo` (the todo items with their statuses) for the volatile block. */
 export function renderStatusSections(state: PlanningState): VolatileSection[] {
   const { plan, todo } = state;
   const sections: VolatileSection[] = [];
   if (plan.length > 0) sections.push({ title: 'Plan status', body: plan.map(({ id, status }) => `- ${id}: ${status}`).join('\n') });
-  if (todo.length > 0) sections.push({ title: 'Todo status', body: todo.map(({ id, status }) => `- ${id}: ${status}`).join('\n') });
+  if (todo.length > 0) sections.push({ title: 'Todo', body: renderTodoBody(todo) });
   return sections;
 }

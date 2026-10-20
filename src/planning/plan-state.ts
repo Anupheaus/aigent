@@ -8,8 +8,6 @@ export interface PlanningState {
   todo: TodoItem[];
   /** Number of the next generated todo id (`t<n>`). */
   nextTodoNumber: number;
-  /** Bumped whenever the pinned definitions change (todo items added, edited or deleted). */
-  definitionsVersion: number;
 }
 
 /** One update's or op's outcome; `changed` is false for an idempotent repeat. */
@@ -25,7 +23,7 @@ const REGRESSIONS: Record<PlanStatus, readonly PlanStatus[]> = {
 
 export function createPlanningState(params: { plan?: PlanItem[] }): PlanningState {
   const { plan = [] } = params;
-  return { plan: plan.map(item => ({ ...structuredClone(item), status: 'pending' })), todo: [], nextTodoNumber: 1, definitionsVersion: 0 };
+  return { plan: plan.map(item => ({ ...structuredClone(item), status: 'pending' })), todo: [], nextTodoNumber: 1 };
 }
 
 /** A validation failure the model can act on. */

@@ -10,7 +10,7 @@ describe('renderPinned', () => {
     expect(renderPinned(createPlanningState({}))).toBeUndefined();
   });
 
-  it('renders stable definitions only: ids, labels, descriptions and criteria, never statuses', () => {
+  it('renders the plan definitions only: ids, labels, descriptions and criteria, never statuses or todo items', () => {
     const planning = createPlanningState({ plan: PLAN });
     applyTodoOps({ state: planning, ops: [{ op: 'add', label: 'Read config', description: 'tsconfig.json' }] });
     const before = renderPinned(planning);
@@ -22,24 +22,21 @@ describe('renderPinned', () => {
       '  Acceptance criteria:',
       '  - Path reported',
       '  - Line number given',
-      '',
-      '# Todo',
-      'Your own list; change it with the todo tool or an ::aigent todo directive.',
-      '- t1: Read config (tsconfig.json)',
     ].join('\n'));
     applyPlanUpdates({ state: planning, updates: [{ id: 'p1', status: 'done', evidence: 'src/theme.ts' }] });
-    applyTodoOps({ state: planning, ops: [{ op: 'set_status', id: 't1', status: 'in_progress' }] });
+    applyTodoOps({ state: planning, ops: [{ op: 'set_status', id: 't1', status: 'in_progress' }, { op: 'add', label: 'More' }] });
     expect(renderPinned(planning)).toBe(before);
+    expect(renderPinned(createPlanningState({}))).toBeUndefined();
   });
 });
 
 describe('renderStatusSections', () => {
-  it('renders plan and todo statuses for the volatile block', () => {
+  it('renders plan statuses and the todo items with their statuses for the volatile block', () => {
     const planning = createPlanningState({ plan: PLAN });
-    applyTodoOps({ state: planning, ops: [{ op: 'add', label: 'Read config' }, { op: 'set_status', id: 't1', status: 'done' }] });
+    applyTodoOps({ state: planning, ops: [{ op: 'add', label: 'Read config', description: 'tsconfig.json' }, { op: 'set_status', id: 't1', status: 'done' }] });
     expect(renderStatusSections(planning)).toEqual([
       { title: 'Plan status', body: '- p1: pending' },
-      { title: 'Todo status', body: '- t1: done' },
+      { title: 'Todo', body: 'Your own list; change it with the todo tool or an ::aigent todo directive.\n- t1 [done]: Read config (tsconfig.json)' },
     ]);
     expect(renderStatusSections(createPlanningState({}))).toEqual([]);
   });

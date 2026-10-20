@@ -7,7 +7,7 @@ function codes(results: ReturnType<typeof applyTodoOps>): string[] {
 }
 
 describe('applyTodoOps', () => {
-  it('adds items with generated ids t1, t2... or the given id, and bumps the definitions version', () => {
+  it('adds items with generated ids t1, t2... or the given id', () => {
     const planning = createPlanningState({});
     const results = applyTodoOps({ state: planning, ops: [{ op: 'add', label: 'Read config' }, { op: 'add', id: 'mine', label: 'Write fix', description: 'in src/' }, { op: 'add', label: 'Test' }] });
     expect(codes(results)).toEqual(['ok:t1', 'ok:mine', 'ok:t2']);
@@ -16,7 +16,6 @@ describe('applyTodoOps', () => {
       { id: 'mine', label: 'Write fix', description: 'in src/', status: 'pending' },
       { id: 't2', label: 'Test', status: 'pending' },
     ]);
-    expect(planning.definitionsVersion).toBe(1);
   });
 
   it('edits, sets status and deletes, with precise per-op errors', () => {
