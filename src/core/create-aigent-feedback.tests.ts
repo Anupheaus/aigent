@@ -262,6 +262,17 @@ describe('enableFeedback on', () => {
     expect(JSON.stringify(await store.list('feedback'))).not.toContain(SECRET);
   });
 
+  it('stores only the kind, related tool and text length of aigent_feedback entries with captureContent: false', async () => {
+    const text = 'File customer-42.txt was missing';
+    const { agent, store } = setup({
+      enableFeedback: true, options: { captureContent: false },
+      turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'missing', text, relatedTool: 'echo' }] } }]), textTurn('done')],
+    });
+    const result = await agent.task({ task: 'x' });
+    expect((await store.get('feedback', `${result.runId}:f1:0`))?.value).toMatchObject({ entry: { kind: 'missing', relatedTool: 'echo', textLength: text.length } });
+    expect(JSON.stringify(await store.list('feedback'))).not.toContain('customer-42');
+  });
+
   it('stores nothing from aigent_feedback when telemetry is disabled', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'easy', text: 'x', relatedTool: null }] } }]), textTurn('done')] });
     await agent.task({ task: 'x', disableTelemetry: true });

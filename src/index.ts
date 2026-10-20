@@ -9,7 +9,7 @@ export type {
   OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, ToolUse, TraceRecord, TraceStep,
 } from './telemetry/run-record.js';
 export type {
-  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
+  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, StoredAgentFeedbackEntry, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
 } from './feedback/feedback-records.js';
 export type { Redact, RedactableRecord } from './telemetry/redact.js';
 export type {

@@ -24,12 +24,22 @@ export interface AgentFeedbackEntry {
   relatedTool?: string;
 }
 
+/** An `aigent_feedback` entry as stored: with content capture off, its text is replaced by its length. */
+export interface StoredAgentFeedbackEntry {
+  kind: AgentFeedbackKind;
+  /** Only when content capture is on (models often quote task or file content here). */
+  text?: string;
+  /** Characters of the text when content capture is off. */
+  textLength?: number;
+  relatedTool?: string;
+}
+
 /** One stored `aigent_feedback` entry. */
 export interface AgentFeedbackRecord extends RecordMeta {
   kind: 'agent';
   callId: string;
   index: number;
-  entry: AgentFeedbackEntry;
+  entry: StoredAgentFeedbackEntry;
 }
 
 /** Finds a run from its response id (`responses/<responseId>`). */

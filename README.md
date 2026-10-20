@@ -310,7 +310,7 @@ await ai.purge({ agentName: 'writer', before: Date.now() - 7 * 24 * 3_600_000 })
 ```
 
 - **`redact(record)`** runs on a copy of every record of every collection before it reaches the store (`runs`, `traces`, `feedback` and the `responses` index), including `settings.providerOptions` and each `fallbacks[].settings.providerOptions`. It may change `value` only. If it throws or changes the collection or key, that record is not written and the run emits a warning.
-- **`captureContent: false`** stores no task text, answer, argument values or outcome answers. `argsSummary` then shows only the arguments' shape, for example `{"path":"<string>"}`.
+- **`captureContent: false`** stores no task text, answer, argument values, outcome answers or feedback text. `argsSummary` then shows only the arguments' shape, for example `{"path":"<string>"}`. `aigent_feedback` entries keep `kind`, `relatedTool` and `textLength`; `ai.feedback` keeps the rating with `commentLength` and `expectedAnswerLength`.
 - **`retention.expiresInMs`** stamps `expiresAt = recordedAt + expiresInMs` on every record; the store decides whether to honour it.
 - **`ai.purge(filter)`** deletes records matching every given field of `{ agentName?, runId?, before? }` (`before` compares `recordedAt`) through the optional `Store.purge` and resolves with the count. It rejects with `invalid_input` for an empty filter, without a store, or when the store has no `purge`. The in-memory store implements it.
 - **`ai.trace(runId)`** returns the stored run and its steps, validated against the schema, or `undefined`.

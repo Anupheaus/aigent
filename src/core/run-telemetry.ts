@@ -1,6 +1,6 @@
 import type { CollectedFeedback } from '../feedback/feedback-collector.js';
 import { FEEDBACK_COLLECTION, RESPONSES_COLLECTION } from '../feedback/feedback-records.js';
-import type { AgentFeedbackRecord, ResponseIndexRecord } from '../feedback/feedback-records.js';
+import type { AgentFeedbackEntry, AgentFeedbackRecord, ResponseIndexRecord, StoredAgentFeedbackEntry } from '../feedback/feedback-records.js';
 import { FEEDBACK_TOOL_NAME } from '../feedback/feedback-tool.js';
 import { buildRunRecords } from '../telemetry/build-run-records.js';
 import type { BuildRunRecordsParams } from '../telemetry/build-run-records.js';
@@ -42,9 +42,17 @@ export interface PersistRunTelemetryParams {
   feedback: CollectedFeedback[];
 }
 
-function agentFeedbackRecord(params: { meta: RecordMeta; collected: CollectedFeedback }): RedactableRecord {
-  const { meta, collected: { runId, callId, index, entry } } = params;
-  const value: AgentFeedbackRecord = { ...meta, kind: 'agent', callId, index, entry };
+/** An entry as stored: its text only with content capture on, its length otherwise. */
+function storedEntry(params: { entry: AgentFeedbackEntry; captureContent: boolean }): StoredAgentFeedbackEntry {
+  const { entry, captureContent } = params;
+  if (captureContent) return entry;
+  const { text, ...rest } = entry;
+  return { ...rest, textLength: text.length };
+}
+
+function agentFeedbackRecord(params: { meta: RecordMeta; collected: CollectedFeedback; captureContent: boolean }): RedactableRecord {
+  const { meta, collected: { runId, callId, index, entry }, captureContent } = params;
+  const value: AgentFeedbackRecord = { ...meta, kind: 'agent', callId, index, entry: storedEntry({ entry, captureContent }) };
   return { collection: FEEDBACK_COLLECTION, key: `${runId}:${callId}:${index}`, value };
 }
 
@@ -80,7 +88,7 @@ export async function persistRunTelemetry(params: PersistRunTelemetryParams): Pr
       { collection: TRACES_COLLECTION, key: runId, value: trace },
       // Written after the run record, so feedback that finds the index always finds the run too.
       { collection: RESPONSES_COLLECTION, key: responseId, value: responseIndex },
-      ...feedback.map(collected => agentFeedbackRecord({ meta, collected })),
+      ...feedback.map(collected => agentFeedbackRecord({ meta, collected, captureContent })),
     ],
   });
 }
