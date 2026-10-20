@@ -102,8 +102,19 @@ export interface Provider {
    */
   stream(request: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>;
   /**
-   * Supported settings this provider cannot honour in this combination (e.g. `temperature` while thinking is on).
-   * Pure; the run warns about and leaves out each one before calling `stream`.
+   * Supported settings this provider cannot honour in this combination or for this model (e.g. `temperature` while
+   * thinking is on). Pure; the run warns about and leaves out each one before calling `stream`.
    */
-  unsupportedSettings?(settings: ProviderSettings): (keyof ProviderSettings)[];
+  unsupportedSettings?(settings: ProviderSettings, context: SettingsContext): (keyof ProviderSettings)[];
+  /**
+   * Notes on how the provider will honour the settings it keeps, when that differs from what they ask (e.g. raising
+   * `max_tokens` above `maxOutputTokens` for a thinking budget). Pure; each becomes a run `warning`.
+   */
+  settingsWarnings?(settings: ProviderSettings, context: SettingsContext): string[];
+}
+
+/** What a provider's settings checks know about the request besides its settings. */
+export interface SettingsContext {
+  /** Model id without the provider prefix. */
+  model: string;
 }

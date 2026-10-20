@@ -6,6 +6,7 @@ import type { ProviderRequest, ProviderSettings } from './provider-types.js';
 
 const BASE_URL = 'https://llm.test/v1';
 const REQUEST: ProviderRequest = { model: 'test-model', messages: [{ role: 'user', text: 'hi' }], tools: [] };
+const CONTEXT = { model: 'test-model' };
 
 function createProvider() {
   const { fetch, requests } = createFakeFetch(() => ({ body: createFakeBody({ chunks: byteChunks({ text: sseBody([finishChunk('stop')]), size: 16 }) }) }));
@@ -56,8 +57,8 @@ describe('openAiCompatible settings', () => {
 
   it('reports effort as unusable when thinking is off, and nothing otherwise', () => {
     const { provider } = createProvider();
-    expect(provider.unsupportedSettings?.({ effort: 'high', thinking: 'off' })).toEqual(['effort']);
-    expect(provider.unsupportedSettings?.({ effort: 'high' })).toEqual([]);
-    expect(provider.unsupportedSettings?.({ thinking: 'off' })).toEqual([]);
+    expect(provider.unsupportedSettings?.({ effort: 'high', thinking: 'off' }, CONTEXT)).toEqual(['effort']);
+    expect(provider.unsupportedSettings?.({ effort: 'high' }, CONTEXT)).toEqual([]);
+    expect(provider.unsupportedSettings?.({ thinking: 'off' }, CONTEXT)).toEqual([]);
   });
 });

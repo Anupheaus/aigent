@@ -1,5 +1,5 @@
 import { toAnthropicMessagesRequest } from './anthropic-messages.js';
-import { ANTHROPIC_SUPPORTED_SETTINGS, anthropicUnsupportedSettings } from './anthropic-settings.js';
+import { ANTHROPIC_SUPPORTED_SETTINGS, anthropicSettingsWarnings, anthropicUnsupportedSettings } from './anthropic-settings.js';
 import { applyAnthropicMessage, createAnthropicStreamState, finishAnthropicStream } from './anthropic-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
 import { collectSecrets, redactingErrors } from './secret-redaction.js';
@@ -74,5 +74,5 @@ export function anthropic(options: AnthropicOptions): Provider {
     redactingErrors({ events: streamEvents(request, signal), secrets })
   );
 
-  return { id: PROVIDER_ID, capabilities, stream, unsupportedSettings: anthropicUnsupportedSettings };
+  return { id: PROVIDER_ID, capabilities, stream, unsupportedSettings: anthropicUnsupportedSettings, settingsWarnings: anthropicSettingsWarnings };
 }

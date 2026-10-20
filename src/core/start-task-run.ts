@@ -91,7 +91,7 @@ interface ProviderTargetParams {
 function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
   const { target: { reference, provider, model, providerSettings }, agent: { agentSettings, runtimeSettings }, input } = params;
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agentSettings, runtime: runtimeSettings, provider: providerSettings });
-  const filtered = filterProviderSettings({ provider, settings });
+  const filtered = filterProviderSettings({ provider, model, settings });
   return { label: reference, provider, model, warnings: filtered.warnings, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
 }
 

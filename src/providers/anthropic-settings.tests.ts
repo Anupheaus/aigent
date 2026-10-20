@@ -25,9 +25,17 @@ describe('anthropic settings', () => {
   });
 
   it('maps temperature, topP, maxOutputTokens and stop', async () => {
-    const body = await bodyFor({ temperature: 0.4, topP: 0.8, maxOutputTokens: 300, stop: ['END', 'STOP'] });
-    expect(body).toMatchObject({ temperature: 0.4, top_p: 0.8, max_tokens: 300, stop_sequences: ['END', 'STOP'] });
+    const body = await bodyFor({ temperature: 0.4, maxOutputTokens: 300, stop: ['END', 'STOP'] });
+    expect(body).toMatchObject({ temperature: 0.4, max_tokens: 300, stop_sequences: ['END', 'STOP'] });
     expect(body).not.toHaveProperty('thinking');
+    expect(await bodyFor({ topP: 0.8 })).toMatchObject({ top_p: 0.8 });
+  });
+
+  // Current models reject temperature and top_p together.
+  it('sends temperature without top_p when both are set', async () => {
+    const body = await bodyFor({ temperature: 0.4, topP: 0.8 });
+    expect(body.temperature).toBe(0.4);
+    expect(body).not.toHaveProperty('top_p');
   });
 
   it('never sends seed', async () => {
@@ -64,6 +72,13 @@ describe('anthropic settings', () => {
       expect(await bodyFor({ thinking: 'on', temperature: 0.2 })).not.toHaveProperty('temperature');
       expect(await bodyFor({ effort: 'low', temperature: 0.2 })).not.toHaveProperty('temperature');
     });
+
+    // With thinking on the API accepts top_p only in [0.95, 1].
+    it('drops a topP below 0.95 while thinking, and keeps one of 0.95 or more', async () => {
+      expect(await bodyFor({ thinking: 'on', topP: 0.5 })).not.toHaveProperty('top_p');
+      expect(await bodyFor({ thinking: 'on', topP: 0.95 })).toMatchObject({ top_p: 0.95 });
+      expect(await bodyFor({ thinking: 'on', temperature: 0.3, topP: 0.97 })).toMatchObject({ top_p: 0.97 });
+    });
   });
 
   describe('effort', () => {
@@ -72,8 +87,16 @@ describe('anthropic settings', () => {
       expect(body).toMatchObject({ thinking: { type: 'enabled', budget_tokens: budget }, max_tokens: 64_000 });
     });
 
-    it('raises max_tokens to budget + 1024 when it would not exceed the budget', async () => {
-      expect((await bodyFor({ effort: 'high', maxOutputTokens: 4000 })).max_tokens).toBe(16_000 + 1024);
+    it('clamps the effort budget below maxOutputTokens, so the user cap holds', async () => {
+      expect(await bodyFor({ effort: 'high', maxOutputTokens: 4000 })).toMatchObject({ thinking: { type: 'enabled', budget_tokens: 3999 }, max_tokens: 4000 });
+      expect(await bodyFor({ effort: 'max', maxOutputTokens: 20_000 })).toMatchObject({ thinking: { type: 'enabled', budget_tokens: 19_999 }, max_tokens: 20_000 });
+    });
+
+    it('keeps the effort budget at the API minimum of 1024, raising max_tokens only when maxOutputTokens is that small', async () => {
+      expect(await bodyFor({ effort: 'max', maxOutputTokens: 1000 })).toMatchObject({ thinking: { type: 'enabled', budget_tokens: 1024 }, max_tokens: 2048 });
+    });
+
+    it('raises defaultMaxTokens (not a user cap) to budget + 1024 when it would not exceed the budget', async () => {
       expect((await bodyFor({ effort: 'high' }, { defaultMaxTokens: 16_000 })).max_tokens).toBe(16_000 + 1024);
     });
 
@@ -94,10 +117,34 @@ describe('anthropic settings', () => {
 
   it('reports temperature with thinking, and effort with explicit thinking, as unusable', () => {
     const { provider } = createProvider();
-    expect(provider.unsupportedSettings?.({ thinking: 'on', temperature: 0.2 })).toEqual(['temperature']);
-    expect(provider.unsupportedSettings?.({ effort: 'low', temperature: 0.2 })).toEqual(['temperature']);
-    expect(provider.unsupportedSettings?.({ thinking: 'off', effort: 'low', temperature: 0.2 })).toEqual(['effort']);
-    expect(provider.unsupportedSettings?.({ thinking: { budgetTokens: 2000 }, effort: 'low' })).toEqual(['effort']);
-    expect(provider.unsupportedSettings?.({ temperature: 0.2, effort: undefined })).toEqual([]);
+    const context = { model: 'claude-test' };
+    expect(provider.unsupportedSettings?.({ thinking: 'on', temperature: 0.2 }, context)).toEqual(['temperature']);
+    expect(provider.unsupportedSettings?.({ effort: 'low', temperature: 0.2 }, context)).toEqual(['temperature']);
+    expect(provider.unsupportedSettings?.({ thinking: 'off', effort: 'low', temperature: 0.2 }, context)).toEqual(['effort']);
+    expect(provider.unsupportedSettings?.({ thinking: { budgetTokens: 2000 }, effort: 'low' }, context)).toEqual(['effort']);
+    expect(provider.unsupportedSettings?.({ temperature: 0.2, effort: undefined }, context)).toEqual([]);
+  });
+
+  it('reports topP below 0.95 with thinking, and topP alongside temperature, as unusable', () => {
+    const { provider } = createProvider();
+    const context = { model: 'claude-test' };
+    expect(provider.unsupportedSettings?.({ thinking: 'on', topP: 0.5 }, context)).toEqual(['topP']);
+    expect(provider.unsupportedSettings?.({ effort: 'low', topP: 0.94 }, context)).toEqual(['topP']);
+    expect(provider.unsupportedSettings?.({ thinking: 'on', topP: 0.95 }, context)).toEqual([]);
+    expect(provider.unsupportedSettings?.({ temperature: 0.2, topP: 0.8 }, context)).toEqual(['topP']);
+    expect(provider.unsupportedSettings?.({ thinking: 'off', temperature: 0.2, topP: 0.8 }, context)).toEqual(['topP']);
+  });
+
+  it('warns when a thinking budget forces max_tokens above maxOutputTokens, and only then', () => {
+    const { provider } = createProvider();
+    const context = { model: 'claude-test' };
+    expect(provider.settingsWarnings?.({ effort: 'max', maxOutputTokens: 1000 }, context)).toEqual([
+      "Provider 'anthropic' sends max_tokens 2048 instead of maxOutputTokens 1000 for model 'claude-test': max_tokens must exceed the thinking budget of 1024 tokens",
+    ]);
+    expect(provider.settingsWarnings?.({ thinking: { budgetTokens: 3000 }, maxOutputTokens: 3000 }, context)).toEqual([
+      "Provider 'anthropic' sends max_tokens 4024 instead of maxOutputTokens 3000 for model 'claude-test': max_tokens must exceed the thinking budget of 3000 tokens",
+    ]);
+    expect(provider.settingsWarnings?.({ thinking: 'on', maxOutputTokens: 5000 }, context)).toEqual([]);
+    expect(provider.settingsWarnings?.({ effort: 'max' }, context)).toEqual([]);
   });
 });

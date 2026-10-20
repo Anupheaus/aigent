@@ -154,9 +154,9 @@ agent.task({ task: 'Draft the summary', modelSettings: { temperature: 0.7, think
 | --- | --- | --- | --- |
 | `maxOutputTokens` | positive integer | `max_tokens` | `max_tokens` (default `defaultMaxTokens`) |
 | `temperature` | 0 to 2 | `temperature` | `temperature`, dropped while thinking is on (the API requires the default) |
-| `topP` | 0 to 1 | `top_p` | `top_p` |
+| `topP` | 0 to 1 | `top_p` | `top_p`, dropped when `temperature` is also set (current models reject both) and, while thinking is on, when below 0.95 |
 | `thinking` | `'off'`, `'on'`, `{ budgetTokens }` (at least 1024) | not supported | `'on'` uses a budget of `min(maxOutputTokens - 1, 8000)` (8000 when `maxOutputTokens` is unset, never below 1024) |
-| `effort` | `'low'`, `'medium'`, `'high'`, `'max'` | `reasoning_effort` (`max` sends `high`), not sent when `thinking` is `'off'` | a thinking budget of 2048, 8000, 16000 or 32000 when `thinking` is unset |
+| `effort` | `'low'`, `'medium'`, `'high'`, `'max'` | `reasoning_effort` (`max` sends `high`), not sent when `thinking` is `'off'` | a thinking budget of 2048, 8000, 16000 or 32000 when `thinking` is unset, lowered to `maxOutputTokens - 1` (never below 1024) when that is set |
 | `promptCaching` | boolean | not supported | overrides the adapter's `promptCaching` option |
 | `stop` | up to 4 non-empty strings | `stop` | `stop_sequences` |
 | `seed` | non-negative integer | `seed` | not supported |
@@ -164,9 +164,9 @@ agent.task({ task: 'Draft the summary', modelSettings: { temperature: 0.7, think
 | `contextSize` | positive integer | runtime only, never sent | runtime only, never sent |
 | `showThinking` | boolean (default true) | runtime only: `false` hides `thinking-delta` events | same |
 
-With Anthropic thinking on, `max_tokens` must exceed the budget, so it is raised to the budget + 1024 when it would not.
+With Anthropic thinking on, `max_tokens` must exceed the budget, so it is raised to the budget + 1024 when it would not. When that overrides your `maxOutputTokens` (an explicit `budgetTokens` at or above it, or a cap of 1024 or less) the run emits a `warning` saying so.
 
-Invalid values are rejected up front: agent, `createAigent` and per-provider settings throw `invalid_definition` naming each bad field, and task settings throw `invalid_input`. A setting the provider cannot honour is never sent. The run emits one `warning` event per such setting instead, for example `Provider 'deepseek' does not support setting 'thinking'; ignored`. A provider lists what it can map in `capabilities.supportedSettings`. It can also reject combinations through `unsupportedSettings(settings)`, such as Anthropic's `temperature` with thinking on.
+Invalid values are rejected up front: agent, `createAigent` and per-provider settings throw `invalid_definition` naming each bad field, and task settings throw `invalid_input`. A setting the provider cannot honour is never sent. The run emits one `warning` event per such setting instead, for example `Provider 'deepseek' does not support setting 'thinking'; ignored`. A provider lists what it can map in `capabilities.supportedSettings`. It can also reject combinations through `unsupportedSettings(settings, { model })`, such as Anthropic's `temperature` with thinking on, and report how it will honour the settings it keeps through `settingsWarnings(settings, { model })`; each becomes a `warning`.
 
 ### Agent versions
 

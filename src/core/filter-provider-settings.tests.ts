@@ -1,30 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import type { Provider, ProviderCapabilities, ProviderSettings } from '../providers/provider-types.js';
+import type { Provider, ProviderCapabilities } from '../providers/provider-types.js';
 import { filterProviderSettings } from './filter-provider-settings.js';
 
 const CAPABILITIES: ProviderCapabilities = {
   streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000,
   supportedSettings: ['maxOutputTokens', 'temperature', 'effort', 'providerOptions'],
 };
+const MODEL = 'm1';
 
-function providerWith(unsupportedSettings?: Provider['unsupportedSettings']): Provider {
-  return { id: 'p', capabilities: CAPABILITIES, stream: async function* () { yield* []; }, ...(unsupportedSettings == null ? {} : { unsupportedSettings }) };
+interface ProviderHooks {
+  unsupportedSettings?: Provider['unsupportedSettings'];
+  settingsWarnings?: Provider['settingsWarnings'];
+}
+
+function providerWith(hooks: ProviderHooks = {}): Provider {
+  return { id: 'p', capabilities: CAPABILITIES, stream: async function* () { yield* []; }, ...hooks };
 }
 
 describe('filterProviderSettings', () => {
   it('passes supported settings through and leaves out the runtime-only ones', () => {
-    const { settings, warnings } = filterProviderSettings({ provider: providerWith(), settings: { temperature: 0.5, maxOutputTokens: 10, contextSize: 50_000, showThinking: false } });
+    const { settings, warnings } = filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { temperature: 0.5, maxOutputTokens: 10, contextSize: 50_000, showThinking: false } });
     expect(settings).toEqual({ temperature: 0.5, maxOutputTokens: 10 });
     expect(warnings).toEqual([]);
   });
 
   it('returns no settings when nothing is left to send', () => {
-    expect(filterProviderSettings({ provider: providerWith(), settings: { contextSize: 1 } }).settings).toBeUndefined();
-    expect(filterProviderSettings({ provider: providerWith(), settings: {} })).toEqual({ warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { contextSize: 1 } }).settings).toBeUndefined();
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: {} })).toEqual({ warnings: [] });
   });
 
   it('drops each setting the provider does not support, with one warning each', () => {
-    const { settings, warnings } = filterProviderSettings({ provider: providerWith(), settings: { temperature: 1, seed: 3, stop: ['x'] } });
+    const { settings, warnings } = filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { temperature: 1, seed: 3, stop: ['x'] } });
     expect(settings).toEqual({ temperature: 1 });
     expect(warnings).toEqual([
       "Provider 'p' does not support setting 'stop'; ignored",
@@ -32,11 +38,14 @@ describe('filterProviderSettings', () => {
     ]);
   });
 
-  it('drops settings the provider cannot honour in this combination, asking it with the full settings', () => {
-    const seen: ProviderSettings[] = [];
-    const provider = providerWith(settings => { seen.push(settings); return settings.thinking === 'off' ? ['effort'] : []; });
-    const { settings, warnings } = filterProviderSettings({ provider, settings: { thinking: 'off', effort: 'high', temperature: 1 } });
-    expect(seen).toEqual([{ thinking: 'off', effort: 'high', temperature: 1 }]);
+  it('drops settings the provider cannot honour in this combination, asking it with the full settings and the model', () => {
+    const seen: unknown[] = [];
+    const unsupportedSettings: Provider['unsupportedSettings'] = (settings, context) => {
+      seen.push({ settings, context });
+      return settings.thinking === 'off' ? ['effort'] : [];
+    };
+    const { settings, warnings } = filterProviderSettings({ provider: providerWith({ unsupportedSettings }), model: MODEL, settings: { thinking: 'off', effort: 'high', temperature: 1 } });
+    expect(seen).toEqual([{ settings: { thinking: 'off', effort: 'high', temperature: 1 }, context: { model: MODEL } }]);
     expect(settings).toEqual({ temperature: 1 });
     expect(warnings).toEqual([
       "Provider 'p' does not support setting 'thinking'; ignored",
@@ -45,6 +54,22 @@ describe('filterProviderSettings', () => {
   });
 
   it('does not warn about undefined settings', () => {
-    expect(filterProviderSettings({ provider: providerWith(), settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [] });
+  });
+
+  it("adds the provider's own warnings about the settings it keeps, after the dropped ones", () => {
+    const seen: unknown[] = [];
+    const settingsWarnings: Provider['settingsWarnings'] = (settings, context) => { seen.push({ settings, context }); return ['raised max_tokens']; };
+    const { settings, warnings } = filterProviderSettings({ provider: providerWith({ settingsWarnings }), model: MODEL, settings: { maxOutputTokens: 10, seed: 1 } });
+    expect(settings).toEqual({ maxOutputTokens: 10 });
+    expect(seen).toEqual([{ settings: { maxOutputTokens: 10 }, context: { model: MODEL } }]);
+    expect(warnings).toEqual(["Provider 'p' does not support setting 'seed'; ignored", 'raised max_tokens']);
+  });
+
+  it('does not ask for warnings when no settings are kept', () => {
+    let calls = 0;
+    const settingsWarnings: Provider['settingsWarnings'] = () => { calls += 1; return ['never']; };
+    expect(filterProviderSettings({ provider: providerWith({ settingsWarnings }), model: MODEL, settings: { seed: 1 } }).warnings).toEqual(["Provider 'p' does not support setting 'seed'; ignored"]);
+    expect(calls).toBe(0);
   });
 });
