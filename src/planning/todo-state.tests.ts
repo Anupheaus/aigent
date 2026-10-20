@@ -38,6 +38,22 @@ describe('applyTodoOps', () => {
     expect(unknown?.ok === false && unknown.error.suggestion).toBe('Todo ids: t2');
   });
 
+  it('rejects a silent todo regression from done or blocked, like the plan, and accepts one that gives a reason (review I5)', () => {
+    const planning = createPlanningState({});
+    applyTodoOps({ state: planning, ops: [{ op: 'add', label: 'A' }, { op: 'add', label: 'B' }, { op: 'set_status', id: 't1', status: 'done' }, { op: 'set_status', id: 't2', status: 'blocked' }] });
+    const silent = applyTodoOps({ state: planning, ops: [
+      { op: 'set_status', id: 't1', status: 'pending' },
+      { op: 'set_status', id: 't2', status: 'in_progress', reason: '  ' },
+    ] });
+    expect(silent).toEqual([
+      { ok: false, error: expect.objectContaining({ code: 'status_regression', message: expect.stringContaining("'t1' is done"), suggestion: expect.stringContaining('reason') }) },
+      { ok: false, error: expect.objectContaining({ code: 'status_regression' }) },
+    ]);
+    expect(planning.todo.map(({ status }) => status)).toEqual(['done', 'blocked']);
+    expect(codes(applyTodoOps({ state: planning, ops: [{ op: 'set_status', id: 't1', status: 'pending', reason: 'the fix was reverted' }] }))).toEqual(['ok:t1']);
+    expect(planning.todo[0]?.status).toBe('pending');
+  });
+
   it('never silently drops items: a full list gives todo_full telling the agent to delete or merge', () => {
     const planning = createPlanningState({});
     applyTodoOps({ state: planning, ops: Array.from({ length: MAX_TODO_ITEMS }, (_unused, index) => ({ op: 'add' as const, label: `item ${index}` })) });

@@ -1,6 +1,6 @@
 import type { TodoOp } from '../streaming/directive-schemas.js';
 import type { TodoItem } from './plan-schema.js';
-import { itemFailure } from './plan-state.js';
+import { isRegression, itemFailure, meaningfulText } from './plan-state.js';
 import type { ItemResult, PlanningState } from './plan-state.js';
 import { renderTodoBody } from './render-pinned.js';
 
@@ -57,7 +57,7 @@ function isResult(value: TodoItem | ItemResult): value is ItemResult {
 }
 
 function changeItem(params: OpParams): ItemResult {
-  const { state, op: { op, label, description, status } } = params;
+  const { state, op: { op, label, description, status, reason } } = params;
   const found = findItem(params);
   if (isResult(found)) return found;
   const { id } = found;
@@ -67,6 +67,12 @@ function changeItem(params: OpParams): ItemResult {
   }
   if (op === 'set_status') {
     if (status == null) return itemFailure({ code: 'status_required', message: `op 'set_status' on '${id}' needs a status` });
+    if (isRegression({ from: found.status, to: status }) && meaningfulText(reason) == null) {
+      return itemFailure({
+        code: 'status_regression', message: `Todo item '${id}' is ${found.status}; moving it back to ${status} needs a reason`,
+        suggestion: 'Repeat the op with a reason explaining why the item is no longer done or blocked.',
+      });
+    }
     const changed = found.status !== status;
     found.status = status;
     return { ok: true, id, changed };

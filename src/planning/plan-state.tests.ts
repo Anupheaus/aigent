@@ -34,6 +34,20 @@ describe('applyPlanUpdates', () => {
     expect(planning.plan[0]?.status).toBe('pending');
   });
 
+  it.each(['', '   ', '\n\t'])('treats blank evidence %j as no evidence: done and regressions still need a real reason (review I5)', evidence => {
+    const planning = state();
+    expect(applyPlanUpdates({ state: planning, updates: [{ id: 'p1', status: 'done', evidence }] })[0]).toMatchObject({ ok: false, error: { code: 'evidence_required' } });
+    applyPlanUpdates({ state: planning, updates: [{ id: 'p2', status: 'done', evidence: 'ok' }] });
+    expect(applyPlanUpdates({ state: planning, updates: [{ id: 'p2', status: 'pending', evidence }] })[0]).toMatchObject({ ok: false, error: { code: 'status_regression' } });
+    expect(planning.plan.map(({ status }) => status)).toEqual(['pending', 'done']);
+  });
+
+  it('stores evidence trimmed', () => {
+    const planning = state();
+    applyPlanUpdates({ state: planning, updates: [{ id: 'p1', status: 'done', evidence: '  src/a.ts:12 \n' }] });
+    expect(planning.plan[0]?.evidence).toBe('src/a.ts:12');
+  });
+
   it('rejects a silent regression from done or blocked, and records one that gives evidence', () => {
     const planning = state();
     applyPlanUpdates({ state: planning, updates: [{ id: 'p1', status: 'done', evidence: 'ok' }, { id: 'p2', status: 'blocked' }] });

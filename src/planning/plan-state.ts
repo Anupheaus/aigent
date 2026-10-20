@@ -13,13 +13,25 @@ export interface PlanningState {
 /** One update's or op's outcome; `changed` is false for an idempotent repeat. */
 export type ItemResult = { ok: true; id: string; changed: boolean } | { ok: false; error: ToolErrorDetail };
 
-/** Statuses an item may not leave for these without giving evidence (the reason). */
+/** Statuses an item (plan or todo) may not leave for these without giving a reason. */
 const REGRESSIONS: Record<PlanStatus, readonly PlanStatus[]> = {
   pending: [],
   in_progress: [],
   done: ['pending', 'in_progress', 'blocked'],
   blocked: ['pending', 'in_progress'],
 };
+
+/** Whether moving from `from` to `to` goes back from done or blocked, which needs a reason. */
+export function isRegression(params: { from: PlanStatus; to: PlanStatus }): boolean {
+  const { from, to } = params;
+  return REGRESSIONS[from].includes(to);
+}
+
+/** Trimmed text, or undefined when it is absent or only whitespace (which never counts as evidence or a reason). */
+export function meaningfulText(text: string | undefined): string | undefined {
+  const trimmed = text?.trim();
+  return trimmed == null || trimmed === '' ? undefined : trimmed;
+}
 
 export function createPlanningState(params: { plan?: PlanItem[] }): PlanningState {
   const { plan = [] } = params;
@@ -33,7 +45,8 @@ export function itemFailure(params: { code: string; message: string; suggestion?
 }
 
 function applyPlanUpdate(params: { state: PlanningState; update: PlanUpdate }): ItemResult {
-  const { state: { plan }, update: { id, status, evidence } } = params;
+  const { state: { plan }, update: { id, status } } = params;
+  const evidence = meaningfulText(params.update.evidence);
   const item = plan.find(planItem => planItem.id === id);
   if (item == null) return itemFailure({ code: 'unknown_plan_item', message: `There is no plan item '${id}'`, suggestion: `Valid plan item ids: ${plan.map(planItem => planItem.id).join(', ')}` });
   if (item.status === status) {
@@ -44,7 +57,7 @@ function applyPlanUpdate(params: { state: PlanningState; update: PlanUpdate }): 
   if (status === 'done' && evidence == null) {
     return itemFailure({ code: 'evidence_required', message: `Marking plan item '${id}' done needs evidence`, suggestion: 'Say what shows the acceptance criteria are met, e.g. the file and line or the test that passed.' });
   }
-  if (REGRESSIONS[item.status].includes(status) && evidence == null) {
+  if (isRegression({ from: item.status, to: status }) && evidence == null) {
     return itemFailure({
       code: 'status_regression', message: `Plan item '${id}' is ${item.status}; moving it back to ${status} needs evidence giving the reason`,
       suggestion: 'Repeat the update with evidence explaining why the item is no longer done or blocked.',

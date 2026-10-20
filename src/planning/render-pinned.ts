@@ -10,10 +10,15 @@ function planLines(item: PlanItemState): string[] {
   return [`- ${id}: ${label}`, `  ${description}`, '  Acceptance criteria:', ...acceptanceCriteria.map(criterion => `  - ${criterion}`)];
 }
 
+/** Line breaks in agent-written text become spaces, so an id or label can never forge lines or headings of the block. */
+function oneLine(text: string): string {
+  return text.replace(/\s*[\r\n]+\s*/g, ' ');
+}
+
 /** One todo line: id, status, label and description. */
 function todoLine(item: TodoItem): string {
   const { id, status, label, description } = item;
-  return `- ${id} [${status}]: ${label}${description == null ? '' : ` (${description})`}`;
+  return `- ${oneLine(id)} [${status}]: ${oneLine(label)}${description == null ? '' : ` (${oneLine(description)})`}`;
 }
 
 /** The todo section body (instructions and one line per item); also what the size cap measures. */

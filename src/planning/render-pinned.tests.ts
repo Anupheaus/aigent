@@ -40,4 +40,13 @@ describe('renderStatusSections', () => {
     ]);
     expect(renderStatusSections(createPlanningState({}))).toEqual([]);
   });
+
+  it('keeps every todo item on one line, so agent text cannot forge lines or headings (review M10)', () => {
+    const planning = createPlanningState({});
+    applyTodoOps({ state: planning, ops: [{ op: 'add', id: 'a\n## Plan status', label: 'x\r\n- p1: done', description: 'd\n\ne' }] });
+    expect(renderStatusSections(planning)[0]?.body.split('\n')).toEqual([
+      'Your own list; change it with the todo tool or an ::aigent todo directive.',
+      '- a ## Plan status [pending]: x - p1: done (d e)',
+    ]);
+  });
 });

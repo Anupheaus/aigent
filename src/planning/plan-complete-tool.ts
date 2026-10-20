@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { planUpdateSchema } from '../streaming/directive-schemas.js';
+import { MAX_PLANNING_CHANGES, planUpdateSchema } from '../streaming/directive-schemas.js';
 import { BATCH_RESULT_HELPERS } from '../tools/batch-entries.js';
 import type { BatchEntry } from '../tools/batch-entries.js';
 import { defineTool } from '../tools/define-tool.js';
@@ -8,7 +8,6 @@ import type { ItemResult } from './plan-state.js';
 import type { RunPlanning } from './run-planning.js';
 
 export const PLAN_COMPLETE_TOOL_NAME = 'plan_complete';
-const MAX_UPDATES = 50;
 
 /** One update's or op's entry in a batch-style result. */
 export function toBatchEntries(results: ItemResult[]): BatchEntry[] {
@@ -21,7 +20,7 @@ export function createPlanCompleteTool(params: { planning: Pick<RunPlanning, 'ap
   const tool = defineTool({
     name: PLAN_COMPLETE_TOOL_NAME,
     description: 'Update the status of plan items: pending, in_progress, done (needs evidence) or blocked. Moving an item back from done or blocked needs evidence giving the reason. One result per update.',
-    args: z.object({ updates: z.array(planUpdateSchema).min(1).max(MAX_UPDATES) }).strict(),
+    args: z.object({ updates: z.array(planUpdateSchema).min(1).max(MAX_PLANNING_CHANGES) }).strict(),
     deterministic: false,
     cache: false,
     describeActivity: ({ updates }) => ({ title: `Updating ${updates.length} plan items`, detail: updates.map(({ id, status }) => `${id}: ${status}`).join(', ') }),
