@@ -39,6 +39,7 @@ import { createApprovalCenter } from '../approvals/approval-gate.js';
 import { createAuditTrail } from '../approvals/audit-trail.js';
 import type { ApprovalRule } from '../approvals/approval-types.js';
 import { createInstanceRuntime } from '../resume/instance-runtime.js';
+import { validateResumeOptions } from '../resume/resume-options.js';
 import { createAigentError } from './aigent-error.js';
 import { createChat } from '../chat/create-chat.js';
 import { parseChatOptions } from '../chat/chat-options.js';
@@ -61,6 +62,7 @@ function resolveScheduler(params: { scheduler: Scheduler | SchedulerOptions | un
 
 export function createAigent(options: AigentOptions): Aigent {
   const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
+  validateResumeOptions({ ...(options.resume == null ? {} : { resume: options.resume }), captureContent, hasRedact: redact != null });
   const resolveTarget = createTargetResolver({ providers, ...(options.providerModelSettings == null ? {} : { providerModelSettings: options.providerModelSettings }) });
   const { expiresInMs } = parseRetention(options.retention) ?? {};
   const pricing = parsePricing(options.pricing);

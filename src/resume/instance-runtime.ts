@@ -28,6 +28,12 @@ export interface ResumeOptions extends CheckpointWriterOptions {
    * more checkpoints, and the next run re-acquires the lease.
    */
   onLeaseLost?: 'immediate' | 'graceful';
+  /**
+   * Required with `createAigent({ redact })`: `redacted` passes checkpoints, the call ledger and instance records through
+   * `redact`, so a resumed run continues from the redacted prompt (it emits a warning saying so); `raw` stores them
+   * unredacted so a resume sends exactly the original prompt. Without `redact` there is nothing to choose.
+   */
+  checkpointRedaction?: 'redacted' | 'raw';
 }
 
 /** One run of an instance, as its instance record lists it. */
@@ -131,7 +137,7 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
     if (lease != null) leases.push(lease);
     const fence = (): number => lease?.fence ?? 0;
     const fenced = createFencedStore({ store, instanceId, fence });
-    const records = createRecordWriter({ store: fenced, writeQueue, ...(redact == null ? {} : { redact }) });
+    const records = createRecordWriter({ store: fenced, writeQueue, ...(redact == null || options.checkpointRedaction === 'raw' ? {} : { redact }) });
     const record = (await store.get<InstanceRecord>(INSTANCES_COLLECTION, instanceId))?.value;
     if (record != null && record.agentName !== agentName) {
       throw createAigentError({ code: 'invalid_input', message: `Instance '${instanceId}' belongs to agent '${record.agentName}', not '${agentName}'`, details: { instanceId, agentName: record.agentName } });

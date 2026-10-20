@@ -57,6 +57,9 @@ export async function prepareRunResume(params: PrepareRunResumeParams): Promise<
   const instance = await runtime.open({ instanceId: agent.instanceId, agentName: agent.name, agentVersion: agent.agentVersion });
   for (const message of instance.takeWarnings()) emit({ type: 'warning', message });
   const restored = await restore?.load();
+  if (restored != null && runtime.options.checkpointRedaction === 'redacted') {
+    emit({ type: 'warning', message: `Resuming run '${restore?.streamId}' from redacted checkpoints: the resumed context is the redacted one, so it can differ from what the model saw before` });
+  }
   if (restored?.stale != null) {
     const { missingSeq, latestSeq } = restored.stale;
     emit({ type: 'warning', message: `Resuming run '${restore?.streamId}' from an older checkpoint: records ${missingSeq} to ${latestSeq} are missing, so work done after it (including tool effects) is not in the resumed context; check for repeated effects` });
