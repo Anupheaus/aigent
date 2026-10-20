@@ -778,6 +778,23 @@ const agent = ai.agent({ name: 'coder', model, tools: fsTools({ policy, backupDi
 - **`regex_extract`** `{ text, pattern, flags?, maxMatches? (≤ 1000) }`: matches with their index, captures and named groups. Patterns are checked first: nested or overlapping repetition (`(a+)+`, `(a|aa)+`) and back-references are refused (`unsafe_pattern`), so catastrophic backtracking is caught before it runs. Text is limited to 1,000,000 characters and matched in chunks of at most 200,000 (cut at line breaks; a match never spans two chunks) under a 2-second budget (`stoppedBy: 'time budget'`).
 - **`calc`** `{ expression }`: `+ - * / % ^` (`^` right-associative and tighter than unary minus), parentheses, `min max abs round floor ceil sqrt pow log` and `pi`, `e`, through a small parser: nothing is ever run as code. Errors are exact: `division_by_zero`, `not_a_number` (e.g. `sqrt(-1)`, overflow), `unknown_identifier`, `wrong_arity`, `syntax_error` with its position.
 
+### Code intelligence (`@anupheaus/aigent/tools/code`)
+
+```ts
+import { createFsPolicy } from '@anupheaus/aigent/tools/fs';
+import { codeTools } from '@anupheaus/aigent/tools/code';
+
+const policy = createFsPolicy({ roots: [{ path: '/srv/project', permissions: ['read'], label: 'workspace' }] });
+const agent = ai.agent({ name: 'coder', model, tools: codeTools({ policy, tsconfigPath: '/srv/project/tsconfig.json' }) });
+```
+
+- **Answers "where is X?" in one call** with the TypeScript compiler's own symbol resolution, for TypeScript and JavaScript (`.ts .tsx .mts .cts .js .jsx .mjs .cjs`, declarations included). Other files are an `unsupported_language` item failure suggesting `fs_search`.
+- **`code_outline`** `{ path }` returns `{ path, symbols }`: every declaration (functions with each overload, classes with members, interfaces (merged declarations each listed), types, enums with members, constants and variables, namespaces, the default export and re-exports) with `{ name, kind, line, endLine, exported, signature, children }`, signatures without bodies.
+- **`code_find_symbol`** `{ name, kind?, scope?, exportedOnly?, maxResults? }` returns `{ name, total, truncated, definitions }` ranked (exact name, exported, shallow path): `{ name, path, line, endLine, kind, signature, containerName?, exported, reexportedFrom? }`. A renamed import or a re-export chain resolves to the real declaration (an overloaded function to its implementation), which lists the names that lead to it in `reexportedFrom`; library declarations are never results.
+- **`code_references`** `{ path, line?, character?, symbol?, maxResults? }` returns `{ symbol, total, skipped, truncated, files: [{ path, usages: [{ line, character, text, kind }] }] }` from the compiler's find-references (through imports, renames and re-exports), each usage classed `definition`, `import`, `call`, `type-ref` or `other`.
+- **Only what the policy allows:** each root's code files are listed through the `FsPolicy` (dependency, build and VCS directories skipped, files over `maxReadBytes` counted as `tooLarge`), read through `FsAccess`, and handed to the compiler as its whole disk, so a denied file or anything outside the roots is never read or reported (only TypeScript's own `lib.*.d.ts` come from its package). Programs are built with `noEmit`, `skipLibCheck` and `allowJs` (plus the `compilerOptions` of `tsconfigPath`; `extends` is not followed), hold at most `maxFiles` files per root (5000; past it results carry `incompleteIndex: true`), and are cached per root until any file's mtime or size changes. Results are cached the same way (`validity` hashes every file's mtime and size).
+- **TypeScript is an optional peer dependency** (`typescript` 7, whose `unstable/sync` API runs the native compiler in a child process; it is loaded on first use). Without it every item fails with `typescript_unavailable` saying what to install. The compiler API is synchronous, so a large program blocks the event loop while it builds (the tools' 120-second timeout cannot interrupt it), and the compiler process lives until the program is replaced or the Node process exits.
+
 ### Agents and delegation (`@anupheaus/aigent/tools/meta`)
 
 ```ts
@@ -849,8 +866,9 @@ Phase 1 foundation core, implemented in this slice:
 - Resumable instances (checkpoints, call ledger, fenced leases) and human approvals
 - Guardrails (secrets, PII, injection, scope, loop and output-schema built-ins plus custom ones), dry runs with planned effects, and the effect log with `agent.undo`
 - `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
+- Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
 
-Roadmap (later slices, each with its own spec): vision, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
+Roadmap (later slices, each with its own spec): vision, more built-in tool packs (shell, git, database), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
 
 ## License
 

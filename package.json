@@ -48,6 +48,10 @@
     "./tools/web": {
       "types": "./dist/tools/packs/web/index.d.ts",
       "import": "./dist/tools/packs/web/index.js"
+    },
+    "./tools/code": {
+      "types": "./dist/tools/packs/code/index.d.ts",
+      "import": "./dist/tools/packs/code/index.js"
     }
   },
   "files": [
@@ -79,9 +83,13 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
+    "typescript": ">=7.0.0 <8",
     "vitest": ">=3.0.0 <5"
   },
   "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
