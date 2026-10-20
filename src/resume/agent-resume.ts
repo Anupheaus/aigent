@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import type { TaskRun } from '../core/agent-types.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { startTaskRun } from '../core/start-task-run.js';
@@ -13,6 +14,11 @@ export interface ResumeRunOptions {
   /** A user for `ask_user` again; without it the resumed run's `ask_user` calls are refused. */
   onQuestion?: OnQuestion;
   signal?: AbortSignal;
+  /**
+   * The structured `output` schema of a run started with one: a schema is not stored (it does not survive a JSON
+   * store), so it is required again when the interrupted run had one.
+   */
+  output?: z.ZodType;
 }
 
 export interface AgentResume {
@@ -40,17 +46,20 @@ export function createAgentResume(params: { agent: ResolvedAgent; services: Runt
   ready.catch(() => undefined);
 
   function resume(options: ResumeRunOptions = {}): TaskRun | undefined {
-    const { runId, onQuestion, signal } = options;
+    const { runId, onQuestion, signal, output } = options;
     // Without resume, or for a generated instance id, there is nothing interrupted to continue.
     if (runtime == null) return undefined;
     if (handle == null) throw createAigentError({ code: 'invalid_input', message: `Agent instance '${agent.instanceId}' is not open yet; await agent.ready before agent.resume()`, details: { instanceId: agent.instanceId } });
     const id = runId ?? [...handle.interrupted.keys()].at(-1);
     const interrupted = id == null ? undefined : handle.interrupted.get(id);
     if (id == null || interrupted == null) return undefined;
+    const { hasUser = false, hasOutput = false, ...stored } = interrupted.state.input;
+    if (hasOutput && output == null) {
+      throw createAigentError({ code: 'invalid_input', message: `Run '${id}' of instance '${agent.instanceId}' was started with a structured output schema, which is not stored; pass it again: agent.resume({ output })`, details: { instanceId: agent.instanceId, runId: id } });
+    }
     // Taken: a second resume() must not continue the same run twice.
     handle.interrupted.delete(id);
-    const { hasUser = false, ...stored } = interrupted.state.input;
-    const input = parseTaskInput({ ...stored, ...(onQuestion == null ? {} : { onQuestion }), ...(signal == null ? {} : { signal }) });
+    const input = parseTaskInput({ ...stored, ...(onQuestion == null ? {} : { onQuestion }), ...(signal == null ? {} : { signal }), ...(output == null ? {} : { output }) });
     return startTaskRun({ agent, services, input, restore: { runId: id, streamId: id, hadUser: hasUser, load: async () => interrupted } });
   }
 

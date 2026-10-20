@@ -24,9 +24,11 @@ export const CHECKPOINT_BOUNDARIES = ['message', 'turn-complete', 'tool-batch-co
 export type CheckpointBoundary = typeof CHECKPOINT_BOUNDARIES[number];
 
 /** A run's input as stored: everything but the live values (`signal`, `onQuestion`), which a resume supplies again. */
-export type StoredTaskInput = Omit<TaskInput, 'signal' | 'onQuestion'> & {
+export type StoredTaskInput = Omit<TaskInput, 'signal' | 'onQuestion' | 'output'> & {
   /** The run had a user to ask (`onQuestion`, or a chat), so `ask_user` was among its tools. */
   hasUser?: boolean;
+  /** The run had a structured `output` schema: not storable as JSON, so `agent.resume({ output })` supplies it again. */
+  hasOutput?: boolean;
 };
 
 /** A run's totals as stored (`RunTotals`). */

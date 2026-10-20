@@ -43,8 +43,8 @@ export interface PreparedRunResume {
 
 /** The input as a checkpoint keeps it: live values left out, and whether the run had a user to ask. */
 export function storedInputOf(params: { input: TaskInput; registry: ToolRegistry }): StoredTaskInput {
-  const { input: { signal: _signal, onQuestion: _onQuestion, ...rest }, registry } = params;
-  return { ...rest, ...(registry.get(ASK_USER_TOOL_NAME) == null ? {} : { hasUser: true }) };
+  const { input: { signal: _signal, onQuestion: _onQuestion, output, ...rest }, registry } = params;
+  return { ...rest, ...(registry.get(ASK_USER_TOOL_NAME) == null ? {} : { hasUser: true }), ...(output == null ? {} : { hasOutput: true }) };
 }
 
 /**
