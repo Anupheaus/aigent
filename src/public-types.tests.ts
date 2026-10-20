@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  CompareAndSetParams, Directive, FinishReason, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RunRecord, ToolErrorCategory, ToolFailureInit,
-  UpdateRecordParams,
+  Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
+  RunRecord, Sleeper, ToolErrorCategory, ToolFailureInit, UpdateRecordParams,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
@@ -22,6 +22,11 @@ describe('public types', () => {
     const modelSettings: ModelSettings = { thinking: { budgetTokens: 2048 }, effort: 'high', showThinking: false };
     const providerSettings: ProviderSettings = { temperature: 0.5, stop: ['END'] };
     const recordSettings: RunRecord['settings'] = modelSettings;
-    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
+    const resilience: Partial<ResiliencePolicy> = { maxRetries: 1, firstEventTimeoutMs: 10_000 };
+    const sleep: Sleeper = async () => undefined;
+    const random: RandomSource = () => 0.5;
+    const clock: Clock = { now: () => 0 };
+    const ids: IdGenerator = { next: prefix => prefix };
+    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, sleep, random, clock, ids }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });

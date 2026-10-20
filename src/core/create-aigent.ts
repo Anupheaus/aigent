@@ -10,11 +10,12 @@ import { LIBRARY_VERSION } from './library-version.js';
 import { parseModelReference } from './model-reference.js';
 import { parseModelSettings } from './model-settings.js';
 import type { ModelSettings } from './model-settings.js';
+import { parseResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
-import { createSystemClock, createUuidGenerator } from './runtime-services.js';
-import type { Clock, IdGenerator } from './runtime-services.js';
+import { createMathRandom, createSystemClock, createTimerSleeper, createUuidGenerator } from './runtime-services.js';
+import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import { startTaskRun } from './start-task-run.js';
-import type { ModelTarget, RuntimeServices } from './start-task-run.js';
+import type { ModelTarget, ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import { parseAgentLimits, parseTaskInput } from './task-input.js';
 
 export interface AigentOptions {
@@ -24,6 +25,10 @@ export interface AigentOptions {
   store?: Store;
   clock?: Clock;
   ids?: IdGenerator;
+  /** Waits between retries (default: real timers). Inject a fake to control time in tests. */
+  sleep?: Sleeper;
+  /** Jitter source (default `Math.random`). */
+  random?: RandomSource;
   /** Runtime-wide model settings; agent and task settings win over them, field by field. */
   modelSettings?: ModelSettings;
   /** Per-provider default settings, keyed by provider id; the lowest-precedence layer. */
@@ -67,11 +72,11 @@ function parseProviderModelSettings(params: { settings: Record<string, ModelSett
 }
 
 export function createAigent(options: AigentOptions): Aigent {
-  const { providers, store, clock = createSystemClock(), ids = createUuidGenerator() } = options;
+  const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom() } = options;
   const providersById = indexProviders(providers);
   const runtimeSettings = parseModelSettings({ owner: 'createAigent', settings: options.modelSettings });
   const providerSettingsById = parseProviderModelSettings({ settings: options.providerModelSettings, providersById });
-  const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue() };
+  const services: RuntimeServices = { clock, ids, store, writeQueue: createWriteQueue(), sleep, random };
   /** Settles (never rejects) when its run has finished, including writing its record. */
   const activeRuns = new Set<Promise<void>>();
 
@@ -97,17 +102,19 @@ export function createAigent(options: AigentOptions): Aigent {
   }
 
   function agent(definition: AgentDefinition): Agent {
-    const { name, persona, skillset, context, tools = [], version } = definition;
+    const { name, persona, skillset, context, tools = [], version, fallbackModels, resilience } = definition;
     if (name === '') throw createAigentError({ code: 'invalid_definition', message: 'Agent name must be a non-empty string' });
     const limits = parseAgentLimits({ agentName: name, limits: definition.limits });
     const agentSettings = parseModelSettings({ owner: `Agent '${name}'`, settings: definition.modelSettings });
+    const policy = parseResiliencePolicy({ agentName: name, resilience });
     const target = resolveTarget(definition.model);
+    const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const instanceId = definition.instanceId ?? ids.next('agent');
     // The multi tool only reaches user tools; registering it alongside them makes a user tool named aigent_multi a duplicate.
     const registry = createToolRegistry([...tools, createMultiTool({ registry: createToolRegistry(tools), now: () => clock.now() })]);
     const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools });
-    const resolved = { name, instanceId, target, prompt: { persona, skillset, context }, registry, limits, agentSettings, runtimeSettings, agentVersion, version };
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbackModels, resilience });
+    const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context }, registry, limits, agentSettings, runtimeSettings, agentVersion, version };
     return {
       name,
       instanceId,

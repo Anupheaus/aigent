@@ -8,7 +8,8 @@ import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResult } from './agent-types.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
-import type { ProviderTarget, RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
+import type { TurnRouting } from './open-turn-stream.js';
+import type { RunTotals, TurnStreamResult, TurnWork } from './run-turn.js';
 import type { Clock } from './runtime-services.js';
 import { buildSystemPrompt } from './system-prompt.js';
 import type { PromptPersona } from './system-prompt.js';
@@ -29,7 +30,7 @@ export interface RunTaskParams {
   runId: string;
   agentName: string;
   instanceId: string;
-  target: ProviderTarget;
+  routing: TurnRouting;
   /** Whether `thinking-delta` events are emitted. */
   showThinking: boolean;
   prompt: PromptPersona;
@@ -111,12 +112,12 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResult> {
-  const { runId, agentName, instanceId, target, showThinking, prompt, input, registry, limits, clock, control, emit } = params;
+  const { runId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, emit } = params;
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
   const messages: ProviderMessage[] = [{ role: 'system', text: buildSystemPrompt(prompt) }, { role: 'user', text: buildTaskBrief(input) }];
-  const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0 };
+  const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0 };
   const errors: ToolErrorDetail[] = [];
   let answer = '';
   let status: TaskStatus = 'completed';
@@ -132,7 +133,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
     try {
-      turn = await runTurn({ runId, agentName, instanceId, target, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, emit });
+      turn = await runTurn({ runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, emit });
     } catch (error) {
       // Only the run's own signal means it was aborted; a provider error that merely carries the 'aborted' code is a provider failure.
       if (signal.aborted) {
@@ -158,10 +159,10 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
     }
   }
 
-  const { usage, turns, toolCalls } = totals;
+  const { usage, turns, toolCalls, retries, fallbacks } = totals;
   const result: TaskResult = {
     status, answer, runId, agentName, instanceId, errors,
-    usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), durationMs: clock.now() - startedAt },
+    usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt },
   };
   if (failure != null) result.failure = failure;
   if (status === 'stopped') result.stopMode = 'graceful';

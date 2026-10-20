@@ -4,6 +4,7 @@ import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
 import type { ModelSettings } from './model-settings.js';
+import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 
 export interface AgentDefinition {
@@ -22,6 +23,10 @@ export interface AgentDefinition {
   modelSettings?: ModelSettings;
   /** Human version label (e.g. `2024-06-prompt-b`), stored on run records and part of `agentVersion`. */
   version?: string;
+  /** Overrides for the retry, first-event timeout and fallback policy (see `DEFAULT_RESILIENCE_POLICY`). */
+  resilience?: Partial<ResiliencePolicy>;
+  /** `provider:model` strings tried in order when a turn's model is exhausted; each turn starts again at `model`. */
+  fallbackModels?: string[];
   /** Supply to restore a known instance; generated otherwise. */
   instanceId?: string;
 }
@@ -39,6 +44,10 @@ export interface TaskUsage extends Usage {
    * efficient, since every turn re-sends the conversation; batch tools and `aigent_multi` raise it.
    */
   toolCallsPerTurn: number;
+  /** Provider calls retried after a failure before their first event. */
+  retries: number;
+  /** Times a turn moved on to a fallback model. */
+  fallbacks: number;
   durationMs: number;
 }
 

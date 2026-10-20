@@ -5,6 +5,8 @@ export type { AigentEvent, TaskStatus } from './core/aigent-events.js';
 export type { TaskInput, TaskLimits } from './core/task-input.js';
 export type { ModelSettings } from './core/model-settings.js';
 export type { RunRecord } from './core/run-record.js';
+export type { ResiliencePolicy } from './core/resilience-policy.js';
+export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';
 export type { FinishReason, JsonSchema, MessageRole, Provider, ProviderCapabilities, ProviderEvent, ProviderMessage, ProviderRequest, ProviderSettings, ProviderToolSpec, ToolCall, Usage } from './providers/provider-types.js';

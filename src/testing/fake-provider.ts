@@ -1,4 +1,5 @@
 import { createAigentError } from '../core/aigent-error.js';
+import type { AigentError } from '../core/aigent-error.js';
 import { PROVIDER_SETTING_KEYS } from '../providers/provider-settings.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest, ToolCall, Usage } from '../providers/provider-types.js';
 
@@ -7,6 +8,8 @@ export interface FakeTurn {
   events: ProviderEvent[];
   /** Pause before each event, to test overlap and abort timing. */
   delayMs?: number;
+  /** Thrown before any event is yielded (the turn is still used up), to script provider failures and retries. */
+  failBeforeEvents?: AigentError;
 }
 
 export interface TurnOptions {
@@ -84,6 +87,7 @@ export function createFakeProvider(options: FakeProviderOptions): FakeProvider {
     if (turn == null) {
       throw createAigentError({ code: 'provider_failed', message: `FakeProvider '${id}' has no scripted turn for request ${turnIndex}; scripted ${turns.length}` });
     }
+    if (turn.failBeforeEvents != null) throw turn.failBeforeEvents;
     for (const event of turn.events) {
       if (turn.delayMs != null && turn.delayMs > 0) await sleep(turn.delayMs, signal);
       if (signal.aborted) throw createAigentError({ code: 'aborted', message: `FakeProvider '${id}' stream aborted` });

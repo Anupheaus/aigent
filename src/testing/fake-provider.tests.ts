@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderEvent, ProviderRequest } from '../providers/provider-types.js';
+import { createAigentError } from '../core/aigent-error.js';
 import { createFakeProvider, textTurn, toolTurn } from './fake-provider.js';
 
 const REQUEST: ProviderRequest = { model: 'm', messages: [{ role: 'user', text: 'hi' }], tools: [] };
@@ -32,6 +33,17 @@ describe('createFakeProvider', () => {
     const events = await collect(provider.stream(REQUEST, new AbortController().signal));
     expect(events).toContainEqual({ type: 'tool-call', call: { id: 'c1', name: 'x', args: { a: 1 } } });
     expect(events.at(-1)).toEqual({ type: 'done', finishReason: 'tool_calls' });
+  });
+
+  it('throws a scripted failure before any event, consuming the turn', async () => {
+    const failure = createAigentError({ code: 'provider_failed', message: 'HTTP 503', details: { retryable: true } });
+    const provider = createFakeProvider({ turns: [{ events: [{ type: 'text-delta', text: 'never' }], failBeforeEvents: failure }, textTurn('ok')] });
+    const seen: ProviderEvent[] = [];
+    const first = (async () => { for await (const event of provider.stream(REQUEST, new AbortController().signal)) seen.push(event); })();
+    await expect(first).rejects.toBe(failure);
+    expect(seen).toEqual([]);
+    expect(provider.requests).toHaveLength(1);
+    expect((await collect(provider.stream(REQUEST, new AbortController().signal))).at(-1)).toEqual({ type: 'done', finishReason: 'stop' });
   });
 
   it('fails clearly when out of scripted turns', async () => {

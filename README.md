@@ -92,7 +92,7 @@ All adapters stream over `fetch` (Node 20+), with no vendor SDK. Their shared be
 
 - **Keys** come only from the options you pass. Every credential header value (the key, the bearer token, and custom headers such as `api-key`) is replaced with `[REDACTED]` in error messages and `details`, even when a server echoes it back in its error body. Values shorter than 8 characters are not treated as secrets.
 - **Tool calls:** tools are sent with the `strict` flag where the API has one (OpenAI-compatible `strict: true`, `aigent_multi` with `strict: false`). Strict decoding is a request, not a guarantee: OpenAI does not guarantee schema conformance for parallel tool calls unless `parallel_tool_calls` is false, and DeepSeek honours `strict` only on its `/beta` base URL. The loop validates every call's arguments against the tool schema either way. Malformed tool-call JSON from the model reaches the loop as the raw string, so the model gets a precise validation error it can fix.
-- **Failures:** HTTP errors become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx), and the message includes the server's own reason when the body has one. Dropped connections and streams cut off before their final event are `provider_failed` with `details.retryable: true` and no `status`. A 2xx response that is not `text/event-stream` fails with its content type and body. The run then ends with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
+- **Failures:** HTTP errors become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx), plus `details.retryAfterMs` when the server sent a `retry-after` header. The message includes the server's own reason when the body has one. Dropped connections and streams cut off before their final event are `provider_failed` with `details.retryable: true` and no `status`. A 2xx response that is not `text/event-stream` fails with its content type and body. A failure that retries and fallback models (see [Retries, timeouts and fallback models](#retries-timeouts-and-fallback-models)) cannot recover ends the run with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
 - **Usage:** a `usage` event is emitted only when the server reports usage; it is left out, never reported as zeros, when the server sends none.
 - **Empty assistant turns:** an assistant turn with no text and no tool calls is left out of the request, because both APIs reject it. Adjacent messages from the same role are then merged so roles keep alternating.
 - **`fetch` option:** inject your own for proxies or tests.
@@ -169,6 +169,36 @@ Invalid values are rejected up front: agent, `createAigent` and per-provider set
 
 Every agent has an `agentVersion`: a sha-256 of everything that shapes its behaviour. That covers the model, persona, skillset, context, effective settings (agent, runtime and provider levels), limits, the definition's `version` label, each tool's contract (name, description, schema and flags) and the library version. It does not depend on `name` or `instanceId`, or on key order. Each run record in the `runs` collection stores `agentVersion`, `model`, the resolved `settings` and the `version` label, so results can be compared across agent revisions.
 
+## Retries, timeouts and fallback models
+
+Provider calls are retried and can fall back to other models:
+
+```ts
+const agent = aigent.agent({
+  name: 'writer',
+  model: 'anthropic:claude-sonnet-5-5',
+  fallbackModels: ['openai:gpt-5', 'deepseek:deepseek-chat'],
+  resilience: { maxRetries: 3, firstEventTimeoutMs: 30_000 },
+});
+```
+
+| Policy field | Default | Meaning |
+| --- | --- | --- |
+| `maxRetries` | 2 | retries per model after a retryable failure |
+| `baseDelayMs` | 500 | first retry delay; doubles for each further retry |
+| `maxDelayMs` | 20,000 | cap on the delay before jitter |
+| `jitter` | 0.2 | each delay is spread by ±20% |
+| `firstEventTimeoutMs` | none | a request with no event within this time is aborted and counts as a retryable failure |
+| `fallbackOnNonRetryable` | false | also fall back after a non-retryable failure such as 400 or 401 |
+
+- **What is retried:** `provider_failed` errors with `details.retryable: true`. That covers 408, 409, 429 and 5xx responses, dropped connections, streams cut off early and first-event timeouts.
+- **`retry-after`:** when the server sends this header, it is a floor on the delay. Adapters put it on the error as `details.retryAfterMs`, from either seconds or an HTTP date.
+- **Never replayed:** a call is retried only if it failed before its first event. Once any text, thinking or tool call has reached you, a failure ends the run instead. You never see duplicated output.
+- **Fallback order:** when a model's retries are used up, the turn moves to the next `fallbackModels` entry. Each turn starts again with the agent's own `model`. A fallback provider gets the same resolved settings. Any it cannot honour produce their warnings the first time the run uses that provider.
+- **Stopping:** `stop()`, `cancel()` and `timeoutMs` end a backoff wait at once, and nothing further is sent.
+
+Each retry emits `{ type: 'retry', attempt, delayMs, model, reason }` and each fallback emits `{ type: 'fallback', from, to, reason }`. `TaskResult.usage` and the run record count them in `retries` and `fallbacks`. Pass `sleep` and `random` to `createAigent` to control waiting and jitter in tests.
+
 ## Stopping a run
 
 ```ts
@@ -200,6 +230,7 @@ A strict schema cannot describe every inner tool's arguments, so `aigent_multi` 
 
 - `turns`: model requests (LLM round trips). An `aigent_multi` call is part of the turn that made it.
 - `toolCalls`: tool calls actually executed. Each call inside `aigent_multi` counts individually; refused calls do not count.
+- `retries` and `fallbacks`: provider calls retried, and turns moved to a fallback model.
 - `toolCallsPerTurn`: `toolCalls / turns`, or 0 when no request was made. Every turn re-sends the conversation, so doing the same work in fewer turns is more efficient. For example, 50 tool calls in 3 turns gives about 16.7. Batch tools and `aigent_multi` raise this number.
 
 ## Stream directives
@@ -225,6 +256,7 @@ Phase 1 foundation core, implemented in this slice:
 - `describeProviderContract`, the vitest suite every provider must pass (`@anupheaus/aigent/testing/contract`; needs `vitest`, an optional peer dependency)
 - Streaming provider adapters: `anthropic` and `openAiCompatible`, with the `deepseek`, `openai` and `ollama` presets
 - Model settings resolved task > agent > runtime > provider and mapped per provider, and the agent version hash
+- Provider retry with backoff and `retry-after`, first-event timeout and fallback models
 
 Roadmap (later slices, each with its own spec): model settings (thinking and effort), retry and fallback, vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
 

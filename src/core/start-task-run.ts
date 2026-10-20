@@ -8,11 +8,13 @@ import type { TaskResult, TaskRun } from './agent-types.js';
 import { createEventStream } from './event-stream.js';
 import { filterProviderSettings } from './filter-provider-settings.js';
 import type { ModelSettings } from './model-settings.js';
+import type { ProviderTarget, TurnRouting } from './open-turn-stream.js';
+import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
 import { buildRunRecord, writeRunRecord } from './run-record.js';
 import { runTask } from './run-task.js';
-import type { Clock, IdGenerator } from './runtime-services.js';
+import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 
@@ -31,7 +33,9 @@ export interface ModelTarget {
 export interface ResolvedAgent {
   name: string;
   instanceId: string;
-  target: ModelTarget;
+  /** The agent's model first, then its fallback models. */
+  targets: [ModelTarget, ...ModelTarget[]];
+  resilience: ResiliencePolicy;
   prompt: PromptPersona;
   registry: ToolRegistry;
   limits?: TaskLimits;
@@ -49,6 +53,8 @@ export interface RuntimeServices {
   ids: IdGenerator;
   store?: Store;
   writeQueue: WriteQueue;
+  sleep: Sleeper;
+  random: RandomSource;
 }
 
 export interface StartTaskRunParams {
@@ -73,27 +79,44 @@ function resolveLimits(taskLimits: TaskLimits | undefined, agentLimits: TaskLimi
   };
 }
 
+interface ProviderTargetParams {
+  target: ModelTarget;
+  agent: ResolvedAgent;
+  input: TaskInput;
+}
+
+/** Resolves the run's settings for one model (its provider's layer differs) and filters them for that provider. */
+function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
+  const { target: { reference, provider, model, providerSettings }, agent: { agentSettings, runtimeSettings }, input } = params;
+  const settings = resolveModelSettings({ task: input.modelSettings, agent: agentSettings, runtime: runtimeSettings, provider: providerSettings });
+  const filtered = filterProviderSettings({ provider, settings });
+  return { label: reference, provider, model, warnings: filtered.warnings, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
+}
+
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
-  const { name: agentName, instanceId, target, prompt, registry, agentVersion, version } = agent;
-  const { clock, ids, store, writeQueue } = services;
+  const { name: agentName, instanceId, targets, resilience, prompt, registry, agentVersion, version } = agent;
+  const { clock, ids, store, writeQueue, sleep, random } = services;
+  const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
-  const filtered = filterProviderSettings({ provider: target.provider, settings });
+  const primary = toProviderTarget({ target, agent, input });
+  const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
+  const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, warnedLabels: new Set([primary.label]) };
   const stream = createEventStream<AigentEvent, TaskResult>();
   const emit = (event: AigentEvent): void => stream.push(event);
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs });
 
   async function execute(): Promise<void> {
     const startedAt = clock.now();
-    for (const message of filtered.warnings) emit({ type: 'warning', message });
+    for (const message of primary.warnings) emit({ type: 'warning', message });
     let result: TaskResult;
     try {
       result = await runTask({
         runId, agentName, instanceId, prompt, input, registry, clock, control, emit,
-        target: { provider: target.provider, model: target.model, settings: filtered.settings },
+        routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },
       });

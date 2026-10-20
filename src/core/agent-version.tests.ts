@@ -83,6 +83,8 @@ describe('computeAgentVersion', () => {
     ['tool hasSideEffects', { ...BASE, tools: [{ ...searchTool, hasSideEffects: true }, writeTool] }],
     ['tool timeoutMs', { ...BASE, tools: [{ ...searchTool, timeoutMs: 1 }, writeTool] }],
     ['tool maxResultTokens', { ...BASE, tools: [searchTool, { ...writeTool, maxResultTokens: 501 }] }],
+    ['fallbackModels', { ...BASE, fallbackModels: ['openai:gpt-test'] }],
+    ['resilience', { ...BASE, resilience: { maxRetries: 0 } }],
   ];
 
   it.each(changes)('changes when %s changes', (_field, changed) => {

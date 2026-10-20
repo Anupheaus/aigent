@@ -1,6 +1,6 @@
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, Provider, ProviderEvent, ProviderMessage, ProviderSettings, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, ProviderMessage, ToolCall, Usage } from '../providers/provider-types.js';
 import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
@@ -11,11 +11,14 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
 import { createAigentError } from './aigent-error.js';
 import type { AigentEvent } from './aigent-events.js';
+import { openTurnStream } from './open-turn-stream.js';
+import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
 import type { Clock } from './runtime-services.js';
+import { stopStream } from './stop-stream.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
-export interface RunTotals {
+export interface RunTotals extends ResilienceCounters {
   usage: Usage;
   turns: number;
   /** Tool calls actually started. */
@@ -30,20 +33,11 @@ export interface TurnWork {
   activityController: AbortController;
 }
 
-/** Where a turn's request goes, with the settings that provider can honour. */
-export interface ProviderTarget {
-  provider: Provider;
-  /** Model id without the provider prefix. */
-  model: string;
-  /** Already filtered for this provider; absent when none are set. */
-  settings?: ProviderSettings;
-}
-
 export interface RunTurnParams {
   runId: string;
   agentName: string;
   instanceId: string;
-  target: ProviderTarget;
+  routing: TurnRouting;
   /** Whether `thinking-delta` events are emitted. */
   showThinking: boolean;
   registry: ToolRegistry;
@@ -147,22 +141,16 @@ function dispatchToolCall(params: DispatchParams): void {
   work.activities.push(startToolActivity({ tool, args: parsed.value, callId, outcome, signal: work.activityController.signal, emit }));
 }
 
-/** Asks an abandoned provider stream to finish. Not awaited: a stream stuck mid-await may never complete `return()`. */
-function stopStream(iterator: AsyncIterator<ProviderEvent>): void {
-  Promise.resolve()
-    .then(() => iterator.return?.())
-    .catch(() => undefined); // the stream is being abandoned; its clean-up errors have nowhere useful to go
-}
-
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, target: { provider, model, settings }, showThinking, registry, signal, messages, totals, emit } = params;
+  const { runId, routing, showThinking, registry, signal, messages, totals, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
-  const iterator = provider.stream({ model, messages: [...messages], tools: registry.specs(), ...(settings == null ? {} : { settings }) }, signal)[Symbol.asyncIterator]();
+  const request = { messages: [...messages], tools: registry.specs() };
+  const iterator = openTurnStream({ routing, request, signal, counters: totals, emit })[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
     for (;;) {
@@ -170,7 +158,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       const raced = await raceSignal({ work: iterator.next(), signal });
       if (raced.isAborted) {
         isAbandoned = true;
-        throw createAigentError({ code: 'aborted', message: `Run '${runId}' was aborted while streaming from provider '${provider.id}'` });
+        throw createAigentError({ code: 'aborted', message: `Run '${runId}' was aborted while streaming from '${routing.targets[0].label}'` });
       }
       if (raced.value.done === true) break;
       const event = raced.value.value;

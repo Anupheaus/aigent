@@ -14,5 +14,9 @@ export type AigentEvent =
   | { type: 'directive'; directive: Directive }
   | { type: 'usage'; usage: Usage }
   | { type: 'warning'; message: string }
+  /** A provider call failed before any event and will be retried after `delayMs`; `attempt` is 1 for the first retry. */
+  | { type: 'retry'; attempt: number; delayMs: number; model: string; reason: string }
+  /** `from` (a `provider:model`) is exhausted; the turn continues on fallback model `to`. */
+  | { type: 'fallback'; from: string; to: string; reason: string }
   | { type: 'error'; message: string }
   | { type: 'done'; status: TaskStatus };

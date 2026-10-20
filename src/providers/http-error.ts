@@ -1,5 +1,6 @@
 import { createAigentError } from '../core/aigent-error.js';
 import type { AigentError } from '../core/aigent-error.js';
+import { parseRetryAfterMs } from './retry-after.js';
 
 export interface FailedResponseParams {
   /** Provider id, named in the message so the failing backend is obvious. */
@@ -105,19 +106,21 @@ export async function nonStreamResponseError(params: NonStreamResponseParams): P
 }
 
 /**
- * Builds the `provider_failed` error for a non-2xx response: `details` carries `status`, `retryable` and the start of
- * the body, and the message adds the server's reason when the body has one. Adapters redact credentials from both
+ * Builds the `provider_failed` error for a non-2xx response: `details` carries `status`, `retryable`, the start of
+ * the body and, when the server sent a usable `retry-after` header, `retryAfterMs`. The message adds the server's
+ * reason when the body has one. Adapters redact credentials from both
  * (see `redactingErrors`), since servers sometimes echo the key.
  */
 export async function failedResponseError(params: FailedResponseParams): Promise<AigentError> {
   const { providerId, response, signal } = params;
   const { status, statusText } = response;
   const body = await readBodyPrefix({ response, signal });
+  const retryAfterMs = parseRetryAfterMs({ value: response.headers.get('retry-after'), now: Date.now() });
   const statusReason = statusText === '' ? '' : ` ${statusText}`;
   const message = `Provider '${providerId}' request failed with HTTP ${status}${statusReason}; expected a 2xx response`;
   return createAigentError({
     code: 'provider_failed',
     message: withReason({ message, body }),
-    details: { status, retryable: isRetryableStatus(status), body },
+    details: { status, retryable: isRetryableStatus(status), body, ...(retryAfterMs == null ? {} : { retryAfterMs }) },
   });
 }
