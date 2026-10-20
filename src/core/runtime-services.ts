@@ -29,11 +29,20 @@ export type Sleeper = (ms: number, signal: AbortSignal) => Promise<void>;
 /** Uniform random number in [0, 1); injectable so jitter is deterministic in tests. */
 export type RandomSource = () => number;
 
-export function createTimerSleeper(): Sleeper {
+/** `createTimerSleeper` options. */
+export interface TimerSleeperOptions {
+  /** The timers do not keep the process alive (background work such as lease heartbeats). */
+  unref?: boolean;
+}
+
+export function createTimerSleeper(options: TimerSleeperOptions = {}): Sleeper {
+  const { unref = false } = options;
   return (ms, signal) => new Promise(resolve => {
     if (signal.aborted) { resolve(); return; }
     const onAbort = (): void => { clearTimeout(timer); resolve(); };
     const timer = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+    // Outside Node (e.g. browsers) a timer is a number without unref.
+    if (unref && typeof timer === 'object' && typeof timer.unref === 'function') timer.unref();
     signal.addEventListener('abort', onAbort, { once: true });
   });
 }

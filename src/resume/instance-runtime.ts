@@ -1,116 +1,40 @@
 import { createAigentError } from '../core/aigent-error.js';
 import { describeError } from '../core/describe-value.js';
-import type { Clock, Sleeper } from '../core/runtime-services.js';
-import type { Store } from '../store/store-types.js';
-import type { WriteQueue } from '../store/write-queue.js';
 import { createRecordWriter } from '../telemetry/record-writer.js';
-import type { RecordWriter } from '../telemetry/record-writer.js';
-import type { Redact } from '../telemetry/redact.js';
 import { loadCallLedger } from './call-ledger.js';
-import type { LedgerEntry } from './call-ledger.js';
 import { readLatestCheckpoint } from './checkpoint-reader.js';
 import { INSTANCES_COLLECTION } from './checkpoint-types.js';
-import type { RunState, RunStateStatus } from './checkpoint-types.js';
-import type { CheckpointWriterOptions } from './checkpoint-writer.js';
+import type { RunStateStatus } from './checkpoint-types.js';
 import { createFencedStore } from './fencing-store.js';
+import { DEFAULT_LEASE_TTL_MS } from './instance-types.js';
+import type { CreateInstanceRuntimeParams, InstanceHandle, InstanceRecord, InstanceRuntime, InterruptedRun } from './instance-types.js';
 import { acquireLease } from './lease.js';
 import type { Lease } from './lease.js';
 
-export const DEFAULT_LEASE_TTL_MS = 30_000;
-
-/** `createAigent({ resume })`: checkpoint every run and chat turn so an instance can be restored and continued. */
-export interface ResumeOptions extends CheckpointWriterOptions {
-  /** One live owner per instance (default `{ ttlMs: 30_000 }`, owner id generated); false turns leases off. */
-  lease?: { ttlMs: number; ownerId?: string } | false;
-  /**
-   * What the instance's runs do once its lease is lost (taken over, or not renewable until it expired): stop at once
-   * (`immediate`, the default) or at the next safe boundary (`graceful`). Either way they emit a warning and write no
-   * more checkpoints, and the next run re-acquires the lease.
-   */
-  onLeaseLost?: 'immediate' | 'graceful';
-  /**
-   * Required with `createAigent({ redact })`: `redacted` passes checkpoints, the call ledger and instance records through
-   * `redact`, so a resumed run continues from the redacted prompt (it emits a warning saying so); `raw` stores them
-   * unredacted so a resume sends exactly the original prompt. Without `redact` there is nothing to choose.
-   */
-  checkpointRedaction?: 'redacted' | 'raw';
-}
-
-/** One run of an instance, as its instance record lists it. */
-export interface InstanceRunEntry {
-  runId: string;
-  mode: 'task' | 'chat';
-  status: RunStateStatus;
-  sessionId?: string;
-  updatedAt: number;
-}
-
-/** What the store knows about an agent instance. */
-export interface InstanceRecord {
-  instanceId: string;
-  agentName: string;
-  agentVersion: string;
-  runs: InstanceRunEntry[];
-  sessions: string[];
-  updatedAt: number;
-}
-
-/** A run that can be continued, loaded when the instance was opened. */
-export interface InterruptedRun {
-  state: RunState;
-  ledger: LedgerEntry[];
-  /** Set when checkpoints after the loaded one are missing (see `Checkpoint.stale`). */
-  stale?: { missingSeq: number; latestSeq: number };
-}
-
-/** An opened instance: its lease (when on), fenced writes and what was restored. */
-export interface InstanceHandle {
-  instanceId: string;
-  /** The lease's fence (0 without leases). */
-  fence(): number;
-  /** Aborts (with the reason as `signal.reason`) once the lease is lost; the handle is then closed. */
-  lost: AbortSignal;
-  /** A write was fenced: the lease is lost even if the heartbeat has not noticed yet. */
-  reportLost(error: unknown): void;
-  /** The fenced store and a queued, redacted writer over it. */
-  store: Store;
-  records: RecordWriter;
-  /** Interrupted runs (not ended, or stopped gracefully) by run id, newest last. */
-  interrupted: Map<string, InterruptedRun>;
-  /** Restore warnings (e.g. a new agent version) for the next run to emit. */
-  takeWarnings(): string[];
-  /** Records a run's status (and the session it belongs to) on the instance record. */
-  noteRun(entry: Omit<InstanceRunEntry, 'updatedAt'>): Promise<void>;
-}
-
-export interface CreateInstanceRuntimeParams {
-  options: ResumeOptions;
-  store: Store;
-  writeQueue: WriteQueue;
-  redact?: Redact;
-  clock: Clock;
-  /** Heartbeat timer (real timers by default, independent of retry sleeps). */
-  sleep: Sleeper;
-  ownerId: string;
-}
-
-export interface InstanceRuntime {
-  options: ResumeOptions;
-  /** Opens an instance once (lease, then restore); later calls share the result. Rejects `instance_locked`. */
-  open(params: { instanceId: string; agentName: string; agentVersion: string }): Promise<InstanceHandle>;
-  /** Reads an instance record without opening it. */
-  read(instanceId: string): Promise<InstanceRecord | undefined>;
-  /** Releases every lease. */
-  close(): Promise<void>;
-}
+export { DEFAULT_LEASE_TTL_MS } from './instance-types.js';
+export type { CreateInstanceRuntimeParams, InstanceHandle, InstanceRecord, InstanceRunEntry, InstanceRuntime, InterruptedRun, ResumeOptions } from './instance-types.js';
 
 /** Statuses a run can be continued from. */
 const RESUMABLE: ReadonlySet<RunStateStatus> = new Set<RunStateStatus>(['running', 'suspended', 'stopped']);
 
+interface OpenParams {
+  instanceId: string;
+  agentName: string;
+  agentVersion: string;
+}
+
+/** The lease side of an open instance: its fence, its lost signal, and how it ends. */
+interface HeldLease {
+  fence(): number;
+  lost: AbortSignal;
+  markLost(error: unknown): void;
+  release(): Promise<void>;
+}
+
 export function createInstanceRuntime(params: CreateInstanceRuntimeParams): InstanceRuntime {
   const { options, store, writeQueue, redact, clock, sleep, ownerId } = params;
   const opened = new Map<string, Promise<InstanceHandle>>();
-  const leases: Lease[] = [];
+  const leases = new Set<Lease>();
 
   async function loadInterrupted(record: InstanceRecord | undefined): Promise<Map<string, InterruptedRun>> {
     const interrupted = new Map<string, InterruptedRun>();
@@ -122,20 +46,32 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
     return interrupted;
   }
 
-  async function openInstance(params: { instanceId: string; agentName: string; agentVersion: string }): Promise<InstanceHandle> {
-    const { instanceId, agentName, agentVersion } = params;
+  /** Takes the instance's lease (when leases are on); losing it closes the handle, so the next open takes it again. */
+  async function holdLease(instanceId: string): Promise<HeldLease> {
     const { lease: leaseOptions = { ttlMs: DEFAULT_LEASE_TTL_MS } } = options;
     const lostController = new AbortController();
-    const onLost = (error: unknown): void => {
-      // The handle is closed: the next run (or open) of this instance takes the lease again, or fails instance_locked.
+    let lease: Lease | undefined;
+    const forget = (): void => {
+      if (lease != null) leases.delete(lease);
       opened.delete(instanceId);
-      const index = leases.findIndex(held => held === lease);
-      if (index !== -1) leases.splice(index, 1);
+    };
+    const markLost = (error: unknown): void => {
+      if (lostController.signal.aborted) return;
+      forget();
+      // The heartbeat may not have noticed yet (a fenced write did): it is stopped too.
+      void lease?.release();
       lostController.abort(`the lease of agent instance '${instanceId}' was lost: ${describeError(error)}`);
     };
-    const lease: Lease | undefined = leaseOptions === false ? undefined : await acquireLease({ store, instanceId, ownerId: leaseOptions.ownerId ?? ownerId, ttlMs: leaseOptions.ttlMs, clock, sleep, onLost });
-    if (lease != null) leases.push(lease);
-    const fence = (): number => lease?.fence ?? 0;
+    if (leaseOptions !== false) {
+      lease = await acquireLease({ store, instanceId, ownerId: leaseOptions.ownerId ?? ownerId, ttlMs: leaseOptions.ttlMs, clock, sleep, onLost: markLost });
+      leases.add(lease);
+    }
+    const held = lease;
+    return { fence: () => held?.fence ?? 0, lost: lostController.signal, markLost, release: async () => { forget(); await held?.release(); } };
+  }
+
+  async function openWithLease(params: OpenParams & { held: HeldLease }): Promise<InstanceHandle> {
+    const { instanceId, agentName, agentVersion, held: { fence, lost, markLost, release } } = params;
     const fenced = createFencedStore({ store, instanceId, fence });
     const records = createRecordWriter({ store: fenced, writeQueue, ...(redact == null || options.checkpointRedaction === 'raw' ? {} : { redact }) });
     const record = (await store.get<InstanceRecord>(INSTANCES_COLLECTION, instanceId))?.value;
@@ -151,7 +87,7 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
     });
     await update(current => ({ ...current, agentVersion, updatedAt: clock.now() }));
     return {
-      instanceId, fence, lost: lostController.signal, reportLost: error => { if (!lostController.signal.aborted) { void lease?.release(); onLost(error); } }, store: fenced, records, interrupted: await loadInterrupted(record),
+      instanceId, fence, lost, reportLost: markLost, release, store: fenced, records, interrupted: await loadInterrupted(record),
       takeWarnings: () => warnings.splice(0),
       noteRun: async entry => {
         const at = clock.now();
@@ -162,6 +98,17 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
         }));
       },
     };
+  }
+
+  async function openInstance(params: OpenParams): Promise<InstanceHandle> {
+    const held = await holdLease(params.instanceId);
+    try {
+      return await openWithLease({ ...params, held });
+    } catch (error) {
+      // A failed open must not keep the instance locked (or its heartbeat running) until the process ends.
+      await held.release();
+      throw error;
+    }
   }
 
   return {
@@ -176,8 +123,14 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
       return opening;
     },
     read: async instanceId => (await store.get<InstanceRecord>(INSTANCES_COLLECTION, instanceId))?.value,
+    release: async instanceId => {
+      const handle = await opened.get(instanceId)?.catch(() => undefined);
+      await handle?.release();
+    },
     close: async () => {
-      await Promise.all(leases.splice(0).map(lease => lease.release()));
+      const held = [...leases];
+      leases.clear();
+      await Promise.all(held.map(lease => lease.release()));
       opened.clear();
     },
   };

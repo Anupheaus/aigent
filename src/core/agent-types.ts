@@ -180,8 +180,9 @@ export interface Agent {
    */
   chat(options?: ChatOptions): Chat;
   /**
-   * Settles once the instance is open: with `createAigent({ resume })` its lease is taken (rejects `instance_locked`
-   * while another runtime holds it) and its interrupted runs are loaded. Resolves at once without `resume`.
+   * Settles once the instance is open: with `createAigent({ resume })` and an explicit `instanceId` its lease is taken
+   * (rejects `instance_locked` while another runtime holds it) and its interrupted runs are loaded. Resolves at once
+   * without `resume`, or for a generated instance id (whose lease is taken by its first run).
    */
   ready: Promise<void>;
   /**
@@ -202,6 +203,11 @@ export interface Agent {
    * cannot undo it), `already_undone` or `expired` (past `undo.retentionMs`). Each undo is itself recorded.
    */
   undo(target: UndoTarget): Promise<UndoReport>;
+  /**
+   * With `resume`: waits for this agent object's task runs, then releases its instance's lease, so another runtime can
+   * take the instance over at once (a later run here takes it again). `ai.close()` releases every instance.
+   */
+  close(): Promise<void>;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

@@ -79,7 +79,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
   const isPrefixMonitorEnabled = volatile.warnOnPrefixChange ?? !isProduction;
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
-  const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper(), ownerId: ids.next('owner') });
+  const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper({ unref: true }), ownerId: ids.next('owner') });
   const effectLog = createRuntimeEffectLog({ store, writeQueue, ...(redact == null ? {} : { redact }), clock, ids, options: options.undo });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
@@ -147,7 +147,15 @@ export function createAigent(options: AigentOptions): Aigent {
     const { name, instanceId, agentVersion } = base;
     const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
-    const restore = createAgentResume({ agent: resolved, services });
+    const restore = createAgentResume({ agent: resolved, services, isExplicitInstance: definition.instanceId != null });
+    /** This agent object's runs, so `close()` waits for them before it lets the instance go. */
+    const agentWork = new Set<Promise<void>>();
+    const trackAgent = (run: TaskRun): TaskRun => {
+      const settled = Promise.resolve(run).then(() => undefined, () => undefined);
+      agentWork.add(settled);
+      void settled.then(() => agentWork.delete(settled));
+      return track(run);
+    };
     return {
       name,
       instanceId,
@@ -155,8 +163,12 @@ export function createAigent(options: AigentOptions): Aigent {
       ready: restore.ready,
       approve: (requestId, decision) => resolved.approvals.approve(requestId, decision),
       undo: async target => undoEffects({ log: effectLog, registry: resolved.registry, agent: { name, instanceId }, target: parseUndoTarget(target), clock, writeQueue }),
-      resume: resumeOptions => { const run = restore.resume(resumeOptions); return run == null ? undefined : track(run); },
-      task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
+      resume: resumeOptions => { const run = restore.resume(resumeOptions); return run == null ? undefined : trackAgent(run); },
+      task: rawInput => trackAgent(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
+      close: async () => {
+        while (agentWork.size > 0) await Promise.all([...agentWork]);
+        await resume?.release(instanceId);
+      },
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
       chat: rawOptions => createChat({
         runtime: { agent: resolved, services }, options: parseChatOptions({ options: rawOptions, hasStore: store != null }), track: trackSettled, openSessions,

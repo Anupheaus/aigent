@@ -22,12 +22,14 @@ export interface AgentResume {
 }
 
 /**
- * An agent's restore side: with `resume` on the runtime it opens the instance at once (so `ready` settles), and
- * `resume()` continues a run that had not ended (or was stopped gracefully) from its latest checkpoint.
+ * An agent's restore side. With `resume` on the runtime and an explicit `instanceId` it opens the instance at once
+ * (so `ready` settles and pending approvals can be decided), and `resume()` continues a run that had not ended (or was
+ * stopped gracefully) from its latest checkpoint. A generated instance id has nothing stored, so nothing is opened
+ * until its first run: creating agents never takes leases by itself.
  */
-export function createAgentResume(params: { agent: ResolvedAgent; services: RuntimeServices }): AgentResume {
-  const { agent, services } = params;
-  const runtime = services.resume;
+export function createAgentResume(params: { agent: ResolvedAgent; services: RuntimeServices; isExplicitInstance: boolean }): AgentResume {
+  const { agent, services, isExplicitInstance } = params;
+  const runtime = isExplicitInstance ? services.resume : undefined;
   let handle: InstanceHandle | undefined;
   const ready = runtime == null ? Promise.resolve() : runtime.open({ instanceId: agent.instanceId, agentName: agent.name, agentVersion: agent.agentVersion }).then(opened => {
     handle = opened;
@@ -39,6 +41,7 @@ export function createAgentResume(params: { agent: ResolvedAgent; services: Runt
 
   function resume(options: ResumeRunOptions = {}): TaskRun | undefined {
     const { runId, onQuestion, signal } = options;
+    // Without resume, or for a generated instance id, there is nothing interrupted to continue.
     if (runtime == null) return undefined;
     if (handle == null) throw createAigentError({ code: 'invalid_input', message: `Agent instance '${agent.instanceId}' is not open yet; await agent.ready before agent.resume()`, details: { instanceId: agent.instanceId } });
     const id = runId ?? [...handle.interrupted.keys()].at(-1);
