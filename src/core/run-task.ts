@@ -3,7 +3,6 @@ import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { addErrorDetails } from '../tools/tool-error-detail.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
-import { isAigentError } from './aigent-error.js';
 import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResult } from './agent-types.js';
@@ -48,6 +47,9 @@ interface DrainWorkParams {
   emit(event: AigentEvent): void;
 }
 
+/** `signal.reason` when the run aborts its own tools because the provider failed. */
+const PROVIDER_FAILED_ABORT_REASON = 'the run failed because the provider failed';
+
 /** How long a turn waits, after its tools finished, for activity renderers to settle before abandoning them. */
 const ACTIVITY_SETTLE_GRACE_MS = 1_000;
 
@@ -59,10 +61,6 @@ interface TurnMessagesParams {
 /** A run aborted by its timeout reached a limit; any other abort is a cancellation. */
 function abortedStatus(control: RunControl): TaskStatus {
   return control.abortReason() === 'timeout' ? 'limit_reached' : 'cancelled';
-}
-
-function isAbortError(error: unknown, signal: AbortSignal): boolean {
-  return signal.aborted || (isAigentError(error) && error.code === 'aborted');
 }
 
 interface FailedDetailsParams {
@@ -136,14 +134,15 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
     try {
       turn = await runTurn({ runId, agentName, instanceId, model, provider, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, emit });
     } catch (error) {
-      if (isAbortError(error, signal)) {
+      // Only the run's own signal means it was aborted; a provider error that merely carries the 'aborted' code is a provider failure.
+      if (signal.aborted) {
         status = abortedStatus(control);
       } else {
         status = 'failed';
         failure = describeError(error);
         emit({ type: 'error', message: failure });
         // Tools dispatched mid-stream must not outlive a failed run.
-        abortController.abort();
+        abortController.abort(PROVIDER_FAILED_ABORT_REASON);
       }
       errors.push(...failedDetails({ executed: await drainWork({ work, signal, emit }), registry }));
       break;

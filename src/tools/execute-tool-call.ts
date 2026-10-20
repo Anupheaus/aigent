@@ -69,6 +69,12 @@ function raceWithLimits(params: RaceWithLimitsParams): Promise<unknown> {
   });
 }
 
+/** The run sets a readable `signal.reason` (stopped, timed out, provider failed); anything else is reported generically. */
+function abortReasonText(signal: AbortSignal): string {
+  const { reason } = signal;
+  return typeof reason === 'string' && reason !== '' ? reason : 'its run signal was aborted';
+}
+
 /** Executes one tool call. Never rejects: every failure becomes a structured envelope. */
 export async function executeToolCall(params: ExecuteToolCallParams): Promise<ExecutedToolCall> {
   const { registry, call, context, now } = params;
@@ -107,7 +113,7 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
       return failedCall({ call, error: { category: 'timeout', code: 'tool_timeout', retryable: true, message: `Tool '${tool.name}' did not finish within ${tool.timeoutMs} ms` }, durationMs: elapsed() });
     }
     if (result === ABORT_MARKER) {
-      return failedCall({ call, error: { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${tool.name}' was aborted because the run was stopped` }, durationMs: elapsed() });
+      return failedCall({ call, error: { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${tool.name}' was aborted because ${abortReasonText(context.signal)}` }, durationMs: elapsed() });
     }
     return {
       envelope: { id: call.id, tool: call.name, ok: true, result },

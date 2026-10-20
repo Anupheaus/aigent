@@ -1,6 +1,12 @@
 import type { StopOptions } from './agent-types.js';
 import type { AbortReason, RunControl } from './run-task.js';
 
+/** Why the run signal aborted, as `signal.reason`; aborted tools quote it so their error says what really happened. */
+const ABORT_REASON_TEXT: Record<AbortReason, string> = {
+  user: 'the run was stopped',
+  timeout: 'the run reached its timeoutMs limit',
+};
+
 export interface CreateRunControlParams {
   /** Consumer's signal; aborting it cancels the run. */
   signal?: AbortSignal;
@@ -27,7 +33,7 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
   function abortWith(reason: AbortReason): void {
     if (isDisposed || abortController.signal.aborted) return;
     abortReason = reason;
-    abortController.abort();
+    abortController.abort(ABORT_REASON_TEXT[reason]);
   }
 
   function stop(options: StopOptions = {}): void {

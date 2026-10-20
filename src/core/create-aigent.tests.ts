@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { Provider, ProviderEvent } from '../providers/provider-types.js';
+import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { Store } from '../store/store-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
 import type { FakeTurn } from '../testing/fake-provider.js';
 import { defineBatchTool, defineTool } from '../tools/define-tool.js';
 import type { Tool } from '../tools/tool-types.js';
+import { createAigentError } from './aigent-error.js';
 import { createAigent } from './create-aigent.js';
 import type { AigentEvent } from './aigent-events.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
@@ -328,6 +329,60 @@ describe('agent.task tool failure containment', () => {
     const events = await collect(agent.task({ task: 'x' }));
     expect(events).toContainEqual({ type: 'warning', message: expect.stringContaining("describeActivity for tool 'echo' failed") });
     expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+  });
+});
+
+const SCRIPTED_CAPABILITIES: Provider['capabilities'] = { streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000 };
+
+/** An agent over a hand-written provider stream, for failure modes the FakeProvider cannot script. */
+function scriptedAgent(options: { stream: Provider['stream']; tools?: Tool[] }) {
+  const { stream, tools = [] } = options;
+  const provider: Provider = { id: 'scripted', capabilities: SCRIPTED_CAPABILITIES, stream };
+  return createAigent({ providers: [provider], clock, ids: sequentialIds() }).agent({ name: 'helper', model: 'scripted:m', tools });
+}
+
+const hangingTool = defineTool({
+  name: 'hang', description: 'h', args: z.object({}).strict(), deterministic: true, cache: false, timeoutMs: 60_000,
+  describeActivity: () => ({ title: 'h' }), run: () => new Promise(() => undefined),
+});
+
+describe('agent.task abort reasons', () => {
+  it('says a tool was aborted because the provider failed, not because the run was stopped', async () => {
+    const agent = scriptedAgent({
+      tools: [hangingTool],
+      stream: async function* () {
+        yield { type: 'tool-call', call: { id: 'h1', name: 'hang', args: {} } };
+        await new Promise(resolve => setTimeout(resolve, 5));
+        throw createAigentError({ code: 'provider_failed', message: 'upstream 500' });
+      },
+    });
+    const result = await agent.task({ task: 'x' });
+    expect(result).toMatchObject({ status: 'failed', failure: 'upstream 500' });
+    expect(result.errors).toEqual([expect.objectContaining({ category: 'aborted', code: 'tool_aborted', message: expect.stringContaining('provider failed') })]);
+    expect(result.errors[0]?.message).not.toContain('stopped');
+  });
+
+  it('says a tool was aborted because the run timed out', async () => {
+    const agent = scriptedAgent({ tools: [hangingTool], stream: async function* () { yield { type: 'tool-call', call: { id: 'h1', name: 'hang', args: {} } }; } });
+    const result = await agent.task({ task: 'x', limits: { timeoutMs: 20 } });
+    expect(result.status).toBe('limit_reached');
+    expect(result.errors).toEqual([expect.objectContaining({ code: 'tool_aborted', message: expect.stringContaining('timeoutMs') })]);
+  });
+
+  it('says a tool was aborted because the run was stopped on cancel', async () => {
+    const agent = scriptedAgent({ tools: [hangingTool], stream: async function* () { yield { type: 'tool-call', call: { id: 'h1', name: 'hang', args: {} } }; } });
+    const run = agent.task({ task: 'x' });
+    setTimeout(() => run.cancel(), 10);
+    const result = await run;
+    expect(result.status).toBe('cancelled');
+    expect(result.errors).toEqual([expect.objectContaining({ code: 'tool_aborted', message: expect.stringContaining('stopped') })]);
+  });
+
+  it('reports a provider error coded aborted as a failure when the run itself was not aborted', async () => {
+    const agent = scriptedAgent({ stream: async function* () { yield* []; throw createAigentError({ code: 'aborted', message: 'upstream connection aborted' }); } });
+    const result = await agent.task({ task: 'x' });
+    expect(result).toMatchObject({ status: 'failed', failure: 'upstream connection aborted' });
+    expect(result.stopMode).toBeUndefined();
   });
 });
 
