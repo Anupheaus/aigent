@@ -49,7 +49,7 @@ describe('buildRunRecords', () => {
       runtimeSettings: { contextSize: 8_000, showThinking: false }, unattended: true, status: 'completed', usage: RESULT.usage,
       // toolMs sums top-level steps only: an inner aigent_multi call is part of its parent's time.
       timings: { startedAt: 100, firstTokenMs: 3, durationMs: 50, modelMs: 12, toolMs: 35, queuedMs: 4 },
-      stepCount: 3, failureCount: 1, task: 'find the file', answer: 'the answer', recordedAt: 200,
+      stepCount: 3, failureCount: 1, outcomeSummary: { claimedSuccess: 0, claimedFailure: 0 }, task: 'find the file', answer: 'the answer', recordedAt: 200,
     } satisfies RunRecord);
   });
 

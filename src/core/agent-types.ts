@@ -29,6 +29,11 @@ export interface AgentDefinition {
   fallbackModels?: string[];
   /** Supply to restore a known instance; generated otherwise. */
   instanceId?: string;
+  /**
+   * Ask the agent for feedback: the `previous` outcome field on tool calls, the `aigent_feedback` tool and the
+   * directive instructions. Wins over `createAigent({ enableFeedback })`; default on unless `NODE_ENV` is `production`.
+   */
+  enableFeedback?: boolean;
 }
 
 export interface TaskUsage extends Usage {

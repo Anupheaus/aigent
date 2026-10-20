@@ -3,7 +3,7 @@ import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
   RunRecord, RunRecordFallback, RuntimeOnlySettings, SettingsContext, OpenAiTokenLimitField, ReasoningModelMatcher, Sleeper, ThinkingBlock, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
   QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
-  ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
+  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
@@ -61,7 +61,11 @@ describe('public types', () => {
     const retention: RetentionOptions = { expiresInMs: 1_000 };
     const purgeFilter: PurgeFilter = { agentName: 'a', before: 0 };
     const itemCounts: ItemCounts = { total: 2, failed: 1 };
-    expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts }).toMatchObject({ mode: 'task' });
+    const feedbackKind: AgentFeedbackKind = 'simplify';
+    const feedbackEntry: AgentFeedbackEntry = { kind: feedbackKind, text: 'A find_config tool', relatedTool: 'search' };
+    const feedbackRecord: AgentFeedbackRecord = { ...meta, kind: 'agent', callId: 'c', index: 0, entry: feedbackEntry };
+    const outcomeSummary: OutcomeSummary = { claimedSuccess: 1, claimedFailure: 0 };
+    expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts, feedbackRecord, outcomeSummary }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });

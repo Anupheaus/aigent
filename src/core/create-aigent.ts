@@ -10,11 +10,12 @@ import type { Redact } from '../telemetry/redact.js';
 import { parseRetention } from '../telemetry/retention.js';
 import type { RetentionOptions } from '../telemetry/retention.js';
 import type { RunTrace } from '../telemetry/run-record.js';
-import { createMultiTool } from '../tools/multi-tool.js';
-import { createToolRegistry } from '../tools/tool-registry.js';
+import { createFeedbackCollector } from '../feedback/feedback-collector.js';
+import { resolveEnableFeedback } from '../feedback/resolve-enable-feedback.js';
 import { createAigentError } from './aigent-error.js';
 import type { Agent, AgentDefinition, TaskRun } from './agent-types.js';
 import { computeAgentVersion } from './agent-version.js';
+import { buildAgentRegistry } from './build-agent-registry.js';
 import { LIBRARY_VERSION } from './library-version.js';
 import { parseModelReference } from './model-reference.js';
 import { parseModelSettings } from './model-settings.js';
@@ -56,6 +57,8 @@ export interface AigentOptions {
   captureContent?: boolean;
   /** Retention hints stamped on records as `expiresAt`; the store decides whether to honour them. */
   retention?: RetentionOptions;
+  /** Default for agents that do not set `enableFeedback`; when absent, on unless `NODE_ENV` is `production`. */
+  enableFeedback?: boolean;
 }
 
 export interface Aigent {
@@ -148,6 +151,7 @@ export function createAigent(options: AigentOptions): Aigent {
 
   function agent(definition: AgentDefinition): Agent {
     const { name, persona, skillset, context, tools = [], version, fallbackModels, resilience } = definition;
+    const enableFeedback = resolveEnableFeedback({ explicit: definition.enableFeedback ?? options.enableFeedback, env: process.env });
     if (name === '') throw createAigentError({ code: 'invalid_definition', message: 'Agent name must be a non-empty string' });
     const limits = parseAgentLimits({ agentName: name, limits: definition.limits });
     const agentSettings = parseModelSettings({ owner: `Agent '${name}'`, settings: definition.modelSettings });
@@ -155,16 +159,18 @@ export function createAigent(options: AigentOptions): Aigent {
     const target = resolveTarget(definition.model);
     const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
     const instanceId = definition.instanceId ?? ids.next('agent');
-    // The multi tool only reaches user tools; registering it alongside them makes a user tool named aigent_multi a duplicate.
-    const registry = createToolRegistry([...tools, createMultiTool({ registry: createToolRegistry(tools), now: () => clock.now() })]);
+    const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
+    const registry = buildAgentRegistry({ tools, now: () => clock.now(), ...(feedbackCollector == null ? {} : { feedbackCollector }) });
     const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
     // A fallback's provider layer can differ from the primary's, so each fallback's own effective settings are hashed.
     const fallbacks = fallbackTargets.map(({ reference, providerSettings }) => ({
       model: reference,
       modelSettings: resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: providerSettings }),
     }));
-    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy });
-    const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context }, registry, limits, agentSettings, runtimeSettings, agentVersion, version };
+    const agentVersion = computeAgentVersion({ libraryVersion: LIBRARY_VERSION, model: target.reference, persona, skillset, context, modelSettings: effectiveSettings, limits, version, tools, fallbacks, resilience: policy, enableFeedback });
+    const resolved: ResolvedAgent = { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt: { persona, skillset, context, enableFeedback }, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
+      ...(feedbackCollector == null ? {} : { feedbackCollector }),
+    };
     return {
       name,
       instanceId,

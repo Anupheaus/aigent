@@ -1,3 +1,4 @@
+import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import type { Provider } from '../providers/provider-types.js';
 import type { Scheduler } from '../scheduler/scheduler-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
@@ -47,6 +48,8 @@ export interface ResolvedAgent {
   agentVersion: string;
   /** The definition's human version label. */
   version?: string;
+  /** Present when feedback is enabled; holds each run's `aigent_feedback` entries until they are stored. */
+  feedbackCollector?: FeedbackCollector;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -106,7 +109,8 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const [target, ...fallbackTargets] = targets;
   const runId = ids.next('run');
   const responseId = ids.next('resp');
-  const telemetry = createRunTelemetry({ now: () => clock.now(), settings: services.telemetry });
+  const { feedbackCollector } = agent;
+  const telemetry = createRunTelemetry({ now: () => clock.now(), settings: services.telemetry, enableFeedback: feedbackCollector != null });
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });
@@ -131,11 +135,13 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
     } finally {
       dispose();
     }
+    // Taken even when nothing is stored, so a disabled run's entries are not kept in memory.
+    const feedback = feedbackCollector?.take(runId) ?? [];
     // disableTelemetry runs (evals, tests) write nothing at all, so they never reach scores.
     if (input.disableTelemetry !== true) {
       const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
       const warning = await persistRunTelemetry({
-        now: () => clock.now(), telemetry, settings: services.telemetry,
+        now: () => clock.now(), telemetry, settings: services.telemetry, feedback,
         run: { input, result, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings } },
       });
       if (warning != null) emit({ type: 'warning', message: warning });

@@ -88,3 +88,68 @@ describe('createTraceRecorder', () => {
     expect(recorder.steps()[0]).toMatchObject({ tool: 'read', args: { path: 'a' } });
   });
 });
+
+describe('createTraceRecorder outcomes', () => {
+  function recorderWithSteps(captureContent = true) {
+    const recorder = createTraceRecorder({ now: () => 0, captureContent, nonOutcomeTools: ['aigent_feedback'] });
+    const begin = (turn: number, callId: string, extra: { tool?: string; parentCallId?: string } = {}) => recorder.begin({ turn, callId, tool: extra.tool ?? 'search', args: {}, ...(extra.parentCallId == null ? {} : { parentCallId: extra.parentCallId }) });
+    return { recorder, begin };
+  }
+
+  it('attaches an outcome to the last top-level step started before the report', () => {
+    const { recorder, begin } = recorderWithSteps();
+    begin(1, 'a');
+    begin(1, 'm', { tool: 'aigent_multi' });
+    begin(1, 'inner', { parentCallId: 'm' });
+    begin(1, 'f', { tool: 'aigent_feedback' });
+    recorder.attachOutcome({ outcome: { success: true, answer: 'found' }, source: 'directive' });
+    begin(2, 'b');
+    recorder.attachOutcome({ outcome: { success: false, answer: 'not there' }, source: 'previous', beforeIndex: 0 });
+    expect(recorder.steps().map(({ callId, outcome }) => ({ callId, outcome }))).toEqual([
+      { callId: 'a', outcome: undefined },
+      { callId: 'm', outcome: { success: true, answer: 'found', source: 'directive' } },
+      { callId: 'inner', outcome: undefined },
+      { callId: 'f', outcome: undefined },
+      { callId: 'b', outcome: undefined },
+    ]);
+  });
+
+  it('uses start order within a parallel turn: a report before call c attaches to b, its predecessor', () => {
+    const { recorder, begin } = recorderWithSteps();
+    begin(1, 'a');
+    begin(1, 'b');
+    begin(2, 'c');
+    begin(2, 'd');
+    recorder.attachOutcome({ outcome: { success: true, answer: 'b worked' }, source: 'previous', beforeIndex: 2 });
+    recorder.attachOutcome({ outcome: { success: true, answer: 'c worked' }, source: 'previous', beforeIndex: 3 });
+    expect(recorder.steps().map(({ outcome }) => outcome?.answer)).toEqual([undefined, 'b worked', 'c worked', undefined]);
+  });
+
+  it('keeps one outcome per step and lets a directive win over previous, whichever came first', () => {
+    const { recorder, begin } = recorderWithSteps();
+    begin(1, 'a');
+    begin(2, 'b');
+    recorder.attachOutcome({ outcome: { success: false, answer: 'from previous' }, source: 'previous', beforeIndex: 1 });
+    recorder.attachOutcome({ outcome: { success: true, answer: 'from directive' }, source: 'directive', beforeIndex: 1 });
+    recorder.attachOutcome({ outcome: { success: false, answer: 'late previous' }, source: 'previous', beforeIndex: 1 });
+    expect(recorder.steps()[0]?.outcome).toEqual({ success: true, answer: 'from directive', source: 'directive' });
+  });
+
+  it('ignores a report with no step before it, and stores no answer text without content capture', () => {
+    const { recorder, begin } = recorderWithSteps(false);
+    recorder.attachOutcome({ outcome: { success: true, answer: 'nothing yet' }, source: 'directive' });
+    begin(1, 'a');
+    recorder.attachOutcome({ outcome: { success: true, answer: 'secret path' }, source: 'directive' });
+    expect(recorder.steps()[0]?.outcome).toEqual({ success: true, answer: '', source: 'directive' });
+  });
+
+  it('names the step a report before a given index would attach to, and whether it already has an outcome', () => {
+    const { recorder, begin } = recorderWithSteps();
+    expect(recorder.outcomeTarget(0)).toBeUndefined();
+    begin(1, 'a');
+    begin(1, 'f', { tool: 'aigent_feedback' });
+    expect(recorder.outcomeTarget(2)).toEqual({ index: 0, turn: 1, hasOutcome: false });
+    recorder.attachOutcome({ outcome: { success: true, answer: 'x' }, source: 'directive' });
+    expect(recorder.outcomeTarget(2)).toEqual({ index: 0, turn: 1, hasOutcome: true });
+  });
+});

@@ -102,6 +102,12 @@ export interface RunTimings {
   queuedMs: number;
 }
 
+/** The agent's own outcome claims over the run's steps. */
+export interface OutcomeSummary {
+  claimedSuccess: number;
+  claimedFailure: number;
+}
+
 /** One document in the `runs` collection, keyed by run id. */
 export interface RunRecord extends RecordMeta {
   /** Stable id of the run's answer, used by `ai.feedback`. */
@@ -136,6 +142,8 @@ export interface RunRecord extends RecordMeta {
   task?: string;
   /** The final answer, only when content capture is on. */
   answer?: string;
+  /** Outcomes the agent reported on its steps (`previous` and `outcome` directives). */
+  outcomeSummary: OutcomeSummary;
 }
 
 /** One document in the `traces` collection, keyed by run id. */

@@ -36,6 +36,8 @@ export interface AgentVersionInput {
   fallbacks?: AgentVersionFallback[];
   /** The policy overrides from the definition; defaults are filled in before hashing. */
   resilience?: Partial<ResiliencePolicy>;
+  /** The resolved flag: it changes the prompt and the tool list. Absent means off. */
+  enableFeedback?: boolean;
 }
 
 const HASH_ALGORITHM = 'sha256';
@@ -82,7 +84,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -90,6 +92,7 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     ...(pruneEmpty({ persona, skillset, context, version, modelSettings, fallbacks }) as Record<string, unknown> | undefined),
     limits: effectiveLimits(limits),
     resilience: effectivePolicy(resilience),
+    enableFeedback,
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

@@ -63,11 +63,13 @@ interface EndToEndParams {
   /** One per model request, served in order; a function sees the request it answers. */
   responses: (FakeResponseSpec | ((request: RecordedRequest) => FakeResponseSpec))[];
   modelSettings?: ModelSettings;
+  /** Default false: these tests pin the adapters' request shapes; one test below covers the feedback fields end to end. */
+  enableFeedback?: boolean;
 }
 
 /** An agent with the echo tool on the given provider, its HTTP answered by the fixtures. */
 function endToEnd(params: EndToEndParams): EndToEnd {
-  const { createProvider, responses, modelSettings } = params;
+  const { createProvider, responses, modelSettings, enableFeedback = false } = params;
   let nextResponse = 0;
   const { fetch, requests } = createFakeFetch(request => {
     const response = responses[nextResponse];
@@ -77,7 +79,7 @@ function endToEnd(params: EndToEndParams): EndToEnd {
   });
   const provider = createProvider(fetch);
   const ai = createAigent({ providers: [provider], clock, ids: sequentialIds() });
-  const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool], ...(modelSettings == null ? {} : { modelSettings }) });
+  const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool], enableFeedback, ...(modelSettings == null ? {} : { modelSettings }) });
   return { agent, requests };
 }
 
@@ -126,8 +128,8 @@ function openAiAnswerTurn(): FakeResponseSpec {
   return chunked(sseBody([...ANSWER_CHUNKS.map(textChunk), finishChunk('stop'), usageChunk(toOpenAiUsage(SECOND_USAGE))]));
 }
 
-function openAiEndToEnd(responses: FakeResponseSpec[]): EndToEnd {
-  return endToEnd({ createProvider: fetchImpl => openAiCompatible({ id: 'compat', baseUrl: 'https://llm.test/v1', apiKey: 'sk-test', fetch: fetchImpl }), responses });
+function openAiEndToEnd(responses: FakeResponseSpec[], enableFeedback = false): EndToEnd {
+  return endToEnd({ createProvider: fetchImpl => openAiCompatible({ id: 'compat', baseUrl: 'https://llm.test/v1', apiKey: 'sk-test', fetch: fetchImpl }), responses, enableFeedback });
 }
 
 describe('end to end through openAiCompatible', () => {
@@ -154,6 +156,22 @@ describe('end to end through openAiCompatible', () => {
     expect(envelopeOf(messages[3]?.content)).toEqual({ id: 'call_valid', tool: 'echo', ok: true, result: 'hi' });
     expect(messages[4]).toMatchObject({ role: 'tool', tool_call_id: 'call_invalid' });
     expect(envelopeOf(messages[4]?.content)).toMatchObject({ id: 'call_invalid', ok: false, error: { category: 'validation' } });
+  });
+
+  it('with feedback on, sends aigent_feedback and a nullable previous in strict schemas, and strips previous before the tool runs', async () => {
+    const withPrevious = { id: 'call_prev', name: 'echo', args: { text: 'hi', previous: null } };
+    const { agent, requests } = openAiEndToEnd([openAiToolTurn([withPrevious]), openAiAnswerTurn()], true);
+    const result = await agent.task({ task: 'Echo' });
+
+    expect(result).toMatchObject({ status: 'completed', usage: { toolCalls: 1 } });
+    expect(result.errors).toEqual([]);
+    const tools = sentBody(requests[0]).tools as { function: { name: string; strict: boolean; parameters: { required: string[]; properties: Record<string, { type: unknown }> } } }[];
+    expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_feedback', strict: true }, { name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
+    const echoParameters = tools[2]?.function.parameters;
+    expect(echoParameters?.required).toEqual(['text', 'previous']);
+    expect(echoParameters?.properties.previous?.type).toEqual(['object', 'null']);
+    const messages = sentBody(requests[1]).messages as Record<string, unknown>[];
+    expect(envelopeOf(messages.at(-1)?.content)).toEqual({ id: 'call_prev', tool: 'echo', ok: true, result: 'hi' });
   });
 
   it('runs aigent_multi with free-form args, sent with strict off for that tool only', async () => {

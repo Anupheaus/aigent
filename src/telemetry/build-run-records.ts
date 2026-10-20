@@ -3,7 +3,7 @@ import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderTarget } from '../core/open-turn-stream.js';
 import type { TaskInput } from '../core/task-input.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
-import type { RecordMeta, RunRecord, RunRecordFallback, RuntimeOnlySettings, TraceRecord, TraceStep } from './run-record.js';
+import type { OutcomeSummary, RecordMeta, RunRecord, RunRecordFallback, RuntimeOnlySettings, TraceRecord, TraceStep } from './run-record.js';
 import type { MeasuredTimings } from './run-timer.js';
 
 /** What identifies the agent on every record. */
@@ -37,6 +37,8 @@ export interface BuildRunRecordsParams {
 }
 
 export interface RunRecords {
+  /** The identity every record of this run carries. */
+  meta: RecordMeta;
   run: RunRecord;
   trace: TraceRecord;
 }
@@ -50,6 +52,12 @@ function runtimeOnly(settings: ModelSettings): RuntimeOnlySettings | undefined {
   const { contextSize, showThinking } = settings;
   const picked: RuntimeOnlySettings = { ...(contextSize == null ? {} : { contextSize }), ...(showThinking == null ? {} : { showThinking }) };
   return Object.keys(picked).length === 0 ? undefined : picked;
+}
+
+/** The agent's own success claims over its steps (user verdicts are scored separately and win). */
+function summariseOutcomes(steps: TraceStep[]): OutcomeSummary {
+  const outcomes = steps.flatMap(({ outcome }) => (outcome == null ? [] : [outcome]));
+  return { claimedSuccess: outcomes.filter(({ success }) => success).length, claimedFailure: outcomes.filter(({ success }) => !success).length };
 }
 
 /** Inner `aigent_multi` calls run inside their parent's time, so only top-level steps add up to tool time. */
@@ -83,7 +91,8 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     timings: { ...timings, durationMs: usage.durationMs, toolMs: topLevelToolMs(steps) },
     stepCount: steps.length,
     failureCount: errors.length,
+    outcomeSummary: summariseOutcomes(steps),
     ...(captureContent ? { task, answer } : {}),
   };
-  return { run, trace: { ...meta, steps } };
+  return { meta, run, trace: { ...meta, steps } };
 }

@@ -6,8 +6,9 @@ export type { TaskInput, TaskLimits } from './core/task-input.js';
 export type { ModelSettings } from './core/model-settings.js';
 export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';
 export type {
-  OutcomeSource, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, TraceRecord, TraceStep,
+  OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, TraceRecord, TraceStep,
 } from './telemetry/run-record.js';
+export type { AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord } from './feedback/feedback-records.js';
 export type { Redact, RedactableRecord } from './telemetry/redact.js';
 export type { RetentionOptions } from './telemetry/retention.js';
 export type { ResiliencePolicy } from './core/resilience-policy.js';

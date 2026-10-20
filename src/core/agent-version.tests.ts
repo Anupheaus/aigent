@@ -37,6 +37,11 @@ describe('computeAgentVersion', () => {
     expect(computeAgentVersion(BASE)).toMatch(HEX_SHA_256);
   });
 
+  it('changes with the resolved enableFeedback flag, and treats it as off when absent', () => {
+    expect(computeAgentVersion({ ...BASE, enableFeedback: true })).not.toBe(computeAgentVersion({ ...BASE, enableFeedback: false }));
+    expect(computeAgentVersion({ ...BASE, enableFeedback: false })).toBe(computeAgentVersion(BASE));
+  });
+
   it('is stable across key order, tool order and undefined fields', () => {
     const reordered: AgentVersionInput = {
       tools: [{ ...writeTool }, { ...searchTool, cacheTtlMs: undefined }],

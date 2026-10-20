@@ -6,7 +6,7 @@ const META = { schemaVersion: 1, runId: 'r1', agentName: 'a', instanceId: 'i', m
 const RUN = {
   ...META, responseId: 'resp_1', model: 'fake:m', settings: {}, unattended: false, status: 'completed',
   usage: { inputTokens: 1, outputTokens: 1, cachedTokens: 0, turns: 1, toolCalls: 0, toolCallsPerTurn: 0, retries: 0, fallbacks: 0, durationMs: 1 },
-  timings: { startedAt: 0, durationMs: 1, modelMs: 1, toolMs: 0, queuedMs: 0 }, stepCount: 0, failureCount: 0,
+  timings: { startedAt: 0, durationMs: 1, modelMs: 1, toolMs: 0, queuedMs: 0 }, stepCount: 0, failureCount: 0, outcomeSummary: { claimedSuccess: 0, claimedFailure: 0 },
 };
 
 describe('readTrace', () => {

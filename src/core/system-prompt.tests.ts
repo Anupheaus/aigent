@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FEEDBACK_PROMPT_ADDENDUM } from '../feedback/feedback-prompt.js';
 import { buildSystemPrompt } from './system-prompt.js';
 
 describe('buildSystemPrompt', () => {
@@ -19,7 +20,18 @@ describe('buildSystemPrompt', () => {
     expect(prompt).not.toContain('argsJson');
   });
 
-  it('documents the directive syntax', () => {
-    expect(buildSystemPrompt({})).toContain('::aigent');
+  it('documents the directive syntax when feedback is enabled', () => {
+    expect(buildSystemPrompt({ enableFeedback: true })).toContain('::aigent');
+  });
+
+  it('adds the feedback addendum to the stable prefix only when feedback is enabled', () => {
+    const plain = buildSystemPrompt({ persona: 'P' });
+    expect(buildSystemPrompt({ persona: 'P', enableFeedback: false })).toBe(plain);
+    for (const phrase of ['::aigent', 'previous', 'aigent_feedback']) expect(plain).not.toContain(phrase);
+    const withFeedback = buildSystemPrompt({ persona: 'P', enableFeedback: true });
+    expect(withFeedback).toContain(FEEDBACK_PROMPT_ADDENDUM);
+    // Library rules and the addendum come before the agent's own text, so the cached prefix is shared across agents.
+    expect(withFeedback.indexOf(FEEDBACK_PROMPT_ADDENDUM)).toBeLessThan(withFeedback.indexOf('# Persona'));
+    expect(buildSystemPrompt({ persona: 'P', enableFeedback: true })).toBe(withFeedback);
   });
 });

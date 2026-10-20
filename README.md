@@ -293,6 +293,8 @@ With a `store`, every run writes two records through the agent's write queue bef
 - `runs/<runId>`: the run record. It holds `schemaVersion` (currently `RUN_RECORD_SCHEMA_VERSION`, 1), `runId`, `responseId`, `agentName`, `instanceId`, `mode` (`'task'`), `agentVersion` and `version`, `label`, `scope` (stored untouched), `model`, the settings as sent (see [Agent versions](#agent-versions)), `unattended`, `status` and `usage`. It also holds `timings` (`startedAt`, `firstTokenMs`, `durationMs`, `modelMs` streaming time without queueing, `toolMs` summed over top-level calls, `queuedMs` waiting for the scheduler), `stepCount`, `failureCount`, and, when content capture is on, the `task` text and final `answer`.
 - `traces/<runId>`: the same identity fields plus `steps`, one per tool call in start order. A step has `index`, `turn`, `callId`, `parentCallId` (inner `aigent_multi` calls), `tool`, `argsSummary` (the first 120 characters of the arguments' canonical JSON), `args` (content capture only), `ok`, `errorCategory` / `errorCode`, `itemFailures` / `itemTotal` for batch calls, `resultBytes` and `resultTokens` (estimated as characters / 4) of the full result, `truncated`, `durationMs` and `startedAtMs`. Refused calls (unknown tool, invalid arguments, over `maxToolCalls`) are steps too, so every failure is recorded.
 
+Each step may also carry the agent's `outcome` (`{ success, answer, source }`, see [Agent feedback](#agent-feedback-enablefeedback)), and the run record sums them in `outcomeSummary` (`claimedSuccess`, `claimedFailure`).
+
 Every record carries `schemaVersion`, `runId`, `agentName`, `instanceId`, `mode`, `agentVersion`, `scope` and `recordedAt`. `TaskResult.responseId` and the `done` event identify the answer for [user feedback](#user-feedback-on-responses).
 
 ```ts
@@ -307,7 +309,7 @@ const trace = await ai.trace(result.runId);   // { run, steps } or undefined
 await ai.purge({ agentName: 'writer', before: Date.now() - 7 * 24 * 3_600_000 });
 ```
 
-- **`redact(record)`** runs on a copy of every record of every collection before it reaches the store (`runs`, `traces`, and the feedback collections below), including `settings.providerOptions` and each `fallbacks[].settings.providerOptions`. It may change `value` only. If it throws or changes the collection or key, that record is not written and the run emits a warning.
+- **`redact(record)`** runs on a copy of every record of every collection before it reaches the store (`runs`, `traces`, `feedback` and the `responses` index), including `settings.providerOptions` and each `fallbacks[].settings.providerOptions`. It may change `value` only. If it throws or changes the collection or key, that record is not written and the run emits a warning.
 - **`captureContent: false`** stores no task text, answer, argument values or outcome answers. `argsSummary` then shows only the arguments' shape, for example `{"path":"<string>"}`.
 - **`retention.expiresInMs`** stamps `expiresAt = recordedAt + expiresInMs` on every record; the store decides whether to honour it.
 - **`ai.purge(filter)`** deletes records matching every given field of `{ agentName?, runId?, before? }` (`before` compares `recordedAt`) through the optional `Store.purge` and resolves with the count. It rejects with `invalid_input` for an empty filter, without a store, or when the store has no `purge`. The in-memory store implements it.
@@ -321,9 +323,20 @@ Traces can contain sensitive content (task text, answers, tool arguments). Conte
 
 A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
 
+## Agent feedback (`enableFeedback`)
+
+`enableFeedback` asks the agent to report how its work went. It is set per agent (`ai.agent({ enableFeedback })`), with `createAigent({ enableFeedback })` as the default for agents that leave it out. When neither is set it is on, except when `NODE_ENV` is `production`. When on:
+
+- **`previous`:** every tool call (and `aigent_multi`, at its top level only) gets a `previous` field, `{ success, answer }` (answer at most 300 characters), saying how the previous tool step went. It is nullable, so the first call sends `null`. The loop takes it out of the arguments before they are validated, run, cached, recorded or shown in the `tool-call` event, and attaches it to the last top-level step started before the call. A later call that leaves it out still runs; the run emits one `warning` per run. An invalid `previous` is ignored with a warning.
+- **`::aigent outcome`** directives do the same from the text stream and attach to the last step started before them. When a directive and `previous` report the same step, the directive wins and one outcome is stored (`source: 'directive' | 'previous'`).
+- **`aigent_feedback`:** a built-in strict tool taking `{ entries: [{ kind: 'easy' | 'hard' | 'suggestion' | 'missing' | 'simplify', text (1 to 500 characters), relatedTool? }] }` (1 to 10 entries). Each entry is stored in the `feedback` collection as `{ kind: 'agent', callId, index, entry }` plus the run identity, keyed `${runId}:${callId}:${index}`, with the run's other records.
+- **The system prompt** gains a short fixed addendum describing the three, as part of the stable prefix.
+
+When off, requests contain none of these (no tool, no field, no directive instructions), so it adds zero tokens. The resolved flag is part of `agentVersion`. Without outcomes (the production default), scoring and request analysis fall back to timings, tokens, errors and user feedback.
+
 ## Stream directives
 
-The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. They are parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
+The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. The system prompt only describes them when [feedback](#agent-feedback-enablefeedback) is on, but they are always parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
 
 ```text
 ::aigent status {"text":"Checking the theme folder"}
@@ -347,6 +360,7 @@ Phase 1 foundation core, implemented in this slice:
 - Provider retry with backoff and `retry-after`, first-event timeout and fallback models
 - A shared scheduler (`createScheduler`): concurrency and per-minute limits, priority lanes, per-agent fairness and 429 adaptation
 - Versioned run records and step traces with tool telemetry, the `redact` hook, content capture, retention hints, `ai.trace` and `ai.purge`
+- `enableFeedback`: the `previous` outcome field, `::aigent outcome` linking and the `aigent_feedback` tool
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
