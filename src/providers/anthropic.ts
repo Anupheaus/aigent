@@ -1,6 +1,7 @@
 import { toAnthropicMessagesRequest } from './anthropic-messages.js';
 import { applyAnthropicMessage, createAnthropicStreamState, finishAnthropicStream } from './anthropic-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
+import { collectSecrets, redactingErrors } from './secret-redaction.js';
 import { requestSse, throwIfAborted } from './sse-request.js';
 
 export interface AnthropicOptions {
@@ -50,7 +51,9 @@ export function anthropic(options: AnthropicOptions): Provider {
     maxContextTokens,
   };
 
-  async function* stream(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  const secrets = collectSecrets(headers);
+
+  async function* streamEvents(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     const state = createAnthropicStreamState(PROVIDER_ID);
     const body = JSON.stringify(toAnthropicMessagesRequest(request, { defaultMaxTokens, promptCaching }));
     const init = { method: 'POST', headers, body };
@@ -63,6 +66,10 @@ export function anthropic(options: AnthropicOptions): Provider {
     }
     finishAnthropicStream(state);
   }
+
+  const stream = (request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> => (
+    redactingErrors({ events: streamEvents(request, signal), secrets })
+  );
 
   return { id: PROVIDER_ID, capabilities, stream };
 }

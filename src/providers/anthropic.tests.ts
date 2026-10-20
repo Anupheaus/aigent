@@ -422,9 +422,16 @@ describe('anthropic errors', () => {
     const body = `{"type":"error","error":{"type":"x","message":"nope"},"key":"${API_KEY}"}`;
     const error = await harness({ respond: () => ({ status, body }) }).error();
     expect(error.code).toBe('provider_failed');
-    expect(error.details).toMatchObject({ status, retryable, body });
+    expect(error.details).toMatchObject({ status, retryable, body: body.replace(API_KEY, '[REDACTED]') });
+    expect(JSON.stringify(error.details)).not.toContain(API_KEY);
     expect(error.message).toContain('anthropic');
     expect(error.message).toContain(String(status));
+    expect(error.message).not.toContain(API_KEY);
+  });
+
+  it('redacts the key from a streamed error message', async () => {
+    const error = await streaming([errorEvent({ errorType: 'authentication_error', message: `invalid x-api-key ${API_KEY}` })]).error();
+    expect(error.message).toContain('invalid x-api-key [REDACTED]');
     expect(error.message).not.toContain(API_KEY);
   });
 

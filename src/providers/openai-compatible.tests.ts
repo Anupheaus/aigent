@@ -366,13 +366,31 @@ describe('openAiCompatible streaming', () => {
 describe('openAiCompatible errors', () => {
   it.each([
     [400, false], [401, false], [404, false], [408, true], [409, true], [429, true], [500, true], [503, true],
-  ])('HTTP %i fails with retryable %s', async (status, retryable) => {
+  ])('HTTP %i fails with retryable %s and redacts the key from the stored body', async (status, retryable) => {
     const error = await harness({ respond: () => ({ status, body: `{"error":"nope","key":"${API_KEY}"}` }) }).error();
     expect(error.code).toBe('provider_failed');
-    expect(error.details).toMatchObject({ status, retryable, body: `{"error":"nope","key":"${API_KEY}"}` });
+    expect(error.details).toMatchObject({ status, retryable, body: '{"error":"nope","key":"[REDACTED]"}' });
+    expect(JSON.stringify(error.details)).not.toContain(API_KEY);
     expect(error.message).toContain('test-llm');
     expect(error.message).toContain(String(status));
     expect(error.message).not.toContain(API_KEY);
+  });
+
+  it('redacts secret custom header values from error bodies', async () => {
+    const azureKey = 'azure-secret-value-456';
+    const error = await harness({
+      respond: () => ({ status: 401, body: `bad api-key ${azureKey}` }),
+      options: { headers: { 'api-key': azureKey } },
+    }).error();
+    expect(error.details?.body).toBe('bad api-key [REDACTED]');
+  });
+
+  it('redacts the key from a streamed error message and from quoted stream payloads', async () => {
+    const streamed = await streaming(sseBody([JSON.stringify({ error: { message: `Incorrect API key provided: ${API_KEY}` } })])).error();
+    expect(streamed.message).toContain('Incorrect API key provided: [REDACTED]');
+    const quoted = await streaming(sseBody([JSON.stringify(API_KEY)])).error();
+    expect(quoted.code).toBe('provider_failed');
+    expect(quoted.message).not.toContain(API_KEY);
   });
 
   it('keeps at most 2000 characters of an error body', async () => {

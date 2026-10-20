@@ -1,6 +1,7 @@
 import { toOpenAiChatRequest } from './openai-messages.js';
 import { applyOpenAiData, createOpenAiStreamState, finishOpenAiStream } from './openai-stream.js';
 import type { Provider, ProviderCapabilities, ProviderEvent, ProviderRequest } from './provider-types.js';
+import { collectSecrets, redactingErrors } from './secret-redaction.js';
 import { requestSse, throwIfAborted } from './sse-request.js';
 
 export interface OpenAiCompatibleOptions {
@@ -46,9 +47,12 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     maxContextTokens,
   };
 
-  async function* stream(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
+  const headers = buildHeaders(options);
+  const secrets = collectSecrets(headers);
+
+  async function* streamEvents(request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
     const state = createOpenAiStreamState(id);
-    const init = { method: 'POST', headers: buildHeaders(options), body: JSON.stringify(toOpenAiChatRequest(request)) };
+    const init = { method: 'POST', headers, body: JSON.stringify(toOpenAiChatRequest(request)) };
     // One chunk can carry several events; re-check the signal before each so nothing is yielded after an abort.
     const emit = function* (events: ProviderEvent[]): Generator<ProviderEvent> {
       for (const event of events) {
@@ -61,6 +65,10 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     }
     yield* emit(finishOpenAiStream(state));
   }
+
+  const stream = (request: ProviderRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> => (
+    redactingErrors({ events: streamEvents(request, signal), secrets })
+  );
 
   return { id, capabilities, stream };
 }
