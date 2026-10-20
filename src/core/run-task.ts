@@ -80,6 +80,12 @@ function failedDetails(params: FailedDetailsParams): ToolErrorDetail[] {
   });
 }
 
+/** Tool calls per model request; 0 before any request, so a run that never reached the model does not divide by zero. */
+function toolCallsPerTurn(totals: RunTotals): number {
+  const { turns, toolCalls } = totals;
+  return turns === 0 ? 0 : toolCalls / turns;
+}
+
 /** The assistant message (with its tool calls) followed by one tool message per call, in call order. */
 function turnMessages(params: TurnMessagesParams): ProviderMessage[] {
   const { turn: { visible, calls }, executed } = params;
@@ -156,7 +162,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
   const { usage, turns, toolCalls } = totals;
   const result: TaskResult = {
     status, answer, runId, agentName, instanceId, errors,
-    usage: { ...usage, turns, toolCalls, durationMs: clock.now() - startedAt },
+    usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), durationMs: clock.now() - startedAt },
   };
   if (failure != null) result.failure = failure;
   if (status === 'stopped') result.stopMode = 'graceful';

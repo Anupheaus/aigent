@@ -22,13 +22,18 @@ export interface AgentDefinition {
 }
 
 export interface TaskUsage extends Usage {
-  /** Model requests made. */
+  /** Model requests made (LLM round trips). An `aigent_multi` call is part of the turn that requested it, however many inner calls it holds. */
   turns: number;
   /**
    * Tool calls actually executed, counting each call inside `aigent_multi` (the wrapper itself is not counted).
    * Calls refused by `maxToolCalls` are not counted. A batch tool call counts once, whatever its item count.
    */
   toolCalls: number;
+  /**
+   * `toolCalls / turns` (0 when no turn was made): how much tool work each model round trip achieved. Higher is more
+   * efficient, since every turn re-sends the conversation; batch tools and `aigent_multi` raise it.
+   */
+  toolCallsPerTurn: number;
   durationMs: number;
 }
 

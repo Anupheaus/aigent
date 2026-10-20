@@ -235,6 +235,33 @@ describe('agent.task', () => {
 });
 
 describe('agent.task aigent_multi and batch accounting', () => {
+  it('reports toolCallsPerTurn as tool calls per model request: 50 calls in 3 turns', async () => {
+    const callsFor = (turn: number) => Array.from({ length: 25 }, (_, index) => ({ id: `t${turn}c${index}`, name: 'echo', args: { text: 'x' } }));
+    const store = createInMemoryStore();
+    const { agent } = setup({ turns: [toolTurn(callsFor(1)), toolTurn(callsFor(2)), textTurn('done')], store });
+    const result = await agent.task({ task: 'x' });
+    expect(result.usage).toMatchObject({ turns: 3, toolCalls: 50 });
+    expect(result.usage.toolCallsPerTurn).toBeCloseTo(50 / 3, 5);
+    expect(result.usage.toolCallsPerTurn).toBeCloseTo(16.7, 1);
+    const record = await store.get<{ usage: { toolCallsPerTurn: number } }>('runs', result.runId);
+    expect(record?.value.usage.toolCallsPerTurn).toBeCloseTo(50 / 3, 5);
+  });
+
+  it('counts one aigent_multi with N inner calls as N tool calls in one turn (plus the answer turn)', async () => {
+    const innerCalls = ['a', 'b', 'c', 'd', 'e'].map(id => ({ id, tool: 'echo', args: { text: id } }));
+    const { agent } = setup({ turns: [toolTurn([{ id: 'm1', name: 'aigent_multi', args: { calls: innerCalls } }]), textTurn('done')] });
+    const result = await agent.task({ task: 'x' });
+    expect(result.usage).toMatchObject({ turns: 2, toolCalls: 5, toolCallsPerTurn: 2.5 });
+  });
+
+  it('reports toolCallsPerTurn 0 when no model request was made', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { agent } = setup({ turns: [textTurn('never')] });
+    const result = await agent.task({ task: 'x', signal: controller.signal });
+    expect(result.usage).toMatchObject({ turns: 0, toolCalls: 0, toolCallsPerTurn: 0 });
+  });
+
   it('counts every aigent_multi inner call toward maxToolCalls and refuses the rest', async () => {
     let echoRuns = 0;
     const counted = defineTool({ name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
