@@ -78,9 +78,12 @@ describe('agent.resume', () => {
     const taken = third.agent(definitionFor(worldTools({ world: createWorld() })));
     await taken.ready;
     expect((await store.get<LeaseRecord>(LEASES_COLLECTION, INSTANCE_ID))?.value.fence).toBe(2);
-    // The old owner's run cannot write a single checkpoint any more.
-    const late = await held.task(TASK);
-    expect(late).toMatchObject({ status: 'failed', failure: expect.stringContaining('was taken over') });
+    // The old owner's run cannot write a single checkpoint any more: its lease is lost, so it stops with a warning.
+    const lateRun = held.task(TASK);
+    const lateEvents = await collect(lateRun);
+    expect(await lateRun).toMatchObject({ status: 'cancelled' });
+    expect(lateEvents).toContainEqual({ type: 'warning', message: expect.stringContaining('was taken over') });
+    expect(lateEvents.some(event => event.type === 'tool-call')).toBe(false);
     expect(await taken.task(TASK)).toMatchObject({ status: 'completed', answer: SCRIPT_ANSWER });
     await Promise.all([first.close(), third.close()]);
   });

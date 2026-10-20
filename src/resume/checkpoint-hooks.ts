@@ -5,7 +5,7 @@ import type { CallLedger, LedgerEntry } from './call-ledger.js';
 import type { CheckpointBoundary, CheckpointHead, RunState, StoredTaskInput } from './checkpoint-types.js';
 import { createCheckpointWriter } from './checkpoint-writer.js';
 import type { CheckpointWriterOptions } from './checkpoint-writer.js';
-import type { InstanceHandle } from './instance-runtime.js';
+import type { InstanceHandle, ResumeOptions } from './instance-runtime.js';
 
 /** The parts of a run state that change while it runs; the hooks add the fixed ones. */
 export type LiveRunState = Omit<RunState, 'kind' | 'runId' | 'agentName' | 'agentVersion' | 'mode' | 'input' | 'sessionId' | 'messageId'>;
@@ -14,6 +14,12 @@ export type LiveRunState = Omit<RunState, 'kind' | 'runId' | 'agentName' | 'agen
 export interface RunCheckpoints {
   /** The checkpoint stream and ledger id (the original run's id when resumed). */
   streamId: string;
+  /** Aborts once the instance's lease is lost; the run must then stop and write nothing more. */
+  lost: AbortSignal;
+  /** What the run does once the lease is lost. */
+  onLeaseLost: 'immediate' | 'graceful';
+  /** A write was fenced: marks the instance's lease lost (see `InstanceHandle.reportLost`). */
+  reportLost(error: unknown): void;
   ledger: CallLedger;
   write(params: { boundary: CheckpointBoundary; live: LiveRunState }): Promise<void>;
   /** Records the run's end: an `end` checkpoint when it ended on its own, only its status when stopped or cancelled. */
@@ -27,7 +33,7 @@ export interface CreateRunCheckpointsParams {
   mode: 'task' | 'chat';
   input: StoredTaskInput;
   clock: Clock;
-  options?: CheckpointWriterOptions;
+  options?: CheckpointWriterOptions & Pick<ResumeOptions, 'onLeaseLost'>;
   sessionId?: string;
   messageId?: string;
   /** A continued stream's head and ledger. */
@@ -56,7 +62,7 @@ export function createRunCheckpoints(params: CreateRunCheckpointsParams): RunChe
   }
 
   return {
-    streamId, ledger, write,
+    streamId, ledger, write, lost: instance.lost, reportLost: instance.reportLost, onLeaseLost: options?.onLeaseLost ?? 'immediate',
     close: async ({ status, live }) => {
       if (STATUS_ONLY.has(status)) {
         // The state before the stop stays the latest checkpoint; only the status moves on.

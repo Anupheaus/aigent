@@ -13,6 +13,8 @@ export interface RunControl {
   isGracefulStopRequested(): boolean;
   /** Why the run was aborted, set before aborting. */
   abortReason(): AbortReason | undefined;
+  /** Stops the run from inside (e.g. its instance lost its lease), as `run.stop` does. */
+  stop(options?: StopOptions): void;
 }
 
 /** Why the run signal aborted, as `signal.reason`; aborted tools quote it so their error says what really happened. */
@@ -79,6 +81,7 @@ export function createRunControl(params: CreateRunControlParams): RunControlHand
     sideEffectSignal: sideEffectController.signal,
     isGracefulStopRequested: () => isGracefulStopRequested,
     abortReason: () => abortReason,
+    stop: options => stop(options),
   };
   return { control, stop, dispose };
 }

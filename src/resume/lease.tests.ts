@@ -88,3 +88,43 @@ describe('acquireLease', () => {
     expect(timers.pending()).toBe(0);
   });
 });
+
+describe('lease heartbeat failures', () => {
+  /** A store whose lease writes fail while `isDown` is set, as a store blip would. */
+  function flakyStore() {
+    const base = createInMemoryStore();
+    const state = { isDown: false };
+    const store = { ...base, get: base.get, list: base.list, compareAndSet: async (write: Parameters<typeof base.compareAndSet>[0]) => { if (state.isDown) throw new Error('store unavailable'); return base.compareAndSet(write); } };
+    return { store, base, state };
+  }
+
+  it('retries a renewal that failed for a transient reason and keeps the lease', async () => {
+    const { store, base, state } = flakyStore();
+    let now = 0;
+    const timers = manualSleeper();
+    const lost: unknown[] = [];
+    const lease = await acquireLease({ store, instanceId: 'i', ownerId: 'a', ttlMs: 30, clock: { now: () => now }, sleep: timers.sleep, onLost: error => lost.push(error) });
+    state.isDown = true;
+    now = 10;
+    await timers.tick();
+    state.isDown = false;
+    now = 15;
+    await timers.tick();
+    expect(lost).toEqual([]);
+    expect((await base.get<LeaseRecord>(LEASES_COLLECTION, 'i'))?.value).toMatchObject({ ownerId: 'a', fence: 1, expiresAt: 45 });
+    await lease.release();
+  });
+
+  it('reports the lease lost once renewals kept failing until it expired', async () => {
+    const { store, state } = flakyStore();
+    let now = 0;
+    const timers = manualSleeper();
+    const lost: unknown[] = [];
+    const lease = await acquireLease({ store, instanceId: 'i', ownerId: 'a', ttlMs: 30, clock: { now: () => now }, sleep: timers.sleep, onLost: error => lost.push(error) });
+    state.isDown = true;
+    for (const at of [10, 20, 31]) { now = at; await timers.tick(); }
+    expect(lost).toEqual([expect.objectContaining({ code: 'store_conflict', details: expect.objectContaining({ expired: true }) })]);
+    expect(timers.pending()).toBe(0);
+    await lease.release();
+  });
+});

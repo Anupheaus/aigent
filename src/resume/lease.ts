@@ -31,12 +31,28 @@ export interface AcquireLeaseParams {
   clock: Clock;
   /** Heartbeat waits (every third of `ttlMs`); inject a fake to control time. */
   sleep: Sleeper;
-  /** Called when a heartbeat renewal fails (the lease was lost); the heartbeat then stops. */
+  /**
+   * Called once the lease is lost: another owner took it over, or renewals kept failing (the store was unreachable)
+   * until it expired. The heartbeat then stops. A renewal that fails for any other reason is retried.
+   */
   onLost?(error: unknown): void;
 }
 
 /** Renewals per lease lifetime: a missed heartbeat or two still keeps the lease. */
 const HEARTBEATS_PER_TTL = 3;
+/** Retries per lease lifetime after a failed renewal, so a store blip is ridden out well before the lease expires. */
+const RETRIES_PER_TTL = 10;
+
+/** Whether a store error says another owner took the instance over (or its lease expired unrenewed). */
+export function isFenced(error: unknown): boolean {
+  const details = (error as { details?: { fenced?: unknown } } | undefined)?.details;
+  return typeof error === 'object' && error !== null && details?.fenced === true;
+}
+
+function expired(params: { instanceId: string; fence: number; expiresAt: number; cause: unknown }): Error {
+  const { instanceId, fence, expiresAt, cause } = params;
+  return createAigentError({ code: 'store_conflict', message: `The lease of agent instance '${instanceId}' expired at ${new Date(expiresAt).toISOString()} because it could not be renewed: ${String(cause)}`, details: { fenced: true, expired: true, instanceId, fence, expiresAt } });
+}
 
 function locked(params: { instanceId: string; current: LeaseRecord }): Error {
   const { instanceId, current: { ownerId, expiresAt } } = params;
@@ -73,15 +89,24 @@ export async function acquireLease(params: AcquireLeaseParams): Promise<Lease> {
   }
 
   const stopped = new AbortController();
+  const intervalMs = Math.max(1, Math.floor(ttlMs / HEARTBEATS_PER_TTL));
+  const retryMs = Math.max(1, Math.floor(ttlMs / RETRIES_PER_TTL));
+  let expiresAt = clock.now() + ttlMs;
   const heartbeat = (async () => {
+    let delayMs = intervalMs;
     while (!stopped.signal.aborted) {
-      await sleep(Math.max(1, Math.floor(ttlMs / HEARTBEATS_PER_TTL)), stopped.signal);
+      await sleep(delayMs, stopped.signal);
       if (stopped.signal.aborted) return;
+      const renewedTo = clock.now() + ttlMs;
       try {
-        await update(clock.now() + ttlMs);
+        await update(renewedTo);
+        expiresAt = renewedTo;
+        delayMs = intervalMs;
       } catch (error) {
-        onLost?.(error);
-        return;
+        // Taken over: lost at once. Anything else (a store blip) is retried until the lease would have expired.
+        if (isFenced(error)) { onLost?.(error); return; }
+        if (clock.now() >= expiresAt) { onLost?.(expired({ instanceId, fence, expiresAt, cause: error })); return; }
+        delayMs = retryMs;
       }
     }
   })();

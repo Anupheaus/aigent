@@ -1,4 +1,5 @@
 import { createAigentError } from '../core/aigent-error.js';
+import { describeError } from '../core/describe-value.js';
 import type { Clock, Sleeper } from '../core/runtime-services.js';
 import type { Store } from '../store/store-types.js';
 import type { WriteQueue } from '../store/write-queue.js';
@@ -21,6 +22,12 @@ export const DEFAULT_LEASE_TTL_MS = 30_000;
 export interface ResumeOptions extends CheckpointWriterOptions {
   /** One live owner per instance (default `{ ttlMs: 30_000 }`, owner id generated); false turns leases off. */
   lease?: { ttlMs: number; ownerId?: string } | false;
+  /**
+   * What the instance's runs do once its lease is lost (taken over, or not renewable until it expired): stop at once
+   * (`immediate`, the default) or at the next safe boundary (`graceful`). Either way they emit a warning and write no
+   * more checkpoints, and the next run re-acquires the lease.
+   */
+  onLeaseLost?: 'immediate' | 'graceful';
 }
 
 /** One run of an instance, as its instance record lists it. */
@@ -53,6 +60,10 @@ export interface InstanceHandle {
   instanceId: string;
   /** The lease's fence (0 without leases). */
   fence(): number;
+  /** Aborts (with the reason as `signal.reason`) once the lease is lost; the handle is then closed. */
+  lost: AbortSignal;
+  /** A write was fenced: the lease is lost even if the heartbeat has not noticed yet. */
+  reportLost(error: unknown): void;
   /** The fenced store and a queued, redacted writer over it. */
   store: Store;
   records: RecordWriter;
@@ -106,7 +117,15 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
   async function openInstance(params: { instanceId: string; agentName: string; agentVersion: string }): Promise<InstanceHandle> {
     const { instanceId, agentName, agentVersion } = params;
     const { lease: leaseOptions = { ttlMs: DEFAULT_LEASE_TTL_MS } } = options;
-    const lease = leaseOptions === false ? undefined : await acquireLease({ store, instanceId, ownerId: leaseOptions.ownerId ?? ownerId, ttlMs: leaseOptions.ttlMs, clock, sleep });
+    const lostController = new AbortController();
+    const onLost = (error: unknown): void => {
+      // The handle is closed: the next run (or open) of this instance takes the lease again, or fails instance_locked.
+      opened.delete(instanceId);
+      const index = leases.findIndex(held => held === lease);
+      if (index !== -1) leases.splice(index, 1);
+      lostController.abort(`the lease of agent instance '${instanceId}' was lost: ${describeError(error)}`);
+    };
+    const lease: Lease | undefined = leaseOptions === false ? undefined : await acquireLease({ store, instanceId, ownerId: leaseOptions.ownerId ?? ownerId, ttlMs: leaseOptions.ttlMs, clock, sleep, onLost });
     if (lease != null) leases.push(lease);
     const fence = (): number => lease?.fence ?? 0;
     const fenced = createFencedStore({ store, instanceId, fence });
@@ -124,7 +143,7 @@ export function createInstanceRuntime(params: CreateInstanceRuntimeParams): Inst
     });
     await update(current => ({ ...current, agentVersion, updatedAt: clock.now() }));
     return {
-      instanceId, fence, store: fenced, records, interrupted: await loadInterrupted(record),
+      instanceId, fence, lost: lostController.signal, reportLost: error => { if (!lostController.signal.aborted) { void lease?.release(); onLost(error); } }, store: fenced, records, interrupted: await loadInterrupted(record),
       takeWarnings: () => warnings.splice(0),
       noteRun: async entry => {
         const at = clock.now();
