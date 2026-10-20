@@ -5,6 +5,7 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
 import type { TaskResult, TaskRun, TaskUsage } from './agent-types.js';
+import { describeError } from './describe-value.js';
 import { createEventStream } from './event-stream.js';
 import { createRunControl } from './run-control.js';
 import { runTask } from './run-task.js';
@@ -86,8 +87,7 @@ async function recordRun(params: RecordRunParams): Promise<string | undefined> {
     const isWritten = await writeQueue.enqueue(agentName, () => store.compareAndSet({ collection: RUNS_COLLECTION, key: runId, expectedVersion: undefined, value: record }));
     return isWritten ? undefined : `Run record '${runId}' for agent '${agentName}' was not written: a record with that id already exists`;
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return `Run record '${runId}' for agent '${agentName}' could not be written: ${reason}`;
+    return `Run record '${runId}' for agent '${agentName}' could not be written: ${describeError(error)}`;
   }
 }
 

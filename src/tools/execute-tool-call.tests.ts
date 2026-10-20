@@ -43,6 +43,16 @@ describe('executeToolCall', () => {
     expect(weird.envelope).toMatchObject({ ok: false, error: { code: 'tool_threw' } });
   });
 
+  const unprintableThrows: [string, () => unknown][] = [
+    ['a null-prototype object', () => Object.create(null)],
+    ['an object whose toString throws', () => ({ toString() { throw new Error('no string for you'); } })],
+  ];
+
+  it.each(unprintableThrows)('resolves with a tool_threw envelope when the tool throws %s', async (_label, makeThrown) => {
+    const executed = await executeToolCall({ registry: registryWith(async () => { throw makeThrown(); }), call: { id: 'c', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
+    expect(executed.envelope).toMatchObject({ id: 'c', ok: false, error: { category: 'thrown', code: 'tool_threw', message: expect.stringContaining('non-Error value') } });
+  });
+
   it('times out tools that never settle', async () => {
     const executed = await executeToolCall({ registry: registryWith(() => new Promise(() => undefined), 20), call: { id: 'c', name: 'work', args: { n: 1 } }, context: CONTEXT, now });
     expect(executed.envelope).toMatchObject({ ok: false, error: { category: 'timeout', retryable: true } });

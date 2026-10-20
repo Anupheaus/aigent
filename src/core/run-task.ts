@@ -3,6 +3,7 @@ import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import { isAigentError } from './aigent-error.js';
+import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResult } from './agent-types.js';
 import { runTurn } from './run-turn.js';
@@ -53,10 +54,6 @@ function isAbortError(error: unknown, signal: AbortSignal): boolean {
   return signal.aborted || (isAigentError(error) && error.code === 'aborted');
 }
 
-function describeFailure(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function failedDetails(executed: ExecutedToolCall[]): ToolErrorDetail[] {
   return executed.flatMap(({ envelope }) => (envelope.ok ? [] : [envelope.error]));
 }
@@ -105,7 +102,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
         status = abortedStatus(control);
       } else {
         status = 'failed';
-        failure = describeFailure(error);
+        failure = describeError(error);
         emit({ type: 'error', message: failure });
         // Tools dispatched mid-stream must not outlive a failed run.
         abortController.abort();

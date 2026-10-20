@@ -1,3 +1,4 @@
+import { describeValue } from '../core/describe-value.js';
 import { isToolFailure } from './tool-failure.js';
 import type { FieldError } from './parse-tool-args.js';
 
@@ -21,5 +22,5 @@ export function describeThrown(error: unknown): ToolErrorDetail {
     return { category: 'thrown', code, message, details, retryable, suggestion };
   }
   if (error instanceof Error) return { category: 'thrown', code: 'tool_threw', message: error.message, retryable: false };
-  return { category: 'thrown', code: 'tool_threw', message: `Tool threw a non-Error value: ${String(error)}`, retryable: false };
+  return { category: 'thrown', code: 'tool_threw', message: `Tool threw a non-Error value: ${describeValue(error)}`, retryable: false };
 }

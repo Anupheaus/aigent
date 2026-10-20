@@ -183,6 +183,33 @@ describe('agent.task', () => {
   });
 });
 
+describe('agent.task tool failure containment', () => {
+  it('settles with a TaskResult when a tool throws a value that cannot be turned into a string', async () => {
+    const hostile = defineTool({
+      name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
+      describeActivity: () => ({ title: 'e' }), run: async () => { throw Object.create(null); },
+    });
+    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('recovered')], [hostile]);
+    const run = agent.task({ task: 'x' });
+    const events = await collect(run);
+    const result = await run;
+    expect(result).toMatchObject({ status: 'completed', answer: 'recovered' });
+    expect(result.errors).toEqual([expect.objectContaining({ category: 'thrown', code: 'tool_threw' })]);
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+  });
+
+  it('reports a renderer that throws an unprintable value as a warning', async () => {
+    const tool = defineTool({
+      name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
+      describeActivity: () => { throw Object.create(null); }, run: async args => args.text,
+    });
+    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('ok')], [tool]);
+    const events = await collect(agent.task({ task: 'x' }));
+    expect(events).toContainEqual({ type: 'warning', message: expect.stringContaining("describeActivity for tool 'echo' failed") });
+    expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
+  });
+});
+
 describe('agent.task run control', () => {
   it('settles as cancelled when aborted while tools run after the stream finished', async () => {
     const slowTool = defineTool({

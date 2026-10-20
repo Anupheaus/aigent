@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { describeError } from '../core/describe-value.js';
 import { defineTool } from './define-tool.js';
 import { executeToolCall } from './execute-tool-call.js';
 import type { ToolEnvelope } from './tool-envelope.js';
@@ -45,8 +46,7 @@ export function createMultiTool(registry: ToolRegistry): Tool {
       try {
         parsedArgs = JSON.parse(call.argsJson);
       } catch (error) { // model-written JSON is untrusted input
-        const reason = error instanceof Error ? error.message : String(error);
-        return { id: call.id, tool: call.tool, ok: false, error: { category: 'validation', code: 'invalid_args_json', retryable: true, message: `argsJson for call '${call.id}' is not valid JSON: ${reason}` } };
+        return { id: call.id, tool: call.tool, ok: false, error: { category: 'validation', code: 'invalid_args_json', retryable: true, message: `argsJson for call '${call.id}' is not valid JSON: ${describeError(error)}` } };
       }
       const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: parsedArgs }, context, now: Date.now });
       return executed.envelope;

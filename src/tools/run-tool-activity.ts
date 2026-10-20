@@ -1,3 +1,4 @@
+import { describeError } from '../core/describe-value.js';
 import type { Tool, ToolActivityView, ToolOutcome } from './tool-types.js';
 
 export type ToolActivityEmission =
@@ -27,8 +28,7 @@ export async function startToolActivity(params: StartToolActivityParams): Promis
     }
     emit({ type: 'tool-activity', callId, view: await rendered });
   } catch (error) { // renderer is consumer code; contain its failures
-    const reason = error instanceof Error ? error.message : String(error);
-    emit({ type: 'warning', message: `describeActivity for tool '${tool.name}' failed: ${reason}` });
+    emit({ type: 'warning', message: `describeActivity for tool '${tool.name}' failed: ${describeError(error)}` });
     emit({ type: 'tool-activity', callId, view: { title: tool.name } });
   }
 }

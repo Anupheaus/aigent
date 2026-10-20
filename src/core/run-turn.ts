@@ -5,6 +5,7 @@ import { executeToolCall, rejectToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
+import { describeThrown } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent } from './aigent-events.js';
 import type { Clock } from './runtime-services.js';
@@ -86,7 +87,9 @@ function dispatchToolCall(params: DispatchParams): void {
   }
 
   totals.toolCalls += 1;
-  const execution = executeToolCall({ registry, call, context: { agentName, instanceId, runId, signal }, now: () => clock.now() });
+  // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
+  const execution = executeToolCall({ registry, call, context: { agentName, instanceId, runId, signal }, now: () => clock.now() })
+    .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
   work.executions.push(execution.then(reportResult));
 
   const tool = registry.get(name);
