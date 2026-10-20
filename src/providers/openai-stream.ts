@@ -4,6 +4,10 @@ import type { FinishReason, ProviderEvent, ToolCall, Usage } from './provider-ty
 
 /** A tool call being assembled from `delta.tool_calls` fragments sharing one `index`. */
 interface ToolCallDraft {
+  /** Wire `index` (or array position when the server omits it); calls are emitted in this order. */
+  index: number;
+  /** Order the call opened in, breaking ties when a server reuses one `index` for several calls. */
+  order: number;
   id?: string;
   name?: string;
   arguments: string;
@@ -12,7 +16,10 @@ interface ToolCallDraft {
 /** Everything remembered while reading one OpenAI-style stream; mutated by `applyOpenAiData`. */
 export interface OpenAiStreamState {
   providerId: string;
-  toolCalls: Map<number, ToolCallDraft>;
+  /** Every call seen so far, in the order it opened. */
+  toolCalls: ToolCallDraft[];
+  /** The draft that further fragments for a wire `index` are appended to. */
+  openToolCalls: Map<number, ToolCallDraft>;
   /** Raw `finish_reason` as sent by the server, once one arrives. */
   finishReason?: string;
   usage?: Usage;
@@ -61,7 +68,7 @@ type OpenAiChunk = z.infer<typeof chunkSchema>;
 type ToolCallDelta = z.infer<typeof toolCallDeltaSchema>;
 
 export function createOpenAiStreamState(providerId: string): OpenAiStreamState {
-  return { providerId, toolCalls: new Map(), hasSeenDone: false };
+  return { providerId, toolCalls: [], openToolCalls: new Map(), hasSeenDone: false };
 }
 
 function streamError(params: { state: OpenAiStreamState; problem: string }): Error {
@@ -90,16 +97,53 @@ function readChunk(params: { state: OpenAiStreamState; data: string }): OpenAiCh
   return parsed.data;
 }
 
+function isPresent(value: string | null | undefined): value is string {
+  return value != null && value !== '';
+}
+
+function isCompleteJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    // Incomplete (still streaming) or malformed arguments; either way not a finished call.
+    return false;
+  }
+}
+
+/**
+ * True when a delta for an already-open `index` is really a new call. Some servers send each whole call in its own
+ * chunk and restart `index` at 0 (or omit it), so a different id, or a different name once arguments have started,
+ * means the previous call is finished. Servers that repeat the id or name on every fragment must not split a call, so
+ * without an id the same name only starts a new call when a fresh JSON object follows complete arguments.
+ */
+function startsNewCall(params: { draft: ToolCallDraft; delta: ToolCallDelta }): boolean {
+  const { draft, delta: { id, function: fn } } = params;
+  if (isPresent(id)) return draft.id != null && id !== draft.id;
+  const name = fn?.name;
+  if (!isPresent(name) || draft.name == null || draft.arguments === '') return false;
+  if (name !== draft.name) return true;
+  return (fn?.arguments ?? '').trimStart().startsWith('{') && isCompleteJson(draft.arguments);
+}
+
+function openDraft(params: { state: OpenAiStreamState; index: number }): ToolCallDraft {
+  const { state, index } = params;
+  const draft: ToolCallDraft = { index, order: state.toolCalls.length, arguments: '' };
+  state.toolCalls.push(draft);
+  state.openToolCalls.set(index, draft);
+  return draft;
+}
+
 function mergeToolCallDelta(params: { state: OpenAiStreamState; delta: ToolCallDelta; position: number }): void {
   const { state, delta, position } = params;
   // Some OpenAI-compatible servers omit `index`; the delta's position in the array is the best substitute.
   const index = delta.index ?? position;
-  const draft = state.toolCalls.get(index) ?? { arguments: '' };
+  const open = state.openToolCalls.get(index);
+  const draft = open == null || startsNewCall({ draft: open, delta }) ? openDraft({ state, index }) : open;
   const { id, function: fn } = delta;
-  if (draft.id == null && id != null && id !== '') draft.id = id;
-  if (draft.name == null && fn?.name != null && fn.name !== '') draft.name = fn.name;
+  if (draft.id == null && isPresent(id)) draft.id = id;
+  if (draft.name == null && isPresent(fn?.name)) draft.name = fn.name;
   if (fn?.arguments != null) draft.arguments += fn.arguments;
-  state.toolCalls.set(index, draft);
 }
 
 function rememberUsage(params: { state: OpenAiStreamState; usage: NonNullable<OpenAiChunk['usage']> }): void {
@@ -148,15 +192,15 @@ function parseArguments(raw: string): unknown {
   }
 }
 
-function toToolCall(params: { index: number; draft: ToolCallDraft }): ToolCall {
-  const { index, draft } = params;
-  const { id = `${FALLBACK_CALL_ID_PREFIX}${index}`, name = '', arguments: raw } = draft;
+function toToolCall(draft: ToolCallDraft): ToolCall {
+  // `order` is unique per call, unlike `index`, which some servers reuse.
+  const { order, id = `${FALLBACK_CALL_ID_PREFIX}${order}`, name = '', arguments: raw } = draft;
   return { id, name, args: parseArguments(raw) };
 }
 
 function resolveFinishReason(state: OpenAiStreamState): FinishReason {
   const { finishReason, toolCalls } = state;
-  if (finishReason == null) return toolCalls.size > 0 ? 'tool_calls' : 'stop';
+  if (finishReason == null) return toolCalls.length > 0 ? 'tool_calls' : 'stop';
   return FINISH_REASONS.get(finishReason) ?? 'stop';
 }
 
@@ -167,8 +211,8 @@ function resolveFinishReason(state: OpenAiStreamState): FinishReason {
 export function finishOpenAiStream(state: OpenAiStreamState): ProviderEvent[] {
   const { finishReason, hasSeenDone, toolCalls, usage = ZERO_USAGE } = state;
   if (finishReason == null && !hasSeenDone) throw streamError({ state, problem: 'stream ended before completion: no finish_reason or [DONE] received' });
-  const calls: ProviderEvent[] = [...toolCalls.entries()]
-    .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
-    .map(([index, draft]) => ({ type: 'tool-call', call: toToolCall({ index, draft }) }));
+  const calls: ProviderEvent[] = [...toolCalls]
+    .sort((left, right) => left.index - right.index || left.order - right.order)
+    .map(draft => ({ type: 'tool-call', call: toToolCall(draft) }));
   return [...calls, { type: 'usage', usage }, { type: 'done', finishReason: resolveFinishReason(state) }];
 }

@@ -224,6 +224,65 @@ describe('openAiCompatible streaming', () => {
     expect(events.filter(event => event.type === 'tool-call').map(event => event.call.id)).toEqual(['first', 'second']);
   });
 
+  // Some servers (older Ollama, llama.cpp, Gemini-compat) send each whole call in its own chunk, all at index 0.
+  it('keeps calls distinct when every call reuses index 0 with a new id', async () => {
+    const events = await streaming(sseBody([
+      toolCallChunk([{ index: 0, id: 'call_a', name: 'add', arguments: '{"a":1}' }]),
+      toolCallChunk([{ index: 0, id: 'call_b', name: 'mul', arguments: '{"b":2}' }]),
+      finishChunk('tool_calls'),
+    ])).events();
+    expect(events.filter(event => event.type === 'tool-call')).toEqual([
+      { type: 'tool-call', call: { id: 'call_a', name: 'add', args: { a: 1 } } },
+      { type: 'tool-call', call: { id: 'call_b', name: 'mul', args: { b: 2 } } },
+    ]);
+  });
+
+  it('keeps calls distinct when the server omits index, while still joining fragments that carry no id', async () => {
+    const noIndex = (delta: Record<string, unknown>): string => JSON.stringify({ choices: [{ index: 0, delta: { tool_calls: [delta] }, finish_reason: null }] });
+    const events = await streaming(sseBody([
+      noIndex({ id: 'call_a', type: 'function', function: { name: 'add', arguments: '{"a"' } }),
+      noIndex({ function: { arguments: ':1}' } }),
+      noIndex({ id: 'call_b', type: 'function', function: { name: 'mul', arguments: '{"b":2}' } }),
+      finishChunk('tool_calls'),
+    ])).events();
+    expect(events.filter(event => event.type === 'tool-call')).toEqual([
+      { type: 'tool-call', call: { id: 'call_a', name: 'add', args: { a: 1 } } },
+      { type: 'tool-call', call: { id: 'call_b', name: 'mul', args: { b: 2 } } },
+    ]);
+  });
+
+  it('starts a new call when a new name arrives at the same index without an id after arguments were sent', async () => {
+    const events = await streaming(sseBody([
+      toolCallChunk([{ index: 0, name: 'add', arguments: '{"a":1}' }]),
+      toolCallChunk([{ index: 0, name: 'mul', arguments: '{"b":2}' }]),
+      finishChunk('tool_calls'),
+    ])).events();
+    const calls = events.flatMap(event => (event.type === 'tool-call' ? [event.call] : []));
+    expect(calls.map(({ name, args }) => ({ name, args }))).toEqual([{ name: 'add', args: { a: 1 } }, { name: 'mul', args: { b: 2 } }]);
+    expect(new Set(calls.map(({ id }) => id)).size).toBe(2);
+  });
+
+  it('starts a new call when the same name arrives without an id with a fresh object after complete arguments', async () => {
+    const events = await streaming(sseBody([
+      toolCallChunk([{ index: 0, name: 'add', arguments: '{"a":1}' }]),
+      toolCallChunk([{ index: 0, name: 'add', arguments: '{"a":2}' }]),
+      finishChunk('tool_calls'),
+    ])).events();
+    const calls = events.flatMap(event => (event.type === 'tool-call' ? [event.call] : []));
+    expect(calls.map(({ args }) => args)).toEqual([{ a: 1 }, { a: 2 }]);
+    expect(new Set(calls.map(({ id }) => id)).size).toBe(2);
+  });
+
+  it('keeps one call when a server repeats the id and name on every fragment', async () => {
+    const events = await streaming(sseBody([
+      toolCallChunk([{ index: 0, id: 'call_a', name: 'add', arguments: '{"a"' }]),
+      toolCallChunk([{ index: 0, id: 'call_a', name: 'add', arguments: ':1}' }]),
+      toolCallChunk([{ index: 0, name: 'add', arguments: '' }]),
+      finishChunk('tool_calls'),
+    ])).events();
+    expect(events.filter(event => event.type === 'tool-call')).toEqual([{ type: 'tool-call', call: { id: 'call_a', name: 'add', args: { a: 1 } } }]);
+  });
+
   it('passes malformed arguments through as the raw string and empty arguments as {}', async () => {
     const events = await streaming(sseBody([
       toolCallChunk([{ index: 0, id: 'c1', name: 'a', arguments: '{"q": "unterminated' }]),
