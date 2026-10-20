@@ -63,6 +63,43 @@ describe('ask_user in chat', () => {
     expect(chat.conversation().status).toBe('idle');
   });
 
+  it('closes the unanswered optional questions of a completed batch as skipped, so the next message is a new message', async () => {
+    const colour = { ...NAME, id: 'colour', text: 'Colour?', required: false };
+    const fit = { ...NAME, id: 'fit', text: 'Fit?', required: false };
+    const { agent, provider } = chatSetup({ turns: [toolTurn([askCall([colour, fit])]), textTurn('Blue it is'), textTurn('New topic')] });
+    const chat = agent.chat();
+    const turn = chat.send('order a shirt');
+    await until(() => chat.conversation().openQuestions.length === 2);
+    expect(chat.answer('colour', 'blue')).toEqual({ ok: true });
+    await turn;
+    expect(chat.conversation().openQuestions).toEqual([]);
+    const fitQuestion = chat.conversation().messages.find(({ meta }) => meta.questionMeta?.questionId === 'fit')!;
+    expect(fitQuestion.meta.questionMeta).toMatchObject({ answered: false, skipped: true });
+    const skipped = chat.conversation().messages.find(({ id }) => id === fitQuestion.meta.answerMessageId)!;
+    expect(skipped).toMatchObject({ role: 'user', kind: 'answer', replyTo: fitQuestion.id, parts: [{ type: 'text', text: '(skipped)' }], meta: { answeredQuestionId: 'fit' } });
+    const envelope = JSON.parse(provider.requests[1]!.messages.find(({ toolCallId }) => toolCallId === 'ask1')!.text!);
+    expect(envelope.result).toEqual([{ id: 'colour', ok: true, value: 'blue' }, { id: 'fit', ok: false, value: null, error: 'not answered' }]);
+    expect((await chat.send('hello, new topic')).text).toBe('New topic');
+    const statements = chat.conversation().messages.filter(({ role, kind }) => role === 'user' && kind === 'statement');
+    expect(statements.map(({ parts }) => parts[0])).toEqual([{ type: 'text', text: 'order a shirt' }, { type: 'text', text: 'hello, new topic' }]);
+    expect(provider.requests[2]!.messages.some(({ text }) => text?.startsWith("Answer to your question 'fit'"))).toBe(false);
+  });
+
+  it('also closes the other optional questions when an answer resumes a stopped turn', async () => {
+    const colour = { ...NAME, id: 'colour', text: 'Colour?', required: false };
+    const fit = { ...NAME, id: 'fit', text: 'Fit?', required: false };
+    const { agent } = chatSetup({ turns: [toolTurn([askCall([colour, fit])]), textTurn('Blue it is')] });
+    const chat = agent.chat();
+    const turn = chat.send('order a shirt');
+    await until(() => chat.conversation().openQuestions.length === 2);
+    turn.stop();
+    await turn;
+    expect(chat.answer('colour', 'blue')).toEqual({ ok: true });
+    expect(chat.conversation().openQuestions).toEqual([]);
+    await chat.close();
+    expect(chat.conversation().messages.at(-1)).toMatchObject({ role: 'agent', parts: [{ type: 'text', text: 'Blue it is' }] });
+  });
+
   it('links question and answer messages both ways and keeps them out of compaction', async () => {
     const { agent } = chatSetup({ turns: [toolTurn([askCall([NAME])]), textTurn('ok')] });
     const chat = agent.chat();

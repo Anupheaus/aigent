@@ -20,7 +20,8 @@ export type PatchBody =
   | { type: 'branch-created'; branch: Branch }
   | { type: 'branch-selected'; branchId: string }
   | { type: 'question-opened'; question: OpenQuestion }
-  | { type: 'question-answered'; questionId: string; answerMessageId: string; value: JsonValue }
+  /** `skipped`: closed unanswered (its batch completed without it); `value` is null and the question stays unanswered. */
+  | { type: 'question-answered'; questionId: string; answerMessageId: string; value: JsonValue; skipped?: true }
   | { type: 'plan-updated'; items: PlanItemState[] }
   | { type: 'todo-updated'; items: TodoItem[] }
   | { type: 'status-changed'; status: ConversationStatus }

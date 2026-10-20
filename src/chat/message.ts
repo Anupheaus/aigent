@@ -78,6 +78,8 @@ export interface QuestionMeta {
   answer?: JsonValue;
   /** The `ask_user` call that asked it. */
   callId: string;
+  /** Closed unanswered: its batch completed without it (the model was told it was not answered). */
+  skipped?: boolean;
 }
 
 /** What a UI needs about a message besides its parts; the figures match the run record of the same run. */

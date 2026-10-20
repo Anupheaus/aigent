@@ -38,6 +38,9 @@ export interface ChatQuestions {
   singleOpen(): OpenQuestion | undefined;
 }
 
+/** The text of the answer message recorded for a skipped question. */
+const SKIPPED_TEXT = '(skipped)';
+
 interface Waiter {
   batch: QuestionBatch;
   resolve(results: QuestionResult[]): void;
@@ -78,22 +81,29 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
     });
   }
 
-  function addAnswer(params: { open: OpenQuestion; value: JsonValue }): string {
+  /** Records the answer (or, with `value` undefined, that the question was skipped) and closes the question. */
+  function addAnswer(params: { open: OpenQuestion; value?: JsonValue }): string {
     const { open: { question, messageId }, value } = params;
     const id = ids.next('msg');
-    const text = displayValue(value);
+    const text = value === undefined ? SKIPPED_TEXT : displayValue(value);
     const { branchId, threadId } = log.state().messages.find(message => message.id === messageId) ?? { branchId: log.state().branchId, threadId: undefined };
+    // Replayed as user text only while the model has not had it as the call's result; a skip is only in that result.
+    const history = value === undefined ? {} : { history: [{ role: 'user' as const, text: `Answer to your question '${question.id}' ("${question.text}"): ${text}` }] };
     log.append({
       type: 'message-added',
       message: {
         id, seq: 0, role: 'user', kind: 'answer', parts: [{ type: 'text', text }], replyTo: messageId, branchId, state: 'complete', createdAt: now(), pinned: false, compactable: false,
-        // Replayed as user text only while the model has not had it as the call's result.
-        meta: { answeredQuestionId: question.id, history: [{ role: 'user', text: `Answer to your question '${question.id}' ("${question.text}"): ${text}` }] },
+        meta: { answeredQuestionId: question.id, ...history },
         ...(threadId == null ? {} : { threadId }),
       },
     });
-    log.append({ type: 'question-answered', questionId: question.id, answerMessageId: id, value });
+    log.append({ type: 'question-answered', questionId: question.id, answerMessageId: id, ...(value === undefined ? { value: null, skipped: true } : { value }) });
     return id;
+  }
+
+  /** A completed batch's unanswered (optional) questions are closed, so none outlives its turn and swallows a later message. */
+  function skipUnanswered(callId: string): void {
+    for (const open of log.state().openQuestions) if (open.callId === callId) addAnswer({ open });
   }
 
   function markDelivered(batch: QuestionBatch): void {
@@ -118,6 +128,7 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
       if (isBatchComplete(waiter.batch)) {
         waiters.delete(open.callId);
         markDelivered(waiter.batch);
+        skipUnanswered(open.callId);
         setStatus('running');
         waiter.resolve(batchResults(waiter.batch));
       }
@@ -125,6 +136,7 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
     }
     const isRequiredStillOpen = log.state().openQuestions.some(({ callId, question }) => callId === open.callId && question.required);
     if (isRequiredStillOpen) return { ok: true };
+    skipUnanswered(open.callId);
     const resumed = resumeSuspended?.({ callId: open.callId, replyTo: answerMessageId, ...(handle == null ? {} : { handle }) });
     if (resumed != null) return { ok: true, freshTurn: resumed };
     return { ok: true, freshTurn: resumeInFreshTurn({ replyTo: answerMessageId, taskText: `Answered: ${open.question.text}`, ...(handle == null ? {} : { handle }) }) };
