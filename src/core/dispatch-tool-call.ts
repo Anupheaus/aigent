@@ -113,10 +113,11 @@ export function dispatchToolCall(params: DispatchParams): void {
   const { id: callId, name, args } = call;
   emit({ type: 'tool-call', callId, name, args });
   const finishStep: FinishStep = telemetry.recorder.begin({ turn: totals.turns, callId, tool: name, args });
-  const { guardrails } = turn;
+  const { guardrails, effects } = turn;
   const reportResult = (executed: ExecutedToolCall): ExecutedToolCall => {
     const decisions = guardrails?.decisions.filter(decision => decision.callId === callId) ?? [];
     finishStep(decisions.length === 0 ? executed : { ...executed, guardrails: decisions });
+    effects?.record(executed);
     emit({ type: 'tool-result', callId, envelope: executed.envelope });
     return executed;
   };
@@ -144,7 +145,8 @@ export function dispatchToolCall(params: DispatchParams): void {
   // Side-effecting tools outlive an unforced immediate stop, so a write is never left half-done.
   const toolSignal = registry.get(name)?.hasSideEffects === true ? turn.sideEffectSignal : signal;
   const ledgerRunId = turn.ledgerRunId ?? runId;
-  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ledgerRunId, callId }) };
+  const isDryRun = effects?.dryRun === true;
+  const baseContext: ToolContext = { agentName, instanceId, runId, callId, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: ledgerRunId, callId }), ...(isDryRun ? { dryRun: true } : {}) };
   let context: ToolContext = baseContext;
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
@@ -163,7 +165,8 @@ export function dispatchToolCall(params: DispatchParams): void {
     if ('error' in verdict) return Promise.resolve(rejectToolCall({ call, error: verdict.error }));
     const checked = verdict.call;
     return runLedgered({
-      ...(approve == null || !isRunnable ? {} : { gate: () => approve({ call: checked, tool, context }) }),
+      // A simulated (or refused) call changes nothing, so there is nothing for a person to approve.
+      ...(approve == null || !isRunnable || (isDryRun && tool.hasSideEffects) ? {} : { gate: () => approve({ call: checked, tool, context }) }),
       execute: {
         registry, call: checked, context, now: () => clock.now(),
         ...(cache == null ? {} : { cache }),

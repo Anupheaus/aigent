@@ -34,6 +34,7 @@ import { abortedStatus, buildTurnsResult } from './turns-result.js';
 import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import { settleAnswer } from './settle-answer.js';
+import type { RunEffects } from './run-effects.js';
 
 /** Supplies messages that arrived while the run was busy; read at each safe boundary (before a model request). */
 export interface SteerSource {
@@ -83,6 +84,8 @@ export interface RunAgentTurnsParams {
   guardrails?: { checks: RunGuardrails; answer: GuardrailRunContext; outputRetries: number };
   /** An input guardrail blocked the run: it fails with this, before any request. */
   inputBlocked?: string;
+  /** The run's side effects (dry-run plans). */
+  effects?: RunEffects;
   emit(event: AigentEvent): void;
 }
 
@@ -197,6 +200,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
         ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }),
+        ...(params.effects == null ? {} : { effects: params.effects }),
       });
       endTurn();
     } catch (error) {

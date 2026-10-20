@@ -94,3 +94,4 @@ export type {
   BuiltinGuardrailName, BuiltinGuardrailOptions, Guardrail, GuardrailAction, GuardrailContext, GuardrailDecision, GuardrailDecisionRecord, GuardrailOptions, GuardrailStage, GuardrailValue,
   LoopGuardOptions, OutputSchemaOptions, PiiMode, PiiOptions, ScopeOptions, SecretsOptions, ToolCallValue, ToolResultValue,
 } from './guardrails/guardrail-types.js';
+export type { DryRunOutput, PlannedEffect, PlannedEffectInput, SimulatedResult } from './effects/planned-effects.js';

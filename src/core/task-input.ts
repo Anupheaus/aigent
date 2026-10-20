@@ -42,6 +42,11 @@ export const taskInputSchema = z.object({
    */
   output: z.custom<z.ZodType>(value => value instanceof z.ZodType, 'output must be a zod schema').optional(),
   outputFormat: z.enum(['json', 'text']).optional(),
+  /**
+   * Change nothing: tools with side effects are simulated through their `dryRun` (refused without one), read-only
+   * tools run normally, and the result lists the planned effects.
+   */
+  dryRun: z.boolean().optional(),
   /** A user attached to the task: registers `ask_user`, whose questions this answers (not with `unattended`). */
   onQuestion: z.custom<OnQuestion>(value => typeof value === 'function', 'onQuestion must be a function').optional(),
 }).strict();

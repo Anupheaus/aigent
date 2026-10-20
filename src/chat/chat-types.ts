@@ -83,6 +83,8 @@ export interface ChatOptions {
   constraints?: string[];
   /** No user: `ask_user` is not offered. */
   unattended?: boolean;
+  /** Every turn is a dry run: tools with side effects are simulated (see `TaskInput.dryRun`). */
+  dryRun?: boolean;
   /** Aborting it stops the running turn. */
   signal?: AbortSignal;
   /** Default delivery of messages sent while the agent is busy (default `'queue'`). */

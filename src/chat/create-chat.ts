@@ -47,9 +47,9 @@ interface Loaded {
 }
 
 function chatSettings(options: ResolvedChatOptions): ChatSettings {
-  const { context, constraints, unattended, modelSettings, signal } = options;
+  const { context, constraints, unattended, dryRun, modelSettings, signal } = options;
   return {
-    ...(context == null ? {} : { context }), ...(constraints == null ? {} : { constraints }), ...(unattended == null ? {} : { unattended }),
+    ...(context == null ? {} : { context }), ...(constraints == null ? {} : { constraints }), ...(unattended == null ? {} : { unattended }), ...(dryRun == null ? {} : { dryRun }),
     ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
   };
 }

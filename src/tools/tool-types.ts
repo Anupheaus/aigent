@@ -4,6 +4,7 @@ import type { JsonSchema } from '../providers/provider-types.js';
 import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types.js';
 import type { ExecutedToolCall } from './execute-tool-call.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
+import type { DryRunOutput, PlannedEffect } from '../effects/planned-effects.js';
 
 export interface ToolContext {
   agentName: string;
@@ -18,6 +19,8 @@ export interface ToolContext {
    * side effects can pass it to a remote API to make the effect happen once.
    */
   idempotencyKey?: string;
+  /** A dry run: a tool with side effects is asked for `dryRun` instead of `run`, and must change nothing. */
+  dryRun?: boolean;
 }
 
 /** How a resumed run treats a call that had started but not finished when the run was interrupted. */
@@ -153,4 +156,11 @@ export interface Tool {
   nestedFailures?(result: unknown): ToolErrorDetail[];
   /** Item totals of a batch result, for tool telemetry (`defineBatchTool` sets it). */
   countItems?(result: unknown): ItemCounts;
+  /**
+   * Tools with side effects: what a call would do, without doing it (used in dry runs). Return the effects, or a
+   * simulated result for the model plus the effects.
+   */
+  dryRun?(args: unknown, context: ToolContext): Promise<DryRunOutput>;
+  /** Effects planned inside a result (the dry-run calls inside an `aigent_multi` result). */
+  plannedEffects?(result: unknown): PlannedEffect[];
 }

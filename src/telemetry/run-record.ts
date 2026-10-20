@@ -6,6 +6,7 @@ import type { UserRating } from '../feedback/feedback-records.js';
 import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
 import type { CompressionRecord } from '../compression/compressor-types.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
+import type { PlannedEffect } from '../effects/planned-effects.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
 export const RUN_RECORD_SCHEMA_VERSION = 1;
@@ -205,6 +206,10 @@ export interface RunRecord extends RecordMeta {
   compression?: CompressionRecord[];
   /** Every non-allow guardrail decision of the run (messages only with content capture on). */
   guardrails?: GuardrailDecisionRecord[];
+  /** A dry run (`TaskInput.dryRun`): nothing was changed. Set whatever `disableTelemetry` says about other records. */
+  dryRun?: true;
+  /** Dry runs: the planned effects (targets, summaries and texts only with content capture on). */
+  plannedEffects?: PlannedEffect[];
 }
 
 /** One document in the `traces` collection, keyed by run id. */

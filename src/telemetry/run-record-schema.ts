@@ -80,6 +80,10 @@ export const runRecordSchema = z.object({
     originalTokens: count, compressedTokens: count, ratio: z.number().nonnegative(), latencyMs: durationMs, cacheHit: z.boolean(),
   })).optional(),
   guardrails: guardrailsSchema,
+  dryRun: z.literal(true).optional(),
+  plannedEffects: z.array(z.object({
+    tool: z.string(), callId: z.string(), kind: z.string(), target: z.string(), summary: z.string(), before: z.string().optional(), after: z.string().optional(), reversible: z.boolean(),
+  })).optional(),
 });
 
 export const traceStepSchema = z.object({

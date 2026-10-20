@@ -19,6 +19,7 @@ const chatOptionsSchema = z.object({
   context: z.string().optional(),
   constraints: z.array(z.string()).optional(),
   unattended: z.boolean().optional(),
+  dryRun: z.boolean().optional(),
   signal: z.instanceof(AbortSignal).optional(),
   whileBusy: z.enum(DELIVERY_MODES).optional(),
   coalesce: z.boolean().optional(),

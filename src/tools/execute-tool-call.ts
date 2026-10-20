@@ -3,6 +3,8 @@ import type { CacheLookup, ToolCache } from '../cache/cache-types.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { ShapedStep } from '../shapers/shaper-types.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
+import { simulateCall } from '../effects/dry-run.js';
+import type { PlannedEffect } from '../effects/planned-effects.js';
 import { boundedLookup } from './bounded-lookup.js';
 import { parseToolArgs } from './parse-tool-args.js';
 import { abortedToolError, runTool } from './run-tool.js';
@@ -33,6 +35,8 @@ export interface ExecutedToolCall {
   shaped?: ShapedStep[];
   /** Guardrail decisions about this call and its result. */
   guardrails?: GuardrailDecisionRecord[];
+  /** Dry runs: what the call (or the calls inside it) would have done. */
+  plannedEffects?: PlannedEffect[];
 }
 
 /** What the model should see of a successful result (the original, or its shaped form), and what shaping did. */
@@ -102,6 +106,7 @@ function succeededCall(params: SucceededCallParams): ExecutedToolCall {
   const shapedValue = shape?.({ tool, callId: call.id, value: result }) ?? { value: result, shaped: [] };
   const { result: visible, size: { truncated } } = truncateResult({ result: shapedValue.value, maxResultTokens: tool.maxResultTokens });
   const items = tool.countItems?.(result);
+  const planned = tool.plannedEffects?.(result) ?? [];
   return {
     envelope: { id: call.id, tool: call.name, ok: true, result: visible },
     outcome: tool.summarise?.(result) ?? { success: true, reason: 'completed' },
@@ -110,7 +115,19 @@ function succeededCall(params: SucceededCallParams): ExecutedToolCall {
     nested: tool.nestedFailures?.(result) ?? [],
     ...(items == null ? {} : { items }),
     ...(shapedValue.shaped.length === 0 ? {} : { shaped: shapedValue.shaped }),
+    ...(planned.length === 0 ? {} : { plannedEffects: planned }),
   };
+}
+
+/** A dry run's mutating call: simulated by the tool's `dryRun` (never cached or shaped), or refused without one. */
+async function executeSimulated(params: ValidatedCallParams): Promise<ExecutedToolCall> {
+  const { call, tool, args, context, elapsed } = params;
+  const simulated = await simulateCall({ tool, args, context });
+  if (!simulated.ok) return failedCall({ call, error: simulated.error, durationMs: elapsed() });
+  // The tool's own result helpers describe real results, not simulated ones.
+  const { summarise: _summarise, nestedFailures: _nested, countItems: _count, plannedEffects: _planned, ...plain } = tool;
+  const executed = succeededCall({ call, tool: { ...plain, summarise: () => ({ success: true, reason: 'simulated (dry run)' }) }, result: simulated.simulated, durationMs: elapsed() });
+  return { ...executed, plannedEffects: simulated.simulated.effects };
 }
 
 /** Builds a failed result without running anything, e.g. when a limit forbids the call. */
@@ -187,6 +204,8 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
     });
   }
   const validated: ValidatedCallParams = { call, tool, args: parsed.value, context, elapsed, ...(shape == null ? {} : { shape }) };
+  // A dry run never runs a mutating tool: it simulates it or refuses it (fail closed), and bypasses the cache.
+  if (context.dryRun === true && tool.hasSideEffects) return failOnThrow({ execution: executeSimulated(validated), call, elapsed });
   // Uncached tools take the synchronous path, so `run` starts before this returns and calls start in arrival order.
   if (cache == null || !isCacheable(tool)) return failOnThrow({ execution: executeValidated(validated), call, elapsed });
   return failOnThrow({ execution: executeCached({ ...validated, cache }), call, elapsed });

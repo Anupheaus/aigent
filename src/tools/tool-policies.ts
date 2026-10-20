@@ -46,6 +46,21 @@ export function validateApprovalFields(input: ApprovalFieldsInput): void {
   if (risk !== undefined && !RISKS.includes(risk)) invalid({ name, message: `risk must be low, medium or high, got ${String(risk)}` });
 }
 
+/** The side-effect fields of a tool definition, checked without their argument types. */
+export interface EffectFieldsInput {
+  name: string;
+  hasSideEffects?: boolean;
+  dryRun?: unknown;
+}
+
+/** Throws `invalid_definition` for a non-function `dryRun`, or one on a tool without side effects (it would never be used). */
+export function validateEffectFields(input: EffectFieldsInput): void {
+  const { name, hasSideEffects = false, dryRun } = input;
+  if (dryRun === undefined) return;
+  if (typeof dryRun !== 'function') invalid({ name, message: 'dryRun must be a function of the arguments and context' });
+  if (!hasSideEffects) invalid({ name, message: 'dryRun only applies to tools with side effects (hasSideEffects: true); other tools run normally in a dry run' });
+}
+
 /** The tool's declared policy, else `rerun` for read-only tools and `ask` for tools with side effects. */
 export function resumePolicyOf(tool: Pick<Tool, 'resume' | 'hasSideEffects'>): ToolResumePolicy {
   return tool.resume ?? (tool.hasSideEffects ? 'ask' : 'rerun');

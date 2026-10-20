@@ -251,6 +251,7 @@ A run yields these events, in order, ending with `done`:
 | `queued` | a provider call is waiting for the scheduler |
 | `retry` | a provider call failed before its first event and will be retried |
 | `fallback` | a turn moved to the next fallback model |
+| `planned-effects` | dry runs: what a call would have done (see [Dry runs](#dry-runs)) |
 | `guardrail` | a guardrail rewrote, blocked or warned about something, or its check failed (see [Guardrails](#guardrails)) |
 | `warning` | something was ignored or cut short, such as an unsupported setting or a malformed directive |
 | `error` | the run failed |
@@ -657,6 +658,20 @@ A guardrail is a check `(value, ctx) => allow | rewrite | block` at one stage: `
 - **Blocks are visible:** a blocked call or result becomes a `denied` envelope with code `guardrail_blocked`, the reason, a suggestion and `details: { guardrail, code }`, so the agent can adapt; a blocked input fails the run before any request; a blocked answer is replaced (with a `warning`). Every decision other than allow is a `guardrail` event, is listed in `result.guardrails`, and is stored on the run record and the call's trace step (messages only with content capture on); `ai.report()` has a `guardrail` finding per guardrail that blocked.
 - **Built-ins** (each on unless set to `false` in `builtins`): `secrets` redacts API keys (`sk-`, AWS, GitHub, Slack, Google), JWTs, private keys, credentials in connection strings and `password=...`-style values as `[REDACTED:<kind>]` in tool results, the answer and the stream (hashes and UUIDs are not secrets). `pii` finds emails, phone numbers, card numbers (Luhn) and IBANs (mod 97): `warn` on output and `off` for tool results by default, or `redact`. `injection` quarantines tool results that try to instruct the agent (override phrases, `::aigent` lines, role markers, fake tool calls or approval claims): the result becomes a labelled data block with directives defused. Tool output can never grant approvals or permissions, nor trigger directives (only the model's own stream is parsed for them). `scope` blocks calls to tools in `denyTools`, outside `allowTools`, or named in the task's `outOfScope`, and warns when the answer mentions a `forbiddenTerms` entry. `loop-guard` blocks the 4th identical call (same tool and arguments) of a run (`maxRepeats`) and truncates an answer over `maxOutputChars` (200_000). `output-schema` validates the answer against the task's `output` schema (JSON, or the text itself with `outputFormat: 'text'`): the brief states the schema, a failing answer goes back to the model with the issues for up to `retries` (2) more turns, then the run fails with `output_invalid`; `result.output` holds the parsed value.
 - **Stream hold-back:** with a `stream` guardrail on (the `secrets` built-in), streamed text is held back by `holdBackChars` (64) and from wherever a secret may still be growing, so a secret split across chunks is redacted before any of it is shown; the emitted deltas are exactly the checked text (so short replies may arrive in one piece). `stream` checks must be synchronous.
+
+## Dry runs
+
+```ts
+const writeFile = defineTool({
+  name: 'write_file', /* ... */ hasSideEffects: true,
+  run: async ({ path, content }) => fs.writeFile(path, content),
+  dryRun: async ({ path, content }) => [{ kind: 'file.write', target: path, summary: `write ${content.length} characters`, before: await readIfExists(path), after: content, reversible: true }],
+});
+const result = await agent.task({ task: 'Tidy the config', dryRun: true }); // or agent.chat({ dryRun: true })
+result.plannedEffects; // [{ tool, callId, kind, target, summary, before?, after?, reversible }]
+```
+
+With `dryRun: true` nothing changes: read-only tools run normally, a tool with side effects is asked for `dryRun(args, ctx)` instead of `run` (it returns the effects, or `{ result, effects }`), and the model sees a clearly marked simulated result `{ simulated: true, result?, effects }`. A mutating tool without `dryRun` is refused (`denied` / `dry_run_unsupported`) and never runs. Batch tools declare `dryRunItem`, and calls inside `aigent_multi` are simulated one by one. The volatile block tells the model it is a dry run; simulated calls skip approvals, are never cached and never shaped. Each call's effects arrive as a `planned-effects` event, all of them in `result.plannedEffects`, and the run record gets `dryRun: true` and `plannedEffects` (`before`/`after` bounded to 2000 characters; targets and texts only with content capture on). Only tools with side effects may declare `dryRun`.
 
 ## Human approvals
 

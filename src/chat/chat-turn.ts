@@ -28,6 +28,7 @@ export interface ChatSettings {
   context?: string;
   constraints?: string[];
   unattended?: boolean;
+  dryRun?: boolean;
   modelSettings?: ModelSettings;
   signal?: AbortSignal;
 }
@@ -61,9 +62,9 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
   const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy, restore } = params;
   const { clock, ids } = services;
   const now = (): number => clock.now();
-  const { context, constraints, unattended, modelSettings, signal } = settings;
+  const { context, constraints, unattended, dryRun, modelSettings, signal } = settings;
   const input = parseTaskInput({
-    task: taskText === '' ? EMPTY_TASK_TEXT : taskText, ...(unattended == null ? {} : { unattended }), ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
+    task: taskText === '' ? EMPTY_TASK_TEXT : taskText, ...(unattended == null ? {} : { unattended }), ...(dryRun == null ? {} : { dryRun }), ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
   });
   log.append({ type: 'message-added', message: agentMessage({ id: messageId, branchId, createdAt: now(), agentName: agent.name, instanceId: agent.instanceId, replyTo, ...(threadId == null ? {} : { threadId }) }) });
   const committed: ProviderMessage[] = [];

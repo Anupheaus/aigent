@@ -1,5 +1,6 @@
 import type { TaskResultData } from '../core/agent-types.js';
 import { storedDecisions } from '../guardrails/stored-decisions.js';
+import { storedEffects } from '../effects/planned-effects.js';
 import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderTarget } from '../core/open-turn-stream.js';
 import type { TaskInput } from '../core/task-input.js';
@@ -82,7 +83,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [] }, agent: { version }, targets, facts, compression } = params;
+  const { input: { label, unattended = false, task, dryRun }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -106,6 +107,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(todo == null ? {} : { todo: captureContent ? todo : todo.map(({ id, status }) => ({ id, status })) }),
     ...(compression == null || compression.length === 0 ? {} : { compression }),
     ...(guardrails.length === 0 ? {} : { guardrails: storedDecisions({ decisions: guardrails, captureContent }) }),
+    ...(dryRun === true ? { dryRun, plannedEffects: storedEffects({ effects: plannedEffects ?? [], captureContent }) } : {}),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

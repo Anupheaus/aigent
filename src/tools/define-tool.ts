@@ -8,7 +8,9 @@ import { toStrictJsonSchema } from './strict-schema.js';
 import { BATCH_RESULT_HELPERS } from './batch-entries.js';
 import { describeThrown } from './tool-error-detail.js';
 import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types.js';
-import { validateApprovalFields, validateResumeFields } from './tool-policies.js';
+import { validateApprovalFields, validateEffectFields, validateResumeFields } from './tool-policies.js';
+import { batchDryRun } from './batch-dry-run.js';
+import type { DryRunOutput } from '../effects/planned-effects.js';
 import type { DescribeActivity, Tool, ToolContext, ToolResumePolicy, ToolVerifyResult } from './tool-types.js';
 
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
@@ -79,6 +81,8 @@ export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
   run(args: z.infer<TSchema>, context: ToolContext): Promise<unknown>;
   /** Required with `resume: 'verify'`: whether an interrupted call's effect already happened. */
   verify?(args: z.infer<TSchema>, context: ToolContext): Promise<ToolVerifyResult>;
+  /** Tools with side effects: what the call would do, without doing it (dry runs refuse mutating tools without it). */
+  dryRun?(args: z.infer<TSchema>, context: ToolContext): Promise<DryRunOutput>;
 }
 
 export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
@@ -90,6 +94,8 @@ export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
   maxItems: number;
   describeActivity: DescribeActivity<{ items: z.infer<TItem>[] }>;
   runItem(item: z.infer<TItem>, context: ToolContext): Promise<unknown>;
+  /** Tools with side effects: what one item would do, without doing it; failures are per item as with `runItem`. */
+  dryRunItem?(item: z.infer<TItem>, context: ToolContext): Promise<DryRunOutput>;
 }
 
 /** The arguments of a batch tool. */
@@ -127,7 +133,7 @@ function validateShapingFields(input: ToolBaseInput): void {
   if (fidelity === 'lossy-ok' && contentKind === undefined) invalid(name, "fidelity 'lossy-ok' needs a contentKind, so only shapers declared for that kind can run");
 }
 
-function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown }): void {
+function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivity: unknown; dryRun?: unknown }): void {
   const { name, deterministic, cache, cacheTtlMs, hasSideEffects, acceptsAliases, timeoutMs, describeActivity } = input;
   if (typeof name !== 'string' || !TOOL_NAME_PATTERN.test(name)) invalid(String(name), `name must match ${TOOL_NAME_PATTERN} (lowercase snake_case), got '${String(name)}'`);
   if (typeof deterministic !== 'boolean') invalid(name, 'deterministic must be declared explicitly (true or false)');
@@ -140,6 +146,7 @@ function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivi
   validateContextFields(input);
   validateResumeFields(input);
   validateApprovalFields(input);
+  validateEffectFields(input);
   validateCacheFields(input);
   validateShapingFields(input);
 }
@@ -156,7 +163,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk, dryRun } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -184,6 +191,7 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(requiresApproval == null || requiresApproval === false ? {} : { requiresApproval }),
     ...(risk == null ? {} : { risk }),
     ...(verify == null ? {} : { verify: (verifyArgs: unknown, context: ToolContext) => verify(verifyArgs as z.infer<TSchema>, context) }),
+    ...(dryRun == null ? {} : { dryRun: (dryArgs: unknown, context: ToolContext) => dryRun(dryArgs as z.infer<TSchema>, context) }),
     timeoutMs,
     maxResultTokens,
     describeActivity: describeActivity as DescribeActivity<unknown>,
@@ -192,7 +200,7 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
 }
 
 export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<TItem>): Tool {
-  const { item, maxItems, runItem, describeActivity, cacheKey, validity, ...base } = input;
+  const { item, maxItems, runItem, dryRunItem, describeActivity, cacheKey, validity, ...base } = input;
   // An array schema with min 1 and max below 1 could never be satisfied.
   if (!isPositiveInteger(maxItems)) invalid(base.name, `maxItems must be a positive integer, got ${String(maxItems)}`);
   const argsSchema = z.object({ items: z.array(item).min(1).max(maxItems) }).strict();
@@ -202,6 +210,7 @@ export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<T
     ...(cacheKey == null ? {} : { cacheKey: (batchArgs: z.infer<typeof argsSchema>) => cacheKey(batchArgs as BatchArgs<TItem>) }),
     ...(validity == null ? {} : { validity: (batchArgs: z.infer<typeof argsSchema>, context: ToolContext) => validity(batchArgs as BatchArgs<TItem>, context) }),
     describeActivity: describeActivity as DescribeActivity<z.infer<typeof argsSchema>>,
+    ...(dryRunItem == null ? {} : { dryRun: (parsed: z.infer<typeof argsSchema>, context: ToolContext) => batchDryRun({ items: parsed.items, context, dryRunItem: (batchItem, itemContext) => dryRunItem(batchItem as z.infer<TItem>, itemContext) }) }),
     // Items are independent, so they run in parallel; each failure is isolated into its own entry.
     run: async (parsed, context) => Promise.all(parsed.items.map(async (batchItem, index) => {
       try {

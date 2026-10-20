@@ -31,6 +31,8 @@ import { taskInitialMessages } from './run-task.js';
 import { DEFAULT_OUTPUT_RETRIES, outputInstructions } from '../guardrails/builtin/output-schema.js';
 import { guardRunInput } from './guard-run-input.js';
 import { createRunGuardrails } from './run-guardrails.js';
+import { createRunEffects } from './run-effects.js';
+import { DRY_RUN_SECTION } from '../effects/dry-run.js';
 import { createRunTelemetry } from './run-telemetry.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
@@ -103,6 +105,8 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const steer = conversation?.steer ?? taskInbox;
   const answerShape = { ...(input.outOfScope == null ? {} : { outOfScope: input.outOfScope }), ...(input.output == null ? {} : { output: input.output }), ...(input.outputFormat == null ? {} : { outputFormat: input.outputFormat }) };
   const guardrails = createRunGuardrails({ options: services.guardrails, ids: { runId, agentName }, run: answerShape, emit });
+  const isDryRun = input.dryRun === true;
+  const effects = createRunEffects({ dryRun: isDryRun, emit });
   const outputOptions = services.guardrails.builtins?.['output-schema'];
   const outputRetries = outputOptions === false ? 0 : outputOptions?.retries ?? DEFAULT_OUTPUT_RETRIES;
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;
@@ -138,10 +142,10 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           ...(compression == null ? {} : { compression }),
           ...(services.cache == null ? {} : { cache: services.cache }),
           ...(shaping == null ? {} : { shaping }),
-          volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
+          volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras()] },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
           steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
-          guardrails: { checks: guardrails, answer: answerShape, outputRetries }, ...(guarded.blocked == null ? {} : { inputBlocked: guarded.blocked }),
+          guardrails: { checks: guardrails, answer: answerShape, outputRetries }, ...(guarded.blocked == null ? {} : { inputBlocked: guarded.blocked }), effects,
           ...(checkpoints == null ? {} : { checkpoints }), ...(restored == null ? {} : { restore: restored }),
           ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),
         });
@@ -150,6 +154,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       }
     })();
     if (guardrails.decisions.length > 0) resultData.guardrails = [...guardrails.decisions];
+    if (isDryRun) resultData.plannedEffects = [...effects.planned];
     emitter.endThinking();
     const undelivered = taskInbox.drain().length;
     if (undelivered > 0) emit({ type: 'warning', message: `${undelivered} steering message(s) arrived after the run's last model request and were not delivered` });

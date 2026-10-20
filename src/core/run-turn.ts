@@ -25,6 +25,7 @@ import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
 import type { RunGuardrails } from './run-guardrails.js';
+import type { RunEffects } from './run-effects.js';
 import type { StreamHoldback } from '../guardrails/stream-holdback.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
@@ -95,6 +96,8 @@ export interface RunTurnParams {
   planning: RunPlanning;
   /** The run's guardrails (tool calls, results and the visible stream). */
   guardrails?: RunGuardrails;
+  /** The run's side effects (dry-run plans). */
+  effects?: RunEffects;
   emit(event: AigentEvent): void;
 }
 
