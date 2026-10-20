@@ -101,7 +101,7 @@ Phase 1 foundation core, implemented in this slice:
 
 - `createAigent` and named agents, `agent.task()` with streaming events, stop modes and limits
 - Strict tool API (`defineTool`, `defineBatchTool`), structured per-call result envelopes, the built-in `aigent_multi` tool and tool activity rendering
-- Keyed per-agent write queue and the `Store` contract with an in-memory store
+- Keyed per-agent write queue and the `Store` contract with an in-memory store, plus `updateRecord` (compare-and-set read-modify-write with jittered backoff; throws `store_conflict` after `maxAttempts`, default 50)
 - Stream directive parser, task input validation, system prompt and task brief
 - `FakeProvider` test helpers (`@anupheaus/aigent/testing`)
 

@@ -15,5 +15,7 @@ export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';
 export { createInMemoryStore } from './store/in-memory-store.js';
 export { createWriteQueue } from './store/write-queue.js';
-export type { Store, StoredRecord } from './store/store-types.js';
+export { updateRecord } from './store/update-record.js';
+export type { UpdateRecordParams } from './store/update-record.js';
+export type { CompareAndSetParams, Store, StoredRecord } from './store/store-types.js';
 export type { WriteQueue } from './store/write-queue.js';

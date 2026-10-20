@@ -5,7 +5,7 @@ import * as testing from './testing/index.js';
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
     expect(Object.keys(api).sort()).toEqual([
-      'createAigent', 'createAigentError', 'createInMemoryStore', 'createWriteQueue', 'defineBatchTool', 'defineTool', 'isAigentError', 'toolFailure',
+      'createAigent', 'createAigentError', 'createInMemoryStore', 'createWriteQueue', 'defineBatchTool', 'defineTool', 'isAigentError', 'toolFailure', 'updateRecord',
     ]);
   });
 

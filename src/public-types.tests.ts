@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Directive, FinishReason, JsonSchema, MessageRole, ProviderToolSpec, ToolErrorCategory } from './index.js';
+import type { CompareAndSetParams, Directive, FinishReason, JsonSchema, MessageRole, ProviderToolSpec, ToolErrorCategory, ToolFailureInit, UpdateRecordParams } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
 // Compile-time check: every type that appears in a public signature can be named by consumers.
@@ -13,6 +13,9 @@ describe('public types', () => {
     const category: ToolErrorCategory = 'timeout';
     const turnOptions: TurnOptions = { delayMs: 1 };
     const textTurnOptions: TextTurnOptions = { chunkSize: 2 };
-    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
+    const failureInit: ToolFailureInit = { code: 'nope', message: 'no' };
+    const casParams: CompareAndSetParams<number> = { collection: 'c', key: 'k', expectedVersion: undefined, value: 1 };
+    const updateParams: Omit<UpdateRecordParams<number>, 'store'> = { collection: 'c', key: 'k', update: current => (current ?? 0) + 1 };
+    expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });
 });
