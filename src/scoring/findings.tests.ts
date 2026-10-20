@@ -39,6 +39,19 @@ describe('findFindings', () => {
     })]);
   });
 
+  it('flags each guardrail that blocked in the agent runs, with its counts and codes, and not rewrites or warnings', () => {
+    const blocked = fixtureTrace({ run: { startedAt: 70 } });
+    blocked.run.guardrails = [
+      { guardrail: 'loop-guard', stage: 'toolCall', action: 'block', code: 'repeated_call', message: '', callId: 'c4' },
+      { guardrail: 'secrets', stage: 'toolResult', action: 'rewrite', message: '' },
+      { guardrail: 'pii', stage: 'output', action: 'warn', message: '' },
+    ];
+    const again = fixtureTrace({ run: { startedAt: 71 } });
+    again.run.guardrails = [{ guardrail: 'loop-guard', stage: 'toolCall', action: 'block', code: 'repeated_call', message: '' }];
+    const findings = findingsFor([blocked, again]).filter(({ kind }) => kind === 'guardrail');
+    expect(findings).toEqual([expect.objectContaining({ id: 'guardrail:helper:loop-guard', severity: 'warn', evidence: { blocks: 2, runs: 2, codes: ['repeated_call'] } })]);
+  });
+
   it('flags runs that compacted often for their length, and not a long run that compacted twice', () => {
     const frequent = fixtureTrace({ run: { startedAt: 60, turns: 10, compactions: 4 } });
     const rare = fixtureTrace({ run: { startedAt: 61, turns: 30, compactions: 2 } });

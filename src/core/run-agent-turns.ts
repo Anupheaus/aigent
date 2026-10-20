@@ -31,6 +31,9 @@ import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { turnMessages } from './turn-messages.js';
 import { abortedStatus, buildTurnsResult } from './turns-result.js';
+import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
+import type { RunGuardrails } from './run-guardrails.js';
+import { settleAnswer } from './settle-answer.js';
 
 /** Supplies messages that arrived while the run was busy; read at each safe boundary (before a model request). */
 export interface SteerSource {
@@ -76,6 +79,10 @@ export interface RunAgentTurnsParams {
   isUnattended?: boolean;
   /** The agent instance's approvals: calls whose tool requires approval wait here for `agent.approve`. */
   approvals?: ApprovalCenter;
+  /** The run's guardrails; with `answer`, how the final answer is checked (the task's structured output, retries). */
+  guardrails?: { checks: RunGuardrails; answer: GuardrailRunContext; outputRetries: number };
+  /** An input guardrail blocked the run: it fails with this, before any request. */
+  inputBlocked?: string;
   emit(event: AigentEvent): void;
 }
 
@@ -116,8 +123,10 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';
+  let output: unknown;
   let status: TaskStatus = 'completed';
   let failure: string | undefined;
+  let outputRetries = params.guardrails?.outputRetries ?? 0;
 
   const commit = (messages: NewContextMessage[]): void => {
     appendContextMessages({ context, messages, createdAt: clock.now() });
@@ -148,6 +157,12 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     totals.turns = round.turn;
   }
   isReady = await checkpoint({ boundary: restore == null ? 'start' : 'turn-complete' });
+  if (params.inputBlocked != null) {
+    status = 'failed';
+    failure = params.inputBlocked;
+    emit({ type: 'error', message: failure });
+    isReady = false;
+  }
 
   for (;;) {
     if (!isReady) break;
@@ -181,6 +196,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
         ...(ledger == null ? {} : { ledger }), ...(ledgerRunId == null ? {} : { ledgerRunId }), ...(gate == null ? {} : { approve: gate }), signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
+        ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }),
       });
       endTurn();
     } catch (error) {
@@ -213,7 +229,12 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     // suspended ask_user turn can be continued with real answers instead of its aborted results.
     if (!isRecorded || (!signal.aborted && !await checkpoint({ boundary: 'turn-complete' }))) break;
     if (turn.calls.length === 0) {
-      answer = turn.visible.trim();
+      const settled = await settleAnswer({ text: turn.visible.trim(), ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: outputRetries, emit });
+      // The answer did not match the task's output schema: the model is told why and answers again.
+      if (settled.kind === 'retry') { outputRetries -= 1; commit([{ kind: 'user', message: { role: 'user', text: settled.feedback } }]); continue; }
+      answer = settled.answer;
+      if (settled.kind === 'failed') { status = 'failed'; failure = settled.failure; emit({ type: 'error', message: failure }); break; }
+      output = settled.output;
       if (turn.finishReason === 'length') status = 'incomplete';
       break;
     }
@@ -221,7 +242,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
 
   if (params.checkpoints != null) await checkpointer.close(status).catch((error: unknown) => emit({ type: 'warning', message: `The run's final checkpoint was not written: ${describeError(error)}` }));
   return buildTurnsResult({
-    ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, ...(failure == null ? {} : { failure }) },
+    ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, ...(failure == null ? {} : { failure }), ...(output === undefined ? {} : { output }) },
     totals, context, compactor, planning, durationMs: clock.now() - startedAt,
   });
 }

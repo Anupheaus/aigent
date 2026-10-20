@@ -45,7 +45,12 @@ export interface MultiToolContext extends ToolContext {
   reserveToolCall(): boolean;
   /** Called as each inner call starts, in call order, so the run can trace it; returns its finisher. */
   traceInnerCall?(call: InnerCall): FinishInnerCall;
+  /** The run's `toolCall` guardrails for an inner call: its (possibly rewritten) arguments, or why it must not run. */
+  checkInnerCall?(call: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict>;
 }
+
+/** An inner call's guardrail verdict. */
+export type InnerCallVerdict = { args: unknown } | { error: ToolErrorDetail };
 
 /** How many items a batch call carried and how many of them failed. */
 export interface ItemCounts {

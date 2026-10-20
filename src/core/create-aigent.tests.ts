@@ -521,7 +521,8 @@ describe('agent.task run control', () => {
           }),
         }),
       };
-      const agent = createAigent({ providers: [provider], clock, ids: sequentialIds() }).agent({ name: 'helper', model: 'stubborn:m' });
+      // The run is cancelled once its first delta is seen, so the secrets hold-back (which would keep it back) is off.
+      const agent = createAigent({ providers: [provider], clock, ids: sequentialIds(), guardrails: { builtins: { secrets: false } } }).agent({ name: 'helper', model: 'stubborn:m' });
       return { agent, returnSpy };
     }
 

@@ -7,6 +7,7 @@ import type { ResumeRunOptions } from '../resume/agent-resume.js';
 import type { ApprovalDecision } from '../approvals/approval-types.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
+import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
@@ -119,6 +120,10 @@ export interface TaskResult {
   plan?: PlanItemState[];
   /** The agent's todo list at the end, when it kept one. */
   todo?: TodoItem[];
+  /** The answer parsed and validated against the task's `output` schema, when it has one. */
+  output?: unknown;
+  /** Every guardrail decision that was not a plain allow (rewrites, blocks, warnings, failing checks), in order. */
+  guardrails?: GuardrailDecisionRecord[];
   /** Shortcut for `ai.feedback({ responseId, ...feedback })`. Not enumerable, so the result stays plain data. */
   feedback(feedback: Omit<UserFeedback, 'responseId'>): Promise<void>;
 }

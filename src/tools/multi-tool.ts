@@ -7,7 +7,7 @@ import { addErrorDetails } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
-import type { FinishInnerCall, InnerCall, MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
+import type { FinishInnerCall, InnerCall, InnerCallVerdict, MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
@@ -44,6 +44,7 @@ interface InnerCallParams {
   context: ToolContext;
   reserveToolCall(): boolean;
   traceInnerCall?(call: InnerCall): FinishInnerCall;
+  checkInnerCall?(call: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict>;
 }
 
 function envelopesOf(result: unknown): ToolEnvelope[] {
@@ -64,8 +65,8 @@ function hasCallBudget(context: ToolContext): context is MultiToolContext {
 /** Inner tools get the plain public context; the budget and tracer are only for this tool. Without a budget (direct use) calls are unlimited. */
 function splitContext(context: ToolContext): Omit<InnerCallParams, 'call'> {
   if (!hasCallBudget(context)) return { context, reserveToolCall: () => true };
-  const { reserveToolCall, traceInnerCall, ...publicContext } = context;
-  return { context: publicContext, reserveToolCall, ...(traceInnerCall == null ? {} : { traceInnerCall }) };
+  const { reserveToolCall, traceInnerCall, checkInnerCall, ...publicContext } = context;
+  return { context: publicContext, reserveToolCall, ...(traceInnerCall == null ? {} : { traceInnerCall }), ...(checkInnerCall == null ? {} : { checkInnerCall }) };
 }
 
 function refused(call: MultiCall, error: ToolErrorDetail): ExecutedToolCall {
@@ -79,10 +80,15 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
   const executedByResult = new WeakMap<object, ExecutedToolCall[]>();
 
   async function executeInnerCall(params: InnerCallParams): Promise<ExecutedToolCall> {
-    const { call, context, reserveToolCall } = params;
+    const { context, reserveToolCall, checkInnerCall } = params;
+    let { call } = params;
     if (call.tool === MULTI_TOOL_NAME) {
       return refused(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
     }
+    // An inner call meets the same guardrails as a top-level one: wrapping a call never gets it past them.
+    const verdict = await checkInnerCall?.({ id: call.id, tool: call.tool, args: call.args });
+    if (verdict != null && 'error' in verdict) return refused(call, verdict.error);
+    if (verdict != null) call = { ...call, args: verdict.args as MultiCall['args'] };
     // Each inner call is a real tool call, so it takes from the run's maxToolCalls budget like a top-level call.
     if (!reserveToolCall()) {
       return refused(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });

@@ -10,7 +10,7 @@ import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
 import { describeThrown } from '../tools/tool-error-detail.js';
-import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
+import type { InnerCall, InnerCallVerdict, MultiToolContext, ToolContext } from '../tools/tool-types.js';
 import { hashArgs, idempotencyKeyOf } from '../resume/call-ledger.js';
 import type { CallLedger } from '../resume/call-ledger.js';
 import type { ExecuteToolCallParams } from '../tools/execute-tool-call.js';
@@ -20,6 +20,7 @@ import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { shapeWith } from './run-shaping.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
+import type { CallVerdict } from './run-guardrails.js';
 
 /**
  * Bookkeeping, not work: `aigent_feedback`, `plan_complete`, `todo` and `ask_user` are never refused for the budget,
@@ -64,11 +65,18 @@ function reserveToolCall(params: ReserveToolCallParams): boolean {
 
 /** The aigent_multi context: inner calls share the run's call budget and are traced as steps of their own. */
 function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; parentCallId: string }): MultiToolContext {
-  const { context, turn: { totals, maxToolCalls, telemetry: { recorder } }, parentCallId } = params;
+  const { context, turn: { totals, maxToolCalls, telemetry: { recorder }, guardrails }, parentCallId } = params;
+  const toInner = (verdict: CallVerdict): InnerCallVerdict => ('error' in verdict ? verdict : { args: verdict.call.args });
   return {
     ...context,
     reserveToolCall: () => reserveToolCall({ totals, maxToolCalls }),
     traceInnerCall: ({ id, tool, args }) => recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args }),
+    ...(guardrails == null ? {} : {
+      checkInnerCall: ({ id, tool, args }: InnerCall): InnerCallVerdict | Promise<InnerCallVerdict> => {
+        const verdict = guardrails.checkToolCall({ id, name: tool, args });
+        return verdict instanceof Promise ? verdict.then(toInner) : toInner(verdict);
+      },
+    }),
   };
 }
 
@@ -105,8 +113,10 @@ export function dispatchToolCall(params: DispatchParams): void {
   const { id: callId, name, args } = call;
   emit({ type: 'tool-call', callId, name, args });
   const finishStep: FinishStep = telemetry.recorder.begin({ turn: totals.turns, callId, tool: name, args });
+  const { guardrails } = turn;
   const reportResult = (executed: ExecutedToolCall): ExecutedToolCall => {
-    finishStep(executed);
+    const decisions = guardrails?.decisions.filter(decision => decision.callId === callId) ?? [];
+    finishStep(decisions.length === 0 ? executed : { ...executed, guardrails: decisions });
     emit({ type: 'tool-result', callId, envelope: executed.envelope });
     return executed;
   };
@@ -149,15 +159,24 @@ export function dispatchToolCall(params: DispatchParams): void {
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
   // Bookkeeping tools only change run state, which the checkpoint holds; ask_user is ledgered so a suspended turn can resume.
   const ledger = isCommentary && name !== ASK_USER_TOOL_NAME ? undefined : turn.ledger;
-  const execution = runLedgered({
-    ...(approve == null || !isRunnable ? {} : { gate: () => approve({ call, tool, context }) }),
-    execute: {
-      registry, call, context, now: () => clock.now(),
-      ...(cache == null ? {} : { cache }),
-      ...(shaping == null ? {} : { shape: shapeWith(shaping) }),
-    },
-    turn: totals.turns, ...(ledger == null ? {} : { ledger }),
-  })
+  const start = (verdict: CallVerdict): Promise<ExecutedToolCall> => {
+    if ('error' in verdict) return Promise.resolve(rejectToolCall({ call, error: verdict.error }));
+    const checked = verdict.call;
+    return runLedgered({
+      ...(approve == null || !isRunnable ? {} : { gate: () => approve({ call: checked, tool, context }) }),
+      execute: {
+        registry, call: checked, context, now: () => clock.now(),
+        ...(cache == null ? {} : { cache }),
+        ...(shaping == null ? {} : { shape: shapeWith(shaping) }),
+      },
+      turn: totals.turns, ...(ledger == null ? {} : { ledger }),
+    });
+  };
+  // Guardrails see work calls only (bookkeeping tools change run state, nothing else); a block means the call never runs.
+  const isGuarded = guardrails != null && isRunnable && !isCommentary;
+  const verdict: CallVerdict | Promise<CallVerdict> = isGuarded ? guardrails.checkToolCall(call) : { call };
+  const execution = (verdict instanceof Promise ? verdict.then(start) : start(verdict))
+    .then(executed => (isGuarded ? guardrails.checkToolResult(executed) : executed))
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
 
   if (tool == null || parsed == null || !parsed.ok) {

@@ -2,6 +2,7 @@ import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { OutcomeSource, StepOutcome, TraceStep } from './run-record.js';
 import { digestArgs } from './digest-args.js';
 import { summariseArgs } from './summarise-args.js';
+import { storedDecisions } from '../guardrails/stored-decisions.js';
 
 export interface BeginStepParams {
   /** 1-based model request that asked for the call. */
@@ -116,7 +117,8 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
     return executed => {
       if (finished.has(index)) return;
       finished.add(index);
-      Object.assign(recorded[index] as TraceStep, finishedFields(executed));
+      const { guardrails: decisions = [] } = executed;
+      Object.assign(recorded[index] as TraceStep, finishedFields(executed), decisions.length === 0 ? {} : { guardrails: storedDecisions({ decisions, captureContent }) });
     };
   }
 

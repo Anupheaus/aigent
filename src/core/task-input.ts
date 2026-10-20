@@ -36,6 +36,12 @@ export const taskInputSchema = z.object({
   /** Consumer-supplied plan (up to 50 items); the agent reports progress with `plan_complete` or `::aigent plan`. */
   plan: planSchema.optional(),
   signal: z.instanceof(AbortSignal).optional(),
+  /**
+   * Structured output: the final answer must parse (as JSON, or the text itself with `outputFormat: 'text'`) and match
+   * this schema; the model is told the schema and gets `outputRetries` turns to fix an answer that does not match.
+   */
+  output: z.custom<z.ZodType>(value => value instanceof z.ZodType, 'output must be a zod schema').optional(),
+  outputFormat: z.enum(['json', 'text']).optional(),
   /** A user attached to the task: registers `ask_user`, whose questions this answers (not with `unattended`). */
   onQuestion: z.custom<OnQuestion>(value => typeof value === 'function', 'onQuestion must be a function').optional(),
 }).strict();

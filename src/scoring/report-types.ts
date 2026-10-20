@@ -96,7 +96,7 @@ export type FindingKind =
   | 'frequent-compaction'
   /** Prompt compression that succeeded less often than the agent's uncompressed runs, or cost more time than it saved. */
   | 'compression-net-negative'
-  /** Reserved for the guardrails slice. */
+  /** A guardrail that blocked calls, results or answers (or failed its check) in the agent's runs. */
   | 'guardrail';
 
 export type FindingSeverity = 'info' | 'warn' | 'bad';

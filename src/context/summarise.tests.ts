@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { historyBuilder } from './compaction.test-support.js';
-import { REMOVED_DIRECTIVE, REMOVED_INSTRUCTION } from './neutralise-instructions.js';
+import { REMOVED_DIRECTIVE, REMOVED_INSTRUCTION } from '../guardrails/builtin/injection.js';
 import { SUMMARISER_PROMPT, SUMMARY_HEADING, SUMMARY_RECORD_END, SUMMARY_RECORD_START, summaryMessageText, summaryRequestMessages } from './summarise.js';
 
 describe('summariser request', () => {

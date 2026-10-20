@@ -6,6 +6,7 @@ import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { QueueReason } from '../scheduler/scheduler-types.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
+import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 
 /** Every way a run can end. */
 export const TASK_STATUSES = ['completed', 'incomplete', 'failed', 'cancelled', 'stopped', 'limit_reached'] as const;
@@ -47,6 +48,8 @@ export type AigentEvent =
   | ({ type: 'approval-request' } & ApprovalRequest)
   /** An approval was decided: by a rule, by the user, or by the run's policy (unattended, or stopped while waiting). */
   | { type: 'approval-decision'; requestId: string; callId: string; tool: string; decision: ApprovalDecisionKind; by: ApprovalDecider; note?: string }
+  /** A guardrail rewrote, blocked or warned about something (or its check failed); stored on the run and its steps. */
+  | ({ type: 'guardrail' } & GuardrailDecisionRecord)
   | { type: 'error'; message: string }
   /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
   | { type: 'done'; status: TaskStatus; responseId: string };

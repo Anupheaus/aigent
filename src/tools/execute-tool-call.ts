@@ -2,6 +2,7 @@ import { isCacheable } from '../cache/is-cacheable.js';
 import type { CacheLookup, ToolCache } from '../cache/cache-types.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { ShapedStep } from '../shapers/shaper-types.js';
+import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import { boundedLookup } from './bounded-lookup.js';
 import { parseToolArgs } from './parse-tool-args.js';
 import { abortedToolError, runTool } from './run-tool.js';
@@ -30,6 +31,8 @@ export interface ExecutedToolCall {
   savedMs?: number;
   /** Shapers that changed what the model sees, with token estimates before and after each. */
   shaped?: ShapedStep[];
+  /** Guardrail decisions about this call and its result. */
+  guardrails?: GuardrailDecisionRecord[];
 }
 
 /** What the model should see of a successful result (the original, or its shaped form), and what shaping did. */

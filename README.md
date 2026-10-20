@@ -251,6 +251,7 @@ A run yields these events, in order, ending with `done`:
 | `queued` | a provider call is waiting for the scheduler |
 | `retry` | a provider call failed before its first event and will be retried |
 | `fallback` | a turn moved to the next fallback model |
+| `guardrail` | a guardrail rewrote, blocked or warned about something, or its check failed (see [Guardrails](#guardrails)) |
 | `warning` | something was ignored or cut short, such as an unsupported setting or a malformed directive |
 | `error` | the run failed |
 | `done` | the final status and the answer's `responseId`, after the run's records are written |
@@ -641,6 +642,21 @@ The report also looks at what was asked, across runs, without any model calls:
 - **`report.agentFeedback`** summarises what each agent said through `aigent_feedback` on the report's runs: `total`, counts `byKind`, counts `byTool` (`relatedTool`, each with its own kinds) and the `recent` texts, newest first, at most 10. With `captureContent: false` no text is stored, so entries are counted but never quoted.
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
+
+## Guardrails
+
+```ts
+const noPrices = defineGuardrail({ name: 'no-prices', stage: 'output', check: text => (/\$\d/.test(String(text)) ? { action: 'block', reason: 'prices are not allowed', code: 'price' } : { action: 'allow' }) });
+const ai = createAigent({ providers, guardrails: { builtins: { pii: { output: 'redact' }, scope: { denyTools: ['drop_table'] } }, custom: [noPrices], failMode: 'closed', timeoutMs: 2_000 } });
+const result = await agent.task({ task: 'Largest city in Norway?', output: z.object({ city: z.string(), population: z.number() }) });
+result.output; // { city, population }, validated
+```
+
+A guardrail is a check `(value, ctx) => allow | rewrite | block` at one stage: `input` (the task text, or the chat message being answered), `toolCall` (before a call runs, including calls inside `aigent_multi`), `toolResult` (before the model sees a result), `output` (the final answer) and `stream` (visible text deltas). Built-ins run first, in a fixed order, then custom ones by `order` and registration. Rewrites chain; the first block stops the stage. A check that throws or takes longer than `timeoutMs` (default 2000) blocks with `failMode: 'closed'` (the default) and is allowed with a warning with `'open'`, unless the guardrail is `blockLevel`. Guardrails make no provider calls.
+
+- **Blocks are visible:** a blocked call or result becomes a `denied` envelope with code `guardrail_blocked`, the reason, a suggestion and `details: { guardrail, code }`, so the agent can adapt; a blocked input fails the run before any request; a blocked answer is replaced (with a `warning`). Every decision other than allow is a `guardrail` event, is listed in `result.guardrails`, and is stored on the run record and the call's trace step (messages only with content capture on); `ai.report()` has a `guardrail` finding per guardrail that blocked.
+- **Built-ins** (each on unless set to `false` in `builtins`): `secrets` redacts API keys (`sk-`, AWS, GitHub, Slack, Google), JWTs, private keys, credentials in connection strings and `password=...`-style values as `[REDACTED:<kind>]` in tool results, the answer and the stream (hashes and UUIDs are not secrets). `pii` finds emails, phone numbers, card numbers (Luhn) and IBANs (mod 97): `warn` on output and `off` for tool results by default, or `redact`. `injection` quarantines tool results that try to instruct the agent (override phrases, `::aigent` lines, role markers, fake tool calls or approval claims): the result becomes a labelled data block with directives defused. Tool output can never grant approvals or permissions, nor trigger directives (only the model's own stream is parsed for them). `scope` blocks calls to tools in `denyTools`, outside `allowTools`, or named in the task's `outOfScope`, and warns when the answer mentions a `forbiddenTerms` entry. `loop-guard` blocks the 4th identical call (same tool and arguments) of a run (`maxRepeats`) and truncates an answer over `maxOutputChars` (200_000). `output-schema` validates the answer against the task's `output` schema (JSON, or the text itself with `outputFormat: 'text'`): the brief states the schema, a failing answer goes back to the model with the issues for up to `retries` (2) more turns, then the run fails with `output_invalid`; `result.output` holds the parsed value.
+- **Stream hold-back:** with a `stream` guardrail on (the `secrets` built-in), streamed text is held back by `holdBackChars` (64) and from wherever a secret may still be growing, so a secret split across chunks is redacted before any of it is shown; the emitted deltas are exactly the checked text (so short replies may arrive in one piece). `stream` checks must be synchronous.
 
 ## Human approvals
 

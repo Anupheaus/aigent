@@ -44,6 +44,7 @@ import { createChat } from '../chat/create-chat.js';
 import { parseChatOptions } from '../chat/chat-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { parseActivityOptions } from './activity-options.js';
+import { parseGuardrailOptions } from '../guardrails/guardrail-options.js';
 import type { ActivityOptions } from './activity.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
@@ -85,6 +86,7 @@ export function createAigent(options: AigentOptions): Aigent {
     activityTimers: createTimerSleeper(),
     ...(toolCache == null ? {} : { cache: toolCache }),
     ...(resume == null ? {} : { resume }),
+    guardrails: parseGuardrailOptions(options.guardrails),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();

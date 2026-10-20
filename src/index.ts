@@ -88,3 +88,9 @@ export type { RunCallbacks, ThinkingContext, ToolActivityEvent, Unsubscribe } fr
 export type { AnswerResult, ChatQueue, ChatThread } from './chat/chat-types.js';
 export type { AnswerSet, OnQuestion } from './chat/task-questions.js';
 export type { QuestionResult } from './chat/question-state.js';
+export { defineGuardrail } from './guardrails/define-guardrail.js';
+export { BUILTIN_GUARDRAILS, GUARDRAIL_STAGES } from './guardrails/guardrail-types.js';
+export type {
+  BuiltinGuardrailName, BuiltinGuardrailOptions, Guardrail, GuardrailAction, GuardrailContext, GuardrailDecision, GuardrailDecisionRecord, GuardrailOptions, GuardrailStage, GuardrailValue,
+  LoopGuardOptions, OutputSchemaOptions, PiiMode, PiiOptions, ScopeOptions, SecretsOptions, ToolCallValue, ToolResultValue,
+} from './guardrails/guardrail-types.js';

@@ -12,6 +12,7 @@ import type { RunTrace } from '../telemetry/run-record.js';
 import type { ActivityOptions } from './activity.js';
 import type { ResumeOptions } from '../resume/instance-runtime.js';
 import type { ApprovalOptions } from '../approvals/approval-types.js';
+import type { GuardrailOptions } from '../guardrails/guardrail-types.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -72,6 +73,11 @@ export interface AigentOptions {
   resume?: ResumeOptions;
   /** Pre-granted and pre-refused approvals for tools that require approval (deny rules win). */
   approvals?: ApprovalOptions;
+  /**
+   * Guardrails at the input, toolCall, toolResult, output and stream stages: the built-ins (secrets, pii, injection,
+   * scope, loop-guard, output-schema) are on unless set to false; `custom` ones run after them.
+   */
+  guardrails?: GuardrailOptions;
 }
 
 export interface Aigent {

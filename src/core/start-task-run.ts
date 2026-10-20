@@ -21,6 +21,7 @@ import { askThrough } from '../chat/task-questions.js';
 import type { InstanceRuntime } from '../resume/instance-runtime.js';
 import type { ApprovalCenter } from '../approvals/approval-gate.js';
 import type { RunRestore } from '../resume/prepare-run-resume.js';
+import type { GuardrailOptions } from '../guardrails/guardrail-types.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { StaticPrompt } from './static-prompt.js';
@@ -102,6 +103,8 @@ export interface RuntimeServices {
   activityTimers: Sleeper;
   /** `createAigent({ resume })`: instances, leases and checkpoints. Absent: runs are not checkpointed. */
   resume?: InstanceRuntime;
+  /** `createAigent({ guardrails })`, validated (built-ins on unless turned off). */
+  guardrails: GuardrailOptions;
 }
 
 export interface StartTaskRunParams {

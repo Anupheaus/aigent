@@ -5,6 +5,7 @@ import { describeIssues } from '../core/describe-issues.js';
 import { createAigentError } from '../core/aigent-error.js';
 import { AGENT_FEEDBACK_KINDS, USER_RATINGS } from '../feedback/feedback-records.js';
 import { TOOL_ERROR_CATEGORIES } from '../tools/tool-error-detail.js';
+import { GUARDRAIL_STAGES } from '../guardrails/guardrail-types.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
 import type { AgentFeedbackRecord, ResponseIndexRecord } from '../feedback/feedback-records.js';
 import type { RunRecord, TraceRecord } from './run-record.js';
@@ -41,6 +42,11 @@ const timingsSchema = z.object({
   durationMs, modelMs: durationMs, toolMs: durationMs, queuedMs: durationMs,
 });
 
+const guardrailsSchema = z.array(z.object({
+  guardrail: z.string(), stage: z.enum(GUARDRAIL_STAGES), action: z.enum(['rewrite', 'block', 'warn', 'error']), code: z.string().optional(), message: z.string(),
+  callId: z.string().optional(), isBlocking: z.boolean().optional(),
+})).optional();
+
 const fallbackSchema = z.object({ model: z.string(), settings: settingsSchema, droppedSettings: z.array(z.string()).optional() });
 
 export const runRecordSchema = z.object({
@@ -73,6 +79,7 @@ export const runRecordSchema = z.object({
     field: z.enum(['persona', 'skillset', 'context', 'task', 'references', 'examples', 'toolResult']),
     originalTokens: count, compressedTokens: count, ratio: z.number().nonnegative(), latencyMs: durationMs, cacheHit: z.boolean(),
   })).optional(),
+  guardrails: guardrailsSchema,
 });
 
 export const traceStepSchema = z.object({
@@ -98,6 +105,7 @@ export const traceStepSchema = z.object({
   durationMs,
   startedAtMs: z.number(),
   outcome: z.object({ success: z.boolean(), answer: z.string(), source: z.enum(['directive', 'previous']) }).optional(),
+  guardrails: guardrailsSchema,
 });
 
 export const traceRecordSchema = z.object({ ...recordMetaShape, steps: z.array(traceStepSchema) });

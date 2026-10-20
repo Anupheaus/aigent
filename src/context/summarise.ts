@@ -1,6 +1,6 @@
 import type { ProviderMessage } from '../providers/provider-types.js';
 import type { ContextMessage } from './context-message.js';
-import { neutraliseInstructions } from './neutralise-instructions.js';
+import { neutraliseInstructions } from '../guardrails/builtin/injection.js';
 
 /** The summariser's fixed instructions; part of the library's behaviour, so changing it is a library version change. */
 export const SUMMARISER_PROMPT = [

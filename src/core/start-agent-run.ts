@@ -28,6 +28,9 @@ import { setUpRunShaping } from './run-shaping.js';
 import { prepareRunResume } from '../resume/prepare-run-resume.js';
 import type { RunRestore } from '../resume/prepare-run-resume.js';
 import { taskInitialMessages } from './run-task.js';
+import { DEFAULT_OUTPUT_RETRIES, outputInstructions } from '../guardrails/builtin/output-schema.js';
+import { guardRunInput } from './guard-run-input.js';
+import { createRunGuardrails } from './run-guardrails.js';
 import { createRunTelemetry } from './run-telemetry.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
@@ -98,6 +101,10 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   // Task steering: delivered at the next safe boundary like a chat's; a chat turn brings its own inbox.
   const taskInbox = createSteerInbox<string>({ toMessage: text => ({ role: 'user', text }) });
   const steer = conversation?.steer ?? taskInbox;
+  const answerShape = { ...(input.outOfScope == null ? {} : { outOfScope: input.outOfScope }), ...(input.output == null ? {} : { output: input.output }), ...(input.outputFormat == null ? {} : { outputFormat: input.outputFormat }) };
+  const guardrails = createRunGuardrails({ options: services.guardrails, ids: { runId, agentName }, run: answerShape, emit });
+  const outputOptions = services.guardrails.builtins?.['output-schema'];
+  const outputRetries = outputOptions === false ? 0 : outputOptions?.retries ?? DEFAULT_OUTPUT_RETRIES;
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;
 
   async function execute(): Promise<void> {
@@ -115,13 +122,17 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           ...(shaping == null ? {} : { shaping }), ...(params.restore == null ? {} : { restore: params.restore }),
           ...(conversation?.sessionId == null ? {} : { sessionId: conversation.sessionId }), ...(conversation == null ? {} : { messageId: conversation.messageId }),
         });
+        // A resumed run passed its input checks when it started.
+        const guarded = restored != null ? { input, ...(conversation == null ? {} : { conversation }) } : await guardRunInput({ guardrails, input, ...(conversation == null ? {} : { conversation }) });
         // Chat turns use the persona only: the user's words arrive as history, not as task fields. A resumed run has its prompt in its checkpoint.
-        const texts = restored != null ? undefined : await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input } : {}), context: { ...promptCompressionContext({ agent, services }), signal } })
+        const texts = restored != null || guarded.blocked != null ? undefined : await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input: guarded.input } : {}), context: { ...promptCompressionContext({ agent, services }), signal } })
           .catch(error => { if (signal.aborted) return undefined; throw error; });
         for (const message of texts?.warnings ?? []) emit({ type: 'warning', message });
         compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts?.records ?? []] };
         // Stopped while compressing the prompt: the loop sees the aborted signal first and settles the run without a request.
-        const initial = texts == null ? [] : initialMessages({ system: texts.system, brief: texts.brief, ...(conversation == null ? {} : { conversation }) });
+        const instructions = outputInstructions(answerShape);
+        const brief = texts == null || instructions == null ? texts?.brief ?? '' : `${texts.brief}\n\n${instructions}`;
+        const initial = texts == null ? [] : initialMessages({ system: texts.system, brief, ...(guarded.conversation == null ? {} : { conversation: guarded.conversation }) });
         return await runAgentTurns({
           runId, responseId, agentName, instanceId, initial, registry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
@@ -130,6 +141,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
           steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
+          guardrails: { checks: guardrails, answer: answerShape, outputRetries }, ...(guarded.blocked == null ? {} : { inputBlocked: guarded.blocked }),
           ...(checkpoints == null ? {} : { checkpoints }), ...(restored == null ? {} : { restore: restored }),
           ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),
         });
@@ -137,6 +149,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
         dispose();
       }
     })();
+    if (guardrails.decisions.length > 0) resultData.guardrails = [...guardrails.decisions];
     emitter.endThinking();
     const undelivered = taskInbox.drain().length;
     if (undelivered > 0) emit({ type: 'warning', message: `${undelivered} steering message(s) arrived after the run's last model request and were not delivered` });

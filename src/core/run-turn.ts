@@ -24,6 +24,8 @@ import type { RunPlanning } from '../planning/run-planning.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
+import type { RunGuardrails } from './run-guardrails.js';
+import type { StreamHoldback } from '../guardrails/stream-holdback.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
@@ -91,6 +93,8 @@ export interface RunTurnParams {
   volatile: RunVolatile;
   /** The run's plan and todo list; plan and todo directives update it. */
   planning: RunPlanning;
+  /** The run's guardrails (tool calls, results and the visible stream). */
+  guardrails?: RunGuardrails;
   emit(event: AigentEvent): void;
 }
 
@@ -105,11 +109,12 @@ export interface TurnStreamResult {
 }
 
 
-/** Emits parsed text, directives and warnings, recording outcome directives on the trace; returns the visible text. */
-function emitParsed(output: ParseOutput, turn: RunTurnParams): string {
+/** Emits parsed text (through the stream guardrails), directives and warnings, recording outcome directives on the trace; returns the visible text. */
+function emitParsed(output: ParseOutput, turn: RunTurnParams & { stream?: StreamHoldback }): string {
   const { text, directives, warnings } = output;
-  const { emit, totals: { turns }, telemetry: { recorder }, planning } = turn;
-  if (text !== '') emit({ type: 'text-delta', text });
+  const { emit, totals: { turns }, telemetry: { recorder }, planning, stream } = turn;
+  const shown = stream == null || text === '' ? text : stream.push(text);
+  if (shown !== '') emit({ type: 'text-delta', text: shown });
   for (const directive of directives) {
     // A directive reports on results the model has seen: the last step of an earlier turn, even when it arrives after
     // this turn's own tool calls.
@@ -133,6 +138,9 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   const { runId, routing, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, usableBudget, emit, work: { partial } } = params;
   const parser = createDirectiveParser();
   const { calls, thinkingBlocks } = partial;
+  // Held-back text a guardrail may still change before it is shown; what the model said is kept as said in `visible`.
+  const stream = params.guardrails?.stream();
+  const parse = { ...params, ...(stream == null ? {} : { stream }) };
   let finishReason: FinishReason | undefined;
 
   const { request, estimatedTokens } = buildTurnRequest({
@@ -153,7 +161,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       const event = raced.value.value;
       if (event.type === 'text-delta' || event.type === 'thinking-delta' || event.type === 'tool-call') timer.markFirstToken();
       switch (event.type) {
-        case 'text-delta': partial.visible += emitParsed(parser.push(event.text), params); break;
+        case 'text-delta': partial.visible += emitParsed(parser.push(event.text), parse); break;
         // Always emitted: the run's emitter decides whether the user's stream shows it (`onThinking` always gets it).
         case 'thinking-delta': emit(event); break;
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
@@ -168,6 +176,8 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     if (isAbandoned) stopStream(iterator);
   }
   recordPromptSize({ context, estimatedTokens, ...(reportedTokens == null ? {} : { reportedTokens }) });
-  partial.visible += emitParsed(parser.end(), params);
+  partial.visible += emitParsed(parser.end(), parse);
+  const held = stream?.end() ?? '';
+  if (held !== '') params.emit({ type: 'text-delta', text: held });
   return { visible: partial.visible, calls, thinkingBlocks, finishReason };
 }

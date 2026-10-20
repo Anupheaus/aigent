@@ -112,7 +112,8 @@ describe('steer delivery', () => {
 
 describe('interrupt delivery', () => {
   it('mid-stream: keeps the partial reply as cancelled, then answers the new message with a valid history', async () => {
-    const { agent, provider } = chatSetup({ turns: [textTurn('a very long reply that never ends', { chunkSize: 3, delayMs: 8 }), textTurn('New topic.')] });
+    // The interrupt waits for streamed text, which the secrets hold-back would keep back.
+    const { agent, provider } = chatSetup({ turns: [textTurn('a very long reply that never ends', { chunkSize: 3, delayMs: 8 }), textTurn('New topic.')], runtime: { guardrails: { builtins: { secrets: false } } } });
     const chat = agent.chat();
     const patches: Patch[] = [];
     chat.subscribe(patch => patches.push(patch));

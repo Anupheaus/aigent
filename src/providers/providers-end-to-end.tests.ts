@@ -78,7 +78,8 @@ function endToEnd(params: EndToEndParams): EndToEnd {
     return typeof response === 'function' ? response(request) : response;
   });
   const provider = createProvider(fetch);
-  const ai = createAigent({ providers: [provider], clock, ids: sequentialIds() });
+  // These tests watch the adapters' own deltas (cancelling on the first one), so the secrets hold-back is off.
+  const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), guardrails: { builtins: { secrets: false } } });
   const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool], enableFeedback, ...(modelSettings == null ? {} : { modelSettings }) });
   return { agent, requests };
 }

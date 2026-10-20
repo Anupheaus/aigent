@@ -12,7 +12,8 @@ import { chatSetup, collect, spyStore } from './chat.test-support.js';
 
 describe('agent.chat', () => {
   it('answers a message, streaming deltas into the agent message, and records the exchange as patches', async () => {
-    const { agent, provider } = chatSetup({ turns: [textTurn('Hello there, friend', { chunkSize: 4 })] });
+    // Without the secrets hold-back each provider chunk is its own delta (with it, short text arrives in one piece).
+    const { agent, provider } = chatSetup({ turns: [textTurn('Hello there, friend', { chunkSize: 4 })], runtime: { guardrails: { builtins: { secrets: false } } } });
     const chat = agent.chat();
     const patches: Patch[] = [];
     chat.subscribe(patch => patches.push(patch));

@@ -5,6 +5,7 @@ import type { ProviderSettings } from '../providers/provider-types.js';
 import type { UserRating } from '../feedback/feedback-records.js';
 import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
 import type { CompressionRecord } from '../compression/compressor-types.js';
+import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
 export const RUN_RECORD_SCHEMA_VERSION = 1;
@@ -104,6 +105,8 @@ export interface TraceStep {
   /** Epoch ms when the call started. */
   startedAtMs: number;
   outcome?: StepOutcome;
+  /** Guardrail decisions about this call and its result (messages only with content capture on). */
+  guardrails?: GuardrailDecisionRecord[];
 }
 
 /** Where a run's time went, in milliseconds. */
@@ -200,6 +203,8 @@ export interface RunRecord extends RecordMeta {
   todo?: StoredTodoItem[];
   /** Every compression the run used (prompt fields and tool results), when the agent compresses. Sizes only, no text. */
   compression?: CompressionRecord[];
+  /** Every non-allow guardrail decision of the run (messages only with content capture on). */
+  guardrails?: GuardrailDecisionRecord[];
 }
 
 /** One document in the `traces` collection, keyed by run id. */

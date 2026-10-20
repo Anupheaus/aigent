@@ -29,7 +29,7 @@ function compactionUsage(params: { compactor: Compactor; totals: RunTotals }): P
 
 export interface BuildTurnsResultParams {
   ids: Pick<TaskResultData, 'runId' | 'responseId' | 'agentName' | 'instanceId'>;
-  outcome: { status: TaskStatus; answer: string; failure?: string; errors: ToolErrorDetail[] };
+  outcome: { status: TaskStatus; answer: string; failure?: string; errors: ToolErrorDetail[]; output?: unknown };
   totals: RunTotals;
   context: RunContext;
   compactor: Compactor;
@@ -39,7 +39,7 @@ export interface BuildTurnsResultParams {
 
 /** The loop's result: status after plan and todo, usage with the context figures, and the stop mode. */
 export function buildTurnsResult(params: BuildTurnsResultParams): TaskResultData {
-  const { ids, outcome: { status, answer, failure, errors }, totals, context, compactor, planning, durationMs } = params;
+  const { ids, outcome: { status, answer, failure, errors, output }, totals, context, compactor, planning, durationMs } = params;
   const { usage, turns, toolCalls, retries, fallbacks } = totals;
   const result: TaskResultData = {
     ...planningResult(planning),
@@ -51,6 +51,7 @@ export function buildTurnsResult(params: BuildTurnsResultParams): TaskResultData
     },
   };
   if (failure != null) result.failure = failure;
+  if (output !== undefined) result.output = output;
   if (status === 'stopped') result.stopMode = 'graceful';
   if (status === 'cancelled') result.stopMode = 'immediate';
   return result;

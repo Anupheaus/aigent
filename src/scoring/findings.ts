@@ -1,5 +1,6 @@
 import type { RunTrace } from '../telemetry/run-record.js';
 import { contextFindings } from './context-findings.js';
+import { guardrailFindings } from './guardrail-findings.js';
 import { compareFindings, groupSorted } from './finding-rules.js';
 import type { Finding, Pricing } from './report-types.js';
 import { runFindings } from './run-findings.js';
@@ -15,8 +16,8 @@ export interface FindFindingsParams {
 
 /**
  * Heuristic findings per agent: slow, failing, verbose, truncated and unbatched tools; runs with too many turns,
- * outlier duration or cost, retries, and success claims the user rejected. A `guardrail` kind is reserved for the
- * guardrails slice. Pure, and ordered by severity then id.
+ * outlier duration or cost, retries, success claims the user rejected, and guardrails that blocked. Pure, and
+ * ordered by severity then id.
  */
 export function findFindings(params: FindFindingsParams): Finding[] {
   const { traces, minRuns, pricing } = params;
@@ -24,6 +25,7 @@ export function findFindings(params: FindFindingsParams): Finding[] {
     ...toolFindings({ agentName, traces: agentTraces }),
     ...shaperFindings({ agentName, traces: agentTraces }),
     ...contextFindings({ agentName, runs: agentTraces.map(({ run }) => run) }),
+    ...guardrailFindings({ agentName, runs: agentTraces.map(({ run }) => run) }),
     ...runFindings({ agentName, runs: agentTraces.map(({ run }) => run), minRuns, ...(pricing == null ? {} : { pricing }) }),
   ]);
   return findings.sort(compareFindings);
