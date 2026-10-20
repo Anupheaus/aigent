@@ -24,13 +24,20 @@ const csvItem = z.object({
 
 type Condition = NonNullable<z.infer<typeof csvItem>['where']>[number];
 
-const isNumeric = (value: string): boolean => value.trim() !== '' && Number.isFinite(Number(value));
+/** Plain decimal numbers only: `0x10`, `0b1`, `1e3` and `Infinity` are text. */
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+const isNumeric = (value: string): boolean => DECIMAL.test(value.trim());
 
-/** Numbers compare as numbers, anything else as text. */
+/** A total order: numbers first (by value), then text (by code unit), so sorting mixed columns is consistent. */
 function order(left: string, right: string): number {
-  if (isNumeric(left) && isNumeric(right)) return Number(left) - Number(right);
+  const [isLeftNumber, isRightNumber] = [isNumeric(left), isNumeric(right)];
+  if (isLeftNumber && isRightNumber) return Number(left) - Number(right);
+  if (isLeftNumber !== isRightNumber) return isLeftNumber ? -1 : 1;
   return left < right ? -1 : left > right ? 1 : 0;
 }
+
+/** A blank line parses as one empty field; it is not a row. */
+const isBlankRecord = (record: string[]): boolean => record.length === 1 && record[0] === '';
 
 function holds(params: { cell: string; condition: Condition }): boolean {
   const { cell, condition: { op, value } } = params;
@@ -53,7 +60,7 @@ export function createCsvQuery(): Tool {
     item: csvItem, contentKind: 'structured-data', fidelity: 'lossy-ok',
     describeActivity: ({ items }) => ({ title: items.length === 1 ? 'Querying CSV' : `Running ${items.length} CSV queries` }),
     runItem: async ({ csv, header = true, select, where = [], orderBy, limit = DEFAULT_ROWS }) => {
-      const records = guarded(() => parseCsv({ text: csv }));
+      const records = guarded(() => parseCsv({ text: csv })).filter(record => !isBlankRecord(record));
       const width = Math.max(0, ...records.map(record => record.length));
       const columns = header ? records[0] ?? [] : Array.from({ length: width }, (_unused, index) => `column${index + 1}`);
       const body = (header ? records.slice(1) : records).map(record => [...record, ...Array<string>(Math.max(0, columns.length - record.length)).fill('')]);
@@ -71,7 +78,10 @@ export function createCsvQuery(): Tool {
       }
       const picked = (select ?? columns).map(column => ({ column, index: indexOf(column) }));
       const rows = matched.slice(0, limit).map(row => picked.map(({ index }) => row[index] ?? ''));
-      return { columns: picked.map(({ column }) => column), rows, totalRows: body.length, matchedRows: matched.length, truncated: matched.length > rows.length };
+      // Cells past the header are not queryable; say so rather than drop them silently.
+      const wider = header ? body.filter(row => row.length > columns.length) : [];
+      const extraCells = wider.reduce((total, row) => total + row.length - columns.length, 0);
+      return { columns: picked.map(({ column }) => column), rows, totalRows: body.length, matchedRows: matched.length, truncated: matched.length > rows.length, ...(extraCells === 0 ? {} : { extraCells: { rows: wider.length, cells: extraCells } }) };
     },
   });
 }

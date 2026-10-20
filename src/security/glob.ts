@@ -1,3 +1,5 @@
+import { createAigentError } from '../core/aigent-error.js';
+
 /** Characters with a meaning in a regular expression, escaped when they appear literally in a glob. */
 const REGEX_SPECIALS = /[.+^$()|\\/[\]{}]/;
 
@@ -54,15 +56,23 @@ function globSource(pattern: string): string {
   return source;
 }
 
+/** Globs kept compiled; past this the oldest is dropped, so model-supplied globs cannot grow the cache without bound. */
+const MAX_COMPILED_GLOBS = 500;
 const compiled = new Map<string, RegExp>();
 
-/** Compiles a glob once per pattern and case mode. */
+/** Compiles a glob once per pattern and case mode. Throws `invalid_input` (`details.reason: 'invalid_glob'`) for a glob that does not compile, e.g. `[z-a]`. */
 export function globRegExp(params: { pattern: string; caseSensitive?: boolean }): RegExp {
   const { pattern, caseSensitive = true } = params;
   const key = `${caseSensitive ? 's' : 'i'}:${pattern}`;
   const existing = compiled.get(key);
   if (existing != null) return existing;
-  const regex = new RegExp(`^${globSource(pattern)}$`, caseSensitive ? 'u' : 'iu');
+  let regex: RegExp;
+  try {
+    regex = new RegExp(`^${globSource(pattern)}$`, caseSensitive ? 'u' : 'iu');
+  } catch (error) {
+    throw createAigentError({ code: 'invalid_input', message: `Glob '${pattern}' is not valid: ${error instanceof Error ? error.message : String(error)}`, details: { reason: 'invalid_glob', pattern } });
+  }
+  if (compiled.size >= MAX_COMPILED_GLOBS) compiled.delete(compiled.keys().next().value as string);
   compiled.set(key, regex);
   return regex;
 }

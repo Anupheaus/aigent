@@ -25,7 +25,7 @@ export function createJsonQuery(): Tool {
   return defineBatchTool({
     ...DATA_TOOL_BASE,
     name: JSON_QUERY_TOOL_NAME,
-    description: 'Query JSON text with a JSONPath subset; returns the matching values in document order.',
+    description: 'Query JSON text with a JSONPath subset ($, .key, [\'key\'], [n], *, ..key, [?(@.a op literal)]); returns the matching values in document order. Not supported: exponent number literals, escaped quotes inside keys, spaces inside ?( @...), and results over 100000 values.',
     item: jsonItem, contentKind: 'structured-data', fidelity: 'verbatim',
     describeActivity: ({ items }) => ({ title: items.length === 1 ? 'Querying JSON' : `Running ${items.length} JSON queries` }),
     runItem: async ({ json, query }) => {

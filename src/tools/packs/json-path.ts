@@ -108,9 +108,25 @@ function children(value: JsonValue): JsonValue[] {
   return typeof value === 'object' && value !== null ? Object.values(value) : [];
 }
 
-/** The value and everything below it, in document order. */
+/** Most values a query may produce at any step: `..` chains grow fast, and every value is materialised. */
+export const MAX_JSON_RESULTS = 100_000;
+
+function tooMany(): never {
+  throw createAigentError({ code: 'invalid_input', message: `The query produces more than ${MAX_JSON_RESULTS} values`, details: { reason: 'too_many_results', limit: MAX_JSON_RESULTS } });
+}
+
+/** The value and everything below it, in document order (iterative, so deep documents cannot overflow the stack). */
 function descendants(value: JsonValue): JsonValue[] {
-  return [value, ...children(value).flatMap(descendants)];
+  const found: JsonValue[] = [];
+  const pending: JsonValue[] = [value];
+  while (pending.length > 0) {
+    const next = pending.pop() as JsonValue;
+    found.push(next);
+    if (found.length > MAX_JSON_RESULTS) tooMany();
+    const below = children(next);
+    for (let at = below.length - 1; at >= 0; at -= 1) pending.push(below[at] as JsonValue);
+  }
+  return found;
 }
 
 function compare(params: { left: JsonValue; op: CompareOp; right: JsonValue }): boolean {
@@ -144,11 +160,18 @@ function apply(params: { step: Step; value: JsonValue }): JsonValue[] {
 /**
  * Runs a JSONPath subset over a parsed document: `$`, `.key` / `['key']`, `[n]` (negative from the end), `*` / `[*]`,
  * `..key` (recursive descent) and filters `[?(@.a.b op literal)]` (`== != < <= > >=`) or `[?(@.a)]` (field present).
- * Returns the matches in document order. Throws `invalid_input` (`details.reason: 'invalid_query'`, `position`).
+ * Returns the matches in document order. Throws `invalid_input` (`details.reason: 'invalid_query'`, `position`), or `too_many_results` past `MAX_JSON_RESULTS`.
  */
 export function queryJsonPath(params: { document: JsonValue; query: string }): JsonValue[] {
   const { document, query } = params;
   let current: JsonValue[] = [document];
-  for (const step of parse(query)) current = current.flatMap(value => apply({ step, value }));
+  for (const step of parse(query)) {
+    const next: JsonValue[] = [];
+    for (const value of current) {
+      for (const result of apply({ step, value })) next.push(result);
+      if (next.length > MAX_JSON_RESULTS) tooMany();
+    }
+    current = next;
+  }
   return current;
 }
