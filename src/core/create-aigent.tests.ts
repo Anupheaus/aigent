@@ -138,12 +138,15 @@ describe('agent.task', () => {
 
   it('runs batch tools and aigent_multi through the loop', async () => {
     const batch = defineBatchTool({ name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, describeActivity: () => ({ title: 'r' }), runItem: async item => item.id });
-    const { agent } = setup({ turns: [
+    const { agent, provider } = setup({ turns: [
       toolTurn([{ id: 'c1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'read_all', args: { items: [{ id: 'a' }] } }] } }]),
       textTurn('fine'),
     ], tools: [batch] });
     const result = await agent.task({ task: 'x' });
     expect(result).toMatchObject({ status: 'completed', usage: { toolCalls: 1 } });
+    expect(result.errors).toEqual([]);
+    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-1)!.text!);
+    expect(multiEnvelope).toEqual({ id: 'c1', tool: 'aigent_multi', ok: true, result: [{ id: 'x', tool: 'read_all', ok: true, result: [{ index: 0, ok: true, result: 'a' }] }] });
   });
 
   it('stops with limit_reached at maxTurns and refuses calls beyond maxToolCalls', async () => {
@@ -171,6 +174,40 @@ describe('agent.task', () => {
     expect(result.status).toBe('cancelled');
     expect(result.stopMode).toBe('immediate');
     expect(provider.requests).toHaveLength(1);
+  });
+
+  it('immediate stop mid-stream with a tool in flight settles cancelled and leaves no pending timers', async () => {
+    vi.useFakeTimers();
+    try {
+      const streamingTurn: FakeTurn = {
+        events: [
+          { type: 'tool-call', call: { id: 'h1', name: 'hang', args: {} } },
+          ...Array.from({ length: 10 }, (): ProviderEvent => ({ type: 'text-delta', text: 'x' })),
+          { type: 'usage', usage: { inputTokens: 1, outputTokens: 1, cachedTokens: 0 } },
+          { type: 'done', finishReason: 'tool_calls' },
+        ],
+        delayMs: 10,
+      };
+      const { agent, provider } = setup({ turns: [streamingTurn, textTurn('never')], tools: [hangingTool] });
+      // A run-level timeout and the tool's own 60 s timeout are both pending when the stop lands.
+      const run = agent.task({ task: 'x', limits: { timeoutMs: 60_000 } });
+      const eventsDone = collect(run);
+      await vi.advanceTimersByTimeAsync(25);
+      run.cancel();
+      run.stop({ mode: 'immediate' });
+      const result = await run;
+      const events = await eventsDone;
+      expect(result).toMatchObject({ status: 'cancelled', stopMode: 'immediate', usage: { toolCalls: 1 } });
+      expect(result.errors).toEqual([expect.objectContaining({ code: 'tool_aborted' })]);
+      // The tool was in flight while the stream was still open: no usage (end of stream) arrived before the stop.
+      expect(events.map(event => event.type)).toContain('tool-call');
+      expect(events.map(event => event.type)).not.toContain('usage');
+      expect(events.at(-1)).toEqual({ type: 'done', status: 'cancelled' });
+      expect(provider.requests).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('graceful stop finishes the current turn then ends stopped without a new request', async () => {
