@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { describeError } from '../core/describe-value.js';
 import { defineTool } from './define-tool.js';
 import { executeToolCall } from './execute-tool-call.js';
 import { addErrorDetails } from './tool-error-detail.js';
@@ -11,15 +10,14 @@ import type { MultiToolContext, Tool, ToolContext, ToolOutcome } from './tool-ty
 export const MULTI_TOOL_NAME = 'aigent_multi';
 const MAX_MULTI_CALLS = 20;
 const MAX_ID_LENGTH = 64;
-/** Longest `argsJson` accepted per inner call, in characters; bounds what one model call can make us parse. */
-const MAX_ARGS_JSON_LENGTH = 100_000;
 
 const multiArgsSchema = z.object({
   calls: z.array(z.object({
     id: z.string().min(1).max(MAX_ID_LENGTH),
     tool: z.string().min(1).max(MAX_ID_LENGTH),
-    // JSON string because a strict schema cannot describe arbitrary per-tool argument objects.
-    argsJson: z.string().max(MAX_ARGS_JSON_LENGTH),
+    // Free-form because each inner tool has its own arguments; that tool's own schema validates them. This is why
+    // aigent_multi opts out of the strict subset (strictSchema: false).
+    args: z.record(z.string(), z.unknown()),
   }).strict()).min(1).max(MAX_MULTI_CALLS),
 }).strict().refine(
   value => new Set(value.calls.map(call => call.id)).size === value.calls.length,
@@ -76,17 +74,11 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
     if (call.tool === MULTI_TOOL_NAME) {
       return failure(call, { category: 'denied', code: 'nested_multi', retryable: false, message: `${MULTI_TOOL_NAME} cannot call itself`, suggestion: 'Call the underlying tools directly.' });
     }
-    let parsedArgs: unknown;
-    try {
-      parsedArgs = JSON.parse(call.argsJson);
-    } catch (error) { // model-written JSON is untrusted input
-      return failure(call, { category: 'validation', code: 'invalid_args_json', retryable: true, message: `argsJson for call '${call.id}' is not valid JSON: ${describeError(error)}` });
-    }
     // Each inner call is a real tool call, so it takes from the run's maxToolCalls budget like a top-level call.
     if (!reserveToolCall()) {
       return failure(call, { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit reached; inner call '${call.id}' to '${call.tool}' was not run` });
     }
-    const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: parsedArgs }, context, now });
+    const executed = await executeToolCall({ registry, call: { id: call.id, name: call.tool, args: call.args }, context, now });
     return executed.envelope;
   }
 
@@ -101,10 +93,11 @@ export function createMultiTool(options: CreateMultiToolOptions): Tool {
 
   const tool = defineTool({
     name: MULTI_TOOL_NAME,
-    description: 'Run several tool calls at once. Each call needs a unique id, the tool name and its arguments as a JSON string. Returns one result per call in order; only retry the ones that failed.',
+    description: 'Run several tool calls at once. Each call is { id, tool, args }: a unique id, the tool name, and args, the argument object exactly as that tool takes it. Returns one result per call in order; only retry the ones that failed.',
     args: multiArgsSchema,
     deterministic: false,
     cache: false,
+    strictSchema: false,
     describeActivity: args => ({ title: `Running ${args.calls.length} tool calls`, detail: args.calls.map(call => call.tool).join(', ') }),
     run: async (args, context) => {
       const split = splitContext(context);

@@ -24,6 +24,11 @@ export interface ProviderToolSpec {
   name: string;
   description: string;
   parameters: JsonSchema;
+  /**
+   * True when `parameters` follows the strict subset, so adapters should request strict decoding. False only for tools
+   * that opted out (`strictSchema: false`, e.g. the built-in `aigent_multi`); adapters must send those with strict off.
+   */
+  strict: boolean;
 }
 
 export interface ProviderRequest {

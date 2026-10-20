@@ -22,10 +22,10 @@ describe('aigent_multi', () => {
     const registry = createToolRegistry([echo, fail]);
     const multi = createMultiTool({ registry, now });
     const result = await multi.run({ calls: [
-      { id: 'a', tool: 'echo', argsJson: '{"text":"hi"}' },
-      { id: 'b', tool: 'fail', argsJson: '{}' },
-      { id: 'c', tool: 'echo', argsJson: 'not json' },
-      { id: 'd', tool: 'aigent_multi', argsJson: '{}' },
+      { id: 'a', tool: 'echo', args: { text: 'hi' } },
+      { id: 'b', tool: 'fail', args: {} },
+      { id: 'c', tool: 'echo', args: { text: 5 } },
+      { id: 'd', tool: 'aigent_multi', args: {} },
     ] }, CONTEXT);
     expect(result).toEqual([
       { id: 'a', tool: 'echo', ok: true, result: 'hi' },
@@ -40,7 +40,7 @@ describe('aigent_multi', () => {
     let echoRuns = 0;
     const counted = defineTool({ name: 'echo', description: 'echo', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
     const multi = createMultiTool({ registry: createToolRegistry([counted]), now });
-    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', argsJson: '{"text":"x"}' }));
+    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', args: { text: 'x' } }));
     const result = await multi.run({ calls }, contextWithBudget(2));
     expect(echoRuns).toBe(2);
     expect(result).toEqual([
@@ -54,7 +54,7 @@ describe('aigent_multi', () => {
     let seenContext: ToolContext | undefined;
     const spy = defineTool({ name: 'spy', description: 'spy', args: z.object({}).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 's' }), run: async (_args, context) => { seenContext = context; return 1; } });
     const multi = createMultiTool({ registry: createToolRegistry([spy]), now });
-    await multi.run({ calls: [{ id: 'a', tool: 'spy', argsJson: '{}' }] }, contextWithBudget(1));
+    await multi.run({ calls: [{ id: 'a', tool: 'spy', args: {} }] }, contextWithBudget(1));
     expect(seenContext).toEqual(CONTEXT);
   });
 
@@ -62,9 +62,9 @@ describe('aigent_multi', () => {
     const batch = defineBatchTool({ name: 'batch', description: 'b', item: z.object({ id: z.string() }).strict(), maxItems: 3, deterministic: true, cache: false, describeActivity: () => ({ title: 'b' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('bad item'); return batchItem.id; } });
     const multi = createMultiTool({ registry: createToolRegistry([echo, fail, batch]), now });
     const result = await multi.run({ calls: [
-      { id: 'a', tool: 'echo', argsJson: '{"text":"hi"}' },
-      { id: 'b', tool: 'fail', argsJson: '{}' },
-      { id: 'c', tool: 'batch', argsJson: '{"items":[{"id":"ok"},{"id":"bad"}]}' },
+      { id: 'a', tool: 'echo', args: { text: 'hi' } },
+      { id: 'b', tool: 'fail', args: {} },
+      { id: 'c', tool: 'batch', args: { items: [{ id: 'ok' }, { id: 'bad' }] } },
     ] }, CONTEXT);
     expect(multi.nestedFailures?.(result)).toEqual([
       expect.objectContaining({ code: 'x', details: { callId: 'b', tool: 'fail' } }),
@@ -72,9 +72,54 @@ describe('aigent_multi', () => {
     ]);
   });
 
-  it('has a strict schema and requires unique ids', () => {
+  it('requires unique ids', () => {
     const multi = createMultiTool({ registry: createToolRegistry([echo]), now });
     expect(multi.jsonSchema).toMatchObject({ required: ['calls'] });
-    expect(multi.argsSchema.safeParse({ calls: [{ id: 'a', tool: 'echo', argsJson: '{}' }, { id: 'a', tool: 'echo', argsJson: '{}' }] }).success).toBe(false);
+    expect(multi.argsSchema.safeParse({ calls: [{ id: 'a', tool: 'echo', args: {} }, { id: 'a', tool: 'echo', args: {} }] }).success).toBe(false);
+  });
+
+  // The one deliberately non-strict tool: a strict schema cannot describe every inner tool's arguments.
+  it('is the non-strict tool whose calls are { id, tool, args } with args a free-form object', () => {
+    const multi = createMultiTool({ registry: createToolRegistry([echo]), now });
+    expect(multi.strict).toBe(false);
+    expect(multi.jsonSchema).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['calls'],
+      properties: {
+        calls: {
+          type: 'array', minItems: 1, maxItems: 20,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['id', 'tool', 'args'],
+            properties: {
+              id: { type: 'string', minLength: 1, maxLength: 64 },
+              tool: { type: 'string', minLength: 1, maxLength: 64 },
+              args: { type: 'object', additionalProperties: true },
+            },
+          },
+        },
+      },
+    });
+    expect(JSON.stringify(multi.jsonSchema)).not.toContain('argsJson');
+  });
+
+  it('rejects args given as a JSON string, missing args and unknown keys on a call', () => {
+    const multi = createMultiTool({ registry: createToolRegistry([echo]), now });
+    expect(multi.argsSchema.safeParse({ calls: [{ id: 'a', tool: 'echo', args: '{"text":"hi"}' }] }).success).toBe(false);
+    expect(multi.argsSchema.safeParse({ calls: [{ id: 'a', tool: 'echo' }] }).success).toBe(false);
+    expect(multi.argsSchema.safeParse({ calls: [{ id: 'a', tool: 'echo', args: {}, argsJson: '{}' }] }).success).toBe(false);
+  });
+
+  it('passes nested args objects (including nulls for optional keys) through to the inner tool', async () => {
+    const nested = defineTool({
+      name: 'nested', description: 'n', deterministic: true, cache: false, describeActivity: () => ({ title: 'n' }),
+      args: z.object({ filter: z.object({ path: z.string(), depth: z.number().optional() }).strict() }).strict(),
+      run: async args => args.filter,
+    });
+    const multi = createMultiTool({ registry: createToolRegistry([nested]), now });
+    const result = await multi.run({ calls: [{ id: 'a', tool: 'nested', args: { filter: { path: 'src', depth: null } } }] }, CONTEXT);
+    expect(result).toEqual([{ id: 'a', tool: 'nested', ok: true, result: { path: 'src' } }]);
   });
 });

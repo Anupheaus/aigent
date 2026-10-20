@@ -13,6 +13,12 @@ describe('buildSystemPrompt', () => {
     expect(buildSystemPrompt({ persona: 'P' })).toBe(buildSystemPrompt({ persona: 'P' }));
   });
 
+  it('describes aigent_multi calls as { id, tool, args } with an args object, not a JSON string', () => {
+    const prompt = buildSystemPrompt({});
+    expect(prompt).toContain('"args": {the argument object for that tool}');
+    expect(prompt).not.toContain('argsJson');
+  });
+
   it('documents the directive syntax', () => {
     expect(buildSystemPrompt({})).toContain('::aigent');
   });

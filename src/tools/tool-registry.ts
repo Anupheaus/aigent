@@ -23,6 +23,6 @@ export function createToolRegistry(tools: Tool[]): ToolRegistry {
     get: name => byName.get(name),
     list: () => sorted,
     names: () => sorted.map(tool => tool.name),
-    specs: () => sorted.map(({ name, description, jsonSchema }) => ({ name, description, parameters: jsonSchema })),
+    specs: () => sorted.map(({ name, description, jsonSchema, strict }) => ({ name, description, parameters: jsonSchema, strict })),
   };
 }

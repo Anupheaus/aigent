@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createAigentError } from '../core/aigent-error.js';
+import { toLooseJsonSchema } from './loose-schema.js';
 import { toStrictJsonSchema } from './strict-schema.js';
 import { addErrorDetails, describeThrown } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
@@ -20,6 +21,12 @@ interface ToolBaseInput {
   hasSideEffects?: boolean;
   timeoutMs?: number;
   maxResultTokens?: number;
+  /**
+   * Default true: the argument schema must fit the strict subset (every object `.strict()`, optionals sent as null) and
+   * providers send the tool with strict decoding. `false` is an explicit opt-out for tools whose arguments a strict schema
+   * cannot describe; the built-in `aigent_multi` is the only library tool that uses it. Arguments are still validated by zod.
+   */
+  strictSchema?: boolean;
 }
 
 export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
@@ -56,12 +63,13 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, hasSideEffects = false, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
   return {
     name,
     description,
     argsSchema: args,
-    jsonSchema: toStrictJsonSchema(args),
+    jsonSchema: strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args),
+    strict: strictSchema,
     deterministic,
     cache,
     cacheTtlMs,

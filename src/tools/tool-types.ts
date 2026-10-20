@@ -38,8 +38,10 @@ export interface Tool {
   name: string;
   description: string;
   argsSchema: z.ZodType;
-  /** Strict JSON schema derived from `argsSchema`. */
+  /** JSON schema derived from `argsSchema`: the strict subset unless `strict` is false. */
   jsonSchema: JsonSchema;
+  /** Whether `jsonSchema` follows the strict subset; providers send the tool with strict decoding only when true. */
+  strict: boolean;
   /** Same name + args always give the same result. */
   deterministic: boolean;
   /** Whether results may be cached (scope follows `deterministic`). */

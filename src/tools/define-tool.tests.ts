@@ -44,6 +44,17 @@ describe('defineTool', () => {
     }));
   });
 
+  it('marks tools strict by default and still rejects non-strict argument objects', () => {
+    expect(defineTool(BASE).strict).toBe(true);
+    expect(() => defineTool({ ...BASE, args: z.object({ id: z.string() }) })).toThrow(expect.objectContaining({ code: 'invalid_definition', message: expect.stringContaining('.strict()') }));
+  });
+
+  it('lets a tool opt out of the strict subset explicitly with strictSchema: false', () => {
+    const loose = defineTool({ ...BASE, strictSchema: false, args: z.object({ id: z.string(), extra: z.record(z.string(), z.unknown()).optional() }).strict() });
+    expect(loose.strict).toBe(false);
+    expect(loose.jsonSchema).toMatchObject({ type: 'object', required: ['id'], properties: { extra: { type: 'object', additionalProperties: true } } });
+  });
+
   it('accepts a positive integer timeoutMs', () => {
     expect(defineTool({ ...BASE, timeoutMs: 120_000 }).timeoutMs).toBe(120_000);
   });

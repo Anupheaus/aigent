@@ -55,6 +55,12 @@ describe('agent.task', () => {
     expect(provider.requests[0]?.tools.map(tool => tool.name)).toEqual(['aigent_multi', 'echo']);
   });
 
+  it('marks aigent_multi as the only non-strict tool in the provider request', async () => {
+    const { agent, provider } = setup({ turns: [textTurn('ok')] });
+    await agent.task({ task: 'x' });
+    expect(provider.requests[0]?.tools.map(({ name, strict }) => ({ name, strict }))).toEqual([{ name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
+  });
+
   it('runs tools in a loop and feeds structured envelopes back', async () => {
     const { agent, provider } = setup({ turns: [
       toolTurn([{ id: 'c1', name: 'echo', args: { text: 'hi' } }, { id: 'c2', name: 'echo', args: { text: 5 } }]),
@@ -111,7 +117,7 @@ describe('agent.task', () => {
   it('runs batch tools and aigent_multi through the loop', async () => {
     const batch = defineBatchTool({ name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, describeActivity: () => ({ title: 'r' }), runItem: async item => item.id });
     const { agent } = setup({ turns: [
-      toolTurn([{ id: 'c1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'read_all', argsJson: '{"items":[{"id":"a"}]}' }] } }]),
+      toolTurn([{ id: 'c1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'read_all', args: { items: [{ id: 'a' }] } }] } }]),
       textTurn('fine'),
     ], tools: [batch] });
     const result = await agent.task({ task: 'x' });
@@ -232,7 +238,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
   it('counts every aigent_multi inner call toward maxToolCalls and refuses the rest', async () => {
     let echoRuns = 0;
     const counted = defineTool({ name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
-    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', argsJson: '{"text":"x"}' }));
+    const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', args: { text: 'x' } }));
     const { agent, provider } = setup({ turns: [toolTurn([{ id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')], tools: [counted] });
     const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
     expect(echoRuns).toBe(1);
@@ -246,7 +252,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
   });
 
   it('refuses aigent_multi outright once the budget is spent', async () => {
-    const calls = [{ id: 'a', tool: 'echo', argsJson: '{"text":"x"}' }];
+    const calls = [{ id: 'a', tool: 'echo', args: { text: 'x' } }];
     const { agent } = setup({ turns: [toolTurn([{ id: 'e1', name: 'echo', args: { text: 'x' } }, { id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')] });
     const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
     expect(result.usage.toolCalls).toBe(1);
@@ -258,7 +264,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
     const { agent } = setup({ turns: [
       toolTurn([
         { id: 'b1', name: 'read_all', args: { items: [{ id: 'ok' }, { id: 'bad' }] } },
-        { id: 'm1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'echo', argsJson: '{"text":5}' }] } },
+        { id: 'm1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'echo', args: { text: 5 } }] } },
       ]),
       textTurn('fine'),
     ], tools: [echoTool, batch] });

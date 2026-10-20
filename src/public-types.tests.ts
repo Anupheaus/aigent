@@ -6,7 +6,7 @@ import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 describe('public types', () => {
   it('lets provider authors and consumers name the parts of public signatures', () => {
     const parameters: JsonSchema = { type: 'object' };
-    const spec: ProviderToolSpec = { name: 'echo', description: 'Echo text', parameters };
+    const spec: ProviderToolSpec = { name: 'echo', description: 'Echo text', parameters, strict: true };
     const role: MessageRole = 'assistant';
     const finishReason: FinishReason = 'stop';
     const directive: Directive = { type: 'status', data: { text: 'working' } };
