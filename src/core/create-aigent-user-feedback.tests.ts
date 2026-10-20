@@ -170,6 +170,18 @@ describe('ai.feedback', () => {
     expect((await memory.get<RunRecord>('runs', result.runId))?.value.userVerdict).toBe(feedback?.rating);
   });
 
+  it('ai.close() waits for ai.feedback calls in flight, so their verdict is not lost at shutdown', async () => {
+    const memory = createInMemoryStore();
+    const SLOW_READ_MS = 20;
+    const store: Store = { ...memory, get: async (collection, key) => { if (collection === 'responses') await new Promise(resolve => setTimeout(resolve, SLOW_READ_MS)); return memory.get(collection, key); } };
+    const { ai, agent } = setup({ store });
+    const result = await agent.task({ task: 'x' });
+    const pending = ai.feedback({ responseId: result.responseId, rating: 'incorrect' });
+    await ai.close();
+    expect((await memory.get<RunRecord>('runs', result.runId))?.value.userVerdict).toBe('incorrect');
+    await pending;
+  });
+
   it('stores no comment or expected answer text with captureContent: false, only their lengths', async () => {
     const { ai, agent, store } = setup({ options: { captureContent: false } });
     const result = await agent.task({ task: 'x' });

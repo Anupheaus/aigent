@@ -75,7 +75,7 @@ export interface Aigent {
   /** Validates the definition (throws `invalid_definition` / `unknown_provider`) and returns the agent. */
   agent(definition: AgentDefinition): Agent;
   /**
-   * Resolves once every run started so far (and any started while closing) has settled and every pending store
+   * Resolves once every run and `ai.feedback` call started so far (and any started while closing) has settled and every pending store
    * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.
    */
   close(): Promise<void>;
@@ -146,21 +146,33 @@ export function createAigent(options: AigentOptions): Aigent {
   const writeQueue = createWriteQueue();
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
-  const submitFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
-  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, submitFeedback, sleep, random, scheduler };
-  /** Settles (never rejects) when its run has finished, including writing its record. */
-  const activeRuns = new Set<Promise<void>>();
+  const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
+  // result.feedback goes through the same tracked path as ai.feedback.
+  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler };
+  /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
+  const activeWork = new Set<Promise<void>>();
+
+  function trackSettled(work: PromiseLike<unknown>): void {
+    const settled = Promise.resolve(work).then(() => undefined, () => undefined);
+    activeWork.add(settled);
+    void settled.then(() => activeWork.delete(settled));
+  }
 
   function track(run: TaskRun): TaskRun {
-    const settled = Promise.resolve(run).then(() => undefined, () => undefined);
-    activeRuns.add(settled);
-    void settled.then(() => activeRuns.delete(settled));
+    trackSettled(run);
     return run;
   }
 
+  /** Tracked like runs: a rating between its reads and its queued writes would otherwise be lost at close(). */
+  function feedback(userFeedback: UserFeedback): Promise<void> {
+    const recorded = recordFeedback(userFeedback);
+    trackSettled(recorded);
+    return recorded;
+  }
+
   async function close(): Promise<void> {
-    // Loop because a run may be started while we wait for the earlier ones.
-    while (activeRuns.size > 0) await Promise.all([...activeRuns]);
+    // Loop because a run or feedback call may be started while we wait for the earlier ones.
+    while (activeWork.size > 0) await Promise.all([...activeWork]);
     await services.writeQueue.flush();
   }
 
@@ -174,7 +186,9 @@ export function createAigent(options: AigentOptions): Aigent {
 
   function agent(definition: AgentDefinition): Agent {
     const { name, persona, skillset, context, tools = [], version, fallbackModels, resilience } = definition;
-    const enableFeedback = resolveEnableFeedback({ explicit: definition.enableFeedback ?? options.enableFeedback, env: process.env });
+    // process is absent outside Node (e.g. edge runtimes); without it no NODE_ENV is set.
+    const env = typeof process === 'undefined' ? {} : process.env;
+    const enableFeedback = resolveEnableFeedback({ explicit: definition.enableFeedback ?? options.enableFeedback, env });
     if (name === '') throw createAigentError({ code: 'invalid_definition', message: 'Agent name must be a non-empty string' });
     const limits = parseAgentLimits({ agentName: name, limits: definition.limits });
     const agentSettings = parseModelSettings({ owner: `Agent '${name}'`, settings: definition.modelSettings });
@@ -207,7 +221,7 @@ export function createAigent(options: AigentOptions): Aigent {
     close,
     trace: runId => readTrace({ store, runId }),
     purge: async filter => purgeRecords({ store, filter }),
-    feedback: submitFeedback,
+    feedback,
     report: async filter => readReport({ store, filter, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) }),
   };
 }
