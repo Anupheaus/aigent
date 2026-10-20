@@ -4,19 +4,13 @@ import { renderPinned } from '../planning/render-pinned.js';
 import { createRunPlanning } from '../planning/run-planning.js';
 import type { RunPlanning } from '../planning/run-planning.js';
 import { createTodoTool } from '../planning/todo-tool.js';
-import type { ProviderMessage } from '../providers/provider-types.js';
 import { createToolRegistry } from '../tools/tool-registry.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
+import { issueContextMessage, renumber } from './run-context.js';
+import type { RunContext } from './run-context.js';
 import type { TaskInput } from './task-input.js';
 
-/** A stored history message; `pinned` marks the plan definitions, which compaction must never drop. */
-export interface RunMessage extends ProviderMessage {
-  pinned?: boolean;
-}
-
-/** Index of the pinned definitions: directly after the system prompt and the task brief. */
-const PINNED_INDEX = 2;
 
 export interface SetUpRunPlanningParams {
   registry: ToolRegistry;
@@ -37,8 +31,10 @@ export function setUpRunPlanning(params: SetUpRunPlanningParams): { registry: To
 }
 
 export interface SyncPinnedParams {
-  messages: RunMessage[];
+  context: RunContext;
   planning: RunPlanning;
+  /** Epoch ms, stamped on a newly pinned message. */
+  now: number;
 }
 
 /**
@@ -47,16 +43,19 @@ export interface SyncPinnedParams {
  * a real prefix change, which the stability monitor is left to report.
  */
 export function syncPinned(params: SyncPinnedParams): void {
-  const { messages, planning } = params;
+  const { context, planning, now } = params;
+  const { state } = context;
   const text = renderPinned(planning.state);
-  const current = messages[PINNED_INDEX];
-  const hasPinned = current?.pinned === true;
-  if (hasPinned && current.text === text) return;
-  if (text == null && !hasPinned) return;
-  if (text == null) { messages.splice(PINNED_INDEX, 1); return; }
-  const pinned: RunMessage = { role: 'user', text, pinned: true };
-  if (hasPinned) messages[PINNED_INDEX] = pinned;
-  else messages.splice(PINNED_INDEX, 0, pinned);
+  const index = state.findIndex(({ kind }) => kind === 'pinned');
+  const current = state[index];
+  if (current != null && current.message.text === text) return;
+  if (text == null && current == null) return;
+  if (text == null) { state.splice(index, 1); renumber(state); return; }
+  const pinned = issueContextMessage({ context, entry: { message: { role: 'user', text }, kind: 'pinned' }, createdAt: now });
+  // Directly after the task brief, so the definitions stay in the never-compacted head of the prompt.
+  if (current != null) state[index] = pinned;
+  else state.splice(state.findIndex(({ kind }) => kind === 'brief') + 1, 0, pinned);
+  renumber(state);
 }
 
 /** A run that otherwise completed is incomplete while any plan or todo item is not done. */

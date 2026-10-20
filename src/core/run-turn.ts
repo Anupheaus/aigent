@@ -1,7 +1,7 @@
 import type { ToolCache } from '../cache/cache-types.js';
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, ProviderMessage, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
 import type { RunTimer } from '../telemetry/run-timer.js';
 import type { TraceRecorder } from '../telemetry/trace-recorder.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
@@ -14,10 +14,10 @@ import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
 import type { RunShaping } from './run-shaping.js';
-import { requestMessages } from './run-volatile.js';
+import type { RunContext } from './run-context.js';
+import { buildTurnRequest, recordPromptSize } from './run-request.js';
 import { applyPlanningDirective } from '../planning/apply-directives.js';
 import type { RunPlanning } from '../planning/run-planning.js';
-import type { RunMessage } from './run-planning-setup.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
@@ -56,8 +56,8 @@ export interface RunTurnParams {
   maxToolCalls: number;
   clock: Clock;
   signal: AbortSignal;
-  /** Conversation so far; copied into the request, never mutated. */
-  messages: RunMessage[];
+  /** The run's stored messages; read into the request, never changed here (only its size figures are updated). */
+  context: RunContext;
   totals: RunTotals;
   work: TurnWork;
   telemetry: RunTelemetry;
@@ -108,15 +108,17 @@ function addUsage(totals: RunTotals, usage: Usage): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, messages, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit } = params;
+  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   const thinkingBlocks: ThinkingBlock[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
-  const tools = registry.specs();
-  const request = { messages: requestMessages({ volatile, clock, messages, tools, progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls } }), tools };
+  const { request, estimatedTokens } = buildTurnRequest({
+    context, tools: registry.specs(), volatile, clock, target: routing.targets[0], progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls },
+  });
+  let reportedTokens: number | undefined;
   const iterator = openTurnStream({ routing, request, signal, counters: totals, emit })[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
@@ -136,7 +138,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
         case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;
-        case 'usage': addUsage(totals, event.usage); emit(event); break;
+        case 'usage': addUsage(totals, event.usage); reportedTokens = event.usage.inputTokens; emit(event); break;
         case 'done': finishReason = event.finishReason; break;
       }
     }
@@ -144,6 +146,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     // A stream that ended or threw is already finished; only one we walked away from needs to be told to stop.
     if (isAbandoned) stopStream(iterator);
   }
+  recordPromptSize({ context, estimatedTokens, ...(reportedTokens == null ? {} : { reportedTokens }) });
   visible += emitParsed(parser.end(), params);
   return { visible, calls, thinkingBlocks, finishReason };
 }

@@ -103,6 +103,17 @@ describe('openAiCompatible request', () => {
     });
   });
 
+  it('ignores cache breakpoints (OpenAI-compatible caching is automatic)', async () => {
+    const { requests, events } = streaming(sseBody([finishChunk('stop')]));
+    await events({ model: 'test-model', messages: [{ role: 'system', text: 's' }, { role: 'user', text: 'hi' }], tools: [], cacheBreakpoints: [0, 1] });
+    expect(sentBody(requests[0])).toEqual({
+      model: 'test-model',
+      messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'hi' }],
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+  });
+
   it('maps tools with their strict flag and the maxOutputTokens setting to max_tokens', async () => {
     const { requests, events } = streaming(sseBody([finishChunk('stop')]));
     const parameters = { type: 'object', properties: { q: { type: 'string' } }, required: ['q'], additionalProperties: false };

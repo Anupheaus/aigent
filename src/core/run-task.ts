@@ -1,5 +1,4 @@
 import type { ToolCache } from '../cache/cache-types.js';
-import type { ProviderMessage } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import { envelopeText } from '../tools/envelope-text.js';
 import { addErrorDetails } from '../tools/tool-error-detail.js';
@@ -12,7 +11,8 @@ import type { RunShaping } from './run-shaping.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { RunPlanning } from '../planning/run-planning.js';
 import { finalStatus, planningResult, syncPinned } from './run-planning-setup.js';
-import type { RunMessage } from './run-planning-setup.js';
+import { appendContextMessages, createRunContext } from './run-context.js';
+import type { NewContextMessage } from './run-context.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -75,6 +75,8 @@ const ACTIVITY_SETTLE_GRACE_MS = 1_000;
 interface TurnMessagesParams {
   turn: TurnStreamResult;
   executed: ExecutedToolCall[];
+  /** Resolves each result's tool, whose `compactable: false` keeps the result out of compaction. */
+  registry: ToolRegistry;
 }
 
 /** A run aborted by its timeout reached a limit; any other abort is a cancellation. */
@@ -99,16 +101,25 @@ function toolCallsPerTurn(totals: RunTotals): number {
   return turns === 0 ? 0 : toolCalls / turns;
 }
 
-/** The assistant message (with its tool calls and thinking blocks) followed by one tool message per call, in call order. */
-function turnMessages(params: TurnMessagesParams): ProviderMessage[] {
-  const { turn: { visible, calls, thinkingBlocks }, executed } = params;
-  const assistant: ProviderMessage = {
-    role: 'assistant',
-    text: visible,
-    ...(calls.length > 0 ? { toolCalls: calls } : {}),
-    ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}),
+/**
+ * The assistant message (with its tool calls and thinking blocks) followed by one tool message per call, in call
+ * order, all sharing the first call's id as `pairId` so compaction keeps them together.
+ */
+function turnMessages(params: TurnMessagesParams): NewContextMessage[] {
+  const { turn: { visible, calls, thinkingBlocks }, executed, registry } = params;
+  const pairId = calls[0]?.id;
+  const paired = pairId == null ? {} : { pairId };
+  const assistant: NewContextMessage = {
+    kind: 'assistant',
+    message: { role: 'assistant', text: visible, ...(calls.length > 0 ? { toolCalls: calls } : {}), ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}) },
+    ...paired,
   };
-  const toolResults = executed.map(({ envelope }): ProviderMessage => ({ role: 'tool', toolCallId: envelope.id, text: envelopeText(envelope) }));
+  const toolResults = executed.map(({ envelope }): NewContextMessage => ({
+    kind: 'tool',
+    message: { role: 'tool', toolCallId: envelope.id, text: envelopeText(envelope) },
+    ...(registry.get(envelope.tool)?.compactable === false ? { flags: { compactable: false } } : {}),
+    ...paired,
+  }));
   return [assistant, ...toolResults];
 }
 
@@ -137,7 +148,10 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
-  const messages: RunMessage[] = [{ role: 'system', text: buildSystemPrompt(prompt) }, { role: 'user', text: buildTaskBrief(input) }];
+  const context = createRunContext({
+    runId, createdAt: startedAt,
+    initial: [{ kind: 'system', message: { role: 'system', text: buildSystemPrompt(prompt) } }, { kind: 'brief', message: { role: 'user', text: buildTaskBrief(input) } }],
+  });
   const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0 };
   const errors: ToolErrorDetail[] = [];
   let answer = '';
@@ -150,14 +164,14 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     if (control.isGracefulStopRequested()) { status = 'stopped'; break; }
     if (totals.turns >= limits.maxTurns) { status = 'limit_reached'; break; }
     totals.turns += 1;
-    syncPinned({ messages, planning });
+    syncPinned({ context, planning, now: clock.now() });
 
     const work: TurnWork = { executions: [], activities: [], activityController: new AbortController() };
     let turn: TurnStreamResult;
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit, volatile, planning,
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });
@@ -179,7 +193,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     }
 
     const executed = await drainWork({ work, signal, emit });
-    messages.push(...turnMessages({ turn, executed }));
+    appendContextMessages({ context, messages: turnMessages({ turn, executed, registry }), createdAt: clock.now() });
     errors.push(...failedDetails(executed));
     if (turn.calls.length === 0) {
       answer = turn.visible.trim();
@@ -192,7 +206,10 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
   const result: TaskResultData = {
     ...planningResult(planning),
     status: finalStatus({ status, planning }), answer, runId, responseId, agentName, instanceId, errors,
-    usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt },
+    usage: {
+      ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt,
+      ...(context.peakTokens > 0 ? { contextTokensPeak: context.peakTokens } : {}),
+    },
   };
   if (failure != null) result.failure = failure;
   if (status === 'stopped') result.stopMode = 'graceful';

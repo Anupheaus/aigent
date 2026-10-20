@@ -47,6 +47,8 @@ export interface ResilienceCounters {
 export interface TurnRequest {
   messages: ProviderMessage[];
   tools: ProviderToolSpec[];
+  /** Indices into `messages` after which a prompt-cache breakpoint belongs (see `ProviderRequest.cacheBreakpoints`). */
+  cacheBreakpoints?: number[];
 }
 
 export interface OpenTurnStreamParams {
@@ -71,8 +73,9 @@ const CHARS_PER_TOKEN = 4;
 
 /** Input estimated from the request size plus the most the model may write. */
 function estimateTokens(params: { request: TurnRequest; settings?: ProviderSettings }): number {
-  const { request, settings } = params;
-  return Math.ceil(JSON.stringify(request).length / CHARS_PER_TOKEN) + (settings?.maxOutputTokens ?? DEFAULT_OUTPUT_TOKEN_ESTIMATE);
+  const { request: { messages, tools }, settings } = params;
+  // Only what is sent as prompt text counts; cache breakpoints are markers, not tokens.
+  return Math.ceil(JSON.stringify({ messages, tools }).length / CHARS_PER_TOKEN) + (settings?.maxOutputTokens ?? DEFAULT_OUTPUT_TOKEN_ESTIMATE);
 }
 
 function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouting; emit(event: AigentEvent): void }): void {
@@ -85,13 +88,13 @@ function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouti
 /** One target as a resilient attempt: each open waits for a scheduler lease, then applies the first-event timeout. */
 function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
   const { target: { label, provider, model, settings }, request, routing: { scheduler, priority, agentName, policy, sleep }, emit } = params;
-  const { messages, tools } = request;
+  const { messages, tools, cacheBreakpoints } = request;
   const lease = { key: label, estimatedTokens: estimateTokens({ request, settings }), priority, agentName };
   return {
     label,
     open: signal => leasedStream({
       scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs, maxRateLimitPauseMs: policy.maxDelayMs,
-      open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }) }, streamSignal),
+      open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }), ...(cacheBreakpoints == null ? {} : { cacheBreakpoints }) }, streamSignal),
       onQueued: ({ position, reason, waitMs }) => emit({ type: 'queued', position, reason, ...(waitMs == null ? {} : { waitMs }) }),
     }),
   };

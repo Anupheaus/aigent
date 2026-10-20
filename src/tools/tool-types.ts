@@ -107,6 +107,8 @@ export interface Tool {
   acceptsAliases?: boolean;
   timeoutMs: number;
   maxResultTokens?: number;
+  /** False keeps this tool's results out of compaction: never stubbed, deduplicated or summarised. Absent means true. */
+  compactable?: boolean;
   describeActivity: DescribeActivity<unknown>;
   run(args: unknown, context: ToolContext): Promise<unknown>;
   /** Optional aggregate outcome for the activity renderer; default is success. */

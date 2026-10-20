@@ -351,6 +351,15 @@ createAigent({ providers, volatile: { dateTime: { granularity: 'hour' }, timezon
 - `progress: false` leaves the turn and tool-call counters out. With no date, no progress and no sections, no block is sent.
 - **Prefix monitor:** each run checks that each request's history starts with the previous request's history unchanged. If an earlier message (or a tool spec) changes without a deliberate rewrite (the pinned plan block) or a compaction, the run emits one `warning` per run: "Prompt prefix changed between turns without a compaction; ...". It is on unless `NODE_ENV` is `production`; `volatile.warnOnPrefixChange` turns it on or off explicitly.
 
+## Context layout
+
+A run stores its history as context messages: the provider message plus a `kind` (`system`, `brief`, `user`, `assistant`, `tool`, `question`, `answer`, `summary`, `pinned`, `directive`, `stub`), a `compactable` flag, a `pinned` flag, a token estimate and, for a tool round, a `pairId` (the first call's id) shared by the assistant message and all of its results.
+
+- **Never compacted:** `system`, `brief`, `question`, `answer`, `summary`, `pinned` and `directive` messages, and any message the user pins. `user`, `assistant`, `tool` and `stub` messages are compactable. A tool can keep its results out of compaction with `defineTool({ compactable: false })` (part of the agent version).
+- **Layout:** `[system][non-compactable][summary][recent + new][volatile]`. Between compactions the history is append-only, so each request's prefix is byte-identical to the previous request's plus the new tail. Only a compaction reorders it, by hoisting every non-compactable message (in their original order) ahead of the single summary.
+- **Cache breakpoints:** each request carries `cacheBreakpoints`, the indices of the last system message, the end of the non-compactable block, the summary and (with a volatile block) the last stable message. With prompt caching on, the Anthropic adapter puts `cache_control` on the last block of each of those messages, up to three plus the system block's (four in all, the API limit; the latest are kept). OpenAI-compatible adapters ignore them, as those providers cache prefixes automatically.
+- **Budget:** the context size is `modelSettings.contextSize`, else the provider's `maxContextTokens`; the usable prompt budget is that minus `maxOutputTokens` (4,096 when unset). Prompt size is estimated as characters / 4 plus 4 tokens per message plus the tool specs, and calibrated by the ratio of the provider-reported `inputTokens` to the estimate (clamped to 0.5–2). `TaskResult.usage.contextTokensPeak` is the largest prompt the run sent.
+
 ## Plan and todo
 
 A task may bring a **plan**; every agent also keeps its own **todo list**.

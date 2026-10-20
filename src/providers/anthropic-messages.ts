@@ -1,70 +1,10 @@
 import { ANTHROPIC_RESERVED_BODY_FIELDS, toAnthropicSettingsFields } from './anthropic-settings.js';
 import { bodyOptions } from './provider-options.js';
-import type { AnthropicSettingsFields } from './anthropic-settings.js';
-import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ThinkingBlock, ToolCall } from './provider-types.js';
-
-/** Wire shapes of the Anthropic Messages API request (only the fields we send). */
-export interface AnthropicCacheControl {
-  type: 'ephemeral';
-}
-
-export interface AnthropicTextBlock {
-  type: 'text';
-  text: string;
-  cache_control?: AnthropicCacheControl;
-}
-
-export interface AnthropicToolUseBlock {
-  type: 'tool_use';
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-  cache_control?: AnthropicCacheControl;
-}
-
-export interface AnthropicToolResultBlock {
-  type: 'tool_result';
-  tool_use_id: string;
-  content: string;
-  /** Set for failed tool envelopes, so the model treats the content as an error. */
-  is_error?: true;
-  cache_control?: AnthropicCacheControl;
-}
-
-export interface AnthropicThinkingBlock {
-  type: 'thinking';
-  thinking: string;
-  signature: string;
-}
-
-export interface AnthropicRedactedThinkingBlock {
-  type: 'redacted_thinking';
-  data: string;
-}
-
-export type AnthropicUserBlock = AnthropicTextBlock | AnthropicToolResultBlock;
-export type AnthropicAssistantBlock = AnthropicThinkingBlock | AnthropicRedactedThinkingBlock | AnthropicTextBlock | AnthropicToolUseBlock;
-
-export type AnthropicMessage =
-  | { role: 'user'; content: string | AnthropicUserBlock[] }
-  | { role: 'assistant'; content: AnthropicAssistantBlock[] };
-
-export interface AnthropicTool {
-  name: string;
-  description: string;
-  input_schema: JsonSchema;
-}
-
-export interface AnthropicMessagesRequest extends AnthropicSettingsFields {
-  model: string;
-  stream: true;
-  system?: string | AnthropicTextBlock[];
-  messages: AnthropicMessage[];
-  tools?: AnthropicTool[];
-}
-
-/** The request plus any `providerOptions` fields, which may add fields but never replace a reserved one. */
-export type AnthropicMessagesBody = AnthropicMessagesRequest & Record<string, unknown>;
+import type {
+  AnthropicCacheControl, AnthropicMessage, AnthropicMessagesBody, AnthropicRedactedThinkingBlock, AnthropicTextBlock, AnthropicThinkingBlock, AnthropicTool,
+  AnthropicToolResultBlock, AnthropicToolUseBlock, AnthropicUserBlock,
+} from './anthropic-wire-types.js';
+import type { ProviderMessage, ProviderRequest, ProviderToolSpec, ThinkingBlock, ToolCall } from './provider-types.js';
 
 export interface AnthropicRequestSettings {
   /** Used when the request has no `maxOutputTokens` setting; the API rejects requests without `max_tokens`. */
@@ -233,6 +173,44 @@ interface ToAnthropicMessagesParams {
   messages: ProviderMessage[];
   /** Puts a breakpoint on the last block before the volatile block, when the request has one. */
   promptCaching: boolean;
+  /** The request's breakpoints; when present they replace the volatile-block rule. */
+  cacheBreakpoints?: number[];
+}
+
+/**
+ * Breakpoints Anthropic allows on messages: four per request in all, and the system block (which also caches the
+ * tools) always takes one.
+ */
+const MAX_MESSAGE_BREAKPOINTS = 3;
+
+/**
+ * The request's breakpoints that can carry a marker (not system messages, which live in the system block, nor the
+ * volatile block), keeping the latest ones when there are too many: a later breakpoint caches everything before it.
+ */
+function markedIndices(params: { messages: ProviderMessage[]; cacheBreakpoints: number[] }): ReadonlySet<number> {
+  const { messages, cacheBreakpoints } = params;
+  const eligible = cacheBreakpoints.filter(index => {
+    const message = messages[index];
+    return message != null && message.role !== 'system' && message.volatile !== true;
+  });
+  return new Set(eligible.slice(-MAX_MESSAGE_BREAKPOINTS));
+}
+
+/**
+ * Explicit breakpoints: each indicated message is marked on its own last block before it is merged with its
+ * neighbours, so the marker stays at the end of that message's content even inside a merged user turn.
+ */
+function toMarkedMessages(params: { messages: ProviderMessage[]; marked: ReadonlySet<number> }): AnthropicMessage[] {
+  const { messages, marked } = params;
+  const replacedArgs = collectReplacedArgs(messages);
+  return messages.reduce<AnthropicMessage[]>((wire, message, index) => {
+    const converted = toWireMessage({ message, replacedArgs });
+    if (converted == null) return wire;
+    const next = marked.has(index) ? withBreakpoint(converted) : converted;
+    const previous = wire.at(-1);
+    const merged = previous == null ? undefined : mergeSameRole({ previous, next });
+    return merged == null ? [...wire, next] : [...wire.slice(0, -1), merged];
+  }, []);
 }
 
 /**
@@ -247,7 +225,11 @@ interface ToAnthropicMessagesParams {
  * message, the breakpoint stays on the tool result, never on the text that changes every turn.
  */
 function toAnthropicMessages(params: ToAnthropicMessagesParams): AnthropicMessage[] {
-  const { messages, promptCaching } = params;
+  const { messages, promptCaching, cacheBreakpoints } = params;
+  if (cacheBreakpoints != null) {
+    const marked = promptCaching ? markedIndices({ messages, cacheBreakpoints }) : new Set<number>();
+    return toMarkedMessages({ messages, marked });
+  }
   const replacedArgs = collectReplacedArgs(messages);
   const append = (wire: AnthropicMessage[], message: ProviderMessage): AnthropicMessage[] => {
     const next = toWireMessage({ message, replacedArgs });
@@ -282,7 +264,7 @@ function toAnthropicTool(tool: ProviderToolSpec): AnthropicTool {
 
 /** Translates a normalised request into the Anthropic streaming Messages API body, plus any non-reserved `providerOptions`. */
 export function toAnthropicMessagesRequest(request: ProviderRequest, adapterSettings: AnthropicRequestSettings): AnthropicMessagesBody {
-  const { model, messages, tools, settings = {} } = request;
+  const { model, messages, tools, settings = {}, cacheBreakpoints } = request;
   const { defaultMaxTokens } = adapterSettings;
   const promptCaching = settings.promptCaching ?? adapterSettings.promptCaching;
   const system = toSystem({ messages, promptCaching });
@@ -292,7 +274,7 @@ export function toAnthropicMessagesRequest(request: ProviderRequest, adapterSett
     stream: true,
     ...toAnthropicSettingsFields({ settings, defaultMaxTokens }),
     ...(system == null ? {} : { system }),
-    messages: toAnthropicMessages({ messages, promptCaching }),
+    messages: toAnthropicMessages({ messages, promptCaching, ...(cacheBreakpoints == null ? {} : { cacheBreakpoints }) }),
     ...(tools.length === 0 ? {} : { tools: tools.map(toAnthropicTool) }),
   };
 }

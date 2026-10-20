@@ -46,6 +46,8 @@ interface ToolBaseInput {
   acceptsAliases?: boolean;
   timeoutMs?: number;
   maxResultTokens?: number;
+  /** Default true. False keeps this tool's results out of compaction (never stubbed or summarised). */
+  compactable?: boolean;
   /**
    * Default true: the argument schema must fit the strict subset (every object `.strict()`, optionals sent as null) and
    * providers send the tool with strict decoding. `false` is an explicit opt-out for tools whose arguments a strict schema
@@ -120,8 +122,14 @@ function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivi
   if (cache && !deterministic && (cacheTtlMs == null || cacheTtlMs <= 0)) invalid(name, 'a cached non-deterministic tool needs a positive cacheTtlMs');
   if (acceptsAliases !== undefined && typeof acceptsAliases !== 'boolean') invalid(name, `acceptsAliases must be a boolean, got ${String(acceptsAliases)}`);
   if (timeoutMs !== undefined && !isPositiveInteger(timeoutMs)) invalid(name, `timeoutMs must be a positive integer number of milliseconds, got ${String(timeoutMs)}`);
+  validateContextFields(input);
   validateCacheFields(input);
   validateShapingFields(input);
+}
+
+function validateContextFields(input: ToolBaseInput): void {
+  const { name, compactable } = input;
+  if (compactable !== undefined && typeof compactable !== 'boolean') invalid(name, `compactable must be a boolean, got ${String(compactable)}`);
 }
 
 function isPositiveInteger(value: unknown): boolean {
@@ -130,7 +138,7 @@ function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -152,6 +160,7 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(validity == null ? {} : { validity: (validityArgs: unknown, context: ToolContext) => validity(validityArgs as z.infer<TSchema>, context) }),
     hasSideEffects,
     ...(acceptsAliases === true ? { acceptsAliases } : {}),
+    ...(compactable === false ? { compactable } : {}),
     timeoutMs,
     maxResultTokens,
     describeActivity: describeActivity as DescribeActivity<unknown>,

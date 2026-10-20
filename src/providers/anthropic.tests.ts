@@ -146,6 +146,41 @@ describe('anthropic request', () => {
     expect(off.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'task' }, { type: 'text', text: 'state' }] }]);
   });
 
+  it('maps request cacheBreakpoints to cache_control on the last block of each indicated message', async () => {
+    const messages: ProviderRequest['messages'] = [
+      { role: 'system', text: 'Rules.' },
+      { role: 'user', text: 'brief' },
+      { role: 'user', text: 'summary' },
+      { role: 'assistant', text: 'thinking aloud', toolCalls: [{ id: 'c1', name: 'read', args: {} }] },
+      { role: 'tool', toolCallId: 'c1', text: 'r1' },
+      { role: 'user', text: 'state', volatile: true },
+    ];
+    const body = await bodyFor({ request: { ...REQUEST, messages, cacheBreakpoints: [0, 1, 2, 4] } });
+    const ephemeral = { type: 'ephemeral' };
+    expect(body.system).toEqual([{ type: 'text', text: 'Rules.', cache_control: ephemeral }]);
+    expect(body.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'brief', cache_control: ephemeral }, { type: 'text', text: 'summary', cache_control: ephemeral }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'thinking aloud' }, { type: 'tool_use', id: 'c1', name: 'read', input: {} }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'r1', cache_control: ephemeral }, { type: 'text', text: 'state' }] },
+    ]);
+  });
+
+  it('caps breakpoints at four in total (system included), keeping the latest, and never marks the volatile block', async () => {
+    const messages: ProviderRequest['messages'] = [
+      { role: 'system', text: 'Rules.' },
+      ...['a', 'b', 'c', 'd', 'e'].flatMap((text, index): ProviderRequest['messages'] => [{ role: 'user', text }, { role: 'assistant', text: `r${index}` }]),
+      { role: 'user', text: 'state', volatile: true },
+    ];
+    const body = await bodyFor({ request: { ...REQUEST, messages, cacheBreakpoints: [1, 2, 3, 4, 5, 11] } });
+    const marked = JSON.stringify(body).match(/cache_control/g) ?? [];
+    expect(marked).toHaveLength(4);
+    const wire = body.messages as { content: string | { text?: string; cache_control?: unknown }[] }[];
+    const markedTexts = wire.flatMap(({ content }) => (typeof content === 'string' ? [] : content.filter(block => block.cache_control != null).map(({ text }) => text)));
+    expect(markedTexts).toEqual(['b', 'r1', 'c']);
+    const off = await bodyFor({ request: { ...REQUEST, messages, cacheBreakpoints: [1, 2] }, options: { promptCaching: false } });
+    expect(JSON.stringify(off)).not.toContain('cache_control');
+  });
+
   it('sends the system prompt as a plain string when prompt caching is off', async () => {
     const body = await bodyFor({ request: { ...REQUEST, messages: [{ role: 'system', text: 'Be brief.' }, { role: 'user', text: 'hi' }] }, options: { promptCaching: false } });
     expect(body.system).toBe('Be brief.');

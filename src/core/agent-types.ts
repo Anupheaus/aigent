@@ -65,6 +65,11 @@ export interface TaskUsage extends Usage {
   /** Times a turn moved on to a fallback model. */
   fallbacks: number;
   durationMs: number;
+  /**
+   * Largest prompt the run sent, in tokens: the provider's reported input tokens where it reported them, the
+   * calibrated estimate otherwise. Absent when the run made no request.
+   */
+  contextTokensPeak?: number;
 }
 
 export interface TaskResult {

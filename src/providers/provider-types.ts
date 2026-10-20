@@ -67,6 +67,12 @@ export interface ProviderRequest {
    * Adapters map what they support and ignore the rest.
    */
   settings?: ProviderSettings;
+  /**
+   * Indices into `messages` after which a prompt-cache breakpoint should be set (the end of the system block, of the
+   * non-compactable block, the summary and the last stable message), ascending. Adapters with explicit cache markers
+   * (Anthropic) honour as many as they allow; others ignore them.
+   */
+  cacheBreakpoints?: number[];
 }
 
 export interface Usage {
