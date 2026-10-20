@@ -5,8 +5,6 @@ import { addErrorDetails, describeThrown } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { DescribeActivity, Tool, ToolContext, ToolOutcome } from './tool-types.js';
 
-export { isToolFailure, toolFailure } from './tool-failure.js';
-
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBatchTool, defineTool, toolFailure } from './define-tool.js';
+import { defineBatchTool, defineTool } from './define-tool.js';
+import { toolFailure } from './tool-failure.js';
 import { createMultiTool } from './multi-tool.js';
 import { createToolRegistry } from './tool-registry.js';
 import type { MultiToolContext, ToolContext } from './tool-types.js';

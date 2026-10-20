@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineBatchTool, defineTool, toolFailure } from './define-tool.js';
+import { defineBatchTool, defineTool } from './define-tool.js';
+import { toolFailure } from './tool-failure.js';
 import type { ToolContext } from './tool-types.js';
 
 const BASE = {

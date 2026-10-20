@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createInMemoryStore } from '../store/in-memory-store.js';
+import type { Store } from '../store/store-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
+import type { FakeTurn } from '../testing/fake-provider.js';
 import { defineBatchTool, defineTool } from '../tools/define-tool.js';
+import type { Tool } from '../tools/tool-types.js';
 import { createAigent } from './create-aigent.js';
 import type { AigentEvent } from './aigent-events.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
@@ -24,16 +27,24 @@ async function collect(iterable: AsyncIterable<AigentEvent>): Promise<AigentEven
   return events;
 }
 
-function setup(turns: Parameters<typeof createFakeProvider>[0]['turns'], tools = [echoTool], extra: { store?: ReturnType<typeof createInMemoryStore> } = {}) {
+interface SetupOptions {
+  turns: FakeTurn[];
+  /** Defaults to the echo tool. */
+  tools?: Tool[];
+  store?: Store;
+}
+
+function setup(options: SetupOptions) {
+  const { turns, tools = [echoTool], store } = options;
   const provider = createFakeProvider({ turns });
-  const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), ...extra });
+  const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), store });
   const agent = ai.agent({ name: 'helper', model: 'fake:test-model', persona: 'Calm', skillset: 'Can echo', tools });
   return { provider, ai, agent };
 }
 
 describe('agent.task', () => {
   it('answers a plain task and reports usage', async () => {
-    const { agent, provider } = setup([textTurn('The answer')]);
+    const { agent, provider } = setup({ turns: [textTurn('The answer')] });
     const result = await agent.task({ task: 'Say it' });
     expect(result).toMatchObject({ status: 'completed', answer: 'The answer', agentName: 'helper', usage: { inputTokens: 10, outputTokens: 5, turns: 1, toolCalls: 0 } });
     expect(provider.requests[0]?.messages[0]).toMatchObject({ role: 'system' });
@@ -44,10 +55,10 @@ describe('agent.task', () => {
   });
 
   it('runs tools in a loop and feeds structured envelopes back', async () => {
-    const { agent, provider } = setup([
+    const { agent, provider } = setup({ turns: [
       toolTurn([{ id: 'c1', name: 'echo', args: { text: 'hi' } }, { id: 'c2', name: 'echo', args: { text: 5 } }]),
       textTurn('Done'),
-    ]);
+    ] });
     const result = await agent.task({ task: 'Echo' });
     expect(result).toMatchObject({ status: 'completed', answer: 'Done', usage: { turns: 2, toolCalls: 2 } });
     expect(result.errors).toHaveLength(1);
@@ -60,10 +71,10 @@ describe('agent.task', () => {
   });
 
   it('emits ordered events including tool activity, directives (stripped from text) and a final done', async () => {
-    const { agent } = setup([
+    const { agent } = setup({ turns: [
       toolTurn([{ id: 'c1', name: 'echo', args: { text: 'hi' } }]),
       textTurn('Hello\n::aigent status {"text":"Wrapping up"}\nWorld', { chunkSize: 4 }),
-    ]);
+    ] });
     const events = await collect(agent.task({ task: 'Echo' }));
     const types = events.map(event => event.type);
     expect(types.indexOf('tool-call')).toBeLessThan(types.indexOf('tool-result'));
@@ -75,7 +86,7 @@ describe('agent.task', () => {
   });
 
   it('is awaitable and iterable with identical events', async () => {
-    const { agent } = setup([textTurn('A')]);
+    const { agent } = setup({ turns: [textTurn('A')] });
     const run = agent.task({ task: 'x' });
     const first = await collect(run);
     const result = await run;
@@ -88,7 +99,7 @@ describe('agent.task', () => {
     let turnFinishedAt = 0;
     const slowTurn = toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }], { delayMs: 40 });
     const tool = defineTool({ name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async () => { toolStartedAt = Date.now(); return 1; } });
-    const { agent } = setup([slowTurn, textTurn('ok')], [tool]);
+    const { agent } = setup({ turns: [slowTurn, textTurn('ok')], tools: [tool] });
     for await (const event of agent.task({ task: 'x' })) {
       if (event.type === 'usage' && turnFinishedAt === 0) turnFinishedAt = Date.now();
     }
@@ -98,33 +109,33 @@ describe('agent.task', () => {
 
   it('runs batch tools and aigent_multi through the loop', async () => {
     const batch = defineBatchTool({ name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, describeActivity: () => ({ title: 'r' }), runItem: async item => item.id });
-    const { agent } = setup([
+    const { agent } = setup({ turns: [
       toolTurn([{ id: 'c1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'read_all', argsJson: '{"items":[{"id":"a"}]}' }] } }]),
       textTurn('fine'),
-    ], [batch]);
+    ], tools: [batch] });
     const result = await agent.task({ task: 'x' });
     expect(result).toMatchObject({ status: 'completed', usage: { toolCalls: 1 } });
   });
 
   it('stops with limit_reached at maxTurns and refuses calls beyond maxToolCalls', async () => {
     const loopTurns = Array.from({ length: 5 }, (_, turn) => toolTurn([{ id: `c${turn}`, name: 'echo', args: { text: 'x' } }]));
-    const { agent } = setup(loopTurns);
+    const { agent } = setup({ turns: loopTurns });
     const limited = await agent.task({ task: 'x', limits: { maxTurns: 2 } });
     expect(limited.status).toBe('limit_reached');
-    const capped = setup([toolTurn([{ id: 'a', name: 'echo', args: { text: 'x' } }, { id: 'b', name: 'echo', args: { text: 'y' } }]), textTurn('ok')]);
+    const capped = setup({ turns: [toolTurn([{ id: 'a', name: 'echo', args: { text: 'x' } }, { id: 'b', name: 'echo', args: { text: 'y' } }]), textTurn('ok')] });
     const result = await capped.agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
     expect(result.errors).toEqual([expect.objectContaining({ category: 'denied', code: 'tool_call_limit' })]);
   });
 
   it('reports a provider failure as a failed result instead of throwing', async () => {
-    const { agent } = setup([]);
+    const { agent } = setup({ turns: [] });
     const result = await agent.task({ task: 'x' });
     expect(result.status).toBe('failed');
     expect(result.failure).toMatch(/no scripted turn/);
   });
 
   it('immediate stop aborts the stream mid-turn and settles as cancelled; repeated stop is harmless', async () => {
-    const { agent, provider } = setup([textTurn('abcdefghij', { chunkSize: 1, delayMs: 10 })]);
+    const { agent, provider } = setup({ turns: [textTurn('abcdefghij', { chunkSize: 1, delayMs: 10 })] });
     const run = agent.task({ task: 'x' });
     setTimeout(() => { run.cancel(); run.stop({ mode: 'immediate' }); }, 25);
     const result = await run;
@@ -134,7 +145,7 @@ describe('agent.task', () => {
   });
 
   it('graceful stop finishes the current turn then ends stopped without a new request', async () => {
-    const { agent, provider } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'x' } }], { delayMs: 15 }), textTurn('never')]);
+    const { agent, provider } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'x' } }], { delayMs: 15 }), textTurn('never')] });
     const run = agent.task({ task: 'x' });
     setTimeout(() => run.stop({ mode: 'graceful' }), 5);
     const result = await run;
@@ -143,7 +154,7 @@ describe('agent.task', () => {
   });
 
   it('an external AbortSignal cancels the run', async () => {
-    const { agent } = setup([textTurn('abcdef', { chunkSize: 1, delayMs: 10 })]);
+    const { agent } = setup({ turns: [textTurn('abcdef', { chunkSize: 1, delayMs: 10 })] });
     const controller = new AbortController();
     const run = agent.task({ task: 'x', signal: controller.signal });
     setTimeout(() => controller.abort(), 15);
@@ -151,7 +162,7 @@ describe('agent.task', () => {
   });
 
   it('rejects invalid input synchronously and unknown providers at agent creation', () => {
-    const { agent, ai } = setup([textTurn('x')]);
+    const { agent, ai } = setup({ turns: [textTurn('x')] });
     expect(() => agent.task({ task: '' })).toThrow(/task/);
     expect(() => ai.agent({ name: 'x', model: 'nope:model' })).toThrow(/nope.*fake/);
     expect(() => ai.agent({ name: 'x', model: 'missing-colon' })).toThrow(/provider:model/);
@@ -159,7 +170,7 @@ describe('agent.task', () => {
 
   it('writes a run record through the queue and flushes it before the run resolves', async () => {
     const store = createInMemoryStore();
-    const { agent, ai } = setup([textTurn('ok')], [echoTool], { store });
+    const { agent, ai } = setup({ turns: [textTurn('ok')], tools: [echoTool], store });
     const result = await agent.task({ task: 'x', label: 'step-1', scope: { userId: 'u1' } });
     const record = await store.get<Record<string, unknown>>('runs', result.runId);
     expect(record?.value).toMatchObject({ runId: result.runId, agentName: 'helper', status: 'completed', label: 'step-1', scope: { userId: 'u1' }, startedAt: 1_000 });
@@ -168,7 +179,7 @@ describe('agent.task', () => {
 
   it('close waits for in-flight runs so their records are written before it resolves', async () => {
     const store = createInMemoryStore();
-    const { agent, ai } = setup([textTurn('slow answer', { delayMs: 20 }), textTurn('second', { delayMs: 5 })], [echoTool], { store });
+    const { agent, ai } = setup({ turns: [textTurn('slow answer', { delayMs: 20 }), textTurn('second', { delayMs: 5 })], tools: [echoTool], store });
     const first = agent.task({ task: 'x' });
     const second = agent.task({ task: 'y' });
     await ai.close();
@@ -176,19 +187,19 @@ describe('agent.task', () => {
   });
 
   it('close resolves immediately when nothing is running', async () => {
-    const { ai } = setup([]);
+    const { ai } = setup({ turns: [] });
     await expect(ai.close()).resolves.toBeUndefined();
   });
 
   it('writes nothing when disableTelemetry is set', async () => {
     const store = createInMemoryStore();
-    const { agent } = setup([textTurn('ok')], [echoTool], { store });
+    const { agent } = setup({ turns: [textTurn('ok')], tools: [echoTool], store });
     await agent.task({ task: 'x', disableTelemetry: true });
     expect(await store.list('runs')).toEqual([]);
   });
 
   it('gives each agent a stable unique instanceId unless one is provided', () => {
-    const { ai } = setup([]);
+    const { ai } = setup({ turns: [] });
     const first = ai.agent({ name: 'a', model: 'fake:m' });
     const second = ai.agent({ name: 'a', model: 'fake:m' });
     const restored = ai.agent({ name: 'a', model: 'fake:m', instanceId: 'fixed' });
@@ -202,7 +213,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
     let echoRuns = 0;
     const counted = defineTool({ name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false, describeActivity: () => ({ title: 'e' }), run: async args => { echoRuns += 1; return args.text; } });
     const calls = ['a', 'b', 'c'].map(id => ({ id, tool: 'echo', argsJson: '{"text":"x"}' }));
-    const { agent, provider } = setup([toolTurn([{ id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')], [counted]);
+    const { agent, provider } = setup({ turns: [toolTurn([{ id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')], tools: [counted] });
     const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
     expect(echoRuns).toBe(1);
     expect(result.usage.toolCalls).toBe(1);
@@ -216,7 +227,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
 
   it('refuses aigent_multi outright once the budget is spent', async () => {
     const calls = [{ id: 'a', tool: 'echo', argsJson: '{"text":"x"}' }];
-    const { agent } = setup([toolTurn([{ id: 'e1', name: 'echo', args: { text: 'x' } }, { id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')]);
+    const { agent } = setup({ turns: [toolTurn([{ id: 'e1', name: 'echo', args: { text: 'x' } }, { id: 'm1', name: 'aigent_multi', args: { calls } }]), textTurn('ok')] });
     const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
     expect(result.usage.toolCalls).toBe(1);
     expect(result.errors).toEqual([expect.objectContaining({ code: 'tool_call_limit' })]);
@@ -224,13 +235,13 @@ describe('agent.task aigent_multi and batch accounting', () => {
 
   it('reports failures inside aigent_multi and batch results in TaskResult.errors', async () => {
     const batch = defineBatchTool({ name: 'read_all', description: 'r', item: z.object({ id: z.string() }).strict(), maxItems: 5, deterministic: true, cache: false, describeActivity: () => ({ title: 'r' }), runItem: async batchItem => { if (batchItem.id === 'bad') throw new Error('unreadable'); return batchItem.id; } });
-    const { agent } = setup([
+    const { agent } = setup({ turns: [
       toolTurn([
         { id: 'b1', name: 'read_all', args: { items: [{ id: 'ok' }, { id: 'bad' }] } },
         { id: 'm1', name: 'aigent_multi', args: { calls: [{ id: 'x', tool: 'echo', argsJson: '{"text":5}' }] } },
       ]),
       textTurn('fine'),
-    ], [echoTool, batch]);
+    ], tools: [echoTool, batch] });
     const result = await agent.task({ task: 'x' });
     expect(result.status).toBe('completed');
     expect(result.errors).toEqual([
@@ -246,7 +257,7 @@ describe('agent.task tool failure containment', () => {
       name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
       describeActivity: () => ({ title: 'e' }), run: async () => { throw Object.create(null); },
     });
-    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('recovered')], [hostile]);
+    const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('recovered')], tools: [hostile] });
     const run = agent.task({ task: 'x' });
     const events = await collect(run);
     const result = await run;
@@ -260,7 +271,7 @@ describe('agent.task tool failure containment', () => {
       name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
       describeActivity: () => { throw Object.create(null); }, run: async args => args.text,
     });
-    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('ok')], [tool]);
+    const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('ok')], tools: [tool] });
     const events = await collect(agent.task({ task: 'x' }));
     expect(events).toContainEqual({ type: 'warning', message: expect.stringContaining("describeActivity for tool 'echo' failed") });
     expect(events.at(-1)).toEqual({ type: 'done', status: 'completed' });
@@ -273,7 +284,7 @@ describe('agent.task run control', () => {
       name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
       describeActivity: () => new Promise(() => undefined), run: async args => args.text,
     });
-    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('done')], [tool]);
+    const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('done')], tools: [tool] });
     const run = agent.task({ task: 'x' });
     const events = await collect(run);
     expect((await run).status).toBe('completed');
@@ -287,7 +298,7 @@ describe('agent.task run control', () => {
       describeActivity: async function* () { yield { title: 'waiting forever' }; await new Promise(() => undefined); },
       run: () => new Promise(() => undefined),
     });
-    const { agent } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('never')], [tool]);
+    const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('never')], tools: [tool] });
     const run = agent.task({ task: 'x' });
     setTimeout(() => run.cancel(), 20);
     const result = await run;
@@ -299,7 +310,7 @@ describe('agent.task run control', () => {
       name: 'echo', description: 'e', args: z.object({ text: z.string() }).strict(), deterministic: true, cache: false,
       describeActivity: () => ({ title: 'e' }), run: () => new Promise(resolve => setTimeout(() => resolve('late'), 5_000)),
     });
-    const { agent, provider } = setup([toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('never')], [slowTool]);
+    const { agent, provider } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: 'a' } }]), textTurn('never')], tools: [slowTool] });
     const run = agent.task({ task: 'x' });
     setTimeout(() => run.cancel(), 30);
     const events = await collect(run);
@@ -311,14 +322,14 @@ describe('agent.task run control', () => {
   });
 
   it('reports limit_reached when timeoutMs elapses', async () => {
-    const { agent } = setup([textTurn('abcdefghij', { chunkSize: 1, delayMs: 10 })]);
+    const { agent } = setup({ turns: [textTurn('abcdefghij', { chunkSize: 1, delayMs: 10 })] });
     const result = await agent.task({ task: 'x', limits: { timeoutMs: 25 } });
     expect(result.status).toBe('limit_reached');
     expect(result.stopMode).toBeUndefined();
   });
 
   it('ignores stop after the run has settled', async () => {
-    const { agent } = setup([textTurn('ok')]);
+    const { agent } = setup({ turns: [textTurn('ok')] });
     const run = agent.task({ task: 'x' });
     expect((await run).status).toBe('completed');
     run.stop();
@@ -333,7 +344,7 @@ describe('agent.task run control', () => {
       ...memory,
       compareAndSet: params => new Promise(resolve => setTimeout(() => resolve(memory.compareAndSet(params)), 20)),
     };
-    const { agent } = setup([textTurn('ok')], [echoTool], { store });
+    const { agent } = setup({ turns: [textTurn('ok')], tools: [echoTool], store });
     const run = agent.task({ task: 'x' });
     let recordAtDone: unknown = 'unset';
     for await (const event of run) {

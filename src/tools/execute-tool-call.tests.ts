@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineTool, toolFailure } from './define-tool.js';
+import { defineTool } from './define-tool.js';
+import { toolFailure } from './tool-failure.js';
 import { executeToolCall } from './execute-tool-call.js';
 import { createToolRegistry } from './tool-registry.js';
 import type { ToolContext } from './tool-types.js';
