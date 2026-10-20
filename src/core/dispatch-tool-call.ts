@@ -1,4 +1,5 @@
 import { FEEDBACK_TOOL_NAME } from '../feedback/feedback-tool.js';
+import { ASK_USER_TOOL_NAME } from './ask-user-name.js';
 import { PLAN_COMPLETE_TOOL_NAME } from '../planning/plan-complete-tool.js';
 import { TODO_TOOL_NAME } from '../planning/todo-tool.js';
 import type { ToolCall } from '../providers/provider-types.js';
@@ -16,10 +17,16 @@ import { shapeWith } from './run-shaping.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
 
 /**
- * Bookkeeping, not work: `aigent_feedback`, `plan_complete` and `todo` are never refused for the budget, never
- * counted against it, carry no `previous` and never receive outcomes.
+ * Bookkeeping, not work: `aigent_feedback`, `plan_complete`, `todo` and `ask_user` are never refused for the budget,
+ * never counted against it, carry no `previous` and never receive outcomes.
  */
-export const COMMENTARY_TOOLS: ReadonlySet<string> = new Set([FEEDBACK_TOOL_NAME, PLAN_COMPLETE_TOOL_NAME, TODO_TOOL_NAME]);
+export const COMMENTARY_TOOLS: ReadonlySet<string> = new Set([FEEDBACK_TOOL_NAME, PLAN_COMPLETE_TOOL_NAME, TODO_TOOL_NAME, ASK_USER_TOOL_NAME]);
+
+/** `ask_user` without a user (unattended, or a task without `onQuestion`): refused, so the ambiguity policy applies. */
+const NO_USER_ERROR = {
+  category: 'denied', code: 'no_user', retryable: false,
+  message: 'No user is available to answer questions in this run; make a reasonable assumption and state it, as the brief says',
+} as const;
 
 interface ReserveToolCallParams {
   totals: RunTotals;
@@ -87,6 +94,10 @@ export function dispatchToolCall(params: DispatchParams): void {
   // aigent_feedback is commentary, not work: it is never refused for the budget and never counted against it, so
   // reporting feedback cannot starve real calls or inflate usage.toolCalls and toolCallsPerTurn.
   const isCommentary = COMMENTARY_TOOLS.has(name);
+  if (name === ASK_USER_TOOL_NAME && registry.get(name) == null) {
+    work.executions.push(Promise.resolve(rejectToolCall({ call, error: NO_USER_ERROR })).then(reportNotRun));
+    return;
+  }
   if (!isCommentary && totals.toolCalls >= maxToolCalls) {
     const error = { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit of ${maxToolCalls} reached` } as const;
     work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportNotRun));

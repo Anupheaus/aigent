@@ -4,6 +4,7 @@ import { describeIssues } from './describe-issues.js';
 import { planSchema } from '../planning/plan-schema.js';
 import { shapersSettingSchema } from '../shapers/shapers-setting.js';
 import { modelSettingsSchema } from './model-settings.js';
+import type { OnQuestion } from '../chat/task-questions.js';
 
 const limitsSchema = z.object({
   maxTurns: z.number().int().positive().optional(),
@@ -35,6 +36,8 @@ export const taskInputSchema = z.object({
   /** Consumer-supplied plan (up to 50 items); the agent reports progress with `plan_complete` or `::aigent plan`. */
   plan: planSchema.optional(),
   signal: z.instanceof(AbortSignal).optional(),
+  /** A user attached to the task: registers `ask_user`, whose questions this answers (not with `unattended`). */
+  onQuestion: z.custom<OnQuestion>(value => typeof value === 'function', 'onQuestion must be a function').optional(),
 }).strict();
 
 export type TaskInput = z.infer<typeof taskInputSchema>;

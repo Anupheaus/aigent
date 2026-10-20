@@ -99,7 +99,11 @@ export function createAigent(options: AigentOptions): Aigent {
     return recorded;
   }
 
+  /** Open chats, closed first by `close()`. */
+  const chatClosers = new Set<() => Promise<void>>();
+
   async function close(): Promise<void> {
+    await Promise.all([...chatClosers].map(closeChat => closeChat()));
     // Loop because a run or feedback call may be started while we wait for the earlier ones.
     while (activeWork.size > 0) await Promise.all([...activeWork]);
     await services.writeQueue.flush();
@@ -121,6 +125,7 @@ export function createAigent(options: AigentOptions): Aigent {
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
       chat: rawOptions => createChat({
         runtime: { agent: resolved, services }, options: parseChatOptions({ options: rawOptions, hasStore: store != null }), track: trackSettled,
+        registerCloser: closeChat => { chatClosers.add(closeChat); return () => { chatClosers.delete(closeChat); }; },
         ...(store == null || writer == null ? {} : { persistence: { store, writer } }),
       }),
     };

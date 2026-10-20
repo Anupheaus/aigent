@@ -8,10 +8,10 @@ import type { ResolvedChatOptions } from './chat-options.js';
 import { buildSession, openStoredSession } from './chat-session.js';
 import type { OpenSession } from './chat-session.js';
 import type { ChatRuntime, ChatSettings } from './chat-turn.js';
-import type { Chat, ChatTurn, SendInput, SendOptions } from './chat-types.js';
+import type { Chat } from './chat-types.js';
+import { createSender } from './chat-send.js';
 import { createEmptyConversation } from './conversation.js';
 import { lineage } from './lineage.js';
-import { createTurnHandle } from './turn-handle.js';
 
 export interface CreateChatParams {
   runtime: ChatRuntime;
@@ -20,6 +20,8 @@ export interface CreateChatParams {
   persistence?: { store: Store; writer: RecordWriter };
   /** Lets `ai.close()` wait for the chat's turns and writes. */
   track(work: Promise<unknown>): void;
+  /** Lets `ai.close()` close the chat (a turn waiting for an answer would otherwise never settle); returns the unregister. */
+  registerCloser(close: () => Promise<void>): () => void;
 }
 
 /** Everything a chat method needs once its session is loaded. */
@@ -28,12 +30,8 @@ interface Loaded {
   engine: ChatEngine;
 }
 
-function toSendInput(input: string | SendInput): SendInput {
-  return typeof input === 'string' ? { text: input } : input;
-}
-
 export function createChat(params: CreateChatParams): Chat {
-  const { runtime, options, persistence, track } = params;
+  const { runtime, options, persistence, track, registerCloser } = params;
   const { agent, services: { ids, clock } } = runtime;
   const sessionId = options.sessionId ?? ids.next('chat');
   const key = { agentName: agent.name, sessionId };
@@ -43,7 +41,7 @@ export function createChat(params: CreateChatParams): Chat {
     ...(options.signal == null ? {} : { signal: options.signal }),
   };
   let loaded: Loaded | undefined;
-  const load = (session: OpenSession): void => { loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings, options }) }; };
+  const load = (session: OpenSession): void => { loaded = { session, engine: createChatEngine({ runtime, log: session.log, settings }) }; };
   const sessionParams = { key, instanceId: agent.instanceId, clock };
   // An in-memory session is ready at once; a stored one is read first (methods wait for it on their own).
   const ready = options.persistence === 'store' && persistence != null
@@ -61,14 +59,11 @@ export function createChat(params: CreateChatParams): Chat {
     return loaded?.session.log;
   }
 
-  function send(input: string | SendInput, _options: SendOptions = {}): ChatTurn {
-    const { text, compactable } = toSendInput(input);
-    const agentMessageId = ids.next('msg');
-    const userMessageId = ids.next('msg');
-    const handle = createTurnHandle(agentMessageId);
-    track(Promise.resolve(handle.turn).catch(() => undefined));
-    whenLoaded(({ engine }) => engine.accept({ userMessageId, agentMessageId, text, modelText: text, handle, ...(compactable == null ? {} : { compactable }) }));
-    return handle.turn;
+  const send = createSender({ ids, track, whenLoaded: work => whenLoaded(({ session, engine }) => work({ log: session.log, engine })) });
+
+  function requireLoaded(): Loaded {
+    if (loaded == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' is still loading; await chat.ready first` });
+    return loaded;
   }
 
   function requireLog(): PatchLog {
@@ -81,11 +76,14 @@ export function createChat(params: CreateChatParams): Chat {
     await ready;
     if (loaded == null) return;
     const { engine, session: { log: sessionLog, writer } } = loaded;
+    // A turn waiting for an answer could wait forever: it is cancelled, and its questions stay open (and stored).
+    if (sessionLog.state().status === 'waiting_for_user') engine.stopActive({ mode: 'immediate' });
     await engine.idle();
     writer?.snapshot(sessionLog.state());
     await writer?.flush();
   }
 
+  const unregister = registerCloser(() => close());
   const chat: Chat = {
     sessionId,
     ready,
@@ -106,6 +104,10 @@ export function createChat(params: CreateChatParams): Chat {
       if (responseId == null) throw createAigentError({ code: 'invalid_input', message: `Chat session '${sessionId}' has no reply to rate yet`, details: { sessionId } });
       await runtime.services.submitFeedback({ ...feedback, responseId });
     },
+    answer: (questionId, value) => {
+      const result = requireLoaded().engine.questions.answer({ questionId, value });
+      return result.ok ? { ok: true } : { ok: false, error: result.error };
+    },
     react: async (messageId, rating, comment) => {
       await ready;
       const sessionLog = requireLog();
@@ -119,7 +121,7 @@ export function createChat(params: CreateChatParams): Chat {
       const { meta } = sessionLog.state().messages.find(({ id }) => id === messageId) ?? message;
       sessionLog.append({ type: 'message-updated', messageId, set: { meta: { ...meta, userRating: rating } } });
     },
-    close: () => { const closing = close(); track(closing); return closing; },
+    close: () => { unregister(); const closing = close(); track(closing); return closing; },
   };
   return chat;
 }

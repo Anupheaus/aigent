@@ -76,3 +76,6 @@ export type { AttachmentInput, Chat, ChatAttachmentOptions, ChatOptions, ChatRep
 export type { PatchListener, SubscribeOptions } from './chat/apply-patch.js';
 export type { ActivityOptions } from './core/activity.js';
 export type { RunCallbacks, ThinkingContext, ToolActivityEvent, Unsubscribe } from './core/run-callbacks.js';
+export type { AnswerResult } from './chat/chat-types.js';
+export type { AnswerSet, OnQuestion } from './chat/task-questions.js';
+export type { QuestionResult } from './chat/question-state.js';

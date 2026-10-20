@@ -17,6 +17,8 @@ import type { CompressionCache } from '../compression/compression-cache.js';
 import type { ResolvedCompression } from '../compression/compression-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { startAgentRun } from './start-agent-run.js';
+import { createAskUserTool } from '../chat/ask-user-tool.js';
+import { askThrough } from '../chat/task-questions.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { PromptPersona } from './system-prompt.js';
@@ -104,5 +106,8 @@ export interface StartTaskRunParams {
 
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
-  return startAgentRun(params);
+  const { input: { onQuestion, unattended } } = params;
+  // Without a user to answer, ask_user is not offered (a call is refused and the ambiguity policy applies).
+  const tools = onQuestion == null || unattended === true ? [] : [createAskUserTool(askThrough(onQuestion))];
+  return startAgentRun({ ...params, tools });
 }

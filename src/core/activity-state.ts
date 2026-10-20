@@ -3,9 +3,8 @@ import { TODO_TOOL_NAME } from '../planning/todo-tool.js';
 import type { PlanItemState } from '../planning/plan-schema.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { ActivityPhase, ActivityToolCall } from './activity-update.js';
+import { ASK_USER_TOOL_NAME } from './ask-user-name.js';
 
-/** The tool that waits for the user; while it runs the agent is `waiting_for_user`. */
-export const ASK_USER_TOOL_NAME = 'ask_user';
 
 const PLANNING_TOOLS: ReadonlySet<string> = new Set([PLAN_COMPLETE_TOOL_NAME, TODO_TOOL_NAME]);
 

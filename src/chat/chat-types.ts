@@ -127,6 +127,8 @@ export interface Chat {
   /** Rates a reply (the latest when `responseId` is omitted). */
   feedback(feedback: Omit<UserFeedback, 'responseId'> & { responseId?: string }): Promise<void>;
   react(messageId: string, rating: 'up' | 'down', comment?: string): Promise<void>;
+  /** Answers an open question; an invalid answer leaves it open and says precisely why. Throws while a stored session is loading. */
+  answer(questionId: string, value: JsonValue): AnswerResult;
   /** Lets the running turn finish (a turn waiting for an answer is cancelled; its questions stay open), then flushes writes. */
   close(): Promise<void>;
 }
