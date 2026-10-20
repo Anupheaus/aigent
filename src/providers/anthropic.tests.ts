@@ -138,7 +138,8 @@ describe('anthropic request', () => {
     ]);
   });
 
-  it('maps assistant tool calls to tool_use blocks and merges consecutive tool results into one user message', async () => {
+  // The API wants roles to alternate and every result for a turn in one user message, results before any text.
+  it('maps assistant tool calls to tool_use blocks and merges tool results and following user text into one user message', async () => {
     const body = await bodyFor({
       request: {
         ...REQUEST,
@@ -155,6 +156,7 @@ describe('anthropic request', () => {
           { role: 'tool', toolCallId: 'c1', text: '{"ok":true}' },
           { role: 'tool', toolCallId: 'c2', text: 'found x' },
           { role: 'user', text: 'and dogs?' },
+          { role: 'user', text: 'and birds?' },
           { role: 'assistant', toolCalls: [{ id: 'c3', name: 'search', args: '{"q":"do' }, { id: 'c4', name: 'search', args: '[1]' }] },
           { role: 'tool', toolCallId: 'c3', text: 'bad args' },
           { role: 'tool', toolCallId: 'c4', text: 'bad args too' },
@@ -177,9 +179,10 @@ describe('anthropic request', () => {
         content: [
           { type: 'tool_result', tool_use_id: 'c1', content: '{"ok":true}' },
           { type: 'tool_result', tool_use_id: 'c2', content: 'found x' },
+          { type: 'text', text: 'and dogs?' },
+          { type: 'text', text: 'and birds?' },
         ],
       },
-      { role: 'user', content: 'and dogs?' },
       {
         role: 'assistant',
         content: [
@@ -195,6 +198,60 @@ describe('anthropic request', () => {
         ],
       },
       { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] },
+    ]);
+  });
+
+  // The API rejects `content: []` and whitespace-only text blocks, so an assistant turn that said nothing is dropped
+  // and the user messages around it merge to keep roles alternating.
+  it('drops an assistant message with no tool calls and only whitespace text, merging the user messages around it', async () => {
+    const body = await bodyFor({
+      request: {
+        ...REQUEST,
+        messages: [
+          { role: 'user', text: 'first' },
+          { role: 'assistant', text: '' },
+          { role: 'user', text: 'second' },
+          { role: 'assistant', text: ' \n' },
+          { role: 'assistant' },
+          { role: 'user', text: 'third' },
+        ],
+      },
+    });
+    expect(body.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }, { type: 'text', text: 'third' }] },
+    ]);
+  });
+
+  it('omits a whitespace-only text block before tool calls', async () => {
+    const body = await bodyFor({
+      request: {
+        ...REQUEST,
+        messages: [{ role: 'user', text: 'go' }, { role: 'assistant', text: '\n\n', toolCalls: [{ id: 'c1', name: 'search', args: {} }] }],
+      },
+    });
+    expect(body.messages).toEqual([
+      { role: 'user', content: 'go' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'search', input: {} }] },
+    ]);
+  });
+
+  it('merges adjacent assistant messages into one', async () => {
+    const body = await bodyFor({
+      request: {
+        ...REQUEST,
+        messages: [
+          { role: 'user', text: 'go' },
+          { role: 'assistant', text: 'One.' },
+          { role: 'assistant', text: 'Two.', toolCalls: [{ id: 'c1', name: 'search', args: {} }] },
+        ],
+      },
+    });
+    expect(body.messages).toEqual([
+      { role: 'user', content: 'go' },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'One.' }, { type: 'text', text: 'Two.' }, { type: 'tool_use', id: 'c1', name: 'search', input: {} }],
+      },
     ]);
   });
 });

@@ -49,6 +49,30 @@ function toOpenAiMessage(message: ProviderMessage): OpenAiMessage {
   }
 }
 
+/** An assistant turn that said nothing and called no tools: OpenAI rejects it (`content: null` without `tool_calls`). */
+function isEmptyAssistant(message: ProviderMessage): boolean {
+  const { role, text = '', toolCalls = [] } = message;
+  return role === 'assistant' && toolCalls.length === 0 && text.trim() === '';
+}
+
+/** Separates the texts of user messages merged into one. */
+const USER_TEXT_SEPARATOR = '\n\n';
+
+/**
+ * Drops empty assistant turns rather than inventing text for them, then merges the user messages that end up adjacent:
+ * some OpenAI-compatible servers (e.g. deepseek-reasoner) reject consecutive user messages.
+ */
+function toOpenAiMessages(messages: ProviderMessage[]): OpenAiMessage[] {
+  return messages
+    .filter(message => !isEmptyAssistant(message))
+    .map(toOpenAiMessage)
+    .reduce<OpenAiMessage[]>((wire, message) => {
+      const previous = wire.at(-1);
+      if (previous?.role !== 'user' || message.role !== 'user') return [...wire, message];
+      return [...wire.slice(0, -1), { role: 'user', content: `${previous.content}${USER_TEXT_SEPARATOR}${message.content}` }];
+    }, []);
+}
+
 function toOpenAiTool(tool: ProviderToolSpec): OpenAiTool {
   const { name, description, parameters, strict } = tool;
   return { type: 'function', function: { name, description, parameters, strict } };
@@ -59,7 +83,7 @@ export function toOpenAiChatRequest(request: ProviderRequest): OpenAiChatRequest
   const { model, messages, tools, maxOutputTokens } = request;
   return {
     model,
-    messages: messages.map(toOpenAiMessage),
+    messages: toOpenAiMessages(messages),
     stream: true,
     stream_options: { include_usage: true },
     ...(tools.length === 0 ? {} : { tools: tools.map(toOpenAiTool) }),

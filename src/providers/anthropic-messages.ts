@@ -24,9 +24,12 @@ export interface AnthropicToolResultBlock {
   content: string;
 }
 
+export type AnthropicUserBlock = AnthropicTextBlock | AnthropicToolResultBlock;
+export type AnthropicAssistantBlock = AnthropicTextBlock | AnthropicToolUseBlock;
+
 export type AnthropicMessage =
-  | { role: 'user'; content: string | AnthropicToolResultBlock[] }
-  | { role: 'assistant'; content: (AnthropicTextBlock | AnthropicToolUseBlock)[] };
+  | { role: 'user'; content: string | AnthropicUserBlock[] }
+  | { role: 'assistant'; content: AnthropicAssistantBlock[] };
 
 export interface AnthropicTool {
   name: string;
@@ -80,45 +83,70 @@ function toToolUseBlock(call: ToolCall): AnthropicToolUseBlock {
   return { type: 'tool_use', id, name, input: toToolInput(args) };
 }
 
-function toAssistantMessage(message: ProviderMessage): AnthropicMessage {
-  const { text = '', toolCalls = [] } = message;
-  const textBlocks: AnthropicTextBlock[] = text === '' ? [] : [{ type: 'text', text }];
-  return { role: 'assistant', content: [...textBlocks, ...toolCalls.map(toToolUseBlock)] };
-}
-
-function toToolResultBlock(message: ProviderMessage): AnthropicToolResultBlock {
-  const { toolCallId = '', text = '' } = message;
-  return { type: 'tool_result', tool_use_id: toolCallId, content: text };
-}
-
-/** Appends a tool result to the previous message when that one already holds tool results, else opens a new user message. */
-function appendToolResult(params: { wire: AnthropicMessage[]; message: ProviderMessage }): AnthropicMessage[] {
-  const { wire, message } = params;
-  const block = toToolResultBlock(message);
-  const previous = wire.at(-1);
-  if (previous?.role === 'user' && Array.isArray(previous.content)) {
-    return [...wire.slice(0, -1), { role: 'user', content: [...previous.content, block] }];
-  }
-  return [...wire, { role: 'user', content: [block] }];
+/** The API rejects text blocks that are empty or only whitespace. */
+function hasVisibleText(text: string): boolean {
+  return text.trim() !== '';
 }
 
 /**
- * Maps conversation messages (system ones excluded). Consecutive tool results become ONE user message, because the
- * API wants every result for an assistant turn together; a plain user message after them stays separate.
+ * Undefined for an assistant turn that said nothing and called no tools: the API rejects `content: []` (except as the
+ * final prefill message) and whitespace-only text, so such a turn is dropped rather than padded with invented text.
+ */
+function toAssistantMessage(message: ProviderMessage): AnthropicMessage | undefined {
+  const { text = '', toolCalls = [] } = message;
+  const textBlocks: AnthropicTextBlock[] = hasVisibleText(text) ? [{ type: 'text', text }] : [];
+  const content = [...textBlocks, ...toolCalls.map(toToolUseBlock)];
+  return content.length === 0 ? undefined : { role: 'assistant', content };
+}
+
+function toToolResultMessage(message: ProviderMessage): AnthropicMessage {
+  const { toolCallId = '', text = '' } = message;
+  return { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolCallId, content: text }] };
+}
+
+function toWireMessage(message: ProviderMessage): AnthropicMessage | undefined {
+  const { role, text = '' } = message;
+  switch (role) {
+    case 'system':
+      return undefined;
+    case 'user':
+      return { role: 'user', content: text };
+    case 'assistant':
+      return toAssistantMessage(message);
+    case 'tool':
+      return toToolResultMessage(message);
+  }
+}
+
+function toUserBlocks(content: string | AnthropicUserBlock[]): AnthropicUserBlock[] {
+  return typeof content === 'string' ? [{ type: 'text', text: content }] : content;
+}
+
+/** Joins two same-role messages into one, keeping block order (so tool results stay ahead of any following text). */
+function mergeSameRole(params: { previous: AnthropicMessage; next: AnthropicMessage }): AnthropicMessage | undefined {
+  const { previous, next } = params;
+  if (previous.role === 'user' && next.role === 'user') {
+    return { role: 'user', content: [...toUserBlocks(previous.content), ...toUserBlocks(next.content)] };
+  }
+  if (previous.role === 'assistant' && next.role === 'assistant') {
+    return { role: 'assistant', content: [...previous.content, ...next.content] };
+  }
+  return undefined;
+}
+
+/**
+ * Maps conversation messages (system ones excluded) and merges adjacent same-role messages, so roles alternate as the
+ * API requires: consecutive tool results become ONE user message (the API wants every result for an assistant turn
+ * together), a user message after them joins it as text after the results, and dropping an empty assistant turn
+ * cannot leave two user messages in a row.
  */
 function toAnthropicMessages(messages: ProviderMessage[]): AnthropicMessage[] {
   return messages.reduce<AnthropicMessage[]>((wire, message) => {
-    const { role, text = '' } = message;
-    switch (role) {
-      case 'system':
-        return wire;
-      case 'user':
-        return [...wire, { role: 'user', content: text }];
-      case 'assistant':
-        return [...wire, toAssistantMessage(message)];
-      case 'tool':
-        return appendToolResult({ wire, message });
-    }
+    const next = toWireMessage(message);
+    if (next == null) return wire;
+    const previous = wire.at(-1);
+    const merged = previous == null ? undefined : mergeSameRole({ previous, next });
+    return merged == null ? [...wire, next] : [...wire.slice(0, -1), merged];
   }, []);
 }
 

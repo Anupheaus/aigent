@@ -147,6 +147,30 @@ describe('openAiCompatible request', () => {
       { role: 'assistant', content: 'Done.' },
     ]);
   });
+
+  // `{ role: 'assistant', content: null }` without tool_calls is rejected by OpenAI, so a turn that said nothing is
+  // dropped; the user messages around it merge, since some servers (e.g. deepseek-reasoner) reject consecutive user turns.
+  it('drops an assistant message with no tool calls and only whitespace text, merging the user messages around it', async () => {
+    const { requests, events } = streaming(sseBody([finishChunk('stop')]));
+    await events({
+      ...REQUEST,
+      messages: [
+        { role: 'system', text: 'be brief' },
+        { role: 'user', text: 'first' },
+        { role: 'assistant', text: '' },
+        { role: 'user', text: 'second' },
+        { role: 'assistant', text: ' \n' },
+        { role: 'assistant' },
+        { role: 'user', text: 'third' },
+        { role: 'assistant', text: 'Fine.' },
+      ],
+    });
+    expect(sentBody(requests[0]).messages).toEqual([
+      { role: 'system', content: 'be brief' },
+      { role: 'user', content: 'first\n\nsecond\n\nthird' },
+      { role: 'assistant', content: 'Fine.' },
+    ]);
+  });
 });
 
 describe('openAiCompatible streaming', () => {
