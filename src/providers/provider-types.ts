@@ -67,6 +67,9 @@ export interface Provider {
   /** Prefix used in `provider:model` strings. */
   id: string;
   capabilities: ProviderCapabilities;
-  /** Must stop yielding and throw an `aborted` AigentError promptly when `signal` aborts. */
+  /**
+   * Must stop yielding and throw an `aborted` AigentError promptly when `signal` aborts. Emits at most one `usage`
+   * event, and none when the backend reported no usage (never invented zeros), then a final `done`.
+   */
   stream(request: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>;
 }

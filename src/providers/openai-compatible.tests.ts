@@ -62,7 +62,6 @@ function sentHeaders(request: RecordedRequest | undefined): Headers {
 }
 
 const DONE_STOP: ProviderEvent = { type: 'done', finishReason: 'stop' };
-const ZERO_USAGE: ProviderEvent = { type: 'usage', usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 } };
 
 describe('openAiCompatible request', () => {
   it('posts to {baseUrl}/chat/completions, tolerating a trailing slash', async () => {
@@ -187,7 +186,6 @@ describe('openAiCompatible streaming', () => {
       { type: 'thinking-delta', text: 'ok' },
       { type: 'text-delta', text: 'Hel' },
       { type: 'text-delta', text: 'lo' },
-      ZERO_USAGE,
       DONE_STOP,
     ]);
   });
@@ -210,7 +208,6 @@ describe('openAiCompatible streaming', () => {
     expect(events).toEqual([
       { type: 'tool-call', call: calls[0] },
       { type: 'tool-call', call: calls[1] },
-      ZERO_USAGE,
       { type: 'done', finishReason: 'tool_calls' },
     ]);
   });
@@ -308,6 +305,12 @@ describe('openAiCompatible streaming', () => {
     expect(events).toContainEqual({ type: 'usage', usage: { inputTokens: 50, outputTokens: 5, cachedTokens: 32 } });
   });
 
+  // Zeros would silently under-report accounting (e.g. a stream that ends after finish_reason but before the usage chunk).
+  it('omits the usage event, rather than reporting zeros, when the server sends no usage', async () => {
+    const events = await streaming(sseBodyWithoutDone([textChunk('x'), finishChunk('stop')])).events();
+    expect(events).toEqual([{ type: 'text-delta', text: 'x' }, DONE_STOP]);
+  });
+
   it('reports zero cached tokens when the server gives none', async () => {
     const events = await streaming(sseBody([finishChunk('stop'), usageChunk({ prompt_tokens: 9, completion_tokens: 1 })])).events();
     expect(events).toContainEqual({ type: 'usage', usage: { inputTokens: 9, outputTokens: 1, cachedTokens: 0 } });
@@ -351,7 +354,7 @@ describe('openAiCompatible streaming', () => {
 
   it('skips payloads that are not JSON', async () => {
     const events = await streaming(`data: keep-alive\n\n${sseBody([textChunk('x'), finishChunk('stop')])}`).events();
-    expect(events).toEqual([{ type: 'text-delta', text: 'x' }, ZERO_USAGE, DONE_STOP]);
+    expect(events).toEqual([{ type: 'text-delta', text: 'x' }, DONE_STOP]);
   });
 
   it('fails when a payload is JSON but not an object', async () => {

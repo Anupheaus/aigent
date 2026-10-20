@@ -25,6 +25,8 @@ export interface AnthropicStreamState {
   toolBlocks: Map<number, ToolUseDraft>;
   inputUsage: InputUsage;
   outputTokens: number;
+  /** False until the server reports any usage; without it no `usage` event is emitted rather than invented zeros. */
+  hasUsage: boolean;
   /** Raw `stop_reason` from `message_delta`, once one arrives. */
   stopReason?: string;
   isComplete: boolean;
@@ -79,6 +81,7 @@ export function createAnthropicStreamState(providerId: string): AnthropicStreamS
     toolBlocks: new Map(),
     inputUsage: { inputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 },
     outputTokens: 0,
+    hasUsage: false,
     isComplete: false,
   };
 }
@@ -120,6 +123,7 @@ function rememberInputUsage(params: { state: AnthropicStreamState; event: Anthro
   const { state, event } = params;
   const usage = event.message?.usage;
   if (usage == null) return;
+  state.hasUsage = true;
   state.inputUsage = {
     inputTokens: usage.input_tokens ?? 0,
     cacheReadTokens: usage.cache_read_input_tokens ?? 0,
@@ -186,7 +190,9 @@ function applyMessageDelta(params: { state: AnthropicStreamState; event: Anthrop
   const { delta, usage } = event;
   if (delta?.stop_reason != null) state.stopReason = delta.stop_reason;
   // `output_tokens` here is the running total for the whole message.
-  if (usage?.output_tokens != null) state.outputTokens = usage.output_tokens;
+  if (usage?.output_tokens == null) return;
+  state.outputTokens = usage.output_tokens;
+  state.hasUsage = true;
 }
 
 function totalUsage(state: AnthropicStreamState): Usage {
@@ -206,7 +212,8 @@ function stopMessage(state: AnthropicStreamState): ProviderEvent[] {
     .map(([, draft]) => toToolCallEvent(draft));
   state.toolBlocks.clear();
   state.isComplete = true;
-  return [...unstopped, { type: 'usage', usage: totalUsage(state) }, { type: 'done', finishReason: resolveFinishReason(state) }];
+  const usageEvents: ProviderEvent[] = state.hasUsage ? [{ type: 'usage', usage: totalUsage(state) }] : [];
+  return [...unstopped, ...usageEvents, { type: 'done', finishReason: resolveFinishReason(state) }];
 }
 
 function streamedError(params: { state: AnthropicStreamState; event: AnthropicEvent }): AigentError {

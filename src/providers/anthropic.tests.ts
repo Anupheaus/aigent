@@ -345,6 +345,13 @@ describe('anthropic streaming', () => {
     expect(events.filter(event => event.type === 'usage')).toEqual([{ type: 'usage', usage: { inputTokens: 240, outputTokens: 25, cachedTokens: 200 } }]);
   });
 
+  it('omits the usage event, rather than reporting zeros, when the server sends no usage', async () => {
+    const bareStart: AnthropicEventFixture = { event: 'message_start', data: { type: 'message_start', message: { id: 'msg_1', role: 'assistant', content: [] } } };
+    const bareDelta: AnthropicEventFixture = { event: 'message_delta', data: { type: 'message_delta', delta: { stop_reason: 'end_turn' } } };
+    const events = await streaming([bareStart, ...textBlock({ index: 0, chunks: ['x'] }), bareDelta, messageStop()]).events();
+    expect(events).toEqual([{ type: 'text-delta', text: 'x' }, DONE_STOP]);
+  });
+
   it('treats missing cache fields as zero', async () => {
     const events = await streaming([messageStart({ input_tokens: 9 }), messageDelta({ stopReason: 'end_turn', outputTokens: 1 }), messageStop()]).events();
     expect(events).toContainEqual({ type: 'usage', usage: { inputTokens: 9, outputTokens: 1, cachedTokens: 0 } });

@@ -29,7 +29,6 @@ export interface OpenAiStreamState {
 const DONE_DATA = '[DONE]';
 /** Used when a server omits a call id, so tool results can still be matched to their call. */
 const FALLBACK_CALL_ID_PREFIX = 'call_';
-const ZERO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
 /** Longest slice of a bad payload quoted in an error message. */
 const MAX_QUOTED_PAYLOAD_CHARS = 200;
 /** Wire `finish_reason` → normalised reason; anything else (e.g. `content_filter`) is treated as `stop`. */
@@ -215,11 +214,12 @@ function resolveFinishReason(state: OpenAiStreamState): FinishReason {
 }
 
 /**
- * Called once the body has ended: emits the assembled tool calls in index order, one `usage` (zeros if the server sent
- * none) and `done`. Throws `provider_failed` when neither a `finish_reason` nor `[DONE]` arrived (a cut-off stream).
+ * Called once the body has ended: emits the assembled tool calls in index order, one `usage` and `done`. `usage` is
+ * left out when the server sent none (no `include_usage` support, or the stream ended before the usage chunk), so
+ * accounting never records invented zeros. Throws `provider_failed` when neither a `finish_reason` nor `[DONE]` arrived.
  */
 export function finishOpenAiStream(state: OpenAiStreamState): ProviderEvent[] {
-  const { finishReason, hasSeenDone, toolCalls, usage = ZERO_USAGE } = state;
+  const { finishReason, hasSeenDone, toolCalls, usage } = state;
   if (finishReason == null && !hasSeenDone) {
     // A cut-off stream is a dropped connection that happened to close cleanly, so retrying is reasonable.
     throw streamError({ state, problem: 'stream ended before completion: no finish_reason or [DONE] received', details: { retryable: true } });
@@ -227,5 +227,6 @@ export function finishOpenAiStream(state: OpenAiStreamState): ProviderEvent[] {
   const calls: ProviderEvent[] = [...toolCalls]
     .sort((left, right) => left.index - right.index || left.order - right.order)
     .map(draft => ({ type: 'tool-call', call: toToolCall(draft) }));
-  return [...calls, { type: 'usage', usage }, { type: 'done', finishReason: resolveFinishReason(state) }];
+  const usageEvents: ProviderEvent[] = usage == null ? [] : [{ type: 'usage', usage }];
+  return [...calls, ...usageEvents, { type: 'done', finishReason: resolveFinishReason(state) }];
 }
