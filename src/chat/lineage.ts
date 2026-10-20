@@ -13,6 +13,12 @@ function cutAt(messages: Message[], baseMessageId: string | undefined): Message[
  * The main line of a branch, as the model sees it: the parent's lineage up to the branch point, then the branch's
  * own messages. Thread replies are not part of it.
  */
+/** Whether a message is on the selected branch's line (a thread message: when its thread's root is). */
+export function isOnActiveLine(params: { state: ConversationState; message: Message }): boolean {
+  const { state, message: { id, threadId } } = params;
+  return lineage({ state }).some(({ id: lineId }) => lineId === (threadId ?? id));
+}
+
 export function lineage(params: { state: ConversationState; branchId?: string }): Message[] {
   const { state, branchId = state.branchId } = params;
   const branch = state.branches.find(({ id }) => id === branchId);

@@ -39,9 +39,10 @@ export function createEngineQuestions(params: EngineQuestionsParams): ChatQuesti
   const { log, ids, now, setStatus, accept, activeControl, isClosing, suspended } = params;
   return createChatQuestions({
     log, ids, now, setStatus,
-    resumeInFreshTurn: ({ replyTo, taskText, handle: given }) => {
+    resumeInFreshTurn: ({ replyTo, taskText, threadId, handle: given }) => {
       const { agentMessageId, handle } = handleFor({ ids, ...(given == null ? {} : { given }) });
-      accept({ agentMessageId, handle, replyTo, taskText });
+      // In the question's thread (on the main line otherwise), where its answer is part of the model's view.
+      accept({ agentMessageId, handle, replyTo, taskText, ...(threadId == null ? {} : { threadId }) });
       return handle;
     },
     onSuspend: ({ callId, place: { agentMessageId } }) => {
@@ -51,12 +52,12 @@ export function createEngineQuestions(params: EngineQuestionsParams): ChatQuesti
       // Nobody answers once close has begun: waiting would hang close (and so ai.close()).
       if (isClosing()) control.stop({ mode: 'immediate' });
     },
-    resumeSuspended: ({ callId, replyTo, handle: given }) => {
+    resumeSuspended: ({ callId, replyTo, threadId, handle: given }) => {
       const turn = suspended?.find(callId);
       if (suspended == null || turn == null) return undefined;
       const { agentMessageId, handle } = handleFor({ ids, ...(given == null ? {} : { given }) });
       const restore = suspended.restoreWith({ turn, results: batchResultsFrom({ state: log.state(), callId }) });
-      accept({ agentMessageId, handle, replyTo, taskText: 'Answers to your questions', restore });
+      accept({ agentMessageId, handle, replyTo, taskText: 'Answers to your questions', restore, ...(threadId == null ? {} : { threadId }) });
       return handle;
     },
   });

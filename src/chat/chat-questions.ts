@@ -4,6 +4,7 @@ import type { AskUser } from './ask-user-tool.js';
 import type { AnswerResult } from './chat-types.js';
 import type { OpenQuestion } from './conversation.js';
 import type { JsonValue, Message, Question } from './message.js';
+import { isOnActiveLine } from './lineage.js';
 import { answerBatch, batchResults, createQuestionBatch, isBatchComplete, validateAnswer } from './question-state.js';
 import type { QuestionBatch, QuestionResult } from './question-state.js';
 import type { TurnHandle } from './turn-handle.js';
@@ -22,9 +23,9 @@ export interface ChatQuestionsParams {
   /** Status while a live turn waits, and once it resumes. */
   setStatus(status: 'running' | 'waiting_for_user'): void;
   /** A batch whose turn is gone (stopped, or the session was reopened) is complete: answer it in a fresh turn. */
-  resumeInFreshTurn(params: { replyTo: string; taskText: string; handle?: TurnHandle }): TurnHandle;
+  resumeInFreshTurn(params: { replyTo: string; taskText: string; threadId?: string; handle?: TurnHandle }): TurnHandle;
   /** With checkpoints: continues the suspended turn itself (the answers become its call's result); undefined when it cannot. */
-  resumeSuspended?(params: { callId: string; replyTo: string; handle?: TurnHandle }): TurnHandle | undefined;
+  resumeSuspended?(params: { callId: string; replyTo: string; threadId?: string; handle?: TurnHandle }): TurnHandle | undefined;
   /** A turn now waits on `callId`'s questions. */
   onSuspend?(params: { callId: string; place: QuestionPlace }): void;
 }
@@ -34,7 +35,7 @@ export interface ChatQuestions {
   askFor(place: QuestionPlace): AskUser;
   /** `freshTurn` is set when the answer completed a batch whose turn was gone. */
   answer(params: { questionId: string; value: JsonValue; handle?: TurnHandle }): AnswerResult & { freshTurn?: TurnHandle };
-  /** The only open question, when exactly one is open. */
+  /** The only open question on the selected branch's line, when exactly one is. */
   singleOpen(): OpenQuestion | undefined;
 }
 
@@ -119,8 +120,14 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
     const { questionId, value, handle } = params;
     const open = log.state().openQuestions.find(({ question }) => question.id === questionId);
     if (open == null) return { ok: false, error: `Question '${questionId}' is not open; open questions: ${log.state().openQuestions.map(({ question }) => question.id).join(', ') || '(none)'}` };
+    const asked = log.state().messages.find(({ id }) => id === open.messageId);
+    // Answered elsewhere, the reply would run on the selected line, where the model never saw the question.
+    if (asked != null && !isOnActiveLine({ state: log.state(), message: asked })) {
+      return { ok: false, error: `Question '${questionId}' belongs to branch '${asked.branchId}', which is not selected (selected: '${log.state().branchId}'); call chat.selectBranch('${asked.branchId}') to answer it` };
+    }
     const check = validateAnswer({ question: open.question, value });
     if (!check.ok) return check;
+    const threadId = asked?.threadId;
     const answerMessageId = addAnswer({ open, value: check.value });
     const waiter = waiters.get(open.callId);
     if (waiter != null) {
@@ -137,14 +144,22 @@ export function createChatQuestions(params: ChatQuestionsParams): ChatQuestions 
     const isRequiredStillOpen = log.state().openQuestions.some(({ callId, question }) => callId === open.callId && question.required);
     if (isRequiredStillOpen) return { ok: true };
     skipUnanswered(open.callId);
-    const resumed = resumeSuspended?.({ callId: open.callId, replyTo: answerMessageId, ...(handle == null ? {} : { handle }) });
+    const place = { ...(threadId == null ? {} : { threadId }), ...(handle == null ? {} : { handle }) };
+    const resumed = resumeSuspended?.({ callId: open.callId, replyTo: answerMessageId, ...place });
     if (resumed != null) return { ok: true, freshTurn: resumed };
-    return { ok: true, freshTurn: resumeInFreshTurn({ replyTo: answerMessageId, taskText: `Answered: ${open.question.text}`, ...(handle == null ? {} : { handle }) }) };
+    return { ok: true, freshTurn: resumeInFreshTurn({ replyTo: answerMessageId, taskText: `Answered: ${open.question.text}: ${displayValue(check.value)}`, ...place }) };
   }
 
   return {
     askFor,
     answer,
-    singleOpen: () => { const { openQuestions } = log.state(); return openQuestions.length === 1 ? openQuestions[0] : undefined; },
+    singleOpen: () => {
+      const state = log.state();
+      const onLine = state.openQuestions.filter(({ messageId }) => {
+        const asked = state.messages.find(({ id }) => id === messageId);
+        return asked == null || isOnActiveLine({ state, message: asked });
+      });
+      return onLine.length === 1 ? onLine[0] : undefined;
+    },
   };
 }
