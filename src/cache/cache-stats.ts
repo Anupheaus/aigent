@@ -57,3 +57,24 @@ export function withMiss(stats: CacheEntryStats, miss: MissEvent): CacheEntrySta
     invalidationCount: stats.invalidationCount + (isInvalidation ? 1 : 0),
   };
 }
+
+function addCounts(left: Record<string, number>, right: Record<string, number>): Record<string, number> {
+  const sums = { ...left };
+  for (const [key, count] of Object.entries(right)) sums[key] = (sums[key] ?? 0) + count;
+  return sums;
+}
+
+/** `into` with every counter of `from` added, for folding a deleted entry into its tool's summary. */
+export function mergeStats(into: CacheEntryStats, from: CacheEntryStats): CacheEntryStats {
+  return {
+    firstStoredBy: into.firstStoredBy,
+    totalHits: into.totalHits + from.totalHits,
+    hitsByAgent: addCounts(into.hitsByAgent, from.hitsByAgent),
+    missesByAgent: addCounts(into.missesByAgent, from.missesByAgent),
+    lastRequestedAt: Math.max(into.lastRequestedAt, from.lastRequestedAt),
+    missCount: into.missCount + from.missCount,
+    invalidationCount: into.invalidationCount + from.invalidationCount,
+    savedMs: into.savedMs + from.savedMs,
+    savedTokens: into.savedTokens + from.savedTokens,
+  };
+}

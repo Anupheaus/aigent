@@ -6,6 +6,7 @@ const PARALLEL_REQUESTERS = 50;
 const AGENTS = 5;
 const SLOW_TOOL_MS = 20;
 const TTL_MS = 1_000;
+const DISTINCT_CALLS = 200;
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -219,6 +220,32 @@ describe('createToolCache: concurrency and eviction', () => {
     expect((await callTool({ harness, tool, path: 'a' })).cacheHit).toBe(true);
     expect((await callTool({ harness, tool, path: 'c' })).cacheHit).toBe(true);
     expect((await callTool({ harness, tool, path: 'b' })).cacheHit).toBe(false);
+  });
+
+  it('deletes evicted entries and folds their statistics into one summary record per tool (review I3)', async () => {
+    const harness = cacheHarness({ maxEntries: 2 });
+    const { tool } = countedTool({});
+    for (let call = 0; call < DISTINCT_CALLS; call += 1) {
+      harness.advance(1);
+      await callTool({ harness, tool, path: `file-${call}` });
+    }
+    const entries = await storedEntries(harness.store);
+    expect(entries.filter(({ value }) => value.evicted !== true)).toHaveLength(2);
+    expect(entries.map(({ key }) => key).filter(key => key.startsWith('summary:'))).toEqual(['summary:read']);
+    expect(entries).toHaveLength(3);
+    const findings = await harness.cache.findings();
+    expect(findings.hitRateByTool).toEqual({ read: 0 });
+    const summary = entries.find(({ key }) => key === 'summary:read');
+    expect(summary?.value).toMatchObject({ value: null, evicted: true, stats: { missCount: DISTINCT_CALLS - 2 } });
+  });
+
+  it('keeps tombstones (value dropped, statistics kept) when the store cannot delete', async () => {
+    const harness = cacheHarness({ maxEntries: 2 }, { withoutDelete: true });
+    const { tool } = countedTool({});
+    for (const path of ['a', 'b', 'c']) {
+      harness.advance(1);
+      await callTool({ harness, tool, path });
+    }
     const evicted = (await storedEntries(harness.store)).filter(({ value }) => value.evicted === true);
     expect(evicted).toHaveLength(1);
     expect(evicted[0]?.value).toMatchObject({ value: null, bytes: 0, stats: { missCount: 1 } });

@@ -44,6 +44,10 @@ export function createInMemoryStore(): Store {
     return [...collectionFor(collection).values()].map(record => structuredClone(record) as StoredRecord<T>);
   }
 
+  async function deleteRecord(collection: string, key: string): Promise<void> {
+    collectionFor(collection).delete(key);
+  }
+
   async function purge(filter: PurgeFilter): Promise<number> {
     let purged = 0;
     for (const records of collections.values()) {
@@ -56,5 +60,5 @@ export function createInMemoryStore(): Store {
     return purged;
   }
 
-  return { get, compareAndSet, list, purge };
+  return { get, compareAndSet, list, delete: deleteRecord, purge };
 }

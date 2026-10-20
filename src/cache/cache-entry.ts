@@ -1,4 +1,4 @@
-import { firstStats, withMiss } from './cache-stats.js';
+import { firstStats, mergeStats, withMiss } from './cache-stats.js';
 import { CACHE_ENTRY_SCHEMA_VERSION } from './cache-types.js';
 import type { CacheEntry, CacheStore } from './cache-types.js';
 
@@ -40,6 +40,27 @@ export function buildEntry(params: BuildEntryParams): CacheEntry {
 /** The entry with its value dropped and its statistics kept, so findings still see its history. */
 export function evictedEntry(entry: CacheEntry): CacheEntry {
   return { ...entry, value: null, bytes: 0, evicted: true };
+}
+
+/** Namespace of the per-tool records that hold the statistics of deleted (evicted) entries. */
+export const SUMMARY_NAMESPACE = 'summary';
+
+/** Store key of a tool's summary record. */
+export function summaryKey(tool: string): string {
+  return `${SUMMARY_NAMESPACE}:${tool}`;
+}
+
+/**
+ * The tool's summary record with a deleted entry's statistics added: one bounded record per tool, never served, so
+ * findings (hit rates, invalidations) keep the history of entries that are gone.
+ */
+export function withEvictedStats(params: { summary: CacheEntry | undefined; evicted: CacheEntry; now: number }): CacheEntry {
+  const { summary, evicted, now } = params;
+  if (summary != null) return { ...summary, storedAt: now, stats: mergeStats(summary.stats, evicted.stats) };
+  return {
+    schemaVersion: CACHE_ENTRY_SCHEMA_VERSION, namespace: SUMMARY_NAMESPACE, tool: evicted.tool, storedAt: now,
+    value: null, bytes: 0, originalDurationMs: 0, resultTokens: 0, evicted: true, stats: evicted.stats,
+  };
 }
 
 /** Whether `entry` can be served for a lookup with `validity` at `now`. */

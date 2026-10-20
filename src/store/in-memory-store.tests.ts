@@ -25,6 +25,17 @@ describe('createInMemoryStore', () => {
     expect((await store.get<{ list: number[] }>('c', 'k'))!.value.list).toEqual([1]);
   });
 
+  it('deletes one record, and deleting a missing one is a no-op', async () => {
+    const store = createInMemoryStore();
+    await store.compareAndSet({ collection: 'c', key: 'a', expectedVersion: undefined, value: 1 });
+    await store.compareAndSet({ collection: 'c', key: 'b', expectedVersion: undefined, value: 2 });
+    await store.delete!('c', 'a');
+    await store.delete!('c', 'missing');
+    expect((await store.list('c')).map(record => record.key)).toEqual(['b']);
+    // A deleted key starts again from version 1, as a new record.
+    expect(await store.compareAndSet({ collection: 'c', key: 'a', expectedVersion: undefined, value: 3 })).toBe(true);
+  });
+
   it('lists a collection and returns undefined for missing keys', async () => {
     const store = createInMemoryStore();
     expect(await store.get('c', 'missing')).toBeUndefined();

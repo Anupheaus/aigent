@@ -21,9 +21,16 @@ export interface CacheHarness {
   now(): number;
 }
 
+/** Store variations a harness can use. */
+export interface HarnessStoreOptions {
+  /** A store without the optional `delete`, as a consumer store may be. */
+  withoutDelete?: boolean;
+}
+
 /** A cache over a fresh in-memory store with a manual clock starting at 1,000 ms. */
-export function cacheHarness(options?: CacheOptions): CacheHarness {
-  const store = createInMemoryStore();
+export function cacheHarness(options?: CacheOptions, storeOptions: HarnessStoreOptions = {}): CacheHarness {
+  const { delete: _delete, ...deleteless } = createInMemoryStore();
+  const store: Store = storeOptions.withoutDelete === true ? deleteless : createInMemoryStore();
   let time = 1_000;
   const now = (): number => time;
   const cache = createToolCache({ store, writeQueue: createWriteQueue(), now, ...(options == null ? {} : { options }) });

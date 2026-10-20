@@ -2,7 +2,7 @@ import type { Store } from '../store/store-types.js';
 import { updateRecord } from '../store/update-record.js';
 import type { WriteQueue } from '../store/write-queue.js';
 import { isCacheable } from './is-cacheable.js';
-import { buildEntry, evictedEntry, isCacheEntry, isInvalidation, isServable } from './cache-entry.js';
+import { buildEntry, evictedEntry, isCacheEntry, isInvalidation, isServable, summaryKey, withEvictedStats } from './cache-entry.js';
 import type { EntryAddress } from './cache-entry.js';
 import { findCacheFindings } from './cache-findings.js';
 import { createCacheIndex } from './cache-index.js';
@@ -79,26 +79,34 @@ export function createToolCache(params: CreateToolCacheParams): ToolCache {
     return writeQueue.enqueue(storeKey, () => updateRecord<CacheEntry>({ store, collection: TOOL_CACHE_COLLECTION, key: storeKey, update }));
   }
 
-  /** Decides hit or miss and records it on the entry, atomically per key. */
-  async function evaluate(evaluation: { address: EntryAddress; agentName: string }): Promise<Decision> {
+  /**
+   * Decides hit or miss and records it on the entry, atomically per key: the read and the update run in the key's
+   * queue, so an eviction queued for the key either lands before (a miss) or after (and removes it from the index).
+   */
+  function evaluate(evaluation: { address: EntryAddress; agentName: string }): Promise<Decision> {
     const { address: { storeKey, validity }, agentName } = evaluation;
-    const stored = await store.get<CacheEntry>(TOOL_CACHE_COLLECTION, storeKey);
-    if (stored == null) return { isHit: false, isMissCounted: false };
-    // Asserted so the narrowing of the initial value does not hide the assignments made inside the update.
-    let decision = { isHit: false, isMissCounted: true } as Decision;
-    await updateEntry(storeKey, current => {
-      const entry = current ?? stored.value;
-      const at = now();
-      if (isServable({ entry, validity, now: at })) {
-        const hitEntry = { ...entry, stats: withHit(entry.stats, { agentName, now: at, savedMs: entry.originalDurationMs, savedTokens: entry.resultTokens }) };
-        decision = { isHit: true, entry: hitEntry };
-        return hitEntry;
-      }
-      decision = { isHit: false, isMissCounted: true };
-      return { ...entry, stats: withMiss(entry.stats, { agentName, isInvalidation: isInvalidation({ entry, validity, now: at }) }) };
+    return writeQueue.enqueue(storeKey, async (): Promise<Decision> => {
+      const stored = await store.get<CacheEntry>(TOOL_CACHE_COLLECTION, storeKey);
+      if (stored == null) return { isHit: false, isMissCounted: false };
+      // Asserted so the narrowing of the initial value does not hide the assignments made inside the update.
+      let decision = { isHit: false, isMissCounted: true } as Decision;
+      await updateRecord<CacheEntry>({
+        store, collection: TOOL_CACHE_COLLECTION, key: storeKey,
+        update: current => {
+          const entry = current ?? stored.value;
+          const at = now();
+          if (isServable({ entry, validity, now: at })) {
+            const hitEntry = { ...entry, stats: withHit(entry.stats, { agentName, now: at, savedMs: entry.originalDurationMs, savedTokens: entry.resultTokens }) };
+            decision = { isHit: true, entry: hitEntry };
+            return hitEntry;
+          }
+          decision = { isHit: false, isMissCounted: true };
+          return { ...entry, stats: withMiss(entry.stats, { agentName, isInvalidation: isInvalidation({ entry, validity, now: at }) }) };
+        },
+      });
+      if (decision.isHit) index.touch(storeKey, { bytes: decision.entry.bytes, lastRequestedAt: decision.entry.stats.lastRequestedAt });
+      return decision;
     });
-    if (decision.isHit) index.touch(storeKey, { bytes: decision.entry.bytes, lastRequestedAt: decision.entry.stats.lastRequestedAt });
-    return decision;
   }
 
   async function lookup(request: CacheLookup): Promise<CacheHit | undefined> {
@@ -136,10 +144,30 @@ export function createToolCache(params: CreateToolCacheParams): ToolCache {
     }
   }
 
+  /**
+   * Deletes the entry (or, for a store without `delete`, leaves a tombstone with its statistics) inside its queue, and
+   * resolves with the deleted entry. Removed from the index inside the queue too, so a hit queued just before cannot
+   * put it back.
+   */
+  function evictEntry(storeKey: string): Promise<CacheEntry | undefined> {
+    return writeQueue.enqueue(storeKey, async () => {
+      index.remove(storeKey);
+      const stored = await store.get<unknown>(TOOL_CACHE_COLLECTION, storeKey);
+      if (stored == null || !isCacheEntry(stored.value) || stored.value.evicted === true) return undefined;
+      if (store.delete == null) {
+        await updateRecord<CacheEntry>({ store, collection: TOOL_CACHE_COLLECTION, key: storeKey, update: current => evictedEntry(current ?? stored.value as CacheEntry) });
+        return undefined;
+      }
+      await store.delete(TOOL_CACHE_COLLECTION, storeKey);
+      return stored.value;
+    });
+  }
+
   async function evictOverflow(keep: string): Promise<void> {
     for (const storeKey of index.overflow(keep)) {
       index.remove(storeKey);
-      await updateEntry(storeKey, current => evictedEntry(current as CacheEntry));
+      const evicted = await evictEntry(storeKey);
+      if (evicted != null) await updateEntry(summaryKey(evicted.tool), summary => withEvictedStats({ summary, evicted, now: now() }));
     }
   }
 

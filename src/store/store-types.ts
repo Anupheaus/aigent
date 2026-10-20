@@ -27,6 +27,11 @@ export interface Store {
   /** Returns false (and writes nothing) when the stored version differs from `expectedVersion`. */
   compareAndSet<T>(params: CompareAndSetParams<T>): Promise<boolean>;
   list<T>(collection: string): Promise<StoredRecord<T>[]>;
+  /**
+   * Optional: deletes one record (a no-op when it does not exist). The tool-result cache uses it to drop evicted
+   * entries; without it they stay behind as small tombstones (value dropped, statistics kept).
+   */
+  delete?(collection: string, key: string): Promise<void>;
   /** Optional: deletes matching records in every collection and resolves with how many went. */
   purge?(filter: PurgeFilter): Promise<number>;
 }

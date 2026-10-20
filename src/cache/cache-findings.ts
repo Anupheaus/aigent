@@ -1,4 +1,5 @@
 import type { TraceStep } from '../telemetry/run-record.js';
+import { SUMMARY_NAMESPACE } from './cache-entry.js';
 import type { CacheEntry, CacheFindings, DeterministicCandidate, FrequentInvalidation, HotCacheEntry } from './cache-types.js';
 
 /** Longest `CacheFindings.hottest` list. */
@@ -43,7 +44,8 @@ function toRates(totals: Map<string, HitCounts>): Record<string, number> {
 
 function hottest(entries: KeyedCacheEntry[]): HotCacheEntry[] {
   return entries
-    .filter(({ value }) => value.stats.totalHits > 0)
+    // A tool's summary record (statistics of deleted entries) is not an entry anyone could hit.
+    .filter(({ value }) => value.stats.totalHits > 0 && value.namespace !== SUMMARY_NAMESPACE)
     .map(({ key, value: { tool, stats: { totalHits, savedMs } } }) => ({ tool, key, hits: totalHits, savedMs }))
     .sort((left, right) => right.hits - left.hits || left.key.localeCompare(right.key))
     .slice(0, MAX_HOTTEST_ENTRIES);
