@@ -14,6 +14,8 @@ import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
 import type { RunShaping } from './run-shaping.js';
+import { requestMessages } from './run-volatile.js';
+import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
 
@@ -60,6 +62,8 @@ export interface RunTurnParams {
   cache?: ToolCache;
   /** The run's shaping; absent when nothing can be shaped. */
   shaping?: RunShaping;
+  /** The run's trailing volatile block. */
+  volatile: RunVolatile;
   emit(event: AigentEvent): void;
 }
 
@@ -97,14 +101,15 @@ function addUsage(totals: RunTotals, usage: Usage): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, messages, totals, telemetry: { timer }, emit } = params;
+  const { runId, routing, showThinking, registry, signal, messages, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit } = params;
   const parser = createDirectiveParser();
   const calls: ToolCall[] = [];
   const thinkingBlocks: ThinkingBlock[] = [];
   let visible = '';
   let finishReason: FinishReason | undefined;
 
-  const request = { messages: [...messages], tools: registry.specs() };
+  const tools = registry.specs();
+  const request = { messages: requestMessages({ volatile, clock, messages, tools, progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls } }), tools };
   const iterator = openTurnStream({ routing, request, signal, counters: totals, emit })[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {

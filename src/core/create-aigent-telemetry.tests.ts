@@ -156,7 +156,7 @@ describe('run records and traces', () => {
   it('truncates an oversize result for the model and flags it on the step', async () => {
     const { agent, store, provider } = setup({ turns: [toolTurn([{ id: 'b1', name: 'big', args: {} }]), textTurn('done')] });
     const result = await agent.task({ task: 'x' });
-    const visible = JSON.parse(provider.requests[1]!.messages.at(-1)!.text!);
+    const visible = JSON.parse(provider.requests[1]!.messages.at(-2)!.text!);
     expect(visible.result).toEqual({ truncated: true, note: 'Result truncated to ~5 tokens (was ~101); narrow the request or page through it.', preview: `"${'x'.repeat(19)}` });
     expect((await storedTrace(store, result.runId)).steps[0]).toMatchObject({ truncated: true, resultBytes: 402, resultTokens: 101 });
   });

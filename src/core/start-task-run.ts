@@ -18,6 +18,8 @@ import type { ResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { createRunControl } from './run-control.js';
 import { setUpRunShaping } from './run-shaping.js';
+import { createStabilityMonitor } from '../context/stability-monitor.js';
+import type { VolatileOptions } from '../context/volatile-block.js';
 import { runTask } from './run-task.js';
 import { createRunTelemetry, persistRunTelemetry } from './run-telemetry.js';
 import type { TelemetrySettings } from './run-telemetry.js';
@@ -72,6 +74,10 @@ export interface RuntimeServices {
   scheduler: Scheduler;
   /** The tool-result cache shared by every agent of the runtime; absent with `cache: false`. */
   cache?: ToolCache;
+  /** `createAigent({ volatile })`, validated. */
+  volatile: VolatileOptions;
+  /** Whether runs warn when their prompt prefix changes between turns. */
+  isPrefixMonitorEnabled: boolean;
 }
 
 export interface StartTaskRunParams {
@@ -150,6 +156,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
         runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
         ...(services.cache == null ? {} : { cache: services.cache }),
         ...(shaping == null ? {} : { shaping }),
+        volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [] },
         routing,
         showThinking: settings.showThinking ?? true,
         limits: { maxTurns, maxToolCalls },

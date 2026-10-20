@@ -50,3 +50,4 @@ export type { WriteQueue } from './store/write-queue.js';
 export type { CacheEntry, CacheEntryStats, CacheOptions, DeterministicCandidate, FrequentInvalidation, HotCacheEntry } from './cache/cache-types.js';
 export type { ContentKind, Fidelity, ShapersSetting, ShapingNote } from './shapers/shaper-types.js';
 export type { ShapedStepRecord } from './telemetry/run-record.js';
+export type { TimeGranularity, VolatileOptions } from './context/volatile-block.js';

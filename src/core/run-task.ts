@@ -8,6 +8,7 @@ import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResultData } from './agent-types.js';
 import type { RunShaping } from './run-shaping.js';
+import type { RunVolatile } from './run-volatile.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -48,6 +49,8 @@ export interface RunTaskParams {
   cache?: ToolCache;
   /** The run's shaping; absent when nothing can be shaped. */
   shaping?: RunShaping;
+  /** The run's volatile block, minus the limits this function adds. */
+  volatile: Omit<RunVolatile, 'maxTurns'>;
   emit(event: AigentEvent): void;
 }
 
@@ -123,6 +126,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
 export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
   const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, cache, shaping, emit } = params;
+  const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController } = control;
   const { signal } = abortController;
   const startedAt = clock.now();
@@ -145,7 +149,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit,
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, messages, totals, work, telemetry, emit, volatile,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });

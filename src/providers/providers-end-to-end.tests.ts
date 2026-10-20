@@ -143,7 +143,9 @@ describe('end to end through openAiCompatible', () => {
     expect(requests.map(({ url }) => url)).toEqual(['https://llm.test/v1/chat/completions', 'https://llm.test/v1/chat/completions']);
 
     const messages = sentBody(requests[1]).messages as Record<string, unknown>[];
-    expect(messages.map(({ role }) => role)).toEqual(['system', 'user', 'assistant', 'tool', 'tool']);
+    // The trailing user message is the run's volatile block.
+    expect(messages.map(({ role }) => role)).toEqual(['system', 'user', 'assistant', 'tool', 'tool', 'user']);
+    expect(String(messages[5]?.content)).toMatch(/^# Current state\n/);
     expect(messages[2]).toEqual({
       role: 'assistant',
       content: PREAMBLE,
@@ -171,7 +173,7 @@ describe('end to end through openAiCompatible', () => {
     expect(echoParameters?.required).toEqual(['text', 'previous']);
     expect(echoParameters?.properties.previous?.type).toEqual(['object', 'null']);
     const messages = sentBody(requests[1]).messages as Record<string, unknown>[];
-    expect(envelopeOf(messages.at(-1)?.content)).toEqual({ id: 'call_prev', tool: 'echo', ok: true, result: 'hi' });
+    expect(envelopeOf(messages.at(-2)?.content)).toEqual({ id: 'call_prev', tool: 'echo', ok: true, result: 'hi' });
   });
 
   it('runs aigent_multi with free-form args, sent with strict off for that tool only', async () => {
@@ -183,7 +185,7 @@ describe('end to end through openAiCompatible', () => {
     const tools = sentBody(requests[0]).tools as { function: { name: string; strict: boolean } }[];
     expect(tools.map(({ function: { name, strict } }) => ({ name, strict }))).toEqual([{ name: 'aigent_multi', strict: false }, { name: 'echo', strict: true }]);
     const messages = sentBody(requests[1]).messages as Record<string, unknown>[];
-    expect(envelopeOf(messages.at(-1)?.content)).toEqual({
+    expect(envelopeOf(messages.at(-2)?.content)).toEqual({
       id: 'call_multi',
       tool: 'aigent_multi',
       ok: true,

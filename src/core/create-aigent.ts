@@ -37,6 +37,8 @@ import { startTaskRun } from './start-task-run.js';
 import type { ModelTarget, ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import { parseAgentLimits, parseTaskInput } from './task-input.js';
 import { parseAgentShapers } from '../shapers/shapers-setting.js';
+import { parseVolatileOptions } from '../context/volatile-block.js';
+import type { VolatileOptions } from '../context/volatile-block.js';
 
 export interface AigentOptions {
   /** Every provider agents may use; ids must be unique. */
@@ -80,6 +82,11 @@ export interface AigentOptions {
    * in-memory store, so tool results never reach a store whose owner asked for no content.
    */
   cache?: CacheOptions | false;
+  /**
+   * The trailing `# Current state` block added to every request (date and time, locale, progress, plan and todo
+   * statuses), so the messages before it stay byte-stable for provider prompt caching.
+   */
+  volatile?: VolatileOptions;
 }
 
 export interface Aigent {
@@ -172,12 +179,16 @@ export function createAigent(options: AigentOptions): Aigent {
   const scheduler = resolveScheduler({ scheduler: options.scheduler, clock, sleep });
   const writeQueue = createWriteQueue();
   const toolCache = resolveToolCache({ cache: options.cache, store, captureContent, writeQueue, clock });
+  const volatile = parseVolatileOptions(options.volatile);
+  // process is absent outside Node (e.g. edge runtimes); without it no NODE_ENV is set.
+  const isProduction = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
+  const isPrefixMonitorEnabled = volatile.warnOnPrefixChange ?? !isProduction;
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   // result.feedback goes through the same tracked path as ai.feedback.
   const services: RuntimeServices = {
-    clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler,
+    clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler, volatile, isPrefixMonitorEnabled,
     ...(toolCache == null ? {} : { cache: toolCache }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */

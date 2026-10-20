@@ -323,6 +323,31 @@ Traces can contain sensitive content (task text, answers, tool arguments). Conte
 
 A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
 
+## Volatile block and prompt-prefix stability
+
+Providers cache a prompt's prefix, so everything that changes from turn to turn goes **last**. Every request ends with one `user` message, the volatile block, built fresh for that request and never stored in the history or compacted:
+
+```text
+# Current state
+Date and time: 2026-10-20 14:37 (UTC)
+Locale: en-GB
+Progress: turn 2 of 25; 3 of 100 tool calls used
+
+## Plan status
+...
+```
+
+The order is fixed: date and time, locale, progress counters, then extra sections (plan and todo statuses, corrections). Everything before it (system prompt, task brief, pinned plan definitions, the turns so far, and the tool specs sorted by name) stays byte-stable across turns.
+
+```ts
+createAigent({ providers, volatile: { dateTime: { granularity: 'hour' }, timezone: 'Europe/London', locale: 'en-GB' } });
+```
+
+- `dateTime`: `{ granularity: 'minute' | 'hour' | 'day' }` (default minute; the time is rounded down in `timezone`), or `false` to leave it out.
+- `timezone`: an IANA name (default `UTC`); `locale` is named in the block when set. An unknown timezone or option fails with `invalid_definition`.
+- `progress: false` leaves the turn and tool-call counters out. With no date, no progress and no sections, no block is sent.
+- **Prefix monitor:** each run checks that each request's history starts with the previous request's history unchanged. If an earlier message (or a tool spec) changes without a deliberate rewrite (the pinned plan block) or a compaction, the run emits one `warning` per run: "Prompt prefix changed between turns without a compaction; ...". It is on unless `NODE_ENV` is `production`; `volatile.warnOnPrefixChange` turns it on or off explicitly.
+
 ## Shaping tool results (verbatim by default)
 
 Tool results reach the model **verbatim by default**: nothing alters a result unless its tool opts in. A tool opts in by declaring what its result contains and that a lossy, shorter form is acceptable:
@@ -487,6 +512,7 @@ Phase 1 foundation core, implemented in this slice:
 - Request analysis (similar-task groups, cheapest successful path, wasted steps) and tool suggestions from mined sequences
 - Tool-result cache with global and per-instance scopes, validity tokens, TTL, single-flight, LRU eviction and per-entry statistics
 - Verbatim-safe shaper pipeline for `lossy-ok` results, originals by handle (`result_original`) and an alias table
+- A trailing volatile block (date and time, progress, statuses) and a prompt-prefix stability monitor
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 

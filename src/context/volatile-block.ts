@@ -1,0 +1,107 @@
+import { z } from 'zod';
+import { createAigentError } from '../core/aigent-error.js';
+import { describeIssues } from '../core/describe-issues.js';
+import type { Clock } from '../core/runtime-services.js';
+
+const HEADING = '# Current state';
+const DEFAULT_TIMEZONE = 'UTC';
+
+export const TIME_GRANULARITIES = ['minute', 'hour', 'day'] as const;
+
+export type TimeGranularity = typeof TIME_GRANULARITIES[number];
+
+const volatileOptionsSchema = z.object({
+  dateTime: z.union([z.literal(false), z.object({ granularity: z.enum(TIME_GRANULARITIES) }).strict()]).optional(),
+  timezone: z.string().min(1).optional(),
+  locale: z.string().min(1).optional(),
+  progress: z.literal(false).optional(),
+  warnOnPrefixChange: z.boolean().optional(),
+}).strict();
+
+/** `createAigent({ volatile })`: what the trailing `# Current state` block of every request holds. */
+export interface VolatileOptions {
+  /** The current date and time, rounded down (default minute); false leaves it out. */
+  dateTime?: false | { granularity: TimeGranularity };
+  /** IANA timezone the time is shown in (default UTC). */
+  timezone?: string;
+  /** The user's locale, named in the block. */
+  locale?: string;
+  /** False leaves the turn and tool-call counters out. */
+  progress?: false;
+  /** Warn when the prompt prefix changes between turns; default on unless `NODE_ENV` is `production`. */
+  warnOnPrefixChange?: boolean;
+}
+
+/** One titled section of the block, e.g. plan statuses. */
+export interface VolatileSection {
+  title: string;
+  body: string;
+}
+
+/** The run's counters, as of the request being built. */
+export interface VolatileProgress {
+  turn: number;
+  maxTurns: number;
+  toolCalls: number;
+  maxToolCalls: number;
+}
+
+export interface BuildVolatileBlockParams {
+  clock: Clock;
+  options: VolatileOptions;
+  progress: VolatileProgress;
+  extras: VolatileSection[];
+}
+
+function isKnownTimezone(timezone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+    return true;
+  } catch { // Intl rejects unknown IANA names with a RangeError
+    return false;
+  }
+}
+
+/** Validates `createAigent({ volatile })`; throws `invalid_definition` naming the problem. */
+export function parseVolatileOptions(options: VolatileOptions | undefined): VolatileOptions {
+  const result = volatileOptionsSchema.safeParse(options ?? {});
+  if (!result.success) {
+    throw createAigentError({ code: 'invalid_definition', message: `Invalid volatile options: ${describeIssues(result.error)}`, details: { issues: result.error.issues.length } });
+  }
+  const { timezone } = result.data;
+  if (timezone != null && !isKnownTimezone(timezone)) {
+    throw createAigentError({ code: 'invalid_definition', message: `Invalid volatile options: timezone '${timezone}' is not a known IANA timezone`, details: { timezone } });
+  }
+  return result.data as VolatileOptions;
+}
+
+/** The instant's calendar fields in `timezone`, rounded down to `granularity`. */
+function formatDateTime(params: { now: number; timezone: string; granularity: TimeGranularity }): string {
+  const { now, timezone, granularity } = params;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(now));
+  const field = (type: Intl.DateTimeFormatPartTypes): string => parts.find(part => part.type === type)?.value ?? '';
+  const date = `${field('year')}-${field('month')}-${field('day')}`;
+  if (granularity === 'day') return date;
+  return `${date} ${field('hour')}:${granularity === 'hour' ? '00' : field('minute')}`;
+}
+
+/**
+ * The trailing `user` message of a request: everything that changes from turn to turn, in a fixed order (date and
+ * time, locale, progress, then `extras`), so every message before it stays byte-stable for prompt caching. Undefined
+ * when there is nothing to say. It is added to the request only, never stored or compacted.
+ */
+export function buildVolatileBlock(params: BuildVolatileBlockParams): string | undefined {
+  const { clock, options: { dateTime = { granularity: 'minute' }, timezone = DEFAULT_TIMEZONE, locale, progress: showProgress }, progress, extras } = params;
+  const lines: string[] = [];
+  if (dateTime !== false) lines.push(`Date and time: ${formatDateTime({ now: clock.now(), timezone, granularity: dateTime.granularity })} (${timezone})`);
+  if (locale != null) lines.push(`Locale: ${locale}`);
+  if (showProgress !== false) {
+    const { turn, maxTurns, toolCalls, maxToolCalls } = progress;
+    lines.push(`Progress: turn ${turn} of ${maxTurns}; ${toolCalls} of ${maxToolCalls} tool calls used`);
+  }
+  const sections = extras.map(({ title, body }) => `\n## ${title}\n${body}`);
+  if (lines.length === 0 && sections.length === 0) return undefined;
+  return [HEADING, ...lines, ...sections].join('\n');
+}

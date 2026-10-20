@@ -86,10 +86,12 @@ describe('agent.task', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatchObject({ category: 'validation' });
     const second = provider.requests[1]!.messages;
-    expect(second.at(-3)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }, { id: 'c2' }] });
-    expect(JSON.parse(second.at(-2)!.text!)).toEqual({ id: 'c1', tool: 'echo', ok: true, result: 'hi' });
-    expect(second.at(-2)).toMatchObject({ role: 'tool', toolCallId: 'c1' });
-    expect(JSON.parse(second.at(-1)!.text!)).toMatchObject({ id: 'c2', ok: false, error: { category: 'validation' } });
+    expect(second.at(-4)).toMatchObject({ role: 'assistant', toolCalls: [{ id: 'c1' }, { id: 'c2' }] });
+    expect(JSON.parse(second.at(-3)!.text!)).toEqual({ id: 'c1', tool: 'echo', ok: true, result: 'hi' });
+    expect(second.at(-3)).toMatchObject({ role: 'tool', toolCallId: 'c1' });
+    expect(JSON.parse(second.at(-2)!.text!)).toMatchObject({ id: 'c2', ok: false, error: { category: 'validation' } });
+    // The request ends with the volatile block, after the stored history.
+    expect(second.at(-1)).toMatchObject({ role: 'user', text: expect.stringMatching(/^# Current state\n/) });
   });
 
   it('emits ordered events including tool activity, directives (stripped from text) and a final done', async () => {
@@ -159,7 +161,7 @@ describe('agent.task', () => {
     const result = await agent.task({ task: 'x' });
     expect(result).toMatchObject({ status: 'completed', usage: { toolCalls: 1 } });
     expect(result.errors).toEqual([]);
-    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-1)!.text!);
+    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-2)!.text!);
     expect(multiEnvelope).toEqual({ id: 'c1', tool: 'aigent_multi', ok: true, result: [{ id: 'x', tool: 'read_all', ok: true, result: [{ index: 0, ok: true, result: 'a' }] }] });
   });
 
@@ -347,7 +349,7 @@ describe('agent.task aigent_multi and batch accounting', () => {
       expect.objectContaining({ code: 'tool_call_limit', details: { callId: 'b', tool: 'echo', parentCallId: 'm1' } }),
       expect.objectContaining({ code: 'tool_call_limit', details: { callId: 'c', tool: 'echo', parentCallId: 'm1' } }),
     ]);
-    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-1)!.text!);
+    const multiEnvelope = JSON.parse(provider.requests[1]!.messages.at(-2)!.text!);
     expect(multiEnvelope).toMatchObject({ id: 'm1', tool: 'aigent_multi', ok: true, result: [{ id: 'a', ok: true, result: 'x' }, { id: 'b', ok: false }, { id: 'c', ok: false }] });
   });
 
