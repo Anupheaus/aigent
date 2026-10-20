@@ -42,7 +42,8 @@ export interface TaskUsage extends Usage {
   turns: number;
   /**
    * Tool calls actually executed, counting each call inside `aigent_multi` (the wrapper itself is not counted).
-   * Calls refused by `maxToolCalls` are not counted. A batch tool call counts once, whatever its item count.
+   * Calls refused by `maxToolCalls` and `aigent_feedback` calls (commentary, outside the budget) are not counted. A
+   * batch tool call counts once, whatever its item count.
    */
   toolCalls: number;
   /**

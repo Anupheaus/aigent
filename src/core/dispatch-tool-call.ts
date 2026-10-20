@@ -71,7 +71,10 @@ export function dispatchToolCall(params: DispatchParams): void {
     return reportResult(executed);
   };
 
-  if (totals.toolCalls >= maxToolCalls) {
+  // aigent_feedback is commentary, not work: it is never refused for the budget and never counted against it, so
+  // reporting feedback cannot starve real calls or inflate usage.toolCalls and toolCallsPerTurn.
+  const isCommentary = name === FEEDBACK_TOOL_NAME;
+  if (!isCommentary && totals.toolCalls >= maxToolCalls) {
     const error = { category: 'denied', code: 'tool_call_limit', retryable: false, message: `Tool call limit of ${maxToolCalls} reached` } as const;
     work.executions.push(Promise.resolve(rejectToolCall({ call, error })).then(reportNotRun));
     return;
@@ -82,7 +85,7 @@ export function dispatchToolCall(params: DispatchParams): void {
   if (name === MULTI_TOOL_NAME) {
     // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
     context = multiToolContext({ context: baseContext, turn, parentCallId: callId });
-  } else {
+  } else if (!isCommentary) {
     totals.toolCalls += 1;
   }
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.

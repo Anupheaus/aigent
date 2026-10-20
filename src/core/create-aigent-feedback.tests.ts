@@ -292,6 +292,20 @@ describe('enableFeedback on', () => {
     }]);
   });
 
+  it('does not charge aigent_feedback to the maxToolCalls budget or to usage.toolCalls', async () => {
+    const { agent, seen } = setup({ enableFeedback: true, turns: [
+      toolTurn([
+        { id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'easy', text: 'fine', relatedTool: null }] } },
+        { id: 'a', name: 'echo', args: { text: '1', previous: null } },
+      ]),
+      textTurn('done'),
+    ] });
+    const result = await agent.task({ task: 'x', limits: { maxToolCalls: 1 } });
+    expect(seen).toEqual([{ text: '1' }]);
+    expect(result.errors).toEqual([]);
+    expect(result.usage).toMatchObject({ toolCalls: 1, toolCallsPerTurn: 0.5 });
+  });
+
   it('stores nothing from aigent_feedback when telemetry is disabled', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'easy', text: 'x', relatedTool: null }] } }]), textTurn('done')] });
     await agent.task({ task: 'x', disableTelemetry: true });
