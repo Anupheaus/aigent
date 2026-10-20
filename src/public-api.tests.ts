@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as api from './index.js';
+import * as contract from './testing/contract/index.js';
 import * as testing from './testing/index.js';
 
 describe('public API', () => {
@@ -11,6 +12,10 @@ describe('public API', () => {
   });
 
   it('exports test helpers separately', () => {
-    expect(Object.keys(testing).sort()).toEqual(['createFakeProvider', 'describeProviderContract', 'textTurn', 'toolTurn']);
+    expect(Object.keys(testing).sort()).toEqual(['createFakeProvider', 'textTurn', 'toolTurn']);
+  });
+
+  it('exports the vitest-based provider contract suite from its own entry', () => {
+    expect(Object.keys(contract).sort()).toEqual(['describeProviderContract']);
   });
 });

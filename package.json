@@ -28,6 +28,10 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
+    },
+    "./testing/contract": {
+      "types": "./dist/testing/contract/index.d.ts",
+      "import": "./dist/testing/contract/index.js"
     }
   },
   "files": [
@@ -56,5 +60,13 @@
   },
   "dependencies": {
     "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "vitest": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   }
 }

@@ -19,11 +19,12 @@
 - `tools` - strict tool definitions, registry, executor, `aigent_multi`, activity renderer
 - `store` - store contract, in-memory store, keyed write queue
 - `streaming` - chunk-safe `::aigent` directive parser and schemas
-- `testing` - `FakeProvider` helpers and the `describeProviderContract` suite every provider must pass, public as `@anupheaus/aigent/testing`
+- `testing` - `FakeProvider` helpers, public as `@anupheaus/aigent/testing`. It must never load vitest (`testing-entry.tests.ts` checks its import graph).
+- `testing/contract` - the vitest-based `describeProviderContract` suite every provider must pass, public as `@anupheaus/aigent/testing/contract` (vitest is an optional peer dependency)
 
 Test-only helpers shared between test files are named `*.test-support.ts` (excluded from the build, never exported), e.g. the fake `fetch` and OpenAI SSE fixtures in `providers`.
 
-Public entry points are the barrels `src/index.ts` (`@anupheaus/aigent`) and `src/testing/index.ts`; `src/public-api.tests.ts` pins their exact runtime exports.
+Public entry points are the barrels `src/index.ts` (`@anupheaus/aigent`), `src/testing/index.ts` and `src/testing/contract/index.ts`; `src/public-api.tests.ts` pins their exact runtime exports.
 
 ## Rules
 

@@ -103,7 +103,8 @@ Phase 1 foundation core, implemented in this slice:
 - Strict tool API (`defineTool`, `defineBatchTool`), structured per-call result envelopes, the built-in `aigent_multi` tool and tool activity rendering
 - Keyed per-agent write queue and the `Store` contract with an in-memory store, plus `updateRecord` (compare-and-set read-modify-write with jittered backoff; throws `store_conflict` after `maxAttempts`, default 50)
 - Stream directive parser, task input validation, system prompt and task brief
-- `FakeProvider` test helpers (`@anupheaus/aigent/testing`)
+- `FakeProvider` test helpers (`@anupheaus/aigent/testing`, no test-runner dependency)
+- `describeProviderContract`, the vitest suite every provider must pass (`@anupheaus/aigent/testing/contract`; needs `vitest`, an optional peer dependency)
 
 Roadmap (later slices, each with its own spec): real provider adapters (Anthropic and OpenAI-compatible, covering DeepSeek, OpenAI and Ollama), chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails, scheduler and approvals.
 

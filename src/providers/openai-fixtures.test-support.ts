@@ -1,5 +1,5 @@
 // Test-only builders for OpenAI-style `chat.completion.chunk` SSE bodies. Excluded from the build; never exported.
-import type { ContractScenario } from '../testing/provider-contract.js';
+import type { ContractScenario } from '../testing/contract/index.js';
 import type { ToolCall, Usage } from './provider-types.js';
 import { byteChunks, createFakeBody, encodeText } from './fake-fetch.test-support.js';
 import type { FakeResponseSpec } from './fake-fetch.test-support.js';

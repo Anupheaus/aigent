@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { isAigentError } from '../core/aigent-error.js';
-import type { AigentError, AigentErrorCode } from '../core/aigent-error.js';
-import type { Provider, ProviderEvent, ProviderRequest, ToolCall, Usage } from '../providers/provider-types.js';
+import { isAigentError } from '../../core/aigent-error.js';
+import type { AigentError, AigentErrorCode } from '../../core/aigent-error.js';
+import type { Provider, ProviderEvent, ProviderRequest, ToolCall, Usage } from '../../providers/provider-types.js';
 
 /** A plain text answer. The subject should deliver `chunks` as separate text deltas. */
 export interface TextContractScenario {

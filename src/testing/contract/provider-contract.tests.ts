@@ -1,10 +1,10 @@
-import { createAigentError } from '../core/aigent-error.js';
-import { createFakeFetch } from '../providers/fake-fetch.test-support.js';
-import { openAiCompatible } from '../providers/openai-compatible.js';
-import { openAiScenarioResponse } from '../providers/openai-fixtures.test-support.js';
-import type { Provider } from '../providers/provider-types.js';
-import { createFakeProvider, textTurn, toolTurn } from './fake-provider.js';
-import type { FakeTurn } from './fake-provider.js';
+import { createAigentError } from '../../core/aigent-error.js';
+import { createFakeFetch } from '../../providers/fake-fetch.test-support.js';
+import { openAiCompatible } from '../../providers/openai-compatible.js';
+import { openAiScenarioResponse } from '../../providers/openai-fixtures.test-support.js';
+import type { Provider } from '../../providers/provider-types.js';
+import { createFakeProvider, textTurn, toolTurn } from '../fake-provider.js';
+import type { FakeTurn } from '../fake-provider.js';
 import { describeProviderContract } from './provider-contract.js';
 import type { ContractScenario } from './provider-contract.js';
 
