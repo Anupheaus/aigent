@@ -33,6 +33,17 @@ describe('ask_user schema', () => {
     ['options on a text question', { questions: [{ ...NAME, options: SIZE.options }] }, /takes no options/],
     ['an id over 40 characters', { questions: [{ ...NAME, id: 'x'.repeat(41) }] }, /id/],
     ['an unknown type', { questions: [{ ...NAME, type: 'date' }] }, /type/],
+    ['min above max', { questions: [{ ...NAME, type: 'number', min: 10, max: 1 }] }, /min 10 is above max 1/],
+    ['min or max on a confirm question', { questions: [{ ...NAME, type: 'confirm', max: 1 }] }, /confirm question 'name' takes no min or max/],
+    ['min or max on a single choice', { questions: [{ ...SIZE, min: 1 }] }, /single_choice question 'size' takes no min or max/],
+    ['more required choices than options', { questions: [{ ...SIZE, type: 'multi_choice', default: null, min: 3 }] }, /needs at least 3 choices but has only 2 options/],
+    ['a default that is not an option', { questions: [{ ...SIZE, default: 'xl' }] }, /default of question 'size' is invalid: expected one of s, l/],
+    ['a number default that is not a number', { questions: [{ ...NAME, type: 'number', default: 'lots' }] }, /default of question 'name' is invalid: expected a number/],
+    ['a number default out of range', { questions: [{ ...NAME, type: 'number', default: '50', max: 10 }] }, /default of question 'name' is invalid: must be at most 10/],
+    ['a confirm default other than yes or no', { questions: [{ ...NAME, type: 'confirm', default: 'maybe' }] }, /default of question 'name' is invalid: expected yes or no/],
+    ['duplicate option values', { questions: [{ ...SIZE, options: [{ value: 's', label: 'Small' }, { value: 's', label: 'Smaller' }] }] }, /option 's' of question 'size' is ambiguous/],
+    ['a label equal to another option', { questions: [{ ...SIZE, options: [{ value: 's', label: 'Small' }, { value: 'l', label: 'S' }] }] }, /option 's' of question 'size' is ambiguous/],
+    ['a comma in a multi-choice option', { questions: [{ ...SIZE, type: 'multi_choice', default: null, options: [{ value: 'a,b', label: 'A and B' }, { value: 'c', label: 'C' }] }] }, /option 'a,b' of question 'size' contains a comma/],
   ])('rejects %s', (_name, args, message) => {
     const parsed = parseToolArgs(tool.argsSchema, args);
     expect(parsed.ok).toBe(false);

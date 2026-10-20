@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ASK_USER_TOOL_NAME } from '../core/ask-user-name.js';
 import { defineTool } from '../tools/define-tool.js';
 import type { Tool } from '../tools/tool-types.js';
+import { questionProblems } from './ask-user-checks.js';
 import { QUESTION_TYPES } from './message.js';
 import type { JsonValue, Question } from './message.js';
 import type { QuestionResult } from './question-state.js';
@@ -34,11 +35,14 @@ export const askUserArgsSchema = z.object({
   questions: z.array(questionSchema).min(1).max(MAX_QUESTIONS),
 }).strict().superRefine(({ questions }, context) => {
   const seen = new Set<string>();
-  questions.forEach(({ id, type, options }, index) => {
+  questions.forEach((question, index) => {
+    const { id, type, options } = question;
     if (seen.has(id)) context.addIssue({ code: 'custom', message: `duplicate question id '${id}'`, path: ['questions', index, 'id'] });
     seen.add(id);
     if (CHOICE_TYPES.has(type) && options == null) context.addIssue({ code: 'custom', message: `${type} question '${id}' needs 2 to 20 options`, path: ['questions', index, 'options'] });
     if (!CHOICE_TYPES.has(type) && options != null) context.addIssue({ code: 'custom', message: `${type} question '${id}' takes no options`, path: ['questions', index, 'options'] });
+    // A question nobody could answer (or answer unambiguously) would leave a required one waiting until the user stops the turn.
+    for (const { message, path } of questionProblems(question)) context.addIssue({ code: 'custom', message, path: ['questions', index, ...path] });
   });
 });
 
