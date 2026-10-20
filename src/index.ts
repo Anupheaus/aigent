@@ -6,6 +6,8 @@ export type { TaskInput, TaskLimits } from './core/task-input.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';
 export type { FinishReason, JsonSchema, MessageRole, Provider, ProviderCapabilities, ProviderEvent, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall, Usage } from './providers/provider-types.js';
+export { anthropic } from './providers/anthropic.js';
+export type { AnthropicOptions } from './providers/anthropic.js';
 export { openAiCompatible } from './providers/openai-compatible.js';
 export type { OpenAiCompatibleOptions } from './providers/openai-compatible.js';
 export { deepseek, ollama, openai } from './providers/presets.js';

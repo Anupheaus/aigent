@@ -15,14 +15,14 @@
 `src/` folders (tests are co-located as `*.tests.ts`):
 
 - `core` - `createAigent`, agent loop and run control, event stream, task input, system prompt and brief, errors
-- `providers` - provider interface and normalised request/event types, SSE parser and request helper, `openAiCompatible` adapter and its `deepseek`/`openai`/`ollama` presets
+- `providers` - provider interface and normalised request/event types, SSE parser and request helper, `openAiCompatible` adapter and its `deepseek`/`openai`/`ollama` presets, `anthropic` adapter (`anthropic-messages.ts` request mapping, `anthropic-stream.ts` event accumulator)
 - `tools` - strict tool definitions, registry, executor, `aigent_multi`, activity renderer
 - `store` - store contract, in-memory store, keyed write queue
 - `streaming` - chunk-safe `::aigent` directive parser and schemas
 - `testing` - `FakeProvider` helpers, public as `@anupheaus/aigent/testing`. It must never load vitest (`testing-entry.tests.ts` checks its import graph).
 - `testing/contract` - the vitest-based `describeProviderContract` suite every provider must pass, public as `@anupheaus/aigent/testing/contract` (vitest is an optional peer dependency)
 
-Test-only helpers shared between test files are named `*.test-support.ts` (excluded from the build, never exported), e.g. the fake `fetch` and OpenAI SSE fixtures in `providers`.
+Test-only helpers shared between test files are named `*.test-support.ts` (excluded from the build, never exported), e.g. the fake `fetch` and the OpenAI and Anthropic SSE fixtures in `providers`.
 
 Public entry points are the barrels `src/index.ts` (`@anupheaus/aigent`), `src/testing/index.ts` and `src/testing/contract/index.ts`; `src/public-api.tests.ts` pins their exact runtime exports.
 

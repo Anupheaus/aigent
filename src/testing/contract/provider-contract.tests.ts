@@ -1,4 +1,6 @@
 import { createAigentError } from '../../core/aigent-error.js';
+import { anthropic } from '../../providers/anthropic.js';
+import { anthropicScenarioResponse } from '../../providers/anthropic-fixtures.test-support.js';
 import { createFakeFetch } from '../../providers/fake-fetch.test-support.js';
 import { openAiCompatible } from '../../providers/openai-compatible.js';
 import { openAiScenarioResponse } from '../../providers/openai-fixtures.test-support.js';
@@ -40,5 +42,13 @@ describeProviderContract({
   create: (scenario): Provider => {
     const { fetch } = createFakeFetch(() => openAiScenarioResponse(scenario));
     return openAiCompatible({ id: 'contract-openai', baseUrl: 'https://llm.test/v1', apiKey: 'sk-contract', fetch });
+  },
+});
+
+describeProviderContract({
+  name: 'anthropic',
+  create: (scenario): Provider => {
+    const { fetch } = createFakeFetch(() => anthropicScenarioResponse(scenario));
+    return anthropic({ apiKey: 'sk-ant-contract', baseUrl: 'https://anthropic.test', fetch });
   },
 });
