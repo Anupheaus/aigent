@@ -10,26 +10,37 @@ export interface RunEmitter {
 
 export interface CreateRunEmitterParams {
   push(event: AigentEvent): void;
+  /** `showThinking`: whether reasoning (`thinking-delta` / `thinking-done`) also reaches `push`. */
+  showThinking: boolean;
+  /** Gets every reasoning event (and `usage`, which ends a model turn) whatever `showThinking` says: `onThinking`'s source. */
+  pushThinking(event: AigentEvent): void;
   /** Set once the publisher exists (it publishes through `push`). */
   activity(): ActivityPublisher | undefined;
 }
 
-/** The run's single event path: `thinking-done` after each streamed reasoning, then activity derived from every event. */
+/**
+ * The run's single event path: `thinking-done` after each streamed reasoning, then activity derived from every event.
+ * Reasoning always goes to the thinking channel; `showThinking` only decides whether the user's stream gets it too.
+ */
 export function createRunEmitter(params: CreateRunEmitterParams): RunEmitter {
-  const { push, activity } = params;
+  const { push, activity, showThinking, pushThinking } = params;
   let thinking: string | undefined;
 
   function endThinking(): void {
     if (thinking == null) return;
     const text = thinking;
     thinking = undefined;
-    push({ type: 'thinking-done', text });
+    const done: AigentEvent = { type: 'thinking-done', text };
+    pushThinking(done);
+    if (showThinking) push(done);
   }
 
   function emit(event: AigentEvent): void {
-    if (event.type === 'thinking-delta') thinking = (thinking ?? '') + event.text;
+    const isThinking = event.type === 'thinking-delta';
+    if (isThinking) thinking = (thinking ?? '') + event.text;
     else endThinking();
-    push(event);
+    if (isThinking || event.type === 'usage') pushThinking(event);
+    if (!isThinking || showThinking) push(event);
     activity()?.observe(event);
   }
 

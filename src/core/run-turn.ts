@@ -64,8 +64,6 @@ export interface RunTurnParams {
   agentName: string;
   instanceId: string;
   routing: TurnRouting;
-  /** Whether `thinking-delta` events are emitted. */
-  showThinking: boolean;
   registry: ToolRegistry;
   maxToolCalls: number;
   /** The run's usable prompt budget; the built request is checked against it before it is sent. */
@@ -132,7 +130,7 @@ function addUsage(totals: RunTotals, usage: Usage): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, usableBudget, emit, work: { partial } } = params;
+  const { runId, routing, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, usableBudget, emit, work: { partial } } = params;
   const parser = createDirectiveParser();
   const { calls, thinkingBlocks } = partial;
   let finishReason: FinishReason | undefined;
@@ -156,7 +154,8 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
       if (event.type === 'text-delta' || event.type === 'thinking-delta' || event.type === 'tool-call') timer.markFirstToken();
       switch (event.type) {
         case 'text-delta': partial.visible += emitParsed(parser.push(event.text), params); break;
-        case 'thinking-delta': if (showThinking) emit(event); break;
+        // Always emitted: the run's emitter decides whether the user's stream shows it (`onThinking` always gets it).
+        case 'thinking-delta': emit(event); break;
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
         case 'tool-call': calls.push(event.call); dispatchToolCall({ call: event.call, turn: params }); break;

@@ -14,7 +14,7 @@ import { buildPromptTexts } from './prompt-texts.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { runAgentTurns } from './run-agent-turns.js';
 import type { SteerSource } from './run-agent-turns.js';
-import { createRunCallbacks } from './run-callbacks.js';
+import { createRunCallbacks, withThinkingChannel } from './run-callbacks.js';
 import type { NewContextMessage } from './run-context.js';
 import { createRunControl } from './run-control.js';
 import { createRunEmitter } from './run-emitter.js';
@@ -87,8 +87,9 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const measuredScheduler = measureQueueWait({ scheduler, now: () => clock.now(), onWait: waitedMs => telemetry.timer.addQueuedMs(waitedMs) });
   const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler: measuredScheduler, priority, agentName };
   const stream = createEventStream<AigentEvent, TaskResult>();
+  const thinking = createEventStream<AigentEvent, void>();
   let activity: ActivityPublisher | undefined;
-  const emitter = createRunEmitter({ push: event => stream.push(event), activity: () => activity });
+  const emitter = createRunEmitter({ push: event => stream.push(event), pushThinking: event => thinking.push(event), showThinking: settings.showThinking ?? true, activity: () => activity });
   const { emit } = emitter;
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs: limits.timeoutMs });
   const planned = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
@@ -127,7 +128,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           ...(services.cache == null ? {} : { cache: services.cache }),
           ...(shaping == null ? {} : { shaping }),
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
-          planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), showThinking: settings.showThinking ?? true, limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
+          planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
           steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
           ...(checkpoints == null ? {} : { checkpoints }), ...(restored == null ? {} : { restore: restored }),
           ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),
@@ -152,9 +153,10 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   }
 
   // Deferred so the caller can attach iterators first (events are buffered regardless).
-  queueMicrotask(() => { execute().catch(error => stream.fail(error)); });
+  queueMicrotask(() => { execute().catch(error => stream.fail(error)).finally(() => thinking.finish()); });
 
-  const thinkingContext = { runId, ...(conversation == null ? {} : { messageId: conversation.messageId }) };
-  const callbacks = createRunCallbacks({ run: stream.run, context: () => thinkingContext });
-  return Object.assign(stream.run, { runId, stop, cancel: () => stop({ mode: 'immediate' }), steer: (text: string) => taskInbox.push(text), ...callbacks });
+  const thinkingContext = { runId, provider: primary.provider.id, model: primary.model, ...(conversation == null ? {} : { messageId: conversation.messageId }) };
+  const callbacks = createRunCallbacks({ run: stream.run, thinking: thinking.run, context: () => thinkingContext });
+  const run = Object.assign(stream.run, { runId, stop, cancel: () => stop({ mode: 'immediate' }), steer: (text: string) => taskInbox.push(text), ...callbacks });
+  return withThinkingChannel({ run, thinking: thinking.run });
 }

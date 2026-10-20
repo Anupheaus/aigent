@@ -45,8 +45,6 @@ export interface RunAgentTurnsParams {
   agentName: string;
   instanceId: string;
   routing: TurnRouting;
-  /** Whether `thinking-delta` events are emitted. */
-  showThinking: boolean;
   /** The messages the run starts from: the system prompt, then a task brief or a conversation's history. */
   initial: NewContextMessage[];
   /** Present when the agent compresses; tool results are compressed as they are committed. */
@@ -89,7 +87,7 @@ const PROVIDER_FAILED_ABORT_REASON = 'the run failed because the provider failed
  * Never rejects for those cases.
  */
 export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskResultData> {
-  const { runId, responseId, agentName, instanceId, routing, showThinking, initial, limits, clock, control, telemetry, cache, shaping, planning, emit, keepPartialRound = false, onCommit, steer, restore } = params;
+  const { runId, responseId, agentName, instanceId, routing, initial, limits, clock, control, telemetry, cache, shaping, planning, emit, keepPartialRound = false, onCommit, steer, restore } = params;
   const volatile: RunVolatile = { ...params.volatile, maxTurns: limits.maxTurns };
   const { abortController, sideEffectSignal } = control;
   const { signal } = abortController;
@@ -179,7 +177,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock,
+        runId, agentName, instanceId, routing, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock,
         ...(ledger == null ? {} : { ledger }), ...(ledgerRunId == null ? {} : { ledgerRunId }), ...(gate == null ? {} : { approve: gate }), signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),

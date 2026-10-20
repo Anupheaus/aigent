@@ -10,6 +10,10 @@ export interface TurnRunControl {
   /** The checkpoint stream the run writes to (the suspended run's when it continues one); default `runId`. */
   streamId?: string;
   events: AsyncIterable<AigentEvent>;
+  /** The run's thinking channel (reasoning even when `showThinking` hides it from `events`). */
+  thinking?: AsyncIterable<AigentEvent>;
+  /** The run's primary provider and model, for `onThinking`'s context. */
+  source?: { provider: string; model: string };
   reply: Promise<ChatReply>;
   stop(options?: StopOptions): void;
 }
@@ -30,6 +34,7 @@ export interface TurnHandle {
 /** A turn handle that exists before its run does (queued messages), so `send` can always return at once. */
 export function createTurnHandle(messageId: string): TurnHandle {
   const stream = createEventStream<AigentEvent, ChatReply>();
+  const thinking = createEventStream<AigentEvent, void>();
   let currentMessageId = messageId;
   let control: TurnRunControl | undefined;
   let isSettled = false;
@@ -41,9 +46,15 @@ export function createTurnHandle(messageId: string): TurnHandle {
     stream.finish(reply);
   }
 
+  function pipeThinking(source: AsyncIterable<AigentEvent> | undefined): void {
+    if (source == null) { thinking.finish(); return; }
+    void (async () => { for await (const event of source) thinking.push(event); })().catch(() => undefined).finally(() => thinking.finish());
+  }
+
   function attach(started: TurnRunControl): void {
     control = started;
     const { events, reply } = started;
+    pipeThinking(started.thinking);
     void (async () => {
       for await (const event of events) stream.push(event);
       finish(await reply);
@@ -56,14 +67,14 @@ export function createTurnHandle(messageId: string): TurnHandle {
     earlyStop?.(options);
   }
 
-  const callbacks = createRunCallbacks({ run: stream.run, context: () => ({ runId: control?.runId ?? '', messageId: currentMessageId }) });
+  const callbacks = createRunCallbacks({ run: stream.run, thinking: thinking.run, context: () => ({ runId: control?.runId ?? '', messageId: currentMessageId, ...control?.source }) });
   const turn = Object.assign(stream.run, { stop, cancel: () => stop({ mode: 'immediate' }), ...callbacks }) as ChatTurn;
   Object.defineProperty(turn, 'messageId', { get: () => currentMessageId, enumerable: true });
   return {
     turn,
     attach,
-    settle: finish,
-    fail: error => { if (!isSettled) { isSettled = true; stream.fail(error); } },
+    settle: reply => { thinking.finish(); finish(reply); },
+    fail: error => { thinking.finish(); if (!isSettled) { isSettled = true; stream.fail(error); } },
     setMessageId: id => { currentMessageId = id; },
     onEarlyStop: listener => { earlyStop = listener; },
   };

@@ -2,6 +2,7 @@ import type { TaskResult } from '../core/agent-types.js';
 import type { RunSummary } from '../core/finish-agent-run.js';
 import type { SteerSource } from '../core/run-agent-turns.js';
 import type { NewContextMessage } from '../core/run-context.js';
+import { thinkingChannelOf } from '../core/run-callbacks.js';
 import { startAgentRun } from '../core/start-agent-run.js';
 import type { ResolvedAgent, RuntimeServices } from '../core/start-task-run.js';
 import { parseTaskInput } from '../core/task-input.js';
@@ -82,5 +83,7 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
     const by = interruptedBy();
     return finishTurn({ log, messageId, result, history: committed, agentName: agent.name, instanceId: agent.instanceId, now, ...(summary == null ? {} : { summary }), ...(by == null ? {} : { interruptedBy: by }) });
   })();
-  return { runId: run.runId, streamId: restore?.streamId ?? run.runId, events: run, reply, stop: options => run.stop(options) };
+  const thinking = thinkingChannelOf(run);
+  const [{ provider, model }] = agent.targets;
+  return { runId: run.runId, streamId: restore?.streamId ?? run.runId, events: run, ...(thinking == null ? {} : { thinking }), source: { provider: provider.id, model }, reply, stop: options => run.stop(options) };
 }
