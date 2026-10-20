@@ -31,5 +31,5 @@ export function requestMessages(params: RequestMessagesParams): ProviderMessage[
   const sent = messages.map(({ pinned: _pinned, ...message }) => message);
   monitor.observe({ messages: sent, tools });
   const block = buildVolatileBlock({ clock, options, progress: { turn, maxTurns, toolCalls, maxToolCalls }, extras: extras() });
-  return block == null ? sent : [...sent, { role: 'user', text: block }];
+  return block == null ? sent : [...sent, { role: 'user', text: block, volatile: true }];
 }

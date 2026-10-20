@@ -31,6 +31,11 @@ export interface ProviderMessage {
   thinkingBlocks?: ThinkingBlock[];
   /** Present on tool messages: the call this result answers. */
   toolCallId?: string;
+  /**
+   * Set on the trailing volatile block (`# Current state`), which changes every request. Adapters that place prompt
+   * cache breakpoints put them on the last block before it, never on it.
+   */
+  volatile?: boolean;
 }
 
 export interface ProviderToolSpec {

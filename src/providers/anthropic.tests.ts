@@ -118,6 +118,34 @@ describe('anthropic request', () => {
     expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
   });
 
+  it('puts a cache breakpoint on the last stable block before the volatile block, never on the volatile text (review I6)', async () => {
+    const messages: ProviderRequest['messages'] = [
+      { role: 'system', text: 'Be brief.' },
+      { role: 'user', text: 'task' },
+      { role: 'assistant', text: '', toolCalls: [{ id: 'c1', name: 'read', args: { path: 'a' } }] },
+      { role: 'tool', toolCallId: 'c1', text: '{"ok":true}' },
+      { role: 'user', text: '# Current state\nturn 2', volatile: true },
+    ];
+    const body = await bodyFor({ request: { ...REQUEST, messages } });
+    expect(body.messages).toEqual([
+      { role: 'user', content: 'task' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'read', input: { path: 'a' } }] },
+      { role: 'user', content: [
+        { type: 'tool_result', tool_use_id: 'c1', content: '{"ok":true}', cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: '# Current state\nturn 2' },
+      ] },
+    ]);
+    const firstTurn = await bodyFor({ request: { ...REQUEST, messages: [{ role: 'user', text: 'task' }, { role: 'user', text: 'state', volatile: true }] } });
+    expect(firstTurn.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'task', cache_control: { type: 'ephemeral' } }, { type: 'text', text: 'state' }] }]);
+  });
+
+  it('adds no message breakpoint without a volatile block or with prompt caching off', async () => {
+    const withoutVolatile = await bodyFor({ request: { ...REQUEST, messages: [{ role: 'user', text: 'task' }] } });
+    expect(withoutVolatile.messages).toEqual([{ role: 'user', content: 'task' }]);
+    const off = await bodyFor({ request: { ...REQUEST, messages: [{ role: 'user', text: 'task' }, { role: 'user', text: 'state', volatile: true }] }, options: { promptCaching: false } });
+    expect(off.messages).toEqual([{ role: 'user', content: [{ type: 'text', text: 'task' }, { type: 'text', text: 'state' }] }]);
+  });
+
   it('sends the system prompt as a plain string when prompt caching is off', async () => {
     const body = await bodyFor({ request: { ...REQUEST, messages: [{ role: 'system', text: 'Be brief.' }, { role: 'user', text: 'hi' }] }, options: { promptCaching: false } });
     expect(body.system).toBe('Be brief.');

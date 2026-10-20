@@ -19,6 +19,7 @@ export interface AnthropicToolUseBlock {
   id: string;
   name: string;
   input: Record<string, unknown>;
+  cache_control?: AnthropicCacheControl;
 }
 
 export interface AnthropicToolResultBlock {
@@ -27,6 +28,7 @@ export interface AnthropicToolResultBlock {
   content: string;
   /** Set for failed tool envelopes, so the model treats the content as an error. */
   is_error?: true;
+  cache_control?: AnthropicCacheControl;
 }
 
 export interface AnthropicThinkingBlock {
@@ -67,7 +69,10 @@ export type AnthropicMessagesBody = AnthropicMessagesRequest & Record<string, un
 export interface AnthropicRequestSettings {
   /** Used when the request has no `maxOutputTokens` setting; the API rejects requests without `max_tokens`. */
   defaultMaxTokens: number;
-  /** Marks the system block as an ephemeral cache breakpoint, unless the request's `promptCaching` setting says otherwise. */
+  /**
+   * Marks the system block (which also caches the tools, as they come first) and, when the request ends in a volatile
+   * block, the last stable message block as ephemeral cache breakpoints, unless the request's `promptCaching` says otherwise.
+   */
   promptCaching: boolean;
 }
 
@@ -209,21 +214,54 @@ function mergeSameRole(params: { previous: AnthropicMessage; next: AnthropicMess
   return undefined;
 }
 
+/** The message with an ephemeral cache breakpoint on its last block (the end of the stable prefix). */
+function withBreakpoint(message: AnthropicMessage): AnthropicMessage {
+  if (message.role === 'assistant') {
+    const blocks = message.content;
+    const last = blocks.at(-1);
+    // Assistant turns always end in text or tool_use (thinking blocks come first), both of which may carry a breakpoint.
+    if (last == null || (last.type !== 'text' && last.type !== 'tool_use')) return message;
+    return { role: 'assistant', content: [...blocks.slice(0, -1), { ...last, cache_control: EPHEMERAL_CACHE }] };
+  }
+  const blocks = toUserBlocks(message.content);
+  const last = blocks.at(-1);
+  if (last == null) return message;
+  return { role: 'user', content: [...blocks.slice(0, -1), { ...last, cache_control: EPHEMERAL_CACHE }] };
+}
+
+interface ToAnthropicMessagesParams {
+  messages: ProviderMessage[];
+  /** Puts a breakpoint on the last block before the volatile block, when the request has one. */
+  promptCaching: boolean;
+}
+
 /**
  * Maps conversation messages (system ones excluded) and merges adjacent same-role messages, so roles alternate as the
  * API requires: consecutive tool results become ONE user message (the API wants every result for an assistant turn
  * together), a user message after them joins it as text after the results, and dropping an empty assistant turn
  * cannot leave two user messages in a row.
+ *
+ * With prompt caching, a request that ends in a volatile block gets an ephemeral breakpoint on the last block of the
+ * stable history before it, so everything up to there (tools, system, every earlier turn) is read from the cache on the
+ * next turn. The breakpoint is placed before the volatile text is merged in: when that text joins the last tool-result
+ * message, the breakpoint stays on the tool result, never on the text that changes every turn.
  */
-function toAnthropicMessages(messages: ProviderMessage[]): AnthropicMessage[] {
+function toAnthropicMessages(params: ToAnthropicMessagesParams): AnthropicMessage[] {
+  const { messages, promptCaching } = params;
   const replacedArgs = collectReplacedArgs(messages);
-  return messages.reduce<AnthropicMessage[]>((wire, message) => {
+  const append = (wire: AnthropicMessage[], message: ProviderMessage): AnthropicMessage[] => {
     const next = toWireMessage({ message, replacedArgs });
     if (next == null) return wire;
     const previous = wire.at(-1);
     const merged = previous == null ? undefined : mergeSameRole({ previous, next });
     return merged == null ? [...wire, next] : [...wire.slice(0, -1), merged];
-  }, []);
+  };
+  const stable = messages.filter(({ volatile }) => volatile !== true).reduce(append, []);
+  const volatileMessages = messages.filter(({ volatile }) => volatile === true);
+  const lastStable = stable.at(-1);
+  const isMarked = promptCaching && volatileMessages.length > 0 && lastStable != null;
+  const marked = isMarked ? [...stable.slice(0, -1), withBreakpoint(lastStable)] : stable;
+  return volatileMessages.reduce(append, marked);
 }
 
 function toSystem(params: { messages: ProviderMessage[]; promptCaching: boolean }): string | AnthropicTextBlock[] | undefined {
@@ -254,7 +292,7 @@ export function toAnthropicMessagesRequest(request: ProviderRequest, adapterSett
     stream: true,
     ...toAnthropicSettingsFields({ settings, defaultMaxTokens }),
     ...(system == null ? {} : { system }),
-    messages: toAnthropicMessages(messages),
+    messages: toAnthropicMessages({ messages, promptCaching }),
     ...(tools.length === 0 ? {} : { tools: tools.map(toAnthropicTool) }),
   };
 }
