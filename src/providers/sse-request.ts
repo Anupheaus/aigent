@@ -64,6 +64,18 @@ async function send(params: SseRequestParams): Promise<Response> {
   }
 }
 
+interface AbortableFailureParams extends AbortCheckParams {
+  /** The error being built from the response body; reading it is cut short by an abort. */
+  failure: Promise<AigentError>;
+}
+
+/** An abort during the error-body read wins over the HTTP failure, as it does everywhere else. */
+async function abortableFailure(params: AbortableFailureParams): Promise<AigentError> {
+  const { providerId, signal, failure } = params;
+  const error = await failure;
+  return signal.aborted ? abortedError(providerId) : error;
+}
+
 /**
  * Re-exposes a reader as a stream we can feed to `parseSse` while keeping the reader ourselves: cancelling it ends any
  * pending read at once, even with a `fetch` that ignores the abort signal.
@@ -87,11 +99,11 @@ export async function* requestSse(params: SseRequestParams): AsyncGenerator<SseM
   const { providerId, signal } = params;
   throwIfAborted({ providerId, signal });
   const response = await send(params);
-  if (!response.ok) throw await failedResponseError({ providerId, response });
+  if (!response.ok) throw await abortableFailure({ providerId, signal, failure: failedResponseError({ providerId, response, signal }) });
   // A missing content-type is tolerated (some local servers omit it); a different one means this is not a stream.
   const contentType = response.headers.get('content-type');
   if (contentType != null && !contentType.toLowerCase().includes(EVENT_STREAM_CONTENT_TYPE)) {
-    throw await nonStreamResponseError({ providerId, response, contentType });
+    throw await abortableFailure({ providerId, signal, failure: nonStreamResponseError({ providerId, response, contentType, signal }) });
   }
   const { body } = response;
   if (body == null) {

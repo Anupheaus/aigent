@@ -5,6 +5,8 @@ export interface FailedResponseParams {
   /** Provider id, named in the message so the failing backend is obvious. */
   providerId: string;
   response: Response;
+  /** Cancels the body read when it fires, so a stalled error body cannot outlive an abort. */
+  signal?: AbortSignal;
 }
 
 /** Longest slice of an error body kept in `details.body`; bodies can be large HTML pages. */
@@ -19,11 +21,17 @@ function isRetryableStatus(status: number): boolean {
   return RETRYABLE_STATUSES.includes(status) || status >= FIRST_SERVER_ERROR_STATUS;
 }
 
-/** Reads at most `MAX_ERROR_BODY_CHARS` characters, then cancels the rest so a huge or endless body cannot stall us. */
-async function readBodyPrefix(response: Response): Promise<string> {
-  const { body } = response;
+/**
+ * Reads at most `MAX_ERROR_BODY_CHARS` characters, then cancels the rest so a huge or endless body cannot stall us.
+ * An abort cancels the reader at once, which ends a pending read even with a `fetch` that ignores the signal.
+ */
+async function readBodyPrefix(params: { response: Response; signal?: AbortSignal }): Promise<string> {
+  const { response: { body }, signal } = params;
   if (body == null) return '';
   const reader = body.getReader();
+  const cancelBody = (): void => { reader.cancel().catch(() => undefined); };
+  signal?.addEventListener('abort', cancelBody, { once: true });
+  if (signal?.aborted) cancelBody();
   const decoder = new TextDecoder('utf-8');
   let text = '';
   try {
@@ -36,6 +44,7 @@ async function readBodyPrefix(response: Response): Promise<string> {
   } catch {
     // The body is diagnostic only; a failed read still leaves the status to report.
   } finally {
+    signal?.removeEventListener('abort', cancelBody);
     await reader.cancel().catch(() => undefined);
   }
   return text.slice(0, MAX_ERROR_BODY_CHARS);
@@ -88,9 +97,9 @@ export interface NonStreamResponseParams extends FailedResponseParams {
  * server ignoring `stream: true`). Not retryable: the same request would get the same answer.
  */
 export async function nonStreamResponseError(params: NonStreamResponseParams): Promise<AigentError> {
-  const { providerId, response, contentType } = params;
+  const { providerId, response, contentType, signal } = params;
   const { status } = response;
-  const body = await readBodyPrefix(response);
+  const body = await readBodyPrefix({ response, signal });
   const message = `Provider '${providerId}' returned HTTP ${status} with content-type ${contentType}; expected text/event-stream`;
   return createAigentError({ code: 'provider_failed', message: withReason({ message, body }), details: { status, retryable: false, body } });
 }
@@ -101,9 +110,9 @@ export async function nonStreamResponseError(params: NonStreamResponseParams): P
  * (see `redactingErrors`), since servers sometimes echo the key.
  */
 export async function failedResponseError(params: FailedResponseParams): Promise<AigentError> {
-  const { providerId, response } = params;
+  const { providerId, response, signal } = params;
   const { status, statusText } = response;
-  const body = await readBodyPrefix(response);
+  const body = await readBodyPrefix({ response, signal });
   const statusReason = statusText === '' ? '' : ` ${statusText}`;
   const message = `Provider '${providerId}' request failed with HTTP ${status}${statusReason}; expected a 2xx response`;
   return createAigentError({

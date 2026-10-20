@@ -507,6 +507,32 @@ describe('openAiCompatible abort and cancellation', () => {
     expect(body.isCancelled()).toBe(true);
   });
 
+  it('throws aborted and cancels the body when aborted while reading a stalled error body', async () => {
+    const body = createFakeBody({ chunks: [encodeText('{"error":')], ending: 'hang' });
+    // This fetch ignores the signal, like a custom one might; only cancelling the body can end the read.
+    const { fetch } = createFakeFetch(() => ({ status: 500, body }));
+    const provider = openAiCompatible({ id: 'test-llm', baseUrl: BASE_URL, fetch });
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 10);
+    const error = await captureError(collect(provider.stream(REQUEST, controller.signal)));
+    expect(error.code).toBe('aborted');
+    expect(body.isCancelled()).toBe(true);
+  });
+
+  it('throws aborted when the error body read fails because of the abort', async () => {
+    const controller = new AbortController();
+    const stream = new ReadableStream<Uint8Array>({
+      pull(streamController) {
+        // Like undici: aborting the request errors the body.
+        controller.abort();
+        streamController.error(new DOMException('aborted', 'AbortError'));
+      },
+    });
+    const provider = openAiCompatible({ id: 'test-llm', baseUrl: BASE_URL, fetch: async () => new Response(stream, { status: 503 }) });
+    const error = await captureError(collect(provider.stream(REQUEST, controller.signal)));
+    expect(error.code).toBe('aborted');
+  });
+
   it('cancels the body when the consumer stops early', async () => {
     const body = hangingBody();
     const { fetch } = createFakeFetch(() => ({ body }));
