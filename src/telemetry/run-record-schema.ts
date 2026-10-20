@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { TASK_STATUSES } from '../core/aigent-events.js';
 import { describeIssues } from '../core/describe-issues.js';
 import { createAigentError } from '../core/aigent-error.js';
+import { USER_RATINGS } from '../feedback/feedback-records.js';
 import { TOOL_ERROR_CATEGORIES } from '../tools/tool-error-detail.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
+import type { ResponseIndexRecord } from '../feedback/feedback-records.js';
 import type { RunRecord, TraceRecord } from './run-record.js';
 
 const count = z.number().int().nonnegative();
@@ -55,6 +57,7 @@ export const runRecordSchema = z.object({
   task: z.string().optional(),
   answer: z.string().optional(),
   outcomeSummary: z.object({ claimedSuccess: count, claimedFailure: count }),
+  userVerdict: z.enum(USER_RATINGS).optional(),
 });
 
 export const traceStepSchema = z.object({
@@ -80,6 +83,8 @@ export const traceStepSchema = z.object({
 });
 
 export const traceRecordSchema = z.object({ ...recordMetaShape, steps: z.array(traceStepSchema) });
+
+const responseIndexSchema = z.object({ ...recordMetaShape, responseId: z.string().min(1) });
 
 interface ParseStoredParams {
   collection: string;
@@ -108,4 +113,11 @@ export function parseTraceRecord(params: ParseStoredParams): TraceRecord {
   const result = traceRecordSchema.safeParse(params.value);
   if (!result.success) throw invalidStoredRecord({ ...params, error: result.error });
   return result.data as TraceRecord;
+}
+
+/** Validates a stored `responses` index entry; throws `invalid_input` naming the record and every failing field. */
+export function parseResponseIndex(params: ParseStoredParams): ResponseIndexRecord {
+  const result = responseIndexSchema.safeParse(params.value);
+  if (!result.success) throw invalidStoredRecord({ ...params, error: result.error });
+  return result.data as ResponseIndexRecord;
 }

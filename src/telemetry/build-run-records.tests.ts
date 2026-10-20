@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TaskResult } from '../core/agent-types.js';
+import type { TaskResultData } from '../core/agent-types.js';
 import type { ProviderTarget } from '../core/open-turn-stream.js';
 import { createFakeProvider } from '../testing/fake-provider.js';
 import { buildRunRecords } from './build-run-records.js';
@@ -7,7 +7,7 @@ import type { BuildRunRecordsParams, RunFacts } from './build-run-records.js';
 import type { RunRecord, TraceStep } from './run-record.js';
 import { parseRunRecord, parseTraceRecord } from './run-record-schema.js';
 
-const RESULT: TaskResult = {
+const RESULT: TaskResultData = {
   status: 'completed', answer: 'the answer', runId: 'run_1', responseId: 'resp_1', agentName: 'helper', instanceId: 'agent_1',
   errors: [{ category: 'thrown', code: 'x', message: 'm', retryable: false }],
   usage: { inputTokens: 1, outputTokens: 2, cachedTokens: 0, turns: 1, toolCalls: 2, toolCallsPerTurn: 2, retries: 0, fallbacks: 0, durationMs: 50 },

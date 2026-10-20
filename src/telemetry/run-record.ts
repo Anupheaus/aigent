@@ -2,6 +2,7 @@ import type { TaskUsage } from '../core/agent-types.js';
 import type { TaskStatus } from '../core/aigent-events.js';
 import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderSettings } from '../providers/provider-types.js';
+import type { UserRating } from '../feedback/feedback-records.js';
 import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
@@ -144,6 +145,8 @@ export interface RunRecord extends RecordMeta {
   answer?: string;
   /** Outcomes the agent reported on its steps (`previous` and `outcome` directives). */
   outcomeSummary: OutcomeSummary;
+  /** The latest user rating (`ai.feedback`), copied here so scoring needs no join; it overrides the agent's claims. */
+  userVerdict?: UserRating;
 }
 
 /** One document in the `traces` collection, keyed by run id. */

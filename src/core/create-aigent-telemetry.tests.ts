@@ -192,7 +192,7 @@ describe('content capture and redaction', () => {
     const { written, store } = recordingStore();
     const { agent } = setup({ turns: [toolTurn([{ id: 'c1', name: 'echo', args: { text: SECRET } }]), textTurn(`answer ${SECRET}`)], options: { store, captureContent: false } });
     const result = await agent.task({ task: `task ${SECRET}` });
-    expect(written.map(({ collection }) => collection).sort()).toEqual(['runs', 'traces']);
+    expect(written.map(({ collection }) => collection).sort()).toEqual(['responses', 'runs', 'traces']);
     expect(JSON.stringify(written)).not.toContain(SECRET);
     const run = await storedRun(store, result.runId);
     expect(run).not.toHaveProperty('task');
@@ -217,8 +217,8 @@ describe('content capture and redaction', () => {
     const agent = ai.agent({ name: 'helper', model: 'first:m', fallbackModels: ['second:m'], resilience: { maxRetries: 0 }, tools: [echoTool] });
     const result = await agent.task({ task: `task ${SECRET}` });
     expect(result.status).toBe('completed');
-    expect(seen.sort()).toEqual([`runs/${result.runId}`, `traces/${result.runId}`]);
-    expect(written.map(({ collection }) => collection).sort()).toEqual(['runs', 'traces']);
+    expect(seen.sort()).toEqual([`responses/${result.responseId}`, `runs/${result.runId}`, `traces/${result.runId}`]);
+    expect(written.map(({ collection }) => collection).sort()).toEqual(['responses', 'runs', 'traces']);
     expect(JSON.stringify(written)).not.toContain(SECRET);
     const run = await storedRun(store, result.runId);
     expect(run.settings.providerOptions).toEqual({ user: '[redacted]' });
@@ -292,7 +292,8 @@ describe('ai.trace and ai.purge', () => {
     const { agent, ai, store } = setup({ turns: [textTurn('a'), textTurn('b')] });
     const first = await agent.task({ task: 'x' });
     const second = await agent.task({ task: 'y' });
-    expect(await ai.purge({ runId: first.runId })).toBe(2);
+    // The run record, its trace and its responses index entry.
+    expect(await ai.purge({ runId: first.runId })).toBe(3);
     expect(await ai.trace(first.runId)).toBeUndefined();
     expect(await store.get('runs', second.runId)).toBeDefined();
   });

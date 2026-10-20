@@ -5,7 +5,7 @@ import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import { describeError } from './describe-value.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
-import type { TaskResult } from './agent-types.js';
+import type { TaskResultData } from './agent-types.js';
 import { runTurn } from './run-turn.js';
 import { settleActivities } from './settle-activities.js';
 import type { TurnRouting } from './open-turn-stream.js';
@@ -115,7 +115,7 @@ async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {
 }
 
 /** Runs the agent loop until the model answers, a limit is hit, the run is stopped or the provider fails. Never rejects for those cases. */
-export async function runTask(params: RunTaskParams): Promise<TaskResult> {
+export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
   const { runId, responseId, agentName, instanceId, routing, showThinking, prompt, input, registry, limits, clock, control, telemetry, emit } = params;
   const { abortController } = control;
   const { signal } = abortController;
@@ -167,7 +167,7 @@ export async function runTask(params: RunTaskParams): Promise<TaskResult> {
   }
 
   const { usage, turns, toolCalls, retries, fallbacks } = totals;
-  const result: TaskResult = {
+  const result: TaskResultData = {
     status, answer, runId, responseId, agentName, instanceId, errors,
     usage: { ...usage, turns, toolCalls, toolCallsPerTurn: toolCallsPerTurn(totals), retries, fallbacks, durationMs: clock.now() - startedAt },
   };

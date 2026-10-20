@@ -1,3 +1,4 @@
+import type { UserFeedback } from '../feedback/feedback-records.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -75,7 +76,12 @@ export interface TaskResult {
   failure?: string;
   /** Set when the run was stopped ('stopped' → graceful, 'cancelled' → immediate). */
   stopMode?: 'graceful' | 'immediate';
+  /** Shortcut for `ai.feedback({ responseId, ...feedback })`. Not enumerable, so the result stays plain data. */
+  feedback(feedback: Omit<UserFeedback, 'responseId'>): Promise<void>;
 }
+
+/** A task result as the loop builds it, before `feedback` is attached. */
+export type TaskResultData = Omit<TaskResult, 'feedback'>;
 
 export interface StopOptions {
   /** 'graceful' finishes the current turn; 'immediate' aborts now. Default 'immediate'. */

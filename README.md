@@ -323,6 +323,22 @@ Traces can contain sensitive content (task text, answers, tool arguments). Conte
 
 A tool may declare `maxResultTokens`. When its serialised result is larger, the model sees `{ truncated: true, note: 'Result truncated to ~N tokens (was ~M); narrow the request or page through it.', preview }` instead, where `preview` is the first N tokens' worth of the JSON text. The step records `truncated: true` and the original size. Failed results are never truncated, and failures inside a truncated batch result still reach `TaskResult.errors`.
 
+## User feedback on responses
+
+Every result carries a stable `responseId` (also on the `done` event). Rate the answer, now or much later, from any runtime on the same store:
+
+```ts
+await ai.feedback({ responseId: result.responseId, rating: 'incorrect', comment: 'Wrong file', expectedAnswer: 'src/ThemeProvider.tsx' });
+await result.feedback({ rating: 'correct' });   // the same, with the responseId filled in
+```
+
+- `rating` is `'correct'`, `'incorrect'` or `'partial'`; `comment` is at most 2,000 characters and `expectedAnswer` at most 10,000. Invalid input rejects with `invalid_input` naming each field.
+- Each stored run writes an index entry, `responses/<responseId>`, that finds its run. An unknown id rejects with `invalid_input` naming it; that includes `disableTelemetry` runs, runs made without a store and purged runs.
+- The rating is stored in `feedback/<responseId>` as `{ kind: 'user', responseId, rating, comment?, expectedAnswer?, history }` plus the run identity. Rating again amends it: the latest rating wins and `history` keeps every rating (`{ at, rating, comment? }`). Concurrent ratings never lose history.
+- The run record gets `userVerdict` (the latest rating), so scoring reads it without a join. The user's verdict counts over the agent's own success claims.
+- Writes go through `redact` and the agent's write queue like every other record.
+- `result.feedback` is not enumerable, so results stay plain data.
+
 ## Agent feedback (`enableFeedback`)
 
 `enableFeedback` asks the agent to report how its work went. It is set per agent (`ai.agent({ enableFeedback })`), with `createAigent({ enableFeedback })` as the default for agents that leave it out. When neither is set it is on, except when `NODE_ENV` is `production`. When on:
@@ -361,6 +377,7 @@ Phase 1 foundation core, implemented in this slice:
 - A shared scheduler (`createScheduler`): concurrency and per-minute limits, priority lanes, per-agent fairness and 429 adaptation
 - Versioned run records and step traces with tool telemetry, the `redact` hook, content capture, retention hints, `ai.trace` and `ai.purge`
 - `enableFeedback`: the `previous` outcome field, `::aigent outcome` linking and the `aigent_feedback` tool
+- User feedback on responses: `ai.feedback` / `result.feedback`, with amendable history and `userVerdict` on the run record
 
 Roadmap (later slices, each with its own spec): vision, chat sessions, efficiency scoring and `report()`, tool-result cache, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 

@@ -3,7 +3,7 @@ import type {
   Clock, CompareAndSetParams, Directive, FinishReason, IdGenerator, JsonSchema, MessageRole, ModelSettings, ProviderSettings, ProviderToolSpec, RandomSource, ResiliencePolicy,
   RunRecord, RunRecordFallback, RuntimeOnlySettings, SettingsContext, OpenAiTokenLimitField, ReasoningModelMatcher, Sleeper, ThinkingBlock, ToolErrorCategory, ToolFailureInit, UpdateRecordParams, KeySnapshot, LanePriority, Lease, LeaseRequest, LeaseUsage, ProviderLimits, QueuedInfo,
   QueueReason, RateLimitReport, Scheduler, SchedulerOptions, SchedulerSnapshot, UsageReport,
-  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
+  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, OutcomeSummary, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating, ItemCounts, OutcomeSource, PurgeFilter, RecordMeta, Redact, RedactableRecord, RetentionOptions, RunMode, RunTimings, RunTrace, StepOutcome, TraceRecord, TraceStep,
 } from './index.js';
 import type { TextTurnOptions, TurnOptions } from './testing/index.js';
 
@@ -65,6 +65,12 @@ describe('public types', () => {
     const feedbackEntry: AgentFeedbackEntry = { kind: feedbackKind, text: 'A find_config tool', relatedTool: 'search' };
     const feedbackRecord: AgentFeedbackRecord = { ...meta, kind: 'agent', callId: 'c', index: 0, entry: feedbackEntry };
     const outcomeSummary: OutcomeSummary = { claimedSuccess: 1, claimedFailure: 0 };
+    const rating: UserRating = 'partial';
+    const userFeedback: UserFeedback = { responseId: 'resp_1', rating, comment: 'close' };
+    const historyEntry: UserFeedbackHistoryEntry = { at: 1, rating };
+    const userRecord: UserFeedbackRecord = { ...meta, kind: 'user', responseId: 'resp_1', rating, history: [historyEntry] };
+    const responseIndex: ResponseIndexRecord = { ...meta, responseId: 'resp_1' };
+    expect({ userFeedback, userRecord, responseIndex }).toMatchObject({ userFeedback: { rating: 'partial' } });
     expect({ mode, timings, runTrace, redactable, redact, retention, purgeFilter, itemCounts, feedbackRecord, outcomeSummary }).toMatchObject({ mode: 'task' });
     expect({ spec, role, finishReason, directive, category, turnOptions, textTurnOptions, failureInit, casParams, updateParams, providerSettings, recordSettings, resilience, fallback, runtimeOnly, settingsContext, tokenLimitField, isReasoningModel, thinkingBlocks, sleep, random, clock, ids, schedulerOptions, queuedInfo, usage, rateLimit, usageReport, leaseRequest, scheduler }).toMatchObject({ spec: { name: 'echo' }, role: 'assistant' });
   });

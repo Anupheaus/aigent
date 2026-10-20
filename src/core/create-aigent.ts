@@ -12,6 +12,8 @@ import type { RetentionOptions } from '../telemetry/retention.js';
 import type { RunTrace } from '../telemetry/run-record.js';
 import { createFeedbackCollector } from '../feedback/feedback-collector.js';
 import { resolveEnableFeedback } from '../feedback/resolve-enable-feedback.js';
+import type { UserFeedback } from '../feedback/feedback-records.js';
+import { recordUserFeedback } from '../feedback/user-feedback.js';
 import { createAigentError } from './aigent-error.js';
 import type { Agent, AgentDefinition, TaskRun } from './agent-types.js';
 import { computeAgentVersion } from './agent-version.js';
@@ -76,6 +78,12 @@ export interface Aigent {
    * `invalid_input` for an empty filter, without a store, or when the store does not implement `purge`.
    */
   purge(filter: PurgeFilter): Promise<number>;
+  /**
+   * Records a user's rating of a response (validated; a later call amends it and keeps the history) and marks the run
+   * record's `userVerdict`. Works after the run, and from any runtime on the same store. Rejects with `invalid_input`
+   * for an invalid payload, an unknown `responseId` (including disableTelemetry runs) or no store.
+   */
+  feedback(feedback: UserFeedback): Promise<void>;
 }
 
 function indexProviders(providers: Provider[]): Map<string, Provider> {
@@ -124,7 +132,8 @@ export function createAigent(options: AigentOptions): Aigent {
   const writeQueue = createWriteQueue();
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
-  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, sleep, random, scheduler };
+  const submitFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), feedback });
+  const services: RuntimeServices = { clock, ids, writeQueue, telemetry, submitFeedback, sleep, random, scheduler };
   /** Settles (never rejects) when its run has finished, including writing its record. */
   const activeRuns = new Set<Promise<void>>();
 
@@ -184,5 +193,6 @@ export function createAigent(options: AigentOptions): Aigent {
     close,
     trace: runId => readTrace({ store, runId }),
     purge: async filter => purgeRecords({ store, filter }),
+    feedback: submitFeedback,
   };
 }

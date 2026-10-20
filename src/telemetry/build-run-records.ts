@@ -1,4 +1,4 @@
-import type { TaskResult } from '../core/agent-types.js';
+import type { TaskResultData } from '../core/agent-types.js';
 import type { ModelSettings } from '../core/model-settings.js';
 import type { ProviderTarget } from '../core/open-turn-stream.js';
 import type { TaskInput } from '../core/task-input.js';
@@ -30,7 +30,7 @@ export interface RunFacts {
 
 export interface BuildRunRecordsParams {
   input: TaskInput;
-  result: TaskResult;
+  result: TaskResultData;
   agent: RunRecordAgent;
   targets: RunRecordTargets;
   facts: RunFacts;

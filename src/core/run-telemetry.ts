@@ -1,6 +1,6 @@
 import type { CollectedFeedback } from '../feedback/feedback-collector.js';
-import { FEEDBACK_COLLECTION } from '../feedback/feedback-records.js';
-import type { AgentFeedbackRecord } from '../feedback/feedback-records.js';
+import { FEEDBACK_COLLECTION, RESPONSES_COLLECTION } from '../feedback/feedback-records.js';
+import type { AgentFeedbackRecord, ResponseIndexRecord } from '../feedback/feedback-records.js';
 import { FEEDBACK_TOOL_NAME } from '../feedback/feedback-tool.js';
 import { buildRunRecords } from '../telemetry/build-run-records.js';
 import type { BuildRunRecordsParams } from '../telemetry/build-run-records.js';
@@ -66,13 +66,16 @@ export async function persistRunTelemetry(params: PersistRunTelemetryParams): Pr
     ...run,
     facts: { timings: timer.snapshot(), steps: recorder.steps(), captureContent, recordedAt, ...(expiresInMs == null ? {} : { expiresAt: recordedAt + expiresInMs }) },
   });
-  const { runId, agentName } = runRecord;
+  const { runId, agentName, responseId } = runRecord;
+  const responseIndex: ResponseIndexRecord = { ...meta, responseId };
   return persistRun({
     writer,
     queueKey: agentName,
     records: [
       { collection: RUNS_COLLECTION, key: runId, value: runRecord },
       { collection: TRACES_COLLECTION, key: runId, value: trace },
+      // Written after the run record, so feedback that finds the index always finds the run too.
+      { collection: RESPONSES_COLLECTION, key: responseId, value: responseIndex },
       ...feedback.map(collected => agentFeedbackRecord({ meta, collected })),
     ],
   });

@@ -8,7 +8,9 @@ export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';
 export type {
   OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, TraceRecord, TraceStep,
 } from './telemetry/run-record.js';
-export type { AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord } from './feedback/feedback-records.js';
+export type {
+  AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
+} from './feedback/feedback-records.js';
 export type { Redact, RedactableRecord } from './telemetry/redact.js';
 export type { RetentionOptions } from './telemetry/retention.js';
 export type { ResiliencePolicy } from './core/resilience-policy.js';

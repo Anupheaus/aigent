@@ -6,7 +6,8 @@ import { measureQueueWait } from '../telemetry/measure-queue.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent } from './aigent-events.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
-import type { TaskResult, TaskRun } from './agent-types.js';
+import type { TaskResult, TaskResultData, TaskRun } from './agent-types.js';
+import type { UserFeedback } from '../feedback/feedback-records.js';
 import { createEventStream } from './event-stream.js';
 import { filterProviderSettings } from './filter-provider-settings.js';
 import type { ModelSettings } from './model-settings.js';
@@ -59,6 +60,8 @@ export interface RuntimeServices {
   /** Flushed by `ai.close()`; every store write goes through it. */
   writeQueue: WriteQueue;
   telemetry: TelemetrySettings;
+  /** `ai.feedback`, behind `TaskResult.feedback`. */
+  submitFeedback(feedback: UserFeedback): Promise<void>;
   sleep: Sleeper;
   random: RandomSource;
   scheduler: Scheduler;
@@ -101,6 +104,14 @@ function toProviderTarget(params: ProviderTargetParams): ProviderTarget {
   return { label: reference, provider, model, warnings, dropped, ...(filtered.settings == null ? {} : { settings: filtered.settings }) };
 }
 
+/** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
+function withFeedbackShortcut(params: { result: TaskResultData; submitFeedback: RuntimeServices['submitFeedback'] }): TaskResult {
+  const { result, submitFeedback } = params;
+  const { responseId } = result;
+  const feedback: TaskResult['feedback'] = rating => submitFeedback({ ...rating, responseId });
+  return Object.defineProperty(result, 'feedback', { value: feedback, enumerable: false }) as TaskResult;
+}
+
 /** Starts a task in the background and returns its awaitable, iterable, stoppable handle. */
 export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const { agent, services, input } = params;
@@ -124,9 +135,9 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
 
   async function execute(): Promise<void> {
     for (const message of primary.warnings) emit({ type: 'warning', message });
-    let result: TaskResult;
+    let resultData: TaskResultData;
     try {
-      result = await runTask({
+      resultData = await runTask({
         runId, responseId, agentName, instanceId, prompt, input, registry, clock, control, telemetry, emit,
         routing,
         showThinking: settings.showThinking ?? true,
@@ -142,13 +153,13 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
       const usedFallbacks = fallbacks.filter(({ label }) => routing.usedLabels.has(label));
       const warning = await persistRunTelemetry({
         now: () => clock.now(), telemetry, settings: services.telemetry, feedback,
-        run: { input, result, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings } },
+        run: { input, result: resultData, agent: { agentVersion, version }, targets: { primary, fallbacks: usedFallbacks, runtimeSettings: settings } },
       });
       if (warning != null) emit({ type: 'warning', message: warning });
     }
     // `done` is last and only after the records are flushed, so a consumer that sees it can read them.
-    emit({ type: 'done', status: result.status, responseId });
-    stream.finish(result);
+    emit({ type: 'done', status: resultData.status, responseId });
+    stream.finish(withFeedbackShortcut({ result: resultData, submitFeedback: services.submitFeedback }));
   }
 
   // Deferred so the caller can attach iterators first (events are buffered regardless).
