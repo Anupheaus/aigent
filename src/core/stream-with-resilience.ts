@@ -3,6 +3,7 @@ import { createAigentError, isAigentError } from './aigent-error.js';
 import type { AigentError } from './aigent-error.js';
 import { describeError } from './describe-value.js';
 import { withFirstEventTimeout } from './first-event-timeout.js';
+import { openStreamIterator } from './open-stream-iterator.js';
 import { raceSignal } from './race-signal.js';
 import type { SignalRace } from './race-signal.js';
 import { computeBackoffMs, isRetryable, retryAfterMsOf } from './resilience-policy.js';
@@ -73,8 +74,16 @@ function isProviderFailure(error: unknown): boolean {
  */
 async function* streamAttempt(params: StreamAttemptParams): AsyncGenerator<ProviderEvent, AttemptOutcome> {
   const { attempt: { label, open }, signal, sleep, firstEventTimeoutMs } = params;
-  const events = firstEventTimeoutMs == null ? open(signal) : withFirstEventTimeout({ open, signal, timeoutMs: firstEventTimeoutMs, sleep, label });
-  const iterator = events[Symbol.asyncIterator]();
+  let iterator: AsyncIterator<ProviderEvent>;
+  try {
+    // A provider that throws while opening failed before any event, so the failure is retryable like any other.
+    iterator = firstEventTimeoutMs == null
+      ? openStreamIterator({ open, signal, label })
+      : withFirstEventTimeout({ open, signal, timeoutMs: firstEventTimeoutMs, sleep, label })[Symbol.asyncIterator]();
+  } catch (error) {
+    if (signal.aborted) throw abortedError(label);
+    return { kind: 'failed', error };
+  }
   let hasYielded = false;
   let isSettled = false;
   try {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import type { Provider, ProviderCapabilities } from '../providers/provider-types.js';
 import { createScheduler } from '../scheduler/scheduler.js';
 import type { LeaseRequest, Scheduler } from '../scheduler/scheduler-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
@@ -28,6 +29,10 @@ function aigentWith(params: { providers: FakeProvider[]; options?: Partial<Aigen
 }
 
 const SLOW_MS = 30;
+
+const PLAIN_CAPABILITIES: ProviderCapabilities = {
+  streaming: true, toolCalling: true, parallelToolCalls: true, promptCaching: false, vision: false, maxContextTokens: 1_000, supportedSettings: [],
+};
 
 interface SpyScheduler extends Scheduler {
   requests: Omit<LeaseRequest, 'signal' | 'onQueued'>[];
@@ -155,6 +160,32 @@ describe('scheduler through createAigent', () => {
     expect(scheduler.snapshot().fake).toMatchObject({ inFlight: 1, queued: 0 });
     holder.release();
     expect(scheduler.snapshot().fake).toMatchObject({ inFlight: 0, queued: 0 });
+  });
+
+  it('releases every lease when stream() throws synchronously and retryably, so the run fails instead of hanging', async () => {
+    const scheduler = createScheduler({ limits: { plain: { maxConcurrent: 2 } } });
+    const overloaded = createAigentError({ code: 'provider_failed', message: 'overloaded', details: { retryable: true } });
+    let calls = 0;
+    const provider: Provider = {
+      id: 'plain', capabilities: PLAIN_CAPABILITIES,
+      // A plain function, not a generator, so the throw happens while the stream is being opened.
+      stream: () => { calls += 1; throw overloaded; },
+    };
+    const ai = createAigent({ providers: [provider], ids: sequentialIds(), sleep: async () => undefined, random: () => 0.5, scheduler });
+    const result = await ai.agent({ name: 'helper', model: 'plain:m' }).task({ task: 'x' });
+    expect(result).toMatchObject({ status: 'failed', usage: { retries: 2 } });
+    expect(calls).toBe(3);
+    expect(scheduler.snapshot().plain).toMatchObject({ inFlight: 0, queued: 0 });
+  });
+
+  it('fails a provider whose stream() returns a non-iterable with a precise error and releases its lease', async () => {
+    const scheduler = createScheduler({ limits: { plain: { maxConcurrent: 1 } } });
+    const provider: Provider = { id: 'plain', capabilities: PLAIN_CAPABILITIES, stream: (() => ({ not: 'iterable' })) as unknown as Provider['stream'] };
+    const ai = createAigent({ providers: [provider], ids: sequentialIds(), sleep: async () => undefined, random: () => 0.5, scheduler });
+    const result = await ai.agent({ name: 'helper', model: 'plain:m' }).task({ task: 'x' });
+    expect(result.status).toBe('failed');
+    expect(result.failure).toContain("Provider 'plain:m' stream() returned object, which is not an async iterable");
+    expect(scheduler.snapshot().plain).toMatchObject({ inFlight: 0, queued: 0 });
   });
 
   it('holds a lease only while the provider streams, not while tools run', async () => {

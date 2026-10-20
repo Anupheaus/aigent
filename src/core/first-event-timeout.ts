@@ -1,5 +1,6 @@
 import type { ProviderEvent } from '../providers/provider-types.js';
 import { createAigentError } from './aigent-error.js';
+import { openStreamIterator } from './open-stream-iterator.js';
 import type { Sleeper } from './runtime-services.js';
 import { stopStream } from './stop-stream.js';
 
@@ -26,10 +27,13 @@ export async function* withFirstEventTimeout(params: FirstEventTimeoutParams): A
   const forwardAbort = (): void => streamController.abort(signal.reason);
   signal.addEventListener('abort', forwardAbort, { once: true });
   if (signal.aborted) forwardAbort();
-  const iterator = open(streamController.signal)[Symbol.asyncIterator]();
+  let iterator: AsyncIterator<ProviderEvent> | undefined;
   let isSettled = false;
+  // Opening is inside the try so a provider that throws synchronously still has the abort listener removed.
   try {
-    const first = iterator.next();
+    const opened = openStreamIterator({ open, signal: streamController.signal, label });
+    iterator = opened;
+    const first = opened.next();
     // A first event that loses to the timer is abandoned; its later rejection must not go unhandled.
     first.catch(() => undefined);
     // The timer is only cancelled after the race, so winning it always means the time elapsed.
@@ -46,13 +50,13 @@ export async function* withFirstEventTimeout(params: FirstEventTimeoutParams): A
     if (step.result.done === true) { isSettled = true; return; }
     yield step.result.value;
     for (;;) {
-      const result = await iterator.next().catch((error: unknown) => { isSettled = true; throw error; });
+      const result = await opened.next().catch((error: unknown) => { isSettled = true; throw error; });
       if (result.done === true) { isSettled = true; return; }
       yield result.value;
     }
   } finally {
     timerController.abort();
     signal.removeEventListener('abort', forwardAbort);
-    if (!isSettled) stopStream(iterator);
+    if (!isSettled && iterator != null) stopStream(iterator);
   }
 }

@@ -2,6 +2,7 @@ import type { ProviderEvent } from '../providers/provider-types.js';
 import type { LeaseRequest, QueuedInfo, Scheduler } from '../scheduler/scheduler-types.js';
 import { createAigentError, isAigentError } from './aigent-error.js';
 import { withFirstEventTimeout } from './first-event-timeout.js';
+import { openStreamIterator } from './open-stream-iterator.js';
 import { raceSignal } from './race-signal.js';
 import { retryAfterMsOf } from './resilience-policy.js';
 import type { Sleeper } from './runtime-services.js';
@@ -37,16 +38,29 @@ export async function* leasedStream(params: LeasedStreamParams): AsyncGenerator<
   const { key } = leaseRequest;
   const lease = await scheduler.acquire({ ...leaseRequest, signal, onQueued });
   let usedTokens: number | undefined;
-  const events = firstEventTimeoutMs == null ? open(signal) : withFirstEventTimeout({ open, signal, timeoutMs: firstEventTimeoutMs, sleep, label: key });
-  const iterator = events[Symbol.asyncIterator]();
+  let iterator: AsyncIterator<ProviderEvent> | undefined;
   let isSettled = false;
+  /** The stream failed by itself (opening or reading), so there is nothing to stop; a 429 also pauses the key. */
+  const fail = (error: unknown): never => {
+    isSettled = true;
+    if (isRateLimited(error)) scheduler.reportRateLimit({ key, retryAfterMs: retryAfterMsOf(error) ?? DEFAULT_RATE_LIMIT_PAUSE_MS });
+    throw error;
+  };
+  const openOrFail = (): AsyncIterator<ProviderEvent> => {
+    try {
+      return firstEventTimeoutMs == null
+        ? openStreamIterator({ open, signal, label: key })
+        : withFirstEventTimeout({ open, signal, timeoutMs: firstEventTimeoutMs, sleep, label: key })[Symbol.asyncIterator]();
+    } catch (error) {
+      return fail(error);
+    }
+  };
+  // Everything after the lease is granted, opening included, is inside the try: a provider may throw synchronously.
   try {
+    const opened = openOrFail();
+    iterator = opened;
     for (;;) {
-      const raced = await raceSignal({ work: iterator.next(), signal }).catch((error: unknown) => {
-        isSettled = true;
-        if (isRateLimited(error)) scheduler.reportRateLimit({ key, retryAfterMs: retryAfterMsOf(error) ?? DEFAULT_RATE_LIMIT_PAUSE_MS });
-        throw error;
-      });
+      const raced = await raceSignal({ work: opened.next(), signal }).catch(fail);
       if (raced.isAborted) throw createAigentError({ code: 'aborted', message: `Provider stream '${key}' was aborted` });
       if (raced.value.done === true) { isSettled = true; return; }
       const event = raced.value.value;
@@ -54,7 +68,7 @@ export async function* leasedStream(params: LeasedStreamParams): AsyncGenerator<
       yield event;
     }
   } finally {
-    if (!isSettled) stopStream(iterator);
+    if (!isSettled && iterator != null) stopStream(iterator);
     lease.release(usedTokens == null ? undefined : { tokens: usedTokens });
   }
 }

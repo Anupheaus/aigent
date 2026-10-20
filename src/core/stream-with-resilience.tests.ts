@@ -12,7 +12,11 @@ import type { FallbackInfo, ProviderAttempt, RetryInfo } from './stream-with-res
 type OpenScript =
   | { kind: 'fail'; error: AigentError }
   | { kind: 'events'; events: ProviderEvent[]; failAfter?: AigentError }
-  | { kind: 'hang' };
+  | { kind: 'hang' }
+  /** `open` itself throws, as a plain (non-generator) provider function that validates first does. */
+  | { kind: 'throw-on-open'; error: AigentError }
+  /** `open` returns something that is not an async iterable. */
+  | { kind: 'non-iterable' };
 
 interface ScriptedAttempt {
   attempt: ProviderAttempt;
@@ -53,6 +57,8 @@ function scripted(label: string, scripts: OpenScript[]): ScriptedAttempt {
     open: signal => {
       const script = scripts[opens] ?? { kind: 'fail', error: fatal(`'${label}' has no script for open ${opens + 1}`) };
       opens += 1;
+      if (script.kind === 'throw-on-open') throw script.error;
+      if (script.kind === 'non-iterable') return {} as AsyncIterable<ProviderEvent>;
       let index = 0;
       const iterator: AsyncIterator<ProviderEvent> = {
         next: async () => {
@@ -137,6 +143,26 @@ describe('streamWithResilience', () => {
       expect.objectContaining({ attempt: 1, delayMs: 500, label: 'a:m', reason: 'HTTP 503' }),
       expect.objectContaining({ attempt: 2, delayMs: 1_000, label: 'a:m', reason: 'HTTP 503' }),
     ]);
+  });
+
+  it('retries a provider that throws synchronously while opening, like any failure before the first event', async () => {
+    const record = recorder();
+    const primary = scripted('a:m', [{ kind: 'throw-on-open', error: retryable() }, { kind: 'events', events: [TEXT, DONE] }]);
+    expect(await collect(stream({ attempts: [primary], record }))).toEqual([TEXT, DONE]);
+    expect(primary.opens()).toBe(2);
+    expect(record.retries).toEqual([expect.objectContaining({ attempt: 1, label: 'a:m', reason: 'HTTP 503' })]);
+  });
+
+  it('fails without retrying when open returns a non-iterable, naming what came back', async () => {
+    const record = recorder();
+    const primary = scripted('a:m', [{ kind: 'non-iterable' }]);
+    await expect(collect(stream({ attempts: [primary], record }))).rejects.toMatchObject({
+      code: 'provider_failed',
+      message: expect.stringContaining("Provider 'a:m' stream() returned object, which is not an async iterable"),
+      details: { retryable: false },
+    });
+    expect(primary.opens()).toBe(1);
+    expect(record.retries).toEqual([]);
   });
 
   it('honours retryAfterMs from the error as a floor on the delay', async () => {
