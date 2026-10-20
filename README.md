@@ -90,9 +90,10 @@ const local = aigent.agent({ name: 'helper', model: 'ollama:qwen2.5:14b' });
 
 All adapters stream over `fetch` (Node 20+), with no vendor SDK. Their shared behaviour:
 
-- **Keys** come only from the options you pass, and never appear in error messages.
-- **Tool calls:** strict tools are sent with strict decoding where the API supports it (OpenAI `strict: true`), and `aigent_multi` with `strict: false`. Malformed tool-call JSON from the model reaches the loop as the raw string, so the model gets a precise validation error it can fix.
-- **Failures:** HTTP errors and dropped connections become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx). The run then ends with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
+- **Keys** come only from the options you pass. Every credential header value (the key, the bearer token, and custom headers such as `api-key`) is replaced with `[REDACTED]` in error messages and `details`, even when a server echoes it back in its error body. Values shorter than 8 characters are not treated as secrets.
+- **Tool calls:** tools are sent with the `strict` flag where the API has one (OpenAI-compatible `strict: true`, `aigent_multi` with `strict: false`). Strict decoding is a request, not a guarantee: OpenAI does not guarantee schema conformance for parallel tool calls unless `parallel_tool_calls` is false, and DeepSeek honours `strict` only on its `/beta` base URL. The loop validates every call's arguments against the tool schema either way. Malformed tool-call JSON from the model reaches the loop as the raw string, so the model gets a precise validation error it can fix.
+- **Failures:** HTTP errors become `provider_failed` errors with `details.status` and `details.retryable` (true for 408, 409, 429 and 5xx), and the message includes the server's own reason when the body has one. Dropped connections and streams cut off before their final event are `provider_failed` with `details.retryable: true` and no `status`. A 2xx response that is not `text/event-stream` fails with its content type and body. The run then ends with status `failed`. Stopping a run aborts the HTTP request and cancels the response body.
+- **Usage:** a `usage` event is emitted only when the server reports usage; it is left out, never reported as zeros, when the server sends none.
 - **Empty assistant turns:** an assistant turn with no text and no tool calls is left out of the request, because both APIs reject it. Adjacent messages from the same role are then merged so roles keep alternating.
 - **`fetch` option:** inject your own for proxies or tests.
 
@@ -106,12 +107,17 @@ import { describeProviderContract } from '@anupheaus/aigent/testing/contract';
 
 describeProviderContract({
   name: 'my-provider',
-  // Return a provider that reproduces `scenario` (text, parallel tool calls, malformed args, HTTP error,
-  // truncated stream, slow text for abort) on its first `stream` call, e.g. with a fake `fetch`.
+  // Return a provider that reproduces `scenario` (text, thinking, length cut-off, parallel tool calls,
+  // malformed args, HTTP error, truncated stream, mid-stream network error, slow text for abort) on its
+  // first `stream` call, e.g. with a fake `fetch`.
   create: scenario => myProvider({ fetch: fakeFetchFor(scenario) }),
+  // Lets the suite check the response body is cancelled on abort and early break.
+  observe: () => ({ isBodyCancelled: lastFakeBodyWasCancelled() }),
   skip: [], // scenario kinds that cannot apply to your provider
 });
 ```
+
+A wire-level fixture must stream tool arguments exactly as the scenario's `argumentFragments` / `rawArgsFragments` (one delta per fragment, calls interleaved), wait `delayMs` before each `slow-text` chunk, and deliver bodies in small byte chunks; `chunkBytes(text, size)` from the same entry does the last part.
 
 ### Live tests
 

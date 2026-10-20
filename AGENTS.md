@@ -15,7 +15,7 @@
 `src/` folders (tests are co-located as `*.tests.ts`):
 
 - `core` - `createAigent`, agent loop and run control, event stream, task input, system prompt and brief, errors
-- `providers` - provider interface and normalised request/event types, SSE parser and request helper, `openAiCompatible` adapter and its `deepseek`/`openai`/`ollama` presets, `anthropic` adapter (`anthropic-messages.ts` request mapping, `anthropic-stream.ts` event accumulator). `providers-end-to-end.tests.ts` drives `createAigent` through both adapters on mocked `fetch`; `live.tests.ts` hits real services and is skipped unless `AIGENT_LIVE=1` (plus `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / a local Ollama server, see README "Live tests")
+- `providers` - provider interface and normalised request/event types, SSE parser and request helper, `openAiCompatible` adapter and its `deepseek`/`openai`/`ollama` presets, `anthropic` adapter (`anthropic-messages.ts` request mapping, `anthropic-stream.ts` event accumulator), `secret-redaction.ts` (credential redaction applied to every adapter error). `providers-end-to-end.tests.ts` drives `createAigent` through both adapters on mocked `fetch`; `live.tests.ts` hits real services and is skipped unless `AIGENT_LIVE=1` (plus `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / a local Ollama server, see README "Live tests")
 - `tools` - strict tool definitions, registry, executor, `aigent_multi`, activity renderer
 - `store` - store contract, in-memory store, keyed write queue
 - `streaming` - chunk-safe `::aigent` directive parser and schemas
