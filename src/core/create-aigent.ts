@@ -58,7 +58,10 @@ export interface AigentOptions {
    * If it throws, that record is not written and the run emits a warning.
    */
   redact?: Redact;
-  /** Store task text, answers and tool argument values (default true). False keeps metrics and argument shapes only. */
+  /**
+   * Store task text, answers, tool argument values and feedback text (default true). False keeps metrics, argument
+   * shapes and digests, and only the kinds and lengths of user and agent feedback text.
+   */
   captureContent?: boolean;
   /** Retention hints stamped on records as `expiresAt`; the store decides whether to honour them. */
   retention?: RetentionOptions;
@@ -143,7 +146,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const writeQueue = createWriteQueue();
   const writer = store == null ? undefined : createRecordWriter({ store, writeQueue, redact });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
-  const submitFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), feedback });
+  const submitFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
   const services: RuntimeServices = { clock, ids, writeQueue, telemetry, submitFeedback, sleep, random, scheduler };
   /** Settles (never rejects) when its run has finished, including writing its record. */
   const activeRuns = new Set<Promise<void>>();

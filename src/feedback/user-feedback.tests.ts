@@ -16,7 +16,7 @@ async function seededStore() {
 describe('recordUserFeedback', () => {
   it('stores feedback for a run whose record was purged, without recreating the run', async () => {
     const { store, writer } = await seededStore();
-    await recordUserFeedback({ store, writer, now: () => 50, feedback: { responseId: 'resp_1', rating: 'correct' } });
+    await recordUserFeedback({ store, writer, now: () => 50, captureContent: true, feedback: { responseId: 'resp_1', rating: 'correct' } });
     expect((await store.get<UserFeedbackRecord>('feedback', 'resp_1'))?.value).toMatchObject({ rating: 'correct', recordedAt: 50, expiresAt: 99, history: [{ at: 50, rating: 'correct' }] });
     expect(await store.get('runs', 'run_1')).toBeUndefined();
   });
@@ -25,12 +25,12 @@ describe('recordUserFeedback', () => {
     const store = createInMemoryStore();
     await store.compareAndSet({ collection: 'responses', key: 'resp_1', expectedVersion: undefined, value: { responseId: 'resp_1' } });
     const writer = createRecordWriter({ store, writeQueue: createWriteQueue() });
-    await expect(recordUserFeedback({ store, writer, now: () => 1, feedback: { responseId: 'resp_1', rating: 'correct' } })).rejects.toThrow(expect.objectContaining({ code: 'invalid_input', message: expect.stringContaining("'responses/resp_1'") }));
+    await expect(recordUserFeedback({ store, writer, now: () => 1, captureContent: true, feedback: { responseId: 'resp_1', rating: 'correct' } })).rejects.toThrow(expect.objectContaining({ code: 'invalid_input', message: expect.stringContaining("'responses/resp_1'") }));
   });
 
   it('validates before touching the store', async () => {
     const { store, writer } = await seededStore();
-    await expect(recordUserFeedback({ store, writer, now: () => 1, feedback: { responseId: 'resp_1', rating: 'meh' } })).rejects.toThrow(expect.objectContaining({ code: 'invalid_input' }));
+    await expect(recordUserFeedback({ store, writer, now: () => 1, captureContent: true, feedback: { responseId: 'resp_1', rating: 'meh' } })).rejects.toThrow(expect.objectContaining({ code: 'invalid_input' }));
     expect(await store.get('feedback', 'resp_1')).toBeUndefined();
   });
 });

@@ -5,8 +5,12 @@ export interface UpdateRecordParams<T> {
   store: Store;
   collection: string;
   key: string;
-  /** Builds the next value from the current one (undefined when the record does not exist). May run several times. */
-  update(current: T | undefined): T;
+  /**
+   * Builds the next value from the current one (undefined when the record does not exist). May run several times, and
+   * may be async (to read other records): it runs after the current value is read and before the compare-and-set, so
+   * anything it reads is re-read whenever another write lands first.
+   */
+  update(current: T | undefined): T | Promise<T>;
   /** Attempts before giving up with `store_conflict`. Default 50. */
   maxAttempts?: number;
   /** Waits between attempts; injectable so tests need not wait. Defaults to a real timer. */
@@ -41,7 +45,7 @@ export async function updateRecord<T>(params: UpdateRecordParams<T>): Promise<T>
   const { store, collection, key, update, maxAttempts = DEFAULT_MAX_ATTEMPTS, sleep = realSleep } = params;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const current = await store.get<T>(collection, key);
-    const next = update(current?.value);
+    const next = await update(current?.value);
     if (await store.compareAndSet({ collection, key, expectedVersion: current?.version, value: next })) return next;
     if (attempt < maxAttempts) await sleep(backoffMs(attempt));
   }

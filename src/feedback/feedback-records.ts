@@ -53,7 +53,10 @@ export interface UserFeedbackHistoryEntry {
   /** Epoch ms when it was given. */
   at: number;
   rating: UserRating;
+  /** Only when content capture is on. */
   comment?: string;
+  /** Characters of the comment when content capture is off (the text itself is not stored). */
+  commentLength?: number;
 }
 
 /** The stored user feedback on a response, keyed by response id; the latest rating wins and every rating is kept in `history`. */
@@ -61,8 +64,14 @@ export interface UserFeedbackRecord extends RecordMeta {
   kind: 'user';
   responseId: string;
   rating: UserRating;
+  /** Only when content capture is on. */
   comment?: string;
+  /** Characters of the comment when content capture is off. */
+  commentLength?: number;
+  /** Only when content capture is on. */
   expectedAnswer?: string;
+  /** Characters of the expected answer when content capture is off. */
+  expectedAnswerLength?: number;
   /** Every rating given, oldest first (the current one last). */
   history: UserFeedbackHistoryEntry[];
 }

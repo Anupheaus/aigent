@@ -10,7 +10,9 @@ export interface RedactableRecord {
 
 /**
  * Consumer hook applied to every record of every collection before it reaches the store. It receives a copy and
- * returns the record to store; it may change `value` only (collection and key identify the record).
+ * returns the record to store; it may change `value` only (collection and key identify the record). New records are
+ * passed whole; an update of a stored record (`ai.feedback`) passes only its new content (e.g. `{ userVerdict }` for a
+ * run, the new rating fields and history entry for feedback), so already-redacted values are never redacted twice.
  */
 export type Redact = (record: RedactableRecord) => RedactableRecord;
 

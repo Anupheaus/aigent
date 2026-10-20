@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { UserFeedbackRecord } from '../feedback/feedback-records.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { CompareAndSetParams, Store } from '../store/store-types.js';
+import type { Redact } from '../telemetry/redact.js';
 import type { RunRecord } from '../telemetry/run-record.js';
 import { createFakeProvider, textTurn } from '../testing/fake-provider.js';
 import { createAigent } from './create-aigent.js';
@@ -120,5 +122,63 @@ describe('ai.feedback', () => {
     expect([...redacted].sort()).toEqual(['feedback', 'responses', 'runs', 'traces']);
     expect(JSON.stringify(written)).not.toContain(SECRET);
     expect((await memory.get<RunRecord>('runs', result.runId))?.value.userVerdict).toBe('incorrect');
+  });
+
+  it('applies a non-idempotent (hashing) redact once: re-written records are not hashed again', async () => {
+    const digest = (text: string): string => `sha256:${createHash('sha256').update(text).digest('hex').slice(0, 16)}`;
+    const HASHED_KEYS = new Set(['task', 'comment', 'expectedAnswer']);
+    const hashFields = (value: unknown): unknown => {
+      if (Array.isArray(value)) return value.map(hashFields);
+      if (typeof value !== 'object' || value === null) return value;
+      return Object.fromEntries(Object.entries(value).map(([field, inner]) => [field, HASHED_KEYS.has(field) && typeof inner === 'string' ? digest(inner) : hashFields(inner)]));
+    };
+    const redact: Redact = ({ collection, key, value }) => ({ collection, key, value: hashFields(value) });
+    const { ai, agent, store } = setup({ options: { redact } });
+    const result = await agent.task({ task: 'secret task' });
+    await ai.feedback({ responseId: result.responseId, rating: 'partial', comment: 'first' });
+    await ai.feedback({ responseId: result.responseId, rating: 'incorrect', comment: 'second', expectedAnswer: 'answer' });
+    expect((await store.get<RunRecord>('runs', result.runId))?.value).toMatchObject({ task: digest('secret task'), userVerdict: 'incorrect' });
+    expect(await userFeedback(store, result.responseId)).toMatchObject({
+      rating: 'incorrect', comment: digest('second'), expectedAnswer: digest('answer'),
+      history: [{ rating: 'partial', comment: digest('first') }, { rating: 'incorrect', comment: digest('second') }],
+    });
+  });
+
+  it('keeps runs.userVerdict equal to the stored rating when two runtimes rate at once and the store is slow', async () => {
+    const memory = createInMemoryStore();
+    const SLOW_READ_MS = 30;
+    let isFirstRunRead = true;
+    let markFirstFeedbackWritten: () => void = () => undefined;
+    const firstFeedbackWritten = new Promise<void>(resolve => { markFirstFeedbackWritten = resolve; });
+    const store: Store = {
+      ...memory,
+      // The first read of the run record (by the first rating) is slow, so the second rating overtakes it.
+      get: async (collection, key) => {
+        if (collection === 'runs' && isFirstRunRead) { isFirstRunRead = false; await new Promise(resolve => setTimeout(resolve, SLOW_READ_MS)); }
+        return memory.get(collection, key);
+      },
+      compareAndSet: async params => { const stored = await memory.compareAndSet(params); if (stored && params.collection === 'feedback') markFirstFeedbackWritten(); return stored; },
+    };
+    const { ai, agent } = setup({ store });
+    const result = await agent.task({ task: 'x' });
+    const second = createAigent({ providers: [createFakeProvider({ turns: [] })], store });
+    const first = ai.feedback({ responseId: result.responseId, rating: 'incorrect' });
+    await firstFeedbackWritten;
+    await Promise.all([first, second.feedback({ responseId: result.responseId, rating: 'correct' })]);
+    const feedback = await userFeedback(store, result.responseId);
+    expect(feedback?.history.map(({ rating }) => rating)).toEqual(['incorrect', 'correct']);
+    expect((await memory.get<RunRecord>('runs', result.runId))?.value.userVerdict).toBe(feedback?.rating);
+  });
+
+  it('stores no comment or expected answer text with captureContent: false, only their lengths', async () => {
+    const { ai, agent, store } = setup({ options: { captureContent: false } });
+    const result = await agent.task({ task: 'x' });
+    const comment = `It leaked ${SECRET}`;
+    await ai.feedback({ responseId: result.responseId, rating: 'incorrect', comment, expectedAnswer: SECRET });
+    const stored = await userFeedback(store, result.responseId);
+    expect(JSON.stringify(stored)).not.toContain(SECRET);
+    expect(stored).toMatchObject({ rating: 'incorrect', commentLength: comment.length, expectedAnswerLength: SECRET.length, history: [{ rating: 'incorrect', commentLength: comment.length }] });
+    expect(stored).not.toHaveProperty('comment');
+    expect(stored).not.toHaveProperty('expectedAnswer');
   });
 });
