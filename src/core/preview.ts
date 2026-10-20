@@ -4,6 +4,7 @@ import { estimatePromptTokens } from '../context/estimate-prompt-tokens.js';
 import type { ProviderMessage, ProviderToolSpec } from '../providers/provider-types.js';
 import { buildPromptTexts } from './prompt-texts.js';
 import { setUpRunPlanning } from './run-planning-setup.js';
+import { createRunOriginals } from './run-originals.js';
 import { setUpRunShaping } from './run-shaping.js';
 import { promptCompressionContext } from './run-settings.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
@@ -23,7 +24,10 @@ function previewTools(params: { agent: ResolvedAgent; input?: TaskInput }): Prov
   const shaped = setUpRunShaping({ registry: agent.registry, settings, isFeedbackEnabled: agent.feedbackCollector != null });
   // Planning only adds tools here; its events have nowhere to go in a preview.
   const { registry } = setUpRunPlanning({ registry: shaped.registry, input: input ?? { task: '' }, isTodoEnabled: agent.isTodoEnabled, emit: () => undefined });
-  return registry.specs();
+  const { compression, feedbackCollector } = agent;
+  const { shaping } = shaped;
+  const originals = createRunOriginals({ registry, isFeedbackEnabled: feedbackCollector != null, ...(shaping == null ? {} : { shaping }), ...(compression == null ? {} : { compression }) });
+  return originals.registry().specs();
 }
 
 /** What the model would see first for `input`: system prompt, brief and tools, with every compressed field. No provider call. */

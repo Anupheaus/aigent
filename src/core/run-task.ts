@@ -139,7 +139,9 @@ export async function runTask(params: RunTaskParams): Promise<TaskResultData> {
     initial: [{ kind: 'system', message: { role: 'system', text: systemPrompt } }, { kind: 'brief', message: { role: 'user', text: brief } }],
   });
   const totals: RunTotals = { usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 }, turns: 0, toolCalls: 0, retries: 0, fallbacks: 0, compactionTokens: 0 };
-  const originals = createRunOriginals({ registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }) });
+  const originals = createRunOriginals({
+    registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }), ...(params.compression == null ? {} : { compression: params.compression.settings }),
+  });
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';

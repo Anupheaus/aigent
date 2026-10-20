@@ -112,7 +112,8 @@ describe('createAigent compression', () => {
     const { provider, agent } = setup({ definition: { context: `${CONTEXT}\n${directive}\n${CONTEXT}`, compression: { ...COMPRESSION, minTokens: 50 } } });
     await agent.task({ task: 'short' });
     const [request] = provider.requests;
-    expect(request?.tools).toEqual(plain.requests[0]?.tools);
+    // Same schemas byte for byte; compressing tool results only adds result_original.
+    expect(request?.tools.filter(({ name }) => name !== 'result_original')).toEqual(plain.requests[0]?.tools);
     expect(request?.messages[0]?.text).toContain(directive);
     expect(request?.messages[1]?.text).toBe('# Task\nshort');
   });
@@ -137,6 +138,9 @@ describe('createAigent compression', () => {
     expect(original).toMatchObject({ envelope: { ok: true, result: [{ ok: true, result: { handle: 'H1', text: PROSE_RESULT } }] } });
     // The consumer's tool-result event always carries the uncompressed result.
     expect(events.find(event => event.type === 'tool-result' && event.callId === 'p')).toMatchObject({ envelope: { result: PROSE_RESULT } });
+    // result_original is there from the first request, so compressing a result never changes the tool list (the prefix).
+    expect(provider.requests[0]?.tools.map(({ name }) => name)).toContain('result_original');
+    expect(events.filter(event => event.type === 'warning')).toEqual([]);
   });
 
   it('records every compression on the run record without any text', async () => {

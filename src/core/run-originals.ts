@@ -1,3 +1,4 @@
+import type { ResolvedCompression } from '../compression/compression-options.js';
 import { withFeedbackFields } from '../feedback/with-feedback-fields.js';
 import { createOriginalStore } from '../shapers/original-store.js';
 import type { OriginalStore } from '../shapers/original-store.js';
@@ -10,7 +11,7 @@ import type { RunShaping } from './run-shaping.js';
 export interface RunOriginals {
   /** Keeps `text` and returns its `result_original` handle; makes sure the model has `result_original` from now on. */
   keep(text: string): string;
-  /** The run's current registry (the agent's tools, plus `result_original` once anything was kept). */
+  /** The run's current registry (the agent's tools, plus `result_original` once originals can exist). */
   registry(): ToolRegistry;
 }
 
@@ -21,26 +22,35 @@ export interface CreateRunOriginalsParams {
   shaping?: RunShaping;
   /** Adds `previous` to `result_original` like every other work tool. */
   isFeedbackEnabled: boolean;
+  /** The agent's compression; when it compresses tool results, `result_original` is registered from the start. */
+  compression?: ResolvedCompression;
+}
+
+/** Compressed results keep originals on any turn, so their tool must be in the very first request's tool list. */
+function compressesToolResults(params: { registry: ToolRegistry; compression?: ResolvedCompression }): boolean {
+  const { registry, compression } = params;
+  return compression != null && compression.applyTo.includes('toolResults') && registry.list().some(({ compressible }) => compressible != null && compressible !== false);
 }
 
 /**
- * Runs without shaping get `result_original` only when the first original is kept (the first compaction stub or
- * compressed result). That happens at a compaction or when a result is committed, so the tool list changes only
- * where the prompt prefix changes anyway.
+ * Otherwise `result_original` is added only when the first original is kept, by the first compaction stub: a
+ * compaction changes the prompt prefix anyway, so the tool list changes only where the prefix already does.
  */
 export function createRunOriginals(params: CreateRunOriginalsParams): RunOriginals {
   const { shaping, isFeedbackEnabled } = params;
   let current = params.registry;
   if (shaping != null) return { keep: text => shaping.state.originals.put(text), registry: () => current };
   let store: OriginalStore | undefined;
+  const register = (): OriginalStore => {
+    const originals = createOriginalStore();
+    const tool = createResultOriginalTool({ originals });
+    current = createToolRegistry([...current.list(), isFeedbackEnabled ? withFeedbackFields(tool) : tool]);
+    return originals;
+  };
+  if (compressesToolResults(params)) store = register();
   return {
     keep: text => {
-      if (store == null) {
-        const originals = createOriginalStore();
-        const tool = createResultOriginalTool({ originals });
-        current = createToolRegistry([...current.list(), isFeedbackEnabled ? withFeedbackFields(tool) : tool]);
-        store = originals;
-      }
+      store ??= register();
       return store.put(text);
     },
     registry: () => current,
