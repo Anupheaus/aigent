@@ -5,7 +5,7 @@ import { linkPrevious } from './link-previous.js';
 import type { RunFeedback } from './link-previous.js';
 
 function setup() {
-  const recorder = createTraceRecorder({ now: () => 0, captureContent: true });
+  const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
   const feedback: RunFeedback = { isEnabled: true, hasWarnedMissing: false };
   const events: AigentEvent[] = [];
   const link = (callId: string, args: unknown, turn: number) => linkPrevious({ call: { id: callId, name: 'echo', args }, turn, recorder, feedback, emit: event => events.push(event) });

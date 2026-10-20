@@ -23,13 +23,19 @@ function argumentKeys(step: TraceStep): string {
   }
 }
 
+/** What identifies a call's arguments: the full-argument digest, or for older records the summary. */
+function argumentsOf(step: TraceStep): string {
+  const { argsHash, argsSummary } = step;
+  return argsHash ?? argsSummary;
+}
+
 /** Why one step was not needed, if it was not; the first matching reason wins. */
 function wasteOf(params: { step: TraceStep; earlier: TraceStep[]; later: TraceStep[] }): WastedStepReason | undefined {
   const { step, earlier, later } = params;
   const sameTool = (other: TraceStep): boolean => other.tool === step.tool;
   if (!step.ok && later.some(other => sameTool(other) && other.ok)) return 'failed-before-success';
-  if (earlier.some(other => sameTool(other) && other.ok && other.argsSummary === step.argsSummary)) return 'repeat-call';
-  if (SEARCH_LIKE.test(step.tool) && later.some(other => sameTool(other) && other.argsSummary !== step.argsSummary)) return 'superseded-search';
+  if (earlier.some(other => sameTool(other) && other.ok && argumentsOf(other) === argumentsOf(step))) return 'repeat-call';
+  if (SEARCH_LIKE.test(step.tool) && later.some(other => sameTool(other) && argumentsOf(other) !== argumentsOf(step))) return 'superseded-search';
   // Back-to-back calls to one tool with the same argument keys, a turn apart and nothing in between, could have been
   // one batch. Inner aigent_multi calls were already batched by the model, and a refined search depends on the results
   // of the one before it (that one is reported as superseded instead).

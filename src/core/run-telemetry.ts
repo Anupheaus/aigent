@@ -27,6 +27,8 @@ export interface TelemetrySettings {
 
 export interface CreateRunTelemetryParams {
   now(): number;
+  /** Salts the trace's argument digests. */
+  runId: string;
   settings: TelemetrySettings;
   /** The agent's resolved `enableFeedback`. */
   enableFeedback: boolean;
@@ -58,10 +60,10 @@ function agentFeedbackRecord(params: { meta: RecordMeta; collected: CollectedFee
 
 /** The collectors for one run; they hold plain data and never write anything themselves. */
 export function createRunTelemetry(params: CreateRunTelemetryParams): RunTelemetry {
-  const { now, settings: { captureContent }, enableFeedback } = params;
+  const { now, runId, settings: { captureContent }, enableFeedback } = params;
   return {
     // aigent_feedback is commentary, not work, so outcomes never attach to it.
-    recorder: createTraceRecorder({ now, captureContent, nonOutcomeTools: [FEEDBACK_TOOL_NAME] }),
+    recorder: createTraceRecorder({ now, captureContent, argsDigestKey: runId, nonOutcomeTools: [FEEDBACK_TOOL_NAME] }),
     timer: createRunTimer({ now }),
     feedback: { isEnabled: enableFeedback, hasWarnedMissing: false },
   };

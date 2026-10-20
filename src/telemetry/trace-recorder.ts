@@ -1,5 +1,6 @@
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { OutcomeSource, StepOutcome, TraceStep } from './run-record.js';
+import { digestArgs } from './digest-args.js';
 import { summariseArgs } from './summarise-args.js';
 
 export interface BeginStepParams {
@@ -49,6 +50,8 @@ export interface CreateTraceRecorderParams {
   now(): number;
   /** Whether argument values (`args`, a value-bearing `argsSummary`) and outcome answers are kept. */
   captureContent: boolean;
+  /** Salts each step's `argsHash` (the run id). */
+  argsDigestKey: string;
   /** Tools whose steps never receive outcomes (commentary such as `aigent_feedback`, not work). */
   nonOutcomeTools?: string[];
 }
@@ -68,7 +71,7 @@ function finishedFields(executed: ExecutedToolCall): Partial<TraceStep> {
 
 /** Collects a run's tool steps as plain data while the loop runs; it never does I/O. */
 export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRecorder {
-  const { now, captureContent, nonOutcomeTools = [] } = params;
+  const { now, captureContent, argsDigestKey, nonOutcomeTools = [] } = params;
   const recorded: TraceStep[] = [];
   const finished = new Set<number>();
   const skipped = new Set(nonOutcomeTools);
@@ -103,6 +106,7 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
     recorded.push({
       index, turn, callId, ...(parentCallId == null ? {} : { parentCallId }), tool,
       argsSummary: summariseArgs({ args, captureContent }),
+      argsHash: digestArgs({ args, key: argsDigestKey }),
       ...(captureContent ? { args: structuredClone(args) } : {}),
       ok: false, resultBytes: 0, resultTokens: 0, truncated: false, durationMs: 0, startedAtMs: now(),
     });

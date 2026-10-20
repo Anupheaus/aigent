@@ -121,7 +121,7 @@ export function startTaskRun(params: StartTaskRunParams): TaskRun {
   const runId = ids.next('run');
   const responseId = ids.next('resp');
   const { feedbackCollector } = agent;
-  const telemetry = createRunTelemetry({ now: () => clock.now(), settings: services.telemetry, enableFeedback: feedbackCollector != null });
+  const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
   const { maxTurns, maxToolCalls, timeoutMs } = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
   const primary = toProviderTarget({ target, agent, input });

@@ -19,6 +19,15 @@ describe('summariseToolUse', () => {
     expect(summariseToolUse({ steps, nonWorkTools: ['aigent_multi', 'aigent_feedback'] })).toEqual({ calls: 4, items: 7, repeats: 2 });
   });
 
+  it('compares argument digests when present, so calls with the same argument shape but different values are not repeats', () => {
+    const steps = [
+      step({ index: 0, tool: 'read', argsSummary: '{"path":"<string>"}', argsHash: 'h-a' }),
+      step({ index: 1, tool: 'read', argsSummary: '{"path":"<string>"}', argsHash: 'h-b' }),
+      step({ index: 2, tool: 'read', argsSummary: '{"path":"<string>"}', argsHash: 'h-a' }),
+    ];
+    expect(summariseToolUse({ steps, nonWorkTools: [] })).toEqual({ calls: 3, items: 3, repeats: 1 });
+  });
+
   it('is all zeros without steps', () => {
     expect(summariseToolUse({ steps: [], nonWorkTools: [] })).toEqual({ calls: 0, items: 0, repeats: 0 });
   });

@@ -200,6 +200,15 @@ describe('content capture and redaction', () => {
     expect((await storedTrace(store, result.runId)).steps[0]).toMatchObject({ argsSummary: '{"text":"<string>"}' });
   });
 
+  it('counts repeats by argument values, not shapes, with captureContent: false', async () => {
+    const { store } = recordingStore();
+    const calls = ['a.txt', 'b.txt', 'a.txt'].map((text, position) => ({ id: `c${position}`, name: 'echo', args: { text } }));
+    const { agent } = setup({ turns: [toolTurn(calls), textTurn('done')], options: { store, captureContent: false } });
+    const result = await agent.task({ task: 'x' });
+    expect((await storedRun(store, result.runId)).toolUse).toEqual({ calls: 3, items: 3, repeats: 1 });
+    expect(JSON.stringify((await storedTrace(store, result.runId)).steps)).not.toContain('a.txt');
+  });
+
   it('applies redact to every record of every collection, provider options of fallbacks included', async () => {
     const { written, store } = recordingStore();
     const overloaded = createAigentError({ code: 'provider_failed', message: 'HTTP 503', details: { status: 503, retryable: true } });

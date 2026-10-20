@@ -14,12 +14,13 @@ export function summariseToolUse(params: SummariseToolUseParams): ToolUse {
   let calls = 0;
   let items = 0;
   let repeats = 0;
-  for (const { tool, argsSummary, itemTotal } of steps) {
+  for (const { tool, argsSummary, argsHash, itemTotal } of steps) {
     if (skipped.has(tool)) continue;
     calls += 1;
     // A batch call counts its items; any other call is one item of work.
     items += itemTotal ?? 1;
-    const signature = `${tool}\n${argsSummary}`;
+    // The digest covers the full arguments; the summary (a shape, or a 120-character prefix) is a fallback for old records.
+    const signature = `${tool}\n${argsHash ?? argsSummary}`;
     if (seen.has(signature)) repeats += 1;
     seen.add(signature);
   }

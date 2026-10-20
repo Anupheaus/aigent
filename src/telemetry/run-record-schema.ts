@@ -68,6 +68,7 @@ export const traceStepSchema = z.object({
   parentCallId: z.string().optional(),
   tool: z.string(),
   argsSummary: z.string(),
+  argsHash: z.string().optional(),
   args: z.unknown().optional(),
   ok: z.boolean(),
   errorCategory: z.enum(TOOL_ERROR_CATEGORIES).optional(),

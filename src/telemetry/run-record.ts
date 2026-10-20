@@ -65,6 +65,11 @@ export interface TraceStep {
   tool: string;
   /** First 120 characters of the arguments' canonical JSON; with content capture off, the argument shape only. */
   argsSummary: string;
+  /**
+   * Content-free digest of the full arguments, salted per run (see `digestArgs`): equal within a run exactly when the
+   * arguments are equal. Absent on records written before it existed.
+   */
+  argsHash?: string;
   /** The arguments as validated, only when content capture is on. */
   args?: unknown;
   ok: boolean;
@@ -115,7 +120,7 @@ export interface ToolUse {
   calls: number;
   /** Work items: a batch call's items, one for any other call. */
   items: number;
-  /** Calls with the same tool and argument summary as an earlier call of the run. */
+  /** Calls with the same tool and arguments (by `argsHash`) as an earlier call of the run. */
   repeats: number;
 }
 

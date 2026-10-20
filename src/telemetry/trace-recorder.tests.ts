@@ -21,7 +21,7 @@ function succeeded(callId: string, overrides: Partial<ExecutedToolCall> = {}): E
 describe('createTraceRecorder', () => {
   it('orders steps by start, with turns, start times and finished timings', () => {
     const clock = fakeClock(1_000);
-    const recorder = createTraceRecorder({ now: clock.now, captureContent: true });
+    const recorder = createTraceRecorder({ now: clock.now, captureContent: true, argsDigestKey: 'run_1' });
     const finishA = recorder.begin({ turn: 1, callId: 'a', tool: 'search', args: { query: 'x' } });
     clock.advance(10);
     const finishB = recorder.begin({ turn: 1, callId: 'b', tool: 'read', args: { path: 'p' } });
@@ -30,14 +30,14 @@ describe('createTraceRecorder', () => {
     clock.advance(30);
     recorder.begin({ turn: 2, callId: 'c', tool: 'read', args: {} })(succeeded('c'));
     expect(recorder.steps()).toEqual([
-      { index: 0, turn: 1, callId: 'a', tool: 'search', argsSummary: '{"query":"x"}', args: { query: 'x' }, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 20, startedAtMs: 1_000 },
-      { index: 1, turn: 1, callId: 'b', tool: 'read', argsSummary: '{"path":"p"}', args: { path: 'p' }, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 7, startedAtMs: 1_010 },
-      { index: 2, turn: 2, callId: 'c', tool: 'read', argsSummary: '{}', args: {}, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 5, startedAtMs: 1_040 },
+      { index: 0, turn: 1, callId: 'a', tool: 'search', argsSummary: '{"query":"x"}', argsHash: expect.any(String), args: { query: 'x' }, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 20, startedAtMs: 1_000 },
+      { index: 1, turn: 1, callId: 'b', tool: 'read', argsSummary: '{"path":"p"}', argsHash: expect.any(String), args: { path: 'p' }, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 7, startedAtMs: 1_010 },
+      { index: 2, turn: 2, callId: 'c', tool: 'read', argsSummary: '{}', argsHash: expect.any(String), args: {}, ok: true, resultBytes: 3, resultTokens: 1, truncated: false, durationMs: 5, startedAtMs: 1_040 },
     ]);
   });
 
   it('links inner calls to their parent and records failures, batch item counts and truncation', () => {
-    const recorder = createTraceRecorder({ now: () => 0, captureContent: true });
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
     recorder.begin({ turn: 1, callId: 'm', tool: 'aigent_multi', args: { calls: [] } })(succeeded('m'));
     recorder.begin({ turn: 1, callId: 'x', parentCallId: 'm', tool: 'read_all', args: { items: [] } })(succeeded('x', { items: { total: 3, failed: 1 }, size: { resultBytes: 900, resultTokens: 225, truncated: true } }));
     recorder.begin({ turn: 1, callId: 'y', parentCallId: 'm', tool: 'echo', args: {} })({
@@ -50,7 +50,7 @@ describe('createTraceRecorder', () => {
   });
 
   it('keeps no argument values when content capture is off', () => {
-    const recorder = createTraceRecorder({ now: () => 0, captureContent: false });
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: false, argsDigestKey: 'run_1' });
     recorder.begin({ turn: 1, callId: 'a', tool: 'read', args: { path: '/secret/file', depth: 2, deep: { flag: true, list: ['x'] }, empty: null } })(succeeded('a'));
     const [step] = recorder.steps();
     expect(step).not.toHaveProperty('args');
@@ -58,15 +58,43 @@ describe('createTraceRecorder', () => {
     expect(JSON.stringify(step)).not.toContain('secret');
   });
 
+  it('digests the full arguments without their content, so values (not shapes) decide whether two calls match', () => {
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: false, argsDigestKey: 'run_1' });
+    for (const [callId, path] of [['a', '/secret/a.txt'], ['b', '/secret/b.txt'], ['c', '/secret/a.txt']] as const) recorder.begin({ turn: 1, callId, tool: 'read', args: { path } })(succeeded(callId));
+    const [first, second, third] = recorder.steps().map(({ argsHash }) => argsHash);
+    expect(first).toMatch(/^[0-9a-f]{32}$/);
+    expect(second).not.toBe(first);
+    expect(third).toBe(first);
+    expect(JSON.stringify(recorder.steps())).not.toContain('secret');
+  });
+
+  it('digests long arguments in full, so a shared 120-character prefix is not a match', () => {
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
+    recorder.begin({ turn: 1, callId: 'a', tool: 'write', args: { text: `${'x'.repeat(200)}1` } })(succeeded('a'));
+    recorder.begin({ turn: 1, callId: 'b', tool: 'write', args: { text: `${'x'.repeat(200)}2` } })(succeeded('b'));
+    const [first, second] = recorder.steps();
+    expect(first?.argsSummary).toBe(second?.argsSummary);
+    expect(first?.argsHash).not.toBe(second?.argsHash);
+  });
+
+  it('salts digests per run, so the same arguments digest differently in another run', () => {
+    const digestIn = (argsDigestKey: string) => {
+      const recorder = createTraceRecorder({ now: () => 0, captureContent: false, argsDigestKey });
+      recorder.begin({ turn: 1, callId: 'a', tool: 'read', args: { path: 'a.txt' } })(succeeded('a'));
+      return recorder.steps()[0]?.argsHash;
+    };
+    expect(digestIn('run_1')).not.toBe(digestIn('run_2'));
+  });
+
   it('cuts the argument summary to 120 characters of canonical JSON', () => {
-    const recorder = createTraceRecorder({ now: () => 0, captureContent: true });
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
     recorder.begin({ turn: 1, callId: 'a', tool: 'write', args: { text: 'x'.repeat(500), a: 1 } })(succeeded('a'));
     expect(recorder.steps()[0]?.argsSummary).toBe(`{"a":1,"text":"${'x'.repeat(105)}`);
   });
 
   it('reports a step that never finished as aborted, and ignores a second finish', () => {
     const clock = fakeClock(0);
-    const recorder = createTraceRecorder({ now: clock.now, captureContent: true });
+    const recorder = createTraceRecorder({ now: clock.now, captureContent: true, argsDigestKey: 'run_1' });
     recorder.begin({ turn: 1, callId: 'hung', tool: 'slow', args: {} });
     const finish = recorder.begin({ turn: 1, callId: 'done', tool: 'fast', args: {} });
     finish(succeeded('done', { durationMs: 1 }));
@@ -79,7 +107,7 @@ describe('createTraceRecorder', () => {
   });
 
   it('returns copies, so callers cannot change what was recorded', () => {
-    const recorder = createTraceRecorder({ now: () => 0, captureContent: true });
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
     const args = { path: 'a' };
     recorder.begin({ turn: 1, callId: 'a', tool: 'read', args })(succeeded('a'));
     args.path = 'changed';
@@ -91,7 +119,7 @@ describe('createTraceRecorder', () => {
 
 describe('createTraceRecorder outcomes', () => {
   function recorderWithSteps(captureContent = true) {
-    const recorder = createTraceRecorder({ now: () => 0, captureContent, nonOutcomeTools: ['aigent_feedback'] });
+    const recorder = createTraceRecorder({ now: () => 0, captureContent, nonOutcomeTools: ['aigent_feedback'], argsDigestKey: 'run_1' });
     const begin = (turn: number, callId: string, extra: { tool?: string; parentCallId?: string } = {}) => recorder.begin({ turn, callId, tool: extra.tool ?? 'search', args: {}, ...(extra.parentCallId == null ? {} : { parentCallId: extra.parentCallId }) });
     const answers = () => recorder.steps().map(({ callId, outcome }) => [callId, outcome?.answer]);
     return { recorder, begin, answers };

@@ -27,3 +27,18 @@ describe('wastedStepsOf', () => {
     expect(wastedStepsOf(trace)).toEqual([]);
   });
 });
+
+describe('wastedStepsOf with argument digests', () => {
+  it('uses digests over shape-only summaries, so different values are not repeats and a refined search is superseded', () => {
+    const shape = '{"query":"<string>"}';
+    const trace = fixtureTrace({ run: { startedAt: 1 }, steps: [
+      { tool: 'search', turn: 1, argsSummary: shape, argsHash: 'h-a' },
+      { tool: 'search', turn: 2, argsSummary: shape, argsHash: 'h-b' },
+      { tool: 'search', turn: 3, argsSummary: shape, argsHash: 'h-b' },
+    ] });
+    expect(wastedStepsOf(trace)).toEqual([
+      { runId: 'run_0001', stepIndex: 0, reason: 'superseded-search' },
+      { runId: 'run_0001', stepIndex: 2, reason: 'repeat-call' },
+    ]);
+  });
+});
