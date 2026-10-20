@@ -242,6 +242,8 @@ A run yields these events, in order, ending with `done`:
 | Event | When |
 | --- | --- |
 | `text-delta`, `thinking-delta` | model output (thinking is hidden when `showThinking` is false) |
+| `thinking-done` | a model turn's streamed reasoning ended (its whole text) |
+| `activity` | what the agent is doing now (see [Activity updates](#activity-updates)); the terminal update comes just before `done` |
 | `tool-call`, `tool-activity`, `tool-result` | a tool call, its activity rows and its result envelope |
 | `plan-update`, `todo-update` | the plan or the todo list changed (see [Plan and todo](#plan-and-todo)) |
 | `directive` | a parsed `::aigent` directive |
@@ -261,7 +263,69 @@ run.stop();                      // immediate (default): abort now (status 'canc
 run.cancel();                    // alias for stop({ mode: 'immediate' })
 ```
 
+An immediate stop aborts the stream and read-only tools at once; tools with side effects (`hasSideEffects: true`) are allowed to finish (bounded by their own `timeoutMs`) so a write is never left half-done, unless you pass `force: true` (`run.stop({ force: true })`). Reaching `timeoutMs` aborts everything.
+
+`run.steer(text)` delivers `text` as a user message at the run's next safe boundary (after the in-flight tool results, before the next model request), with no extra request. Text that arrives after the last model request is not delivered, and a `warning` says so.
+
 Repeated calls, and calls after the run has settled, are no-ops. A task can also take `limits` (`maxTurns`, `maxToolCalls`, `timeoutMs`) and an `AbortSignal`. Reaching `maxTurns` or `timeoutMs` ends the run with status `limit_reached`. `maxToolCalls` does not end the run: calls past it (including calls inside `aigent_multi`, which each count) are refused with a `tool_call_limit` envelope the model can see, and the run continues.
+
+## Activity updates
+
+Both `agent.task()` and chat turns emit the same `activity` events: an `ActivityUpdate` with `seq` (gapless per run), `runId`, `messageId` (chat), `phase` (`queued`, `planning`, `thinking`, `calling_tools`, `waiting_for_user`, `writing`, `finishing`, then `done`, `failed` or `cancelled`; `recalling` and `verifying` are reserved), `statusText` (derived, such as "Running 3 tools" or a single tool's activity title, or the agent's own `::aigent status` text), `current` (tools in flight with batch progress), `progress` (plan, todo, criteria, turn of `maxTurns`), `elapsedMs`, `tokens`, `costUsd` (with `pricing`) and `heartbeat`.
+
+Updates are derived from the loop's events, so they cost no model call. They are throttled to one per `throttleMs` (default 250; the terminal update is never held back), with a heartbeat every `heartbeatMs` (default 5000) while the agent is busy (not while it waits for the user): `createAigent({ activity: { throttleMs, heartbeatMs } })`.
+
+Runs (and chat turns) also offer callbacks that see exactly the events, earlier ones included: `run.onActivity(update => ...)`, `run.onToolActivity(event => ...)` and `run.onThinking((thinking, { runId, turn, messageId }) => ...)`, which is called once per model turn that streams reasoning, with an async iterable of its deltas. Each returns an unsubscribe function.
+
+## Chat
+
+`agent.chat(options?)` is a stateful conversation. Each `send` runs one agent reply through the same loop as `agent.task()` (tools, plan and todo, compaction, and run records with `mode: 'chat'`), over the session's history:
+
+```ts
+const chat = agent.chat({ context: 'You help with the billing app' });
+const turn = chat.send('Where is the invoice total computed?');
+for await (const event of turn) if (event.type === 'text-delta') process.stdout.write(event.text);
+const reply = await turn; // { text, responseId, messageId, usage, status, feedback() }
+await chat.close();
+```
+
+Options: `sessionId` (reopen a stored session), `persistence` (`'store'` by default when the runtime has a store, else `'memory'`, which writes nothing), `context` and `constraints` (the session brief; `chat.setContext(text)` changes it for later turns), `unattended`, `signal`, `modelSettings`, `whileBusy` (default delivery, `'queue'`), `coalesce`, `onStop`, `autoTitle` and `attachments`. Sessions of one agent never see each other's messages.
+
+### Conversation model
+
+`chat.conversation()` returns the whole UI-ready state as plain JSON: `messages` (each with `id`, `seq`, `role`, `kind`, `parts`, `replyTo`, `threadId`, `branchId`, `state`, `delivery`, `pinned`, `compactable` and `meta`), `threads`, `branches`, `pinned`, `openQuestions`, `queue`, `plan`, `todo`, `activity`, `usage`, `status` and `seq`. An agent reply streams into one message (`message-updated` deltas on its first text part); each model request's tool calls form one collapsible `tool_activity` message. A reply's `meta` holds the same figures as its run record (`runId`, `responseId`, provider and model, tokens, `costUsd` with `pricing`, timing, tool calls, cache hits), plus `meta.history`: exactly what the model saw for it.
+
+`chat.subscribe(listener, { fromSeq })` delivers the same changes as patches (`message-added`, `message-updated`, `message-interrupted`, `thread-updated`, `branch-created`, `branch-selected`, `question-opened`, `question-answered`, `plan-updated`, `todo-updated`, `status-changed`, `usage-updated`, `activity-updated`, `queue-updated`, `title-updated`, `pinned-updated`, `session-forked`; `message-removed` is for UI-local drafts only). Every patch carries a gapless `seq`; `fromSeq` replays the recorded patches from that seq first, so a UI reconnects with `{ fromSeq: state.seq + 1 }`. Folding the patches with the exported `reduceConversation(state, patch)` from `createEmptyConversation({ sessionId, agentName })` always gives `chat.conversation()`; the reducer ignores patches it already applied and throws `invalid_input` on a gap. `createConversationStore(initial?)` wraps it for React's `useSyncExternalStore` (`getSnapshot`, `subscribe`, `dispatch`).
+
+With `persistence: 'store'` every patch goes through the keyed write queue (key `chat:<agentName>:<sessionId>`) and `redact` into collection `chats`: one session record (with a snapshot every 100 patches and on close) and the patches in chunks of 100. `agent.chat({ sessionId })` reopens the identical conversation (`await chat.ready` before reading it; methods wait on their own). A reply that was still streaming when the session was last written comes back as `cancelled`. `chat.close()` lets the running turn finish and flushes the writes; `ai.close()` closes open chats first.
+
+### Delivery while the agent is busy
+
+The user can always send. `send(input, { delivery })` (default: the chat's `whileBusy`, `'queue'`):
+
+- `queue`: the message waits in `conversation().queue` and runs as its own turn afterwards, in order. `chat.queue()` lists it; `chat.queue.edit(id, text)`, `move(id, toIndex)` and `remove(id)` work until it starts (then they throw `invalid_input`). With `coalesce` (per message or per chat), adjacent queued messages that ask for it are answered in one turn.
+- `steer`: delivered inside the running turn at its next safe boundary (after the in-flight tool results, before the next model request) as a user message with `delivery.steered`, with no extra model request. A steer that arrives after the turn's last request is queued instead.
+- `interrupt`: the running reply stops now. Its partial text is kept with state `cancelled` (patch `message-interrupted`), read-only tools are aborted, side-effecting tools finish unless `force: true`, completed tool results are kept, and any tool call left without a result gets a synthetic `aborted` result so the next request is provider-valid. Then the new message starts a fresh turn.
+
+`turn.stop({ mode: 'graceful' | 'immediate', force })` and `turn.cancel()` work as for tasks; stopping a turn that has not started removes it from the queue. `onStop: 'discard'` drops queued and steering messages when a turn is stopped through its handle (default `'keep'`).
+
+### Questions (`ask_user`)
+
+In chat (unless `unattended`) the agent has the `ask_user` tool: a batch of 1 to 10 questions of type `text`, `number`, `confirm`, `single_choice` or `multi_choice` (choices need 2 to 20 options), each with `required` and optional `default`, `min` and `max`. The turn then waits inside the tool, making no model request and spending no tokens, with status `waiting_for_user`; each question appears as a `question` message and in `openQuestions`. `chat.answer(questionId, value)` validates the answer (an invalid one stays open and the result says precisely why) and adds an `answer` message; question and answer messages link both ways and are never compacted. Once every required question of the batch is answered, the model gets one result per question and the turn resumes. While exactly one question is open, a plain `send(text)` (no delivery, thread or attachments) that is a valid answer answers it.
+
+Stopping or closing a waiting turn cancels it and leaves its questions open. They are stored with the session, so they survive a reopen; answering them then starts a fresh turn that sees the answers (resuming the suspended turn itself needs checkpoints, which arrive with the resume slice). Without a user (`unattended`, or a task without `onQuestion`) a call to `ask_user` is refused with a `denied` result, so the ambiguity policy applies. In task mode, `agent.task({ ..., onQuestion: async questions => ({ [id]: value }) })` answers each batch.
+
+### Threads, branches and forks
+
+- `send(text, { replyTo })` opens (or continues) a thread on that message. A thread turn sees only a short extract of the main line's last six messages, the root message and the thread's replies; the main line never sees the thread. `chat.thread(messageId)` lists it, and `thread.promote()` adds a summary message (kind `summary`) to the main line.
+- `chat.edit(messageId, newText)` and `chat.regenerate(messageId)` start a new branch from just before that message (only while idle). Nothing is deleted: `chat.branches()` lists the tree, `chat.selectBranch(id)` switches back, and the model only ever sees the active branch's lineage.
+- `chat.fork({ atMessageId })` returns a new session with this one's main line up to that message (`conversation().fork` records the parent and fork point); the two evolve independently.
+
+### Attachments, pins, reactions and titles
+
+`send({ text, attachments: [{ kind: 'file' | 'image', ref | bytes | text, name, mimeType }] })`: refs are read through `attachments.readAttachment(ref)` (the core never touches the filesystem). Contents are stored by content hash in collection `attachments` (identical content once). Text files up to 8 KiB are inlined into what the model sees; anything larger is referenced by handle with a one-line summary. Images need a model with `capabilities.vision` (otherwise `invalid_input`, or the text from `attachments.describe` with `onNoVision: 'describe'`); provider image parts arrive with a later slice, so an image currently reaches the model as a handle line.
+
+`chat.pin(id)` / `unpin(id)` keep a message verbatim through compaction. `chat.react(messageId, 'up' | 'down', comment?)` records `ai.feedback` (`correct` / `incorrect`) on that reply's `responseId` and notes `userRating` in its meta; `chat.feedback(f)` rates the latest reply. `autoTitle: true` makes one cheap call after the first exchange to name the session; its tokens are counted apart in `usage.title`.
 
 ## Strict tools and `aigent_multi`
 
@@ -609,8 +673,11 @@ Phase 1 foundation core, implemented in this slice:
 - Verbatim-safe shaper pipeline for `lossy-ok` results, originals by handle (`result_original`) and an alias table
 - A trailing volatile block (date and time, progress, statuses) and a prompt-prefix stability monitor
 - Consumer plans (`plan_complete`), the agent's todo list (`todo`), pinned definitions and plan/todo directives
+- Context layout, compaction and the pluggable `Compressor` interface
+- Activity updates shared by tasks and chats, run callbacks and `task.steer`
+- `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
 
-Roadmap (later slices, each with its own spec): vision, chat sessions, context compaction and layout, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
+Roadmap (later slices, each with its own spec): vision, built-in tool packs (filesystem, code intelligence, web and more), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus resume, guardrails and approvals.
 
 ## License
 
