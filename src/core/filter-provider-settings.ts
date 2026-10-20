@@ -19,9 +19,14 @@ export interface FilteredProviderSettings {
 
 type SettingsRecord = Record<string, unknown>;
 
-/** The provider-facing settings that are actually set, in `PROVIDER_SETTING_KEYS` order. */
-function providerFacing(settings: ModelSettings): ProviderSettings {
-  const record = settings as SettingsRecord;
+/**
+ * The provider-facing settings that are actually set, in `PROVIDER_SETTING_KEYS` order, with `providerOptions` narrowed
+ * to this provider's entry (left out when it has none, or an empty one).
+ */
+function providerFacing(params: { settings: ModelSettings; providerId: string }): ProviderSettings {
+  const { settings: { providerOptions, ...rest }, providerId } = params;
+  const ownOptions = providerOptions?.[providerId];
+  const record: SettingsRecord = { ...rest, ...(ownOptions == null || Object.keys(ownOptions).length === 0 ? {} : { providerOptions: ownOptions }) };
   return Object.fromEntries(PROVIDER_SETTING_KEYS.filter(key => record[key] !== undefined).map(key => [key, record[key]])) as ProviderSettings;
 }
 
@@ -34,7 +39,7 @@ function providerFacing(settings: ModelSettings): ProviderSettings {
 export function filterProviderSettings(params: FilterProviderSettingsParams): FilteredProviderSettings {
   const { provider: { id, capabilities: { supportedSettings }, unsupportedSettings, settingsWarnings }, model, settings } = params;
   const context: SettingsContext = { model };
-  const facing = providerFacing(settings);
+  const facing = providerFacing({ settings, providerId: id });
   const present = Object.keys(facing) as (keyof ProviderSettings)[];
   const unsupported = new Set(present.filter(key => !supportedSettings.includes(key)));
   const conflicting = new Set((unsupportedSettings?.(facing, context) ?? []).filter(key => present.includes(key) && !unsupported.has(key)));

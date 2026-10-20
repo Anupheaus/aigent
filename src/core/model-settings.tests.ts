@@ -11,7 +11,7 @@ const VALID: unknown[] = [
   { effort: 'low', showThinking: false, promptCaching: true },
   { stop: ['a', 'b', 'c', 'd'] },
   { seed: 0 },
-  { providerOptions: { logprobs: true, nested: { x: 1 } } },
+  { providerOptions: { openai: { logprobs: true, nested: { x: 1 } }, anthropic: {} } },
 ];
 
 interface InvalidCase {
@@ -37,6 +37,8 @@ const INVALID: InvalidCase[] = [
   { settings: { seed: -1 }, names: 'seed' },
   { settings: { showThinking: 'yes' }, names: 'showThinking' },
   { settings: { temprature: 1 }, names: 'temprature' },
+  // Options are keyed by provider id, so one vendor's fields never reach another vendor's fallback.
+  { settings: { providerOptions: { logprobs: true } }, names: 'providerOptions.logprobs' },
 ];
 
 describe('modelSettingsSchema', () => {

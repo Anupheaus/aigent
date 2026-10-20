@@ -1,4 +1,10 @@
+import { reservedOptionWarnings } from './provider-options.js';
 import type { ProviderSettings, SettingsContext } from './provider-types.js';
+
+/** Body fields the adapter sets itself; `providerOptions` cannot replace them. */
+export const ANTHROPIC_RESERVED_BODY_FIELDS: readonly string[] = [
+  'model', 'stream', 'system', 'messages', 'tools', 'max_tokens', 'temperature', 'top_p', 'stop_sequences', 'thinking',
+];
 
 /** `thinking` as the Messages API takes it. */
 export interface AnthropicThinking {
@@ -86,13 +92,23 @@ function maxTokensFor(params: { settings: ProviderSettings; requestedMaxTokens: 
 }
 
 /** A warning when a thinking budget forces `max_tokens` above the user's `maxOutputTokens`. */
-export function anthropicSettingsWarnings(settings: ProviderSettings, context: SettingsContext): string[] {
+function raisedMaxTokensWarnings(params: { settings: ProviderSettings; context: SettingsContext }): string[] {
+  const { settings, context } = params;
   const { maxOutputTokens } = settings;
   const budget = thinkingBudget(settings);
   if (maxOutputTokens == null || budget == null) return [];
   const maxTokens = maxTokensFor({ settings, requestedMaxTokens: maxOutputTokens });
   if (maxTokens === maxOutputTokens) return [];
   return [`Provider '${PROVIDER_ID}' sends max_tokens ${maxTokens} instead of maxOutputTokens ${maxOutputTokens} for model '${context.model}': max_tokens must exceed the thinking budget of ${budget} tokens`];
+}
+
+/** How the adapter departs from the settings it keeps: a raised `max_tokens`, and reserved `providerOptions` keys it ignores. */
+export function anthropicSettingsWarnings(settings: ProviderSettings, context: SettingsContext): string[] {
+  const { providerOptions } = settings;
+  return [
+    ...raisedMaxTokensWarnings({ settings, context }),
+    ...reservedOptionWarnings({ providerId: PROVIDER_ID, providerOptions, reserved: ANTHROPIC_RESERVED_BODY_FIELDS }),
+  ];
 }
 
 /**

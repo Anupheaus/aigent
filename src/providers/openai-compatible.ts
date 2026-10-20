@@ -1,4 +1,5 @@
-import { toOpenAiChatRequest } from './openai-messages.js';
+import { OPENAI_RESERVED_BODY_FIELDS, toOpenAiChatRequest } from './openai-messages.js';
+import { reservedOptionWarnings } from './provider-options.js';
 import { createOpenAiUnsupportedSettings, OPENAI_SUPPORTED_SETTINGS } from './openai-settings.js';
 import type { OpenAiTokenLimitField, ReasoningModelMatcher } from './openai-settings.js';
 import { applyOpenAiData, createOpenAiStreamState, finishOpenAiStream } from './openai-stream.js';
@@ -82,5 +83,9 @@ export function openAiCompatible(options: OpenAiCompatibleOptions): Provider {
     redactingErrors({ events: streamEvents(request, signal), secrets })
   );
 
-  return { id, capabilities, stream, unsupportedSettings: createOpenAiUnsupportedSettings(isReasoningModel) };
+  return {
+    id, capabilities, stream,
+    unsupportedSettings: createOpenAiUnsupportedSettings(isReasoningModel),
+    settingsWarnings: ({ providerOptions }) => reservedOptionWarnings({ providerId: id, providerOptions, reserved: OPENAI_RESERVED_BODY_FIELDS }),
+  };
 }

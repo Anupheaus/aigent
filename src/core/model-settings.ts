@@ -36,8 +36,12 @@ export const modelSettingsSchema = z.object({
   stop: z.array(z.string().min(1)).max(MAX_STOP_SEQUENCES).optional(),
   /** Sampling seed for providers that support reproducible sampling. */
   seed: z.number().int().nonnegative().optional(),
-  /** Provider-specific body fields, shallow-merged into the request last. */
-  providerOptions: z.record(z.string(), z.unknown()).optional(),
+  /**
+   * Provider-specific body fields keyed by provider id (`{ anthropic: { metadata: ... } }`): each provider gets only
+   * its own entry, so one vendor's fields never reach another vendor's fallback. Fields the adapter sets itself
+   * (`model`, `stream`, `messages`, mapped settings...) are ignored with a warning. Stored in run records as given.
+   */
+  providerOptions: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
 }).strict();
 
 export type ModelSettings = z.infer<typeof modelSettingsSchema>;

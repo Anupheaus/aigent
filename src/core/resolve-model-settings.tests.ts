@@ -28,19 +28,19 @@ describe('resolveModelSettings', () => {
     expect(resolved).toEqual({ stop: ['x'], thinking: 'off' });
   });
 
-  it('shallow-merges providerOptions with higher layers winning per key', () => {
+  it('shallow-merges each provider entry of providerOptions with higher layers winning per key', () => {
     const resolved = resolveModelSettings({
-      task: { providerOptions: { a: 'task' } },
-      agent: { providerOptions: { a: 'agent', b: 'agent' } },
-      runtime: { providerOptions: { c: { deep: 'runtime' } } },
-      provider: { providerOptions: { b: 'provider', c: { other: 'provider' }, d: 'provider' } },
+      task: { providerOptions: { p: { a: 'task' } } },
+      agent: { providerOptions: { p: { a: 'agent', b: 'agent' }, q: { x: 'agent' } } },
+      runtime: { providerOptions: { p: { c: { deep: 'runtime' } } } },
+      provider: { providerOptions: { p: { b: 'provider', c: { other: 'provider' }, d: 'provider' }, q: { x: 'provider', y: 'provider' } } },
     });
-    expect(resolved).toEqual({ providerOptions: { a: 'task', b: 'agent', c: { deep: 'runtime' }, d: 'provider' } });
+    expect(resolved).toEqual({ providerOptions: { p: { a: 'task', b: 'agent', c: { deep: 'runtime' }, d: 'provider' }, q: { x: 'agent', y: 'provider' } } });
   });
 
   it('does not mutate its layers', () => {
-    const agent = { providerOptions: { a: 1 } };
-    resolveModelSettings({ task: { providerOptions: { b: 2 } }, agent });
-    expect(agent).toEqual({ providerOptions: { a: 1 } });
+    const agent = { providerOptions: { p: { a: 1 } } };
+    resolveModelSettings({ task: { providerOptions: { p: { b: 2 } } }, agent });
+    expect(agent).toEqual({ providerOptions: { p: { a: 1 } } });
   });
 });

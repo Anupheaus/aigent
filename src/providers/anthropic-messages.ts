@@ -1,4 +1,5 @@
-import { toAnthropicSettingsFields } from './anthropic-settings.js';
+import { ANTHROPIC_RESERVED_BODY_FIELDS, toAnthropicSettingsFields } from './anthropic-settings.js';
+import { bodyOptions } from './provider-options.js';
 import type { AnthropicSettingsFields } from './anthropic-settings.js';
 import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ThinkingBlock, ToolCall } from './provider-types.js';
 
@@ -60,7 +61,7 @@ export interface AnthropicMessagesRequest extends AnthropicSettingsFields {
   tools?: AnthropicTool[];
 }
 
-/** The request plus any `providerOptions` fields, which may add or override anything. */
+/** The request plus any `providerOptions` fields, which may add fields but never replace a reserved one. */
 export type AnthropicMessagesBody = AnthropicMessagesRequest & Record<string, unknown>;
 
 export interface AnthropicRequestSettings {
@@ -241,19 +242,19 @@ function toAnthropicTool(tool: ProviderToolSpec): AnthropicTool {
   return { name, description, input_schema: parameters };
 }
 
-/** Translates a normalised request into the Anthropic streaming Messages API body; `providerOptions` are merged last. */
+/** Translates a normalised request into the Anthropic streaming Messages API body, plus any non-reserved `providerOptions`. */
 export function toAnthropicMessagesRequest(request: ProviderRequest, adapterSettings: AnthropicRequestSettings): AnthropicMessagesBody {
   const { model, messages, tools, settings = {} } = request;
   const { defaultMaxTokens } = adapterSettings;
   const promptCaching = settings.promptCaching ?? adapterSettings.promptCaching;
   const system = toSystem({ messages, promptCaching });
   return {
+    ...bodyOptions({ providerOptions: settings.providerOptions, reserved: ANTHROPIC_RESERVED_BODY_FIELDS }),
     model,
     stream: true,
     ...toAnthropicSettingsFields({ settings, defaultMaxTokens }),
     ...(system == null ? {} : { system }),
     messages: toAnthropicMessages(messages),
     ...(tools.length === 0 ? {} : { tools: tools.map(toAnthropicTool) }),
-    ...settings.providerOptions,
   };
 }

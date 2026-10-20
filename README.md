@@ -140,7 +140,7 @@ AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
 
 ## Model settings
 
-Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is shallow-merged across levels, higher levels winning per key.
+Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is keyed by provider id (`{ anthropic: { ... }, openai: { ... } }`), each provider's entry is shallow-merged across levels with higher levels winning per key, and each provider, a fallback included, receives only its own entry.
 
 ```ts
 const aigent = createAigent({
@@ -162,7 +162,7 @@ agent.task({ task: 'Draft the summary', modelSettings: { temperature: 0.7, think
 | `promptCaching` | boolean | not supported | overrides the adapter's `promptCaching` option |
 | `stop` | up to 4 non-empty strings | `stop` | `stop_sequences` |
 | `seed` | non-negative integer | `seed` | not supported |
-| `providerOptions` | object | merged into the request body last | merged into the request body last |
+| `providerOptions` | object of objects, keyed by provider id | its entry is merged into the request body; keys the adapter sets itself (`model`, `messages`, `stream`, `stream_options`, `tools` and the fields above) are ignored with a warning | same, with `system`, `stop_sequences` and `thinking` also reserved |
 | `contextSize` | positive integer | runtime only, never sent | runtime only, never sent |
 | `showThinking` | boolean (default true) | runtime only: `false` hides `thinking-delta` events | same |
 

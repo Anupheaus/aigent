@@ -110,9 +110,22 @@ describe('anthropic settings', () => {
     expect((await bodyFor({ promptCaching: true }, { promptCaching: false })).system).toEqual([{ type: 'text', text: 'Be brief', cache_control: { type: 'ephemeral' } }]);
   });
 
-  it('shallow-merges providerOptions into the body last', async () => {
-    const body = await bodyFor({ temperature: 0.1, providerOptions: { temperature: 0.7, metadata: { user_id: 'u1' } } });
-    expect(body).toMatchObject({ temperature: 0.7, metadata: { user_id: 'u1' }, model: 'claude-test', stream: true });
+  it('merges providerOptions into the body without letting them replace a field the adapter sets', async () => {
+    const body = await bodyFor({
+      temperature: 0.1,
+      providerOptions: { temperature: 0.7, stream: false, model: 'other', max_tokens: 10, top_p: 0.1, thinking: { type: 'enabled', budget_tokens: 2000 }, messages: [], system: 'x', tools: [], stop_sequences: ['Z'], metadata: { user_id: 'u1' }, top_k: 5 },
+    });
+    expect(body).toMatchObject({ temperature: 0.1, model: 'claude-test', stream: true, max_tokens: 4096, system: [{ type: 'text', text: 'Be brief', cache_control: { type: 'ephemeral' } }], metadata: { user_id: 'u1' }, top_k: 5 });
+    expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+    for (const field of ['top_p', 'thinking', 'tools', 'stop_sequences']) expect(body).not.toHaveProperty(field);
+  });
+
+  it('warns about each providerOptions key it ignores because the adapter sets that field', () => {
+    const { provider } = createProvider();
+    expect(provider.settingsWarnings?.({ providerOptions: { stream: false, metadata: {}, thinking: {} } }, { model: 'claude-test' })).toEqual([
+      "Provider 'anthropic' ignores providerOptions key 'stream': the adapter sets that field (use the matching model setting instead)",
+      "Provider 'anthropic' ignores providerOptions key 'thinking': the adapter sets that field (use the matching model setting instead)",
+    ]);
   });
 
   it('reports temperature with thinking, and effort with explicit thinking, as unusable', () => {

@@ -53,6 +53,13 @@ describe('filterProviderSettings', () => {
     ]);
   });
 
+  it("sends only this provider's providerOptions, flattened, and none when it has no entry", () => {
+    const providerOptions = { p: { metadata: { user_id: 'u' } }, other: { logprobs: true } };
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions } }).settings).toEqual({ providerOptions: { metadata: { user_id: 'u' } } });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { other: { logprobs: true } } } })).toEqual({ warnings: [] });
+    expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { providerOptions: { p: {} } } })).toEqual({ warnings: [] });
+  });
+
   it('does not warn about undefined settings', () => {
     expect(filterProviderSettings({ provider: providerWith(), model: MODEL, settings: { seed: undefined, temperature: 1 } })).toEqual({ settings: { temperature: 1 }, warnings: [] });
   });

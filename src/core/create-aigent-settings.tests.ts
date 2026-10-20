@@ -3,6 +3,7 @@ import type { ProviderEvent } from '../providers/provider-types.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import { createFakeProvider, textTurn } from '../testing/fake-provider.js';
 import type { FakeProvider, FakeTurn } from '../testing/fake-provider.js';
+import { createAigentError } from './aigent-error.js';
 import { createAigent } from './create-aigent.js';
 import type { AigentOptions } from './create-aigent.js';
 import type { AigentEvent } from './aigent-events.js';
@@ -45,6 +46,17 @@ describe('model settings through createAigent', () => {
     const agent = ai.agent({ name: 'helper', model: 'fake:m', modelSettings: { temperature: 0.2, topP: 0.7 } });
     await agent.task({ task: 'x', modelSettings: { temperature: 0.1 } });
     expect(provider.requests[0]?.settings).toEqual({ temperature: 0.1, topP: 0.7, maxOutputTokens: 900, seed: 9, stop: ['P'] });
+  });
+
+  it('sends each provider only its own providerOptions, also to fallbacks', async () => {
+    const down = createAigentError({ code: 'provider_failed', message: 'down', details: { retryable: true } });
+    const primary = createFakeProvider({ id: 'fake', turns: [1, 2, 3].map(() => ({ events: [], failBeforeEvents: down })) });
+    const backup = createFakeProvider({ id: 'backup', turns: [textTurn('ok')] });
+    const ai = createAigent({ providers: [primary, backup], clock, ids: sequentialIds(), sleep: async () => undefined, random: () => 0.5 });
+    const agent = ai.agent({ name: 'helper', model: 'fake:m', fallbackModels: ['backup:m'], modelSettings: { providerOptions: { fake: { top_k: 3 }, backup: { logprobs: true } } } });
+    expect((await agent.task({ task: 'x' })).status).toBe('completed');
+    expect(primary.requests[0]?.settings).toEqual({ providerOptions: { top_k: 3 } });
+    expect(backup.requests[0]?.settings).toEqual({ providerOptions: { logprobs: true } });
   });
 
   it('sends no settings field when none are configured', async () => {

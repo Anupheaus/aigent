@@ -1,4 +1,5 @@
 import { toOpenAiSettingsFields } from './openai-settings.js';
+import { bodyOptions } from './provider-options.js';
 import type { OpenAiSettingsFields, OpenAiTokenLimitField } from './openai-settings.js';
 import type { JsonSchema, ProviderMessage, ProviderRequest, ProviderToolSpec, ToolCall } from './provider-types.js';
 
@@ -27,7 +28,7 @@ export interface OpenAiChatRequest extends OpenAiSettingsFields {
   tools?: OpenAiTool[];
 }
 
-/** The request plus any `providerOptions` fields, which may add or override anything. */
+/** The request plus any `providerOptions` fields, which may add fields but never replace a reserved one. */
 export type OpenAiChatBody = OpenAiChatRequest & Record<string, unknown>;
 
 function toOpenAiToolCall(call: ToolCall): OpenAiToolCall {
@@ -87,17 +88,22 @@ export interface OpenAiRequestSettings {
   tokenLimitField: OpenAiTokenLimitField;
 }
 
-/** Translates a normalised request into the OpenAI streaming Chat Completions body; `providerOptions` are merged last. */
+/** Body fields this adapter sets itself; `providerOptions` cannot replace them (see `bodyOptions`). */
+export const OPENAI_RESERVED_BODY_FIELDS: readonly string[] = [
+  'model', 'messages', 'stream', 'stream_options', 'tools', 'max_tokens', 'max_completion_tokens', 'temperature', 'top_p', 'stop', 'seed', 'reasoning_effort',
+];
+
+/** Translates a normalised request into the OpenAI streaming Chat Completions body, plus any non-reserved `providerOptions`. */
 export function toOpenAiChatRequest(request: ProviderRequest, adapterSettings: OpenAiRequestSettings): OpenAiChatBody {
   const { model, messages, tools, settings = {} } = request;
   const { tokenLimitField } = adapterSettings;
   return {
+    ...bodyOptions({ providerOptions: settings.providerOptions, reserved: OPENAI_RESERVED_BODY_FIELDS }),
     model,
     messages: toOpenAiMessages(messages),
     stream: true,
     stream_options: { include_usage: true },
     ...(tools.length === 0 ? {} : { tools: tools.map(toOpenAiTool) }),
     ...toOpenAiSettingsFields({ settings, tokenLimitField }),
-    ...settings.providerOptions,
   };
 }

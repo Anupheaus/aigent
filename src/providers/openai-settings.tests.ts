@@ -50,9 +50,21 @@ describe('openAiCompatible settings', () => {
     expect(body).not.toHaveProperty('promptCaching');
   });
 
-  it('shallow-merges providerOptions into the body last, so they can override mapped fields', async () => {
-    const body = await bodyFor({ temperature: 0.3, providerOptions: { temperature: 0.9, logprobs: true, response_format: { type: 'text' } } });
-    expect(body).toMatchObject({ temperature: 0.9, logprobs: true, response_format: { type: 'text' }, model: 'test-model', stream: true });
+  it('merges providerOptions into the body without letting them replace a field the adapter sets', async () => {
+    const body = await bodyFor({
+      temperature: 0.3,
+      providerOptions: { temperature: 0.9, stream: false, stream_options: {}, model: 'other', messages: [], tools: [], max_tokens: 1, max_completion_tokens: 1, top_p: 0.1, stop: ['Z'], seed: 4, reasoning_effort: 'high', logprobs: true, response_format: { type: 'text' } },
+    });
+    expect(body).toMatchObject({ temperature: 0.3, model: 'test-model', stream: true, stream_options: { include_usage: true }, logprobs: true, response_format: { type: 'text' } });
+    expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+    for (const field of ['tools', 'max_tokens', 'max_completion_tokens', 'top_p', 'stop', 'seed', 'reasoning_effort']) expect(body).not.toHaveProperty(field);
+  });
+
+  it('warns about each providerOptions key it ignores because the adapter sets that field', () => {
+    const { provider } = createProvider();
+    expect(provider.settingsWarnings?.({ providerOptions: { stream: false, logprobs: true } }, CONTEXT)).toEqual([
+      "Provider 'test-llm' ignores providerOptions key 'stream': the adapter sets that field (use the matching model setting instead)",
+    ]);
   });
 
   it('reports effort as unusable when thinking is off, and nothing otherwise', () => {

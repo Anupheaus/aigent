@@ -44,8 +44,14 @@ export interface ProviderToolSpec {
   strict: boolean;
 }
 
-/** The settings an adapter receives: model settings minus the runtime-only ones (`contextSize`, `showThinking`). */
-export type ProviderSettings = Omit<ModelSettings, 'contextSize' | 'showThinking'>;
+/**
+ * The settings an adapter receives: model settings minus the runtime-only ones (`contextSize`, `showThinking`), with
+ * `providerOptions` narrowed to this provider's own entry.
+ */
+export interface ProviderSettings extends Omit<ModelSettings, 'contextSize' | 'showThinking' | 'providerOptions'> {
+  /** This provider's `providerOptions` entry: extra body fields, merged in except for those the adapter sets itself. */
+  providerOptions?: Record<string, unknown>;
+}
 
 export interface ProviderRequest {
   model: string;
