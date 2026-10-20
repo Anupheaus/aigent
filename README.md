@@ -480,7 +480,9 @@ ai.agent({
 
 ## Previewing the prompt
 
-`await agent.preview(input?)` returns `{ system, brief, tools, fields, totalTokens }`: the exact system prompt, task brief and tool specs a task with that input would start with, compression applied, plus every compressible field with its original and final text and token counts. It calls no provider; it is built by the same code as a run's first request. Without an input the brief is empty.
+`await agent.preview(input?)` returns `{ system, brief, tools, pinned?, fields, totalTokens }`: the exact system prompt, task brief, pinned plan message (with a `plan` input) and tool specs a task with that input would start with, compression applied, plus every compressible field with its original and final text and token counts. `totalTokens` counts all of these but not the per-turn volatile block. It calls no provider; it is built by the same code as a run's first request. Without an input the brief is empty.
+
+Each request is checked against the usable budget once it is built (volatile block included): one the volatile block pushed over is never sent, and the run fails with `context_overflow`.
 
 ## Plan and todo
 

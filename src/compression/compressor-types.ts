@@ -96,7 +96,9 @@ export interface PromptPreview {
   /** The task brief (empty without an input). */
   brief: string;
   tools: ProviderToolSpec[];
+  /** The pinned plan message a `plan` input adds after the brief; absent without a plan. */
+  pinned?: string;
   fields: PromptPreviewField[];
-  /** Estimated tokens of the system prompt, brief and tool specs. */
+  /** Estimated tokens of the system prompt, brief, pinned plan message and tool specs (not the per-turn volatile block). */
   totalTokens: number;
 }

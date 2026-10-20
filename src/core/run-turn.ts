@@ -65,6 +65,8 @@ export interface RunTurnParams {
   showThinking: boolean;
   registry: ToolRegistry;
   maxToolCalls: number;
+  /** The run's usable prompt budget; the built request is checked against it before it is sent. */
+  usableBudget: number;
   clock: Clock;
   signal: AbortSignal;
   /** Tools with side effects get this instead of `signal` (see `RunControl.sideEffectSignal`). */
@@ -121,13 +123,13 @@ function addUsage(totals: RunTotals, usage: Usage): void {
 
 /** Streams one model response, emitting events and dispatching tool calls as they arrive. Throws if the stream fails or aborts. */
 export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> {
-  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, emit, work: { partial } } = params;
+  const { runId, routing, showThinking, registry, signal, context, totals, telemetry: { timer }, volatile, clock, maxToolCalls, usableBudget, emit, work: { partial } } = params;
   const parser = createDirectiveParser();
   const { calls, thinkingBlocks } = partial;
   let finishReason: FinishReason | undefined;
 
   const { request, estimatedTokens } = buildTurnRequest({
-    context, tools: registry.specs(), volatile, clock, target: routing.targets[0], progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls },
+    context, tools: registry.specs(), volatile, clock, target: routing.targets[0], usableBudget, progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls },
   });
   let reportedTokens: number | undefined;
   const iterator = openTurnStream({ routing, request, signal, counters: totals, emit })[Symbol.asyncIterator]();

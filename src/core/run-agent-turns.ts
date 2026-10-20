@@ -120,7 +120,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     const endTurn = telemetry.timer.startTurn();
     try {
       turn = await runTurn({
-        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, clock, signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
+        runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock, signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });

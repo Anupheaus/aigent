@@ -72,6 +72,19 @@ describe('createAigent compression', () => {
     expect(provider.requests[0]?.messages[0]?.text).toContain(CONTEXT.trim());
   });
 
+  it('previews the pinned plan message a plan input adds, counted in totalTokens', async () => {
+    const { provider, agent } = setup();
+    const input = { task: 'Plan it', plan: [{ id: 'p1', label: 'Find', description: 'Find the file', acceptanceCriteria: ['Path reported'] }] };
+    const preview = await agent.preview(input);
+    await agent.task(input);
+    const [request] = provider.requests;
+    expect(preview.pinned).toBeDefined();
+    expect(request?.messages[2]).toEqual({ role: 'user', text: preview.pinned });
+    const withoutPin = await agent.preview({ task: 'Plan it' });
+    expect(withoutPin.pinned).toBeUndefined();
+    expect(preview.totalTokens).toBeGreaterThan(withoutPin.totalTokens);
+  });
+
   it('previews exactly the system prompt, brief and tools the provider then receives', async () => {
     const { provider, agent } = setup();
     const input = { task: TASK, acceptanceCriteria: ['Mentions every note'] };
