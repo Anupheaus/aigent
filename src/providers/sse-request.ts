@@ -1,6 +1,6 @@
 import { createAigentError, isAigentError } from '../core/aigent-error.js';
 import type { AigentError } from '../core/aigent-error.js';
-import { failedResponseError } from './http-error.js';
+import { failedResponseError, nonStreamResponseError } from './http-error.js';
 import { parseSse } from './sse-parser.js';
 import type { SseMessage } from './sse-parser.js';
 
@@ -17,6 +17,8 @@ export interface AbortCheckParams {
   providerId: string;
   signal: AbortSignal;
 }
+
+const EVENT_STREAM_CONTENT_TYPE = 'text/event-stream';
 
 function abortedError(providerId: string): AigentError {
   return createAigentError({ code: 'aborted', message: `Provider '${providerId}' stream aborted` });
@@ -86,6 +88,11 @@ export async function* requestSse(params: SseRequestParams): AsyncGenerator<SseM
   throwIfAborted({ providerId, signal });
   const response = await send(params);
   if (!response.ok) throw await failedResponseError({ providerId, response });
+  // A missing content-type is tolerated (some local servers omit it); a different one means this is not a stream.
+  const contentType = response.headers.get('content-type');
+  if (contentType != null && !contentType.toLowerCase().includes(EVENT_STREAM_CONTENT_TYPE)) {
+    throw await nonStreamResponseError({ providerId, response, contentType });
+  }
   const { body } = response;
   if (body == null) {
     throw createAigentError({ code: 'provider_failed', message: `Provider '${providerId}' returned HTTP ${response.status} with no body; expected an event stream` });

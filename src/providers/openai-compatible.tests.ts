@@ -405,6 +405,21 @@ describe('openAiCompatible errors', () => {
     expect(html.message).not.toContain('<html>');
   });
 
+  it('fails clearly, keeping the body, when a 2xx response is not an event stream', async () => {
+    const body = '{"error":{"message":"streaming disabled by proxy"}}';
+    const error = await harness({ respond: () => ({ status: 200, body, headers: { 'content-type': 'application/json' } }) }).error();
+    expect(error.code).toBe('provider_failed');
+    expect(error.message).toContain('application/json');
+    expect(error.message).toContain('text/event-stream');
+    expect(error.message).toContain('streaming disabled by proxy');
+    expect(error.details).toMatchObject({ status: 200, retryable: false, body });
+  });
+
+  it('still reads the stream when a 2xx response has no content-type', async () => {
+    const events = await harness({ respond: () => ({ ...chunked(sseBody([textChunk('x'), finishChunk('stop')])), headers: {} }) }).events();
+    expect(events).toEqual([{ type: 'text-delta', text: 'x' }, DONE_STOP]);
+  });
+
   it('redacts secret custom header values from error bodies', async () => {
     const azureKey = 'azure-secret-value-456';
     const error = await harness({

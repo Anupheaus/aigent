@@ -72,6 +72,29 @@ function serverReason(body: string): string | undefined {
   return reason?.slice(0, MAX_REASON_CHARS);
 }
 
+function withReason(params: { message: string; body: string }): string {
+  const { message, body } = params;
+  const reason = serverReason(body);
+  return reason == null ? message : `${message}: ${reason}`;
+}
+
+export interface NonStreamResponseParams extends FailedResponseParams {
+  /** The `content-type` the server sent instead of `text/event-stream`. */
+  contentType: string;
+}
+
+/**
+ * Builds the `provider_failed` error for a 2xx response that is not an event stream (e.g. a proxy answering JSON, or a
+ * server ignoring `stream: true`). Not retryable: the same request would get the same answer.
+ */
+export async function nonStreamResponseError(params: NonStreamResponseParams): Promise<AigentError> {
+  const { providerId, response, contentType } = params;
+  const { status } = response;
+  const body = await readBodyPrefix(response);
+  const message = `Provider '${providerId}' returned HTTP ${status} with content-type ${contentType}; expected text/event-stream`;
+  return createAigentError({ code: 'provider_failed', message: withReason({ message, body }), details: { status, retryable: false, body } });
+}
+
 /**
  * Builds the `provider_failed` error for a non-2xx response: `details` carries `status`, `retryable` and the start of
  * the body, and the message adds the server's reason when the body has one. Adapters redact credentials from both
@@ -82,10 +105,10 @@ export async function failedResponseError(params: FailedResponseParams): Promise
   const { status, statusText } = response;
   const body = await readBodyPrefix(response);
   const statusReason = statusText === '' ? '' : ` ${statusText}`;
-  const reason = serverReason(body);
+  const message = `Provider '${providerId}' request failed with HTTP ${status}${statusReason}; expected a 2xx response`;
   return createAigentError({
     code: 'provider_failed',
-    message: `Provider '${providerId}' request failed with HTTP ${status}${statusReason}; expected a 2xx response${reason == null ? '' : `: ${reason}`}`,
+    message: withReason({ message, body }),
     details: { status, retryable: isRetryableStatus(status), body },
   });
 }

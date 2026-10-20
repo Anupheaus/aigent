@@ -26,6 +26,8 @@ export interface FakeBody {
 export interface FakeResponseSpec {
   status?: number;
   body: FakeBody | string;
+  /** Response headers; default `content-type: text/event-stream` for 2xx, as streaming servers send. */
+  headers?: Record<string, string>;
 }
 
 export interface FakeFetch {
@@ -34,6 +36,8 @@ export interface FakeFetch {
 }
 
 const OK_STATUS = 200;
+const FIRST_NON_SUCCESS_STATUS = 300;
+const EVENT_STREAM_HEADERS: Record<string, string> = { 'content-type': 'text/event-stream; charset=utf-8' };
 const NETWORK_ERROR_MESSAGE = 'socket hang up';
 
 const encoder = new TextEncoder();
@@ -87,8 +91,8 @@ export function createFakeFetch(respond: (request: RecordedRequest) => FakeRespo
   const fakeFetch: typeof fetch = async (input, init = {}) => {
     const request: RecordedRequest = { url: String(input), init };
     requests.push(request);
-    const { status = OK_STATUS, body } = respond(request);
-    return new Response(typeof body === 'string' ? body : body.stream, { status });
+    const { status = OK_STATUS, body, headers = status < FIRST_NON_SUCCESS_STATUS ? EVENT_STREAM_HEADERS : {} } = respond(request);
+    return new Response(typeof body === 'string' ? body : body.stream, { status, headers });
   };
   return { fetch: fakeFetch, requests };
 }
