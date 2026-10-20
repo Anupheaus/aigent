@@ -4,7 +4,7 @@
  */
 export const FEEDBACK_PROMPT_ADDENDUM = [
   '# Feedback',
-  'Every tool call has a "previous" field: how your previous tool step went, as {"success": true or false, "answer": "short result, at most 300 characters"}. success means it found what you were looking for. Send null on your first tool call.',
+  'Every top-level tool call (not calls inside aigent_multi) has a "previous" field: how your previous tool step went, as {"success": true or false, "answer": "short result, at most 300 characters"}. success means it found what you were looking for. Send null on your first tool call.',
   'You may report that sooner, and show progress, with single-line directives on their own line: ::aigent outcome {"success":true,"answer":"short result of the previous step"} and ::aigent status {"text":"short status"}. They are not shown to the user.',
   'When something was easy, hard, missing or could be simpler, call aigent_feedback alongside your other tool calls; never spend a turn on it alone.',
 ].join('\n');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitPrevious } from './previous-outcome.js';
+import { splitPrevious, stripInnerPrevious } from './previous-outcome.js';
 
 describe('splitPrevious', () => {
   it('takes a valid previous out of the arguments', () => {
@@ -27,5 +27,21 @@ describe('splitPrevious', () => {
     const args = { path: 'a', previous: null };
     splitPrevious(args);
     expect(args).toEqual({ path: 'a', previous: null });
+  });
+});
+
+describe('stripInnerPrevious', () => {
+  it('takes previous (null included) out of every inner call without changing the input', () => {
+    const input = { calls: [{ id: 'x', tool: 'a', args: { p: 1, previous: { success: true, answer: 'y' } } }, { id: 'y', tool: 'b', args: { previous: null } }, { id: 'z', tool: 'c', args: { q: 2 } }] };
+    const before = structuredClone(input);
+    expect(stripInnerPrevious(input)).toEqual({
+      args: { calls: [{ id: 'x', tool: 'a', args: { p: 1 } }, { id: 'y', tool: 'b', args: {} }, { id: 'z', tool: 'c', args: { q: 2 } }] },
+      strippedCallIds: ['x', 'y'],
+    });
+    expect(input).toEqual(before);
+  });
+
+  it.each([undefined, null, 'text', [], { calls: 'nope' }, { calls: [null, 'x', { id: 'a', args: 'raw' }] }])('leaves malformed arguments %j for validation to reject', malformed => {
+    expect(stripInnerPrevious(malformed)).toEqual({ args: malformed, strippedCallIds: [] });
   });
 });

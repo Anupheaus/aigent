@@ -8,7 +8,7 @@ import { parseToolArgs } from '../tools/parse-tool-args.js';
 import { startToolActivity } from '../tools/run-tool-activity.js';
 import { describeThrown } from '../tools/tool-error-detail.js';
 import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
-import { linkPrevious } from './link-previous.js';
+import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
 
 interface ReserveToolCallParams {
@@ -21,11 +21,15 @@ interface DispatchParams {
   turn: RunTurnParams;
 }
 
-/** The call as the tool sees it: with feedback on, `previous` is taken out (and linked to the prior step) first. */
+/**
+ * The call as the tool sees it: with feedback on, `previous` is taken out (and linked to the prior step) first, and
+ * out of `aigent_multi` inner calls too, where it is ignored.
+ */
 function withoutPrevious(params: DispatchParams): ToolCall {
   const { call, turn: { totals, telemetry: { recorder, feedback }, emit } } = params;
   if (!feedback.isEnabled || call.name === FEEDBACK_TOOL_NAME) return call;
-  return { ...call, args: linkPrevious({ call, turn: totals.turns, recorder, feedback, emit }) };
+  const topLevel = { ...call, args: linkPrevious({ call, turn: totals.turns, recorder, feedback, emit }) };
+  return call.name === MULTI_TOOL_NAME ? { ...topLevel, args: stripMultiPrevious({ call: topLevel, emit }) } : topLevel;
 }
 
 /** Takes one call from the run's `maxToolCalls` budget; false once it is spent. */

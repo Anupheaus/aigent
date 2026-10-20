@@ -200,6 +200,30 @@ describe('enableFeedback on', () => {
     expect((await storedTrace(store, result.runId)).steps[0]?.outcome).toEqual({ success: true, answer: 'a ok', source: 'previous' });
   });
 
+  it('strips and ignores previous inside aigent_multi inner calls, with a warning, so they still validate', async () => {
+    const { agent, store, seen } = setup({ enableFeedback: true, turns: [
+      toolTurn([{ id: 'a', name: 'echo', args: { text: '1', previous: null } }]),
+      toolTurn([{ id: 'm', name: 'aigent_multi', args: { previous: { success: true, answer: 'a ok' }, calls: [
+        { id: 'x', tool: 'echo', args: { text: '2', previous: { success: false, answer: 'inner claim' } } },
+        { id: 'y', tool: 'echo', args: { text: '3', previous: null } },
+      ] } }]),
+      textTurn('done'),
+    ] });
+    const run = agent.task({ task: 'x' });
+    const events = await collect(run);
+    const result = await run;
+    expect(result.errors).toEqual([]);
+    expect(seen).toEqual([{ text: '1' }, { text: '2' }, { text: '3' }]);
+    expect(events.filter(event => event.type === 'warning')).toEqual([{ type: 'warning', message: expect.stringMatching(/Ignored previous inside aigent_multi call 'm' \(inner calls 'x', 'y'\)/) }]);
+    const { steps } = await storedTrace(store, result.runId);
+    expect(steps.filter(({ parentCallId }) => parentCallId === 'm').map(({ args }) => args)).toEqual([{ text: '2' }, { text: '3' }]);
+    expect(steps.map(({ outcome }) => outcome?.answer)).toEqual(['a ok', undefined, undefined, undefined]);
+  });
+
+  it('tells the model that only top-level calls carry previous', () => {
+    expect(FEEDBACK_PROMPT_ADDENDUM).toContain('not calls inside aigent_multi');
+  });
+
   it('stores aigent_feedback entries in the feedback collection with the run identity', async () => {
     const { agent, store } = setup({ enableFeedback: true, turns: [
       toolTurn([{ id: 'f1', name: 'aigent_feedback', args: { entries: [{ kind: 'hard', text: 'Search was slow', relatedTool: 'echo' }, { kind: 'easy', text: 'Echo is clear', relatedTool: null }] } }]),

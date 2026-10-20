@@ -35,3 +35,26 @@ export function splitPrevious(rawArgs: unknown): SplitPreviousResult {
   if (!parsed.success) return { args, previous: { kind: 'invalid', reason: describeIssues(parsed.error) } };
   return { args, previous: { kind: 'reported', outcome: parsed.data } };
 }
+
+export interface StripInnerPreviousResult {
+  /** The `aigent_multi` arguments with `previous` taken out of every inner call's arguments. */
+  args: unknown;
+  /** Ids of the inner calls that carried `previous` (null included), in call order. */
+  strippedCallIds: string[];
+}
+
+/**
+ * Inner `aigent_multi` calls never carry `previous` (the wrapper reports for them), but a model may add it anyway.
+ * Their tools' strict schemas would reject the unknown key, so it is taken out (never mutating the input) and ignored.
+ */
+export function stripInnerPrevious(multiArgs: unknown): StripInnerPreviousResult {
+  if (!isPlainObject(multiArgs) || !Array.isArray(multiArgs.calls)) return { args: multiArgs, strippedCallIds: [] };
+  const strippedCallIds: string[] = [];
+  const calls = multiArgs.calls.map((innerCall: unknown) => {
+    if (!isPlainObject(innerCall) || !isPlainObject(innerCall.args) || !(PREVIOUS_FIELD in innerCall.args)) return innerCall;
+    const { [PREVIOUS_FIELD]: _ignored, ...innerArgs } = innerCall.args;
+    strippedCallIds.push(String(innerCall.id));
+    return { ...innerCall, args: innerArgs };
+  });
+  return { args: { ...multiArgs, calls }, strippedCallIds };
+}

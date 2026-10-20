@@ -1,4 +1,4 @@
-import { splitPrevious } from '../feedback/previous-outcome.js';
+import { splitPrevious, stripInnerPrevious } from '../feedback/previous-outcome.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { TraceRecorder } from '../telemetry/trace-recorder.js';
 import type { AigentEvent } from './aigent-events.js';
@@ -42,6 +42,23 @@ export function linkPrevious(params: LinkPreviousParams): unknown {
   if (isExpected && !feedback.hasWarnedMissing) {
     feedback.hasWarnedMissing = true;
     emit({ type: 'warning', message: `"previous" was missing on tool call '${callId}' to '${name}'; report how the previous tool step went on every call after the first (warned once per run)` });
+  }
+  return args;
+}
+
+export interface StripMultiPreviousParams {
+  /** The `aigent_multi` call, its top-level `previous` already taken out. */
+  call: ToolCall;
+  emit(event: AigentEvent): void;
+}
+
+/** Takes `previous` out of `aigent_multi` inner calls (it is only read at the top level) and warns once per call about it. */
+export function stripMultiPrevious(params: StripMultiPreviousParams): unknown {
+  const { call: { id: callId, args: multiArgs }, emit } = params;
+  const { args, strippedCallIds } = stripInnerPrevious(multiArgs);
+  if (strippedCallIds.length > 0) {
+    const innerIds = strippedCallIds.map(innerId => `'${innerId}'`).join(', ');
+    emit({ type: 'warning', message: `Ignored previous inside aigent_multi call '${callId}' (inner calls ${innerIds}); only the aigent_multi call itself carries previous` });
   }
   return args;
 }
