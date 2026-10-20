@@ -22,6 +22,8 @@ export interface AnthropicToolResultBlock {
   type: 'tool_result';
   tool_use_id: string;
   content: string;
+  /** Set for failed tool envelopes, so the model treats the content as an error. */
+  is_error?: true;
 }
 
 export type AnthropicUserBlock = AnthropicTextBlock | AnthropicToolResultBlock;
@@ -56,6 +58,9 @@ export interface AnthropicRequestSettings {
 /** System messages are concatenated with a blank line between them, as one prompt. */
 const SYSTEM_SEPARATOR = '\n\n';
 const EPHEMERAL_CACHE: AnthropicCacheControl = { type: 'ephemeral' };
+/** Starts a tool result whose call's arguments could not be replayed as an object; the original text follows. */
+const REPLACED_ARGS_NOTE = 'The arguments you sent for this call were not a JSON object, so the call above shows {}. You sent: ';
+const NOTE_SEPARATOR = '\n\n';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -76,6 +81,37 @@ function toToolInput(args: unknown): Record<string, unknown> {
   if (isPlainObject(args)) return args;
   if (typeof args === 'string') return parseObject(args) ?? {};
   return {};
+}
+
+/** The args as the model sent them when `toToolInput` had to replace them with `{}`; undefined when they replay as-is. */
+function replacedArgsText(args: unknown): string | undefined {
+  if (isPlainObject(args)) return undefined;
+  if (typeof args === 'string') return parseObject(args) == null ? args : undefined;
+  return JSON.stringify(args) ?? String(args);
+}
+
+/** Call id → original args text, for every call whose args were replayed as `{}`. */
+function collectReplacedArgs(messages: ProviderMessage[]): Map<string, string> {
+  const replaced = new Map<string, string>();
+  messages.forEach(({ toolCalls = [] }) => toolCalls.forEach(({ id, args }) => {
+    const text = replacedArgsText(args);
+    if (text != null) replaced.set(id, text);
+  }));
+  return replaced;
+}
+
+/**
+ * True for a tool message holding a failed `ToolEnvelope` (`{"ok":false,...}`). Parsed defensively: any other text,
+ * including invalid JSON, is not treated as an error.
+ */
+function isFailedEnvelope(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return isPlainObject(parsed) && parsed.ok === false;
+  } catch {
+    // Not an envelope (plain text or invalid JSON): nothing says it failed.
+    return false;
+  }
 }
 
 function toToolUseBlock(call: ToolCall): AnthropicToolUseBlock {
@@ -99,12 +135,26 @@ function toAssistantMessage(message: ProviderMessage): AnthropicMessage | undefi
   return content.length === 0 ? undefined : { role: 'assistant', content };
 }
 
-function toToolResultMessage(message: ProviderMessage): AnthropicMessage {
-  const { toolCallId = '', text = '' } = message;
-  return { role: 'user', content: [{ type: 'tool_result', tool_use_id: toolCallId, content: text }] };
+interface WireMessageParams {
+  message: ProviderMessage;
+  /** Call id → original args text, for calls replayed with `input: {}`. */
+  replacedArgs: ReadonlyMap<string, string>;
 }
 
-function toWireMessage(message: ProviderMessage): AnthropicMessage | undefined {
+/**
+ * A call replayed as `{}` would otherwise appear next to a validation error about arguments it no longer shows, so
+ * the result starts with a note quoting what the model actually sent.
+ */
+function toToolResultMessage(params: WireMessageParams): AnthropicMessage {
+  const { message: { toolCallId = '', text = '' }, replacedArgs } = params;
+  const replaced = replacedArgs.get(toolCallId);
+  const content = replaced == null ? text : `${REPLACED_ARGS_NOTE}${replaced}${NOTE_SEPARATOR}${text}`;
+  const block: AnthropicToolResultBlock = { type: 'tool_result', tool_use_id: toolCallId, content };
+  return { role: 'user', content: [isFailedEnvelope(text) ? { ...block, is_error: true } : block] };
+}
+
+function toWireMessage(params: WireMessageParams): AnthropicMessage | undefined {
+  const { message } = params;
   const { role, text = '' } = message;
   switch (role) {
     case 'system':
@@ -114,7 +164,7 @@ function toWireMessage(message: ProviderMessage): AnthropicMessage | undefined {
     case 'assistant':
       return toAssistantMessage(message);
     case 'tool':
-      return toToolResultMessage(message);
+      return toToolResultMessage(params);
   }
 }
 
@@ -141,8 +191,9 @@ function mergeSameRole(params: { previous: AnthropicMessage; next: AnthropicMess
  * cannot leave two user messages in a row.
  */
 function toAnthropicMessages(messages: ProviderMessage[]): AnthropicMessage[] {
+  const replacedArgs = collectReplacedArgs(messages);
   return messages.reduce<AnthropicMessage[]>((wire, message) => {
-    const next = toWireMessage(message);
+    const next = toWireMessage({ message, replacedArgs });
     if (next == null) return wire;
     const previous = wire.at(-1);
     const merged = previous == null ? undefined : mergeSameRole({ previous, next });

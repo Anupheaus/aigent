@@ -16,6 +16,8 @@ const API_KEY = 'sk-ant-secret-test-key-123';
 const BASE_URL = 'https://anthropic.test';
 const REQUEST: ProviderRequest = { model: 'claude-test', messages: [{ role: 'user', text: 'hi' }], tools: [] };
 const DEFAULT_MAX_TOKENS = 4096;
+/** Prefix of the note added to a tool result whose call's arguments could not be replayed as an object. */
+const MALFORMED_NOTE = 'The arguments you sent for this call were not a JSON object, so the call above shows {}. You sent: ';
 
 interface Harness {
   requests: RecordedRequest[];
@@ -193,12 +195,37 @@ describe('anthropic request', () => {
       {
         role: 'user',
         content: [
-          { type: 'tool_result', tool_use_id: 'c3', content: 'bad args' },
-          { type: 'tool_result', tool_use_id: 'c4', content: 'bad args too' },
+          { type: 'tool_result', tool_use_id: 'c3', content: `${MALFORMED_NOTE}{"q":"do\n\nbad args` },
+          { type: 'tool_result', tool_use_id: 'c4', content: `${MALFORMED_NOTE}[1]\n\nbad args too` },
         ],
       },
       { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] },
     ]);
+  });
+
+  it('marks tool results whose envelope has ok:false as is_error, and only those', async () => {
+    const failed = JSON.stringify({ id: 'c1', tool: 'search', ok: false, error: { code: 'invalid_args', message: 'q is required' } });
+    const succeeded = JSON.stringify({ id: 'c2', tool: 'search', ok: true, result: { ok: false } });
+    const body = await bodyFor({
+      request: {
+        ...REQUEST,
+        messages: [
+          { role: 'user', text: 'go' },
+          { role: 'assistant', toolCalls: [{ id: 'c1', name: 'search', args: {} }, { id: 'c2', name: 'search', args: { q: 'x' } }, { id: 'c3', name: 'search', args: {} }] },
+          { role: 'tool', toolCallId: 'c1', text: failed },
+          { role: 'tool', toolCallId: 'c2', text: succeeded },
+          { role: 'tool', toolCallId: 'c3', text: '{"ok":false' },
+        ],
+      },
+    });
+    expect((body.messages as unknown[])[2]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'tool_result', tool_use_id: 'c1', content: failed, is_error: true },
+        { type: 'tool_result', tool_use_id: 'c2', content: succeeded },
+        { type: 'tool_result', tool_use_id: 'c3', content: '{"ok":false' },
+      ],
+    });
   });
 
   // The API rejects `content: []` and whitespace-only text blocks, so an assistant turn that said nothing is dropped
