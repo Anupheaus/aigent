@@ -5,6 +5,7 @@ import type { Tool, ToolContext } from '../../tool-types.js';
 import { parentOf, pathExists } from './fs-atomic.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
+import { assertSubtreeUnprotected } from './fs-subtree.js';
 import { applyUndoSteps, moveToTrash, undoDescriptor, withUndo } from './fs-undo.js';
 import type { UndoStep } from './fs-undo.js';
 
@@ -30,7 +31,8 @@ async function moveOne(params: { deps: FsDeps; item: MoveItem; context: ToolCont
     path: from,
     work: async () => {
       if (source.path === source.root) throw fsError({ code: 'EPERM', path: source.path, message: 'is a root and cannot be moved' });
-      await access.lstat(source.path);
+      const { type } = await access.lstat(source.path);
+      if (type !== 'symlink') await assertSubtreeUnprotected({ deps, path: source.path, root: source.root, destination: { path: target.path, root: target.root } });
       await access.stat(parentOf({ path: target.path, platform: access.platform }));
       const steps: UndoStep[] = [];
       if (await pathExists({ deps, path: target.path })) {
@@ -65,6 +67,9 @@ export function createFsMove(deps: FsDeps): Tool {
       dryRunItem: async ({ from, to, overwrite = false }) => {
         const source = await allowPath({ deps, path: from, permission: 'delete', followFinalLink: false });
         const target = await allowPath({ deps, path: to, permission: 'write', followFinalLink: false });
+        // In a dry run the source may come from an earlier simulated call, so a missing one is not checked.
+        const type = (await access.lstat(source.path).catch(() => undefined))?.type;
+        if (type != null && type !== 'symlink') await assertSubtreeUnprotected({ deps, path: source.path, root: source.root, destination: { path: target.path, root: target.root } });
         const isReplacing = await pathExists({ deps, path: target.path });
         if (isReplacing && !overwrite) return { result: { from: source.path, to: target.path, wouldFail: 'already_exists' }, effects: [] };
         return [{ kind: 'file.move', target: source.path, summary: `move ${source.path} to ${target.path}${isReplacing ? ' (replacing it)' : ''}`, reversible: !isReplacing || deps.backupDir != null }];

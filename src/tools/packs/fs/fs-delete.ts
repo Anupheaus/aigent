@@ -6,6 +6,7 @@ import type { Tool, ToolContext } from '../../tool-types.js';
 import { pathExists } from './fs-atomic.js';
 import { allowPath, countTitle, FS_RESULT_HELPERS, MAX_FS_ITEMS, needsApproval, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
+import { assertSubtreeUnprotected } from './fs-subtree.js';
 import { applyUndoSteps, moveToTrash, undoDescriptor, withUndo } from './fs-undo.js';
 
 export const FS_DELETE_TOOL_NAME = 'fs_delete';
@@ -28,6 +29,7 @@ async function deleteOne(params: { deps: FsDeps; item: DeleteItem; context: Tool
     work: async () => {
       const { type } = await access.lstat(allowed.path);
       if (type === 'directory' && !recursive) throw fsError({ code: 'EISDIR', path: allowed.path, message: 'is a directory (pass recursive: true)' });
+      if (type !== 'symlink') await assertSubtreeUnprotected({ deps, path: allowed.path, root: allowed.root });
       // With a backupDir the delete is a move into the managed trash, so it can be undone.
       const trashed = await moveToTrash({ deps, context, path: allowed.path });
       if (trashed == null) await access.rm(allowed.path, { recursive: type === 'directory' });
@@ -59,6 +61,7 @@ export function createFsDelete(deps: FsDeps): Tool {
         const stat = await access.lstat(allowed.path).catch(() => undefined);
         if (stat == null) return { result: { path: allowed.path, wouldFail: 'not_found' }, effects: [] };
         if (stat.type === 'directory' && !recursive) return { result: { path: allowed.path, wouldFail: 'is_a_directory' }, effects: [] };
+        if (stat.type !== 'symlink') await assertSubtreeUnprotected({ deps, path: allowed.path, root: allowed.root });
         return [{ kind: 'file.delete', target: allowed.path, summary: `delete ${stat.type} ${allowed.path}${deps.backupDir == null ? ' for good' : ' (into the trash)'}`, reversible: deps.backupDir != null }];
       },
       // Done when every path is gone.
