@@ -1,3 +1,4 @@
+import type { ApprovalDecider, ApprovalDecisionKind, ApprovalRequest } from '../approvals/approval-types.js';
 import type { Directive } from '../streaming/directive-parser.js';
 import type { ActivityUpdate } from './activity-update.js';
 import type { ToolActivityView } from '../tools/tool-types.js';
@@ -42,6 +43,10 @@ export type AigentEvent =
    * Token figures are calibrated estimates of the whole prompt; `summaryTokens` is the new summary's size.
    */
   | { type: 'compaction'; stage: CompactionStage; tokensBefore: number; tokensAfter: number; messagesAffected: number; summaryTokens?: number; costUsd?: number }
+  /** A call needs a person's approval; the run waits for `agent.approve(request.requestId, decision)`. */
+  | ({ type: 'approval-request' } & ApprovalRequest)
+  /** An approval was decided: by a rule, by the user, or by the run's policy (unattended, or stopped while waiting). */
+  | { type: 'approval-decision'; requestId: string; callId: string; tool: string; decision: ApprovalDecisionKind; by: ApprovalDecider; note?: string }
   | { type: 'error'; message: string }
   /** Always last, emitted after the run's records are written; `responseId` is the id to rate the answer with. */
   | { type: 'done'; status: TaskStatus; responseId: string };

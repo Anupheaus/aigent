@@ -70,7 +70,16 @@ export function createCheckpointWriter(params: CreateCheckpointWriterParams): Ch
     snapshots = kept;
   }
 
-  async function write(params: { boundary: CheckpointBoundary; state: RunState | SessionState }): Promise<Checkpoint> {
+  /** Writes run one at a time (an approval can be checkpointed while a turn's checkpoint is being written). */
+  let tail: Promise<unknown> = Promise.resolve();
+
+  function write(params: { boundary: CheckpointBoundary; state: RunState | SessionState }): Promise<Checkpoint> {
+    const written = tail.then(() => writeNext(params));
+    tail = written.catch(() => undefined);
+    return written;
+  }
+
+  async function writeNext(params: { boundary: CheckpointBoundary; state: RunState | SessionState }): Promise<Checkpoint> {
     const { boundary, state } = params;
     seq += 1;
     const next = fingerprints(state);

@@ -24,6 +24,28 @@ export function validateResumeFields(input: ResumeFieldsInput): void {
   if (resume === 'verify' && verify === undefined) invalid({ name, message: "resume 'verify' needs a verify function that says whether the call's effect already happened" });
 }
 
+/** The approval fields of a tool definition, checked without their argument types. */
+export interface ApprovalFieldsInput {
+  name: string;
+  requiresApproval?: unknown;
+  risk?: unknown;
+}
+
+const RISKS: readonly unknown[] = ['low', 'medium', 'high'];
+
+/** Throws `invalid_definition` for a `requiresApproval` that is not a boolean, function or policy object, or an unknown `risk`. */
+export function validateApprovalFields(input: ApprovalFieldsInput): void {
+  const { name, requiresApproval, risk } = input;
+  const isPolicy = typeof requiresApproval === 'object' && requiresApproval !== null && !Array.isArray(requiresApproval);
+  if (requiresApproval !== undefined && typeof requiresApproval !== 'boolean' && typeof requiresApproval !== 'function' && !isPolicy) invalid({ name, message: 'requiresApproval must be a boolean, a function of the arguments, or { when?, reason? }' });
+  if (isPolicy) {
+    const { when, reason } = requiresApproval as { when?: unknown; reason?: unknown };
+    if (when !== undefined && typeof when !== 'function') invalid({ name, message: 'requiresApproval.when must be a function of the arguments' });
+    if (reason !== undefined && typeof reason !== 'string') invalid({ name, message: 'requiresApproval.reason must be a string' });
+  }
+  if (risk !== undefined && !RISKS.includes(risk)) invalid({ name, message: `risk must be low, medium or high, got ${String(risk)}` });
+}
+
 /** The tool's declared policy, else `rerun` for read-only tools and `ask` for tools with side effects. */
 export function resumePolicyOf(tool: Pick<Tool, 'resume' | 'hasSideEffects'>): ToolResumePolicy {
   return tool.resume ?? (tool.hasSideEffects ? 'ask' : 'rerun');

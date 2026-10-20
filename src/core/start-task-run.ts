@@ -19,6 +19,7 @@ import { startAgentRun } from './start-agent-run.js';
 import { createAskUserTool } from '../chat/ask-user-tool.js';
 import { askThrough } from '../chat/task-questions.js';
 import type { InstanceRuntime } from '../resume/instance-runtime.js';
+import type { ApprovalCenter } from '../approvals/approval-gate.js';
 import type { RunRestore } from '../resume/prepare-run-resume.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -66,6 +67,8 @@ export interface ResolvedAgent {
   compression?: ResolvedCompression;
   /** The persona fields as sent, compressed once per agent and memoised (lazily, on the first task or preview). */
   staticPrompt: StaticPrompt;
+  /** The instance's approvals (pending requests, decisions, audit). */
+  approvals?: ApprovalCenter;
 }
 
 /** Shared, per-`createAigent` services. */

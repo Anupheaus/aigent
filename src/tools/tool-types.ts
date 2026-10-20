@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { ContentKind, Fidelity } from '../shapers/shaper-types.js';
 import type { JsonSchema } from '../providers/provider-types.js';
+import type { ApprovalRisk, RequiresApproval } from '../approvals/approval-types.js';
 import type { ExecutedToolCall } from './execute-tool-call.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 
@@ -139,6 +140,10 @@ export interface Tool {
   resume?: ToolResumePolicy;
   /** Says whether an interrupted call's effect already happened (required with `resume: 'verify'`). */
   verify?(args: unknown, context: ToolContext): Promise<ToolVerifyResult>;
+  /** A person must approve the call first: always, by a predicate over the arguments, or a policy with its reason. */
+  requiresApproval?: RequiresApproval;
+  /** Shown with approval requests. */
+  risk?: ApprovalRisk;
   /** Failures inside a successful aggregate result (batch items, `aigent_multi` calls), reported in `TaskResult.errors`. */
   nestedFailures?(result: unknown): ToolErrorDetail[];
   /** Item totals of a batch result, for tool telemetry (`defineBatchTool` sets it). */

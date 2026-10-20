@@ -4,6 +4,7 @@ import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { CompressionOptions, PromptPreview } from '../compression/compressor-types.js';
 import type { ResumeRunOptions } from '../resume/agent-resume.js';
+import type { ApprovalDecision } from '../approvals/approval-types.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { Tool } from '../tools/tool-types.js';
@@ -180,6 +181,12 @@ export interface Agent {
    * (or `resume` is off). Throws `invalid_input` before `ready` has resolved.
    */
   resume(options?: ResumeRunOptions): TaskRun | undefined;
+  /**
+   * Decides a pending approval request (`approval-request` event): `allow_once`, `allow_always` (adds a rule for the
+   * runtime, scoped by `scope`) or `deny`. Works for requests a restored run is still waiting on, before `resume()`.
+   * Resolves once the decision is in the audit trail; rejects `invalid_input` for an unknown request.
+   */
+  approve(requestId: string, decision: ApprovalDecision): Promise<void>;
 }
 
 export const DEFAULT_LIMITS = { maxTurns: 25, maxToolCalls: 100 } as const;

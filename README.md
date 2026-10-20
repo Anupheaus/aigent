@@ -642,6 +642,24 @@ The report also looks at what was asked, across runs, without any model calls:
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
 
+## Human approvals
+
+```ts
+const deleteFile = defineTool({
+  name: 'delete_file', /* ... */ hasSideEffects: true, risk: 'high',
+  requiresApproval: { reason: 'Deleting is permanent' }, // or true, or (args, ctx) => boolean, or { when, reason }
+});
+const ai = createAigent({ providers, approvals: { allow: [{ tool: 'delete_file', argsMatch: { dir: '/tmp' } }], deny: [{ tool: '*', when: args => isProtected(args) }] } });
+for await (const event of run) {
+  if (event.type === 'approval-request') await agent.approve(event.requestId, { decision: 'allow_once' }); // or 'allow_always' (with scope) or 'deny'
+}
+```
+
+- **Gate:** before a call whose tool requires approval (for these arguments) runs, the rules apply first: a matching `deny` rule wins over any `allow` rule (rules match a tool name or `*`, exact top-level `argsMatch` values and an optional `when`). Otherwise the run emits `approval-request` (`requestId`, `callId`, `tool`, `argsSummary`, `risk`, `reason` and the tool's `describeActivity` view) and that call waits; other calls and the stream go on. `agent.approve(requestId, { decision, scope?, note? })` decides it: `allow_once`, `allow_always` (adds an allow rule to the runtime, for the call's tool or `scope`) or `deny`. Every decision emits `approval-decision` (`by: 'rule' | 'user' | 'policy'`).
+- **Refusals the agent can see:** a denied call gets a `denied` envelope with code `approval_denied`, a reason and a suggestion, so the model can adapt. Unattended runs never wait: without a matching allow rule the call is refused this way (`by: 'policy'`). Stopping or cancelling a run while a request is pending refuses it (`approval_aborted`) and cleans up.
+- **Audit trail:** every decision, by rule, user or policy, is stored in collection `approvals` (`{ requestId, runId, agentName, instanceId, tool, argsHash, decision, by, at, note }`) through the keyed write queue and `redact`.
+- **Durable:** with `resume`, a pending request is part of the run's checkpoints (never part of the compactable history). After a restart it can be decided with `agent.approve` (once `agent.ready` resolved) and `agent.resume()` then runs or refuses the call accordingly. A resumed run also asks before re-running an interrupted call whose tool's `resume` policy is `ask`.
+
 ## Resuming agent instances
 
 ```ts

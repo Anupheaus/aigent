@@ -8,7 +8,8 @@ import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import { resumePolicyOf } from '../tools/tool-policies.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
-import type { ToolContext } from '../tools/tool-types.js';
+import type { Tool, ToolContext } from '../tools/tool-types.js';
+import type { GateOutcome } from '../approvals/approval-gate.js';
 import { hashArgs, idempotencyKeyOf } from './call-ledger.js';
 import type { CallLedger, LedgerEntry } from './call-ledger.js';
 import type { RunState } from './checkpoint-types.js';
@@ -27,8 +28,11 @@ export interface ReconciledRound {
   turn: number;
 }
 
-/** Asks whether an interrupted call with side effects may run again (the approval gate); false refuses it. */
-export type AskToRerun = (params: { callId: string; tool: string; args: unknown }) => Promise<boolean>;
+/** The approval gate for calls a resumed run (re-)runs; `force` asks even when the tool does not require approval. */
+export type ReconcileGate = (params: { call: ToolCall; tool: Tool; force?: { reason: string } }) => Promise<GateOutcome>;
+
+/** Why an interrupted call with side effects needs approval before it runs again. */
+const RERUN_REASON = 'The call was interrupted by a restart and may already have had its effect; running it again could repeat it';
 
 export interface ReconcileParams {
   restored: RestoredRun;
@@ -40,7 +44,7 @@ export interface ReconcileParams {
   isUnattended: boolean;
   now(): number;
   emit(event: AigentEvent): void;
-  askToRerun?: AskToRerun;
+  gate?: ReconcileGate;
 }
 
 function restoredCall(envelope: ToolEnvelope): ExecutedToolCall {
@@ -84,9 +88,22 @@ async function execute(params: ReconcileParams & { call: ToolCall }): Promise<Ex
   return executed;
 }
 
+/** Runs the call (again) once the approval gate allows it; refused calls get the gate's result. */
+async function gated(params: ReconcileParams & { call: ToolCall; tool?: Tool; force?: { reason: string } }): Promise<ExecutedToolCall> {
+  const { call, tool, force, gate } = params;
+  if (tool != null && gate != null) {
+    const outcome = await gate({ call, tool, ...(force == null ? {} : { force }) });
+    if (!outcome.isAllowed) return refused({ call, error: outcome.error });
+  } else if (force != null) {
+    // No gate (or no user in an unattended run): nobody can approve running it again.
+    return refused({ call, error: deniedError(call) });
+  }
+  return execute(params);
+}
+
 /** One interrupted call, by its ledger state and the tool's resume policy. */
 async function reconcileCall(params: ReconcileParams & { call: ToolCall }): Promise<ExecutedToolCall> {
-  const { call, restored: { ledger, overrides }, registry, isUnattended, askToRerun, ids, signal } = params;
+  const { call, restored: { ledger, overrides }, registry, ids, signal } = params;
   const override = overrides?.get(call.id);
   if (override != null) return restoredCall(override);
   const entry = ledger.find(({ callId }) => callId === call.id);
@@ -94,7 +111,7 @@ async function reconcileCall(params: ReconcileParams & { call: ToolCall }): Prom
   if (entry?.envelope != null && entry.status !== 'started') return restoredCall(entry.envelope);
   const tool = registry.get(call.name);
   // Never started (begin is written before a tool runs), or a tool that no longer exists: run it as a new call.
-  if (entry == null || tool == null) return execute(params);
+  if (entry == null || tool == null) return gated({ ...params, ...(tool == null ? {} : { tool }) });
   const policy = resumePolicyOf(tool);
   if (policy === 'skip') return refused({ call, error: skippedError(call) });
   if (policy === 'verify' && tool.verify != null) {
@@ -104,13 +121,9 @@ async function reconcileCall(params: ReconcileParams & { call: ToolCall }): Prom
       await params.ledger?.complete(call.id, envelope).catch(() => undefined);
       return restoredCall(envelope);
     }
-    return execute(params);
+    return gated({ ...params, tool });
   }
-  if (policy === 'ask') {
-    const isAllowed = !isUnattended && askToRerun != null && await askToRerun({ callId: call.id, tool: call.name, args: call.args });
-    return isAllowed ? execute(params) : refused({ call, error: deniedError(call) });
-  }
-  return execute(params);
+  return gated({ ...params, tool, ...(policy === 'ask' ? { force: { reason: RERUN_REASON } } : {}) });
 }
 
 /**

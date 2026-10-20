@@ -29,7 +29,11 @@ export function createAgentResume(params: { agent: ResolvedAgent; services: Runt
   const { agent, services } = params;
   const runtime = services.resume;
   let handle: InstanceHandle | undefined;
-  const ready = runtime == null ? Promise.resolve() : runtime.open({ instanceId: agent.instanceId, agentName: agent.name, agentVersion: agent.agentVersion }).then(opened => { handle = opened; });
+  const ready = runtime == null ? Promise.resolve() : runtime.open({ instanceId: agent.instanceId, agentName: agent.name, agentVersion: agent.agentVersion }).then(opened => {
+    handle = opened;
+    // Requests the interrupted runs were waiting on can be decided before they are resumed.
+    for (const [runId, { state }] of opened.interrupted) agent.approvals?.restorePending({ runId, states: state.approvals });
+  });
   // Callers that never await `ready` hear about a failed open from their first run instead.
   ready.catch(() => undefined);
 

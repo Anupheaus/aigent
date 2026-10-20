@@ -128,7 +128,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           ...(shaping == null ? {} : { shaping }),
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: planning.extras },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), showThinking: settings.showThinking ?? true, limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
-          steer, isUnattended: input.unattended === true,
+          steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
           ...(checkpoints == null ? {} : { checkpoints }), ...(restored == null ? {} : { restore: restored }),
           ...(conversation == null ? {} : { keepPartialRound: true, ...(conversation.onCommit == null ? {} : { onCommit: conversation.onCommit }) }),
         });

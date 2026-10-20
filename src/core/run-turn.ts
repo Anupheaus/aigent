@@ -14,6 +14,8 @@ import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
 import { raceSignal } from './race-signal.js';
 import type { CallLedger } from '../resume/call-ledger.js';
+import type { GateOutcome } from '../approvals/approval-gate.js';
+import type { Tool, ToolContext } from '../tools/tool-types.js';
 import type { RunShaping } from './run-shaping.js';
 import type { RunContext } from './run-context.js';
 import { buildTurnRequest, recordPromptSize } from './run-request.js';
@@ -72,6 +74,8 @@ export interface RunTurnParams {
   ledger?: CallLedger;
   /** The run id the ledger and idempotency keys use (the original run's when resumed); default `runId`. */
   ledgerRunId?: string;
+  /** The approval gate: whether a call may run (asking a person when its tool requires approval). */
+  approve?(params: { call: ToolCall; tool: Tool; context: ToolContext }): Promise<GateOutcome>;
   clock: Clock;
   signal: AbortSignal;
   /** Tools with side effects get this instead of `signal` (see `RunControl.sideEffectSignal`). */

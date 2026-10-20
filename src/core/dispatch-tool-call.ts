@@ -14,6 +14,7 @@ import type { MultiToolContext, ToolContext } from '../tools/tool-types.js';
 import { hashArgs, idempotencyKeyOf } from '../resume/call-ledger.js';
 import type { CallLedger } from '../resume/call-ledger.js';
 import type { ExecuteToolCallParams } from '../tools/execute-tool-call.js';
+import type { GateOutcome } from '../approvals/approval-gate.js';
 import { describeError } from './describe-value.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
@@ -75,9 +76,12 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
  * Runs the call, recorded in the ledger first when there is one: the `started` entry is stored before the tool runs,
  * so a resumed run never runs a finished call again. A call whose start cannot be recorded is not run.
  */
-async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; turn: number }): Promise<ExecutedToolCall> {
-  const { execute, ledger, turn } = params;
+async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; turn: number; gate?(): Promise<GateOutcome> }): Promise<ExecutedToolCall> {
+  const { execute, ledger, turn, gate } = params;
   const { call } = execute;
+  // Approval comes first: a refused call never starts, so it is never in the ledger.
+  const approval = await gate?.();
+  if (approval?.isAllowed === false) return rejectToolCall({ call, error: approval.error });
   if (ledger == null) return executeToolCall(execute);
   try {
     await ledger.begin({ callId: call.id, tool: call.name, args: call.args, argsHash: hashArgs(call.args), turn });
@@ -138,10 +142,15 @@ export function dispatchToolCall(params: DispatchParams): void {
   } else if (!isCommentary) {
     totals.toolCalls += 1;
   }
+  const tool = registry.get(name);
+  const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, args);
+  const isRunnable = tool != null && parsed != null && parsed.ok;
+  const { approve } = turn;
   // executeToolCall promises never to reject; this last-resort guard keeps a broken promise from failing the run or going unhandled.
   // Bookkeeping tools only change run state, which the checkpoint holds; ask_user is ledgered so a suspended turn can resume.
   const ledger = isCommentary && name !== ASK_USER_TOOL_NAME ? undefined : turn.ledger;
   const execution = runLedgered({
+    ...(approve == null || !isRunnable ? {} : { gate: () => approve({ call, tool, context }) }),
     execute: {
       registry, call, context, now: () => clock.now(),
       ...(cache == null ? {} : { cache }),
@@ -151,8 +160,6 @@ export function dispatchToolCall(params: DispatchParams): void {
   })
     .catch((error: unknown) => rejectToolCall({ call, error: describeThrown(error) }));
 
-  const tool = registry.get(name);
-  const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, args);
   if (tool == null || parsed == null || !parsed.ok) {
     // Unknown tool or invalid arguments: executeToolCall refuses it without running anything.
     work.executions.push(execution.then(reportNotRun));

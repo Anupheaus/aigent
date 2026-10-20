@@ -45,6 +45,9 @@ export type { LedgerEntry } from './resume/call-ledger.js';
 export type { LeaseRecord } from './resume/lease.js';
 export type { InstanceRecord, InstanceRunEntry, ResumeOptions } from './resume/instance-runtime.js';
 export type { ResumeRunOptions } from './resume/agent-resume.js';
+export type {
+  ApprovalAuditRecord, ApprovalDecider, ApprovalDecision, ApprovalDecisionKind, ApprovalOptions, ApprovalPolicy, ApprovalRequest, ApprovalRisk, ApprovalRule, RequiresApproval,
+} from './approvals/approval-types.js';
 export type { ToolEnvelope } from './tools/tool-envelope.js';
 export type { ToolErrorCategory, ToolErrorDetail } from './tools/tool-error-detail.js';
 export { createScheduler } from './scheduler/scheduler.js';

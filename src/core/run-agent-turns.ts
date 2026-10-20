@@ -1,6 +1,7 @@
 import type { ToolCache } from '../cache/cache-types.js';
 import type { RunPlanning } from '../planning/run-planning.js';
-import type { ProviderMessage } from '../providers/provider-types.js';
+import type { ProviderMessage, ToolCall } from '../providers/provider-types.js';
+import type { Tool, ToolContext } from '../tools/tool-types.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
@@ -14,7 +15,9 @@ import type { RunCompactionSettings } from './run-compaction.js';
 import { compressCommitted } from './run-compression.js';
 import type { RunCompression } from './run-compression.js';
 import { reconcileInterruptedRound } from '../resume/reconcile-calls.js';
-import type { AskToRerun, RestoredRun } from '../resume/reconcile-calls.js';
+import type { RestoredRun } from '../resume/reconcile-calls.js';
+import type { ApprovalCenter } from '../approvals/approval-gate.js';
+import type { InFlightRound } from '../resume/checkpoint-types.js';
 import type { RunCheckpoints } from '../resume/checkpoint-hooks.js';
 import { createRunCheckpointer } from './run-checkpointer.js';
 import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
@@ -73,8 +76,8 @@ export interface RunAgentTurnsParams {
   restore?: RestoredRun;
   /** No user: interrupted calls that need approval are refused. */
   isUnattended?: boolean;
-  /** The approval gate for re-running interrupted calls with side effects. */
-  askToRerun?: AskToRerun;
+  /** The agent instance's approvals: calls whose tool requires approval wait here for `agent.approve`. */
+  approvals?: ApprovalCenter;
   emit(event: AigentEvent): void;
 }
 
@@ -97,8 +100,21 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     registry: params.registry, isFeedbackEnabled: telemetry.feedback.isEnabled, ...(shaping == null ? {} : { shaping }), ...(params.compression == null ? {} : { compression: params.compression.settings }),
     ...(restore == null ? {} : { restored: { originals: restore.state.originals, hasResultOriginal: restore.state.hasResultOriginal } }),
   });
-  const checkpointer = createRunCheckpointer({ ...(params.checkpoints == null ? {} : { hooks: params.checkpoints }), context, totals, planning, originals, ...(shaping == null ? {} : { shaping }) });
+  const approvalRunId = params.checkpoints?.streamId ?? runId;
+  const checkpointer = createRunCheckpointer({
+    ...(params.checkpoints == null ? {} : { hooks: params.checkpoints }), context, totals, planning, originals, ...(shaping == null ? {} : { shaping }),
+    approvals: () => params.approvals?.pending(approvalRunId) ?? [],
+  });
   const { ledger, ledgerRunId } = checkpointer;
+  /** The response whose calls are running, once it is in; an approval checkpoint keeps it. */
+  let inFlightRound: InFlightRound | undefined;
+  const isUnattended = params.isUnattended ?? false;
+  const approvals = params.approvals;
+  const gate = approvals == null ? undefined : (call: { call: ToolCall; tool: Tool; context: ToolContext; force?: { reason: string } }) => approvals.gate({
+    runId: approvalRunId, ...call, isUnattended, signal, emit,
+    // The pending request is checkpointed; the turn's request was sent, but only a recorded response counts it.
+    onPending: async () => { await checkpointer.at({ boundary: 'approval', ...(inFlightRound == null ? { turnsDone: totals.turns - 1 } : { inFlight: inFlightRound }) }); },
+  });
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
   let answer = '';
@@ -125,8 +141,9 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   let isReady = true;
   if (restore != null) {
     const round = await reconcileInterruptedRound({
-      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, isUnattended: params.isUnattended ?? false, now: () => clock.now(), emit,
-      ...(ledger == null ? {} : { ledger }), ...(params.askToRerun == null ? {} : { askToRerun: params.askToRerun }),
+      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, isUnattended, now: () => clock.now(), emit,
+      ...(ledger == null ? {} : { ledger }),
+      ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),
     });
     // Not reported through onCommit: a chat already holds this round (the cut-short reply), so its history is not repeated.
     if (round.messages.length > 0) appendContextMessages({ context, messages: round.messages, createdAt: clock.now() });
@@ -163,7 +180,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     try {
       turn = await runTurn({
         runId, agentName, instanceId, routing, showThinking, registry, maxToolCalls: limits.maxToolCalls, usableBudget: params.compaction.usableBudget, clock,
-        ...(ledger == null ? {} : { ledger }), ...(ledgerRunId == null ? {} : { ledgerRunId }), signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
+        ...(ledger == null ? {} : { ledger }), ...(ledgerRunId == null ? {} : { ledgerRunId }), ...(gate == null ? {} : { approve: gate }), signal, sideEffectSignal, context, totals, work, telemetry, emit, volatile, planning,
         ...(cache == null ? {} : { cache }),
         ...(shaping == null ? {} : { shaping }),
       });
@@ -187,10 +204,12 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
 
     // The response is in: a resume completes this round from here rather than asking the model again.
     const inFlight = { turn: totals.turns, assistant: { role: 'assistant' as const, text: turn.visible, ...(turn.calls.length > 0 ? { toolCalls: turn.calls } : {}), ...(turn.thinkingBlocks.length > 0 ? { thinkingBlocks: turn.thinkingBlocks } : {}) } };
+    if (turn.calls.length > 0) inFlightRound = inFlight;
     const isRecorded = turn.calls.length === 0 || await checkpoint({ boundary: 'message', inFlight });
     const drained = await drainWork({ work, signal, emit });
     const executed = await compressCommitted({ executed: drained, originals, clock, signal, emit, ...(params.compression == null ? {} : { compression: params.compression }) });
     commit(turnMessages({ turn, executed, registry }));
+    inFlightRound = undefined;
     errors.push(...failedDetails(executed));
     // A round cut short by a stop is not checkpointed: its response (the 'message' checkpoint) stays the latest, so a
     // suspended ask_user turn can be continued with real answers instead of its aborted results.

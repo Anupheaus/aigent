@@ -35,6 +35,9 @@ import type { CompressionEvalReport, EvalCompressionParams } from '../compressio
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import { previewPrompt } from './preview.js';
 import { createAgentResume } from '../resume/agent-resume.js';
+import { createApprovalCenter } from '../approvals/approval-gate.js';
+import { createAuditTrail } from '../approvals/audit-trail.js';
+import type { ApprovalRule } from '../approvals/approval-types.js';
 import { createInstanceRuntime } from '../resume/instance-runtime.js';
 import { createAigentError } from './aigent-error.js';
 import { createChat } from '../chat/create-chat.js';
@@ -122,10 +125,14 @@ export function createAigent(options: AigentOptions): Aigent {
 
   /** The latest definition given for each agent name, so `restoreAgent` can rebuild an instance. */
   const definitions = new Map<string, AgentDefinition>();
+  /** `allow_always` decisions, shared by the runtime's agents. */
+  const runtimeRules: ApprovalRule[] = [];
+  const audit = createAuditTrail({ ...(writer == null ? {} : { records: writer }), clock });
 
   function agent(definition: AgentDefinition): Agent {
-    const resolved = resolveAgent({ definition, context: agentContext });
-    const { name, instanceId, agentVersion } = resolved;
+    const base = resolveAgent({ definition, context: agentContext });
+    const { name, instanceId, agentVersion } = base;
+    const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, runtimeRules, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
     const restore = createAgentResume({ agent: resolved, services });
     return {
@@ -133,6 +140,7 @@ export function createAigent(options: AigentOptions): Aigent {
       instanceId,
       agentVersion,
       ready: restore.ready,
+      approve: (requestId, decision) => resolved.approvals.approve(requestId, decision),
       resume: resumeOptions => { const run = restore.resume(resumeOptions); return run == null ? undefined : track(run); },
       task: rawInput => track(startTaskRun({ agent: resolved, services, input: parseTaskInput(rawInput) })),
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),

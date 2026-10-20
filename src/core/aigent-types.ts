@@ -11,6 +11,7 @@ import type { RetentionOptions } from '../telemetry/retention.js';
 import type { RunTrace } from '../telemetry/run-record.js';
 import type { ActivityOptions } from './activity.js';
 import type { ResumeOptions } from '../resume/instance-runtime.js';
+import type { ApprovalOptions } from '../approvals/approval-types.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
@@ -69,6 +70,8 @@ export interface AigentOptions {
    * without `store`), and each instance is held by a lease (`{ ttlMs: 30_000 }` by default; false for none).
    */
   resume?: ResumeOptions;
+  /** Pre-granted and pre-refused approvals for tools that require approval (deny rules win). */
+  approvals?: ApprovalOptions;
 }
 
 export interface Aigent {
