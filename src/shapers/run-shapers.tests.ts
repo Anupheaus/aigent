@@ -31,6 +31,16 @@ describe('runShapers', () => {
     ]);
   });
 
+  it('never throws: a result canonical JSON cannot hash and a throwing shaper are both left unshaped', () => {
+    const cyclic: Record<string, unknown> = { name: 'loop' };
+    cyclic.self = cyclic;
+    const structured = { name: 'q', contentKind: 'structured-data', fidelity: 'lossy-ok' } as const;
+    expect(run({ value: cyclic, tool: structured })).toEqual({ value: cyclic, shaped: [] });
+    expect(run({ value: { total: BigInt(3) }, tool: structured })).toEqual({ value: { total: BigInt(3) }, shaped: [] });
+    const registry = createShaperRegistry([{ name: 'broken', appliesTo: ['command-output'], shape: () => { throw new Error('broken shaper'); } }]);
+    expect(run({ value: NOISY, registry })).toEqual({ value: NOISY, shaped: [] });
+  });
+
   it('returns verbatim and undeclared-fidelity results untouched', () => {
     const verbatim = run({ value: NOISY, tool: { name: 'sh', contentKind: 'command-output', fidelity: 'verbatim' } });
     const undeclared = run({ value: NOISY, tool: { name: 'sh', contentKind: 'command-output' } as RunShapersParams['tool'] });

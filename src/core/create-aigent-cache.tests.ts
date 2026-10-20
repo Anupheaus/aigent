@@ -133,6 +133,24 @@ describe('createAigent tool-result cache', () => {
     expect(step?.cacheHit).toBeUndefined();
   });
 
+  it('a lossy-ok cached tool returning a cyclic object never hangs a later run (review R1)', async () => {
+    const cyclicTool = defineTool({
+      name: 'graph', description: 'A graph', args: z.object({ id: z.string() }).strict(), deterministic: true, cache: true,
+      contentKind: 'structured-data', fidelity: 'lossy-ok',
+      describeActivity: ({ id }) => ({ title: `Graph ${id}` }),
+      run: async () => { const node: Record<string, unknown> = { name: 'n' }; node.self = node; return node; },
+    });
+    const graphTurn = toolTurn([{ id: 'g1', name: 'graph', args: { id: 'x' } }]);
+    const provider = createFakeProvider({ turns: [graphTurn, textTurn('one'), graphTurn, textTurn('two')] });
+    const ai = createAigent({ providers: [provider], clock: tickingClock(), ids: sequentialIds(), enableFeedback: false });
+    const agent = ai.agent({ name: 'one', model: 'fake:m', tools: [cyclicTool] });
+    const first = await agent.task({ task: 'graph' });
+    const second = await agent.task({ task: 'graph again', limits: { timeoutMs: 2_000 } });
+    expect(first.status).toBe('completed');
+    expect(second.status).toBe('completed');
+    await ai.close();
+  });
+
   it('rejects invalid cache options at createAigent', () => {
     expect(() => createAigent({ providers: [createFakeProvider({ turns: [] })], cache: { maxEntries: 0 } })).toThrow(expect.objectContaining({ code: 'invalid_definition' }));
   });

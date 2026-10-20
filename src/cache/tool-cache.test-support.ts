@@ -3,7 +3,7 @@ import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
 import { executeToolCall } from '../tools/execute-tool-call.js';
-import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
+import type { ExecutedToolCall, ShapeResult } from '../tools/execute-tool-call.js';
 import { defineTool } from '../tools/define-tool.js';
 import type { ToolInput } from '../tools/define-tool.js';
 import { createToolRegistry } from '../tools/tool-registry.js';
@@ -55,21 +55,32 @@ export interface CallParams {
   agentName?: string;
   instanceId?: string;
   runId?: string;
+  shape?: ShapeResult;
+  signal?: AbortSignal;
 }
 
 let callCounter = 0;
 
 /** Runs one call through `executeToolCall` with the harness's cache. */
 export function callTool(params: CallParams): Promise<ExecutedToolCall> {
-  const { harness: { cache, now }, tool, path, agentName = 'agent-a', instanceId = 'instance-1', runId = 'run-1' } = params;
+  const { harness: { cache, now }, tool, path, agentName = 'agent-a', instanceId = 'instance-1', runId = 'run-1', shape, signal = new AbortController().signal } = params;
   callCounter += 1;
   return executeToolCall({
     registry: createToolRegistry([tool]),
     call: { id: `call-${callCounter}`, name: tool.name, args: { path } },
-    context: { agentName, instanceId, runId, signal: new AbortController().signal },
+    context: { agentName, instanceId, runId, signal },
     now,
     cache,
+    ...(shape == null ? {} : { shape }),
   });
+}
+
+/** Resolves with the promise's value, or with `timedOut` when it has not settled within `ms` (a stranded flight hangs). */
+export function settlesWithin<T>(params: { promise: Promise<T>; ms: number }): Promise<T | 'timedOut'> {
+  const { promise, ms } = params;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<'timedOut'>(resolve => { timer = setTimeout(() => resolve('timedOut'), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 /** Every stored cache entry. */

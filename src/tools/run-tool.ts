@@ -47,6 +47,12 @@ function abortReasonText(signal: AbortSignal): string {
   return typeof reason === 'string' && reason !== '' ? reason : 'its run signal was aborted';
 }
 
+/** The failure of a call whose run signal aborted before it finished (or, for a cached call, before it started). */
+export function abortedToolError(params: { tool: Pick<Tool, 'name'>; signal: AbortSignal }): ToolErrorDetail {
+  const { tool: { name }, signal } = params;
+  return { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${name}' was aborted because ${abortReasonText(signal)}` };
+}
+
 /**
  * Runs a tool within its timeout and the run's signal. Never rejects. `tool.run` is called synchronously, so tools
  * started in arrival order begin in that order.
@@ -60,9 +66,7 @@ export async function runTool(params: RunToolParams): Promise<RunToolOutcome> {
     if (result === TIMEOUT_MARKER) {
       return { ok: false, error: { category: 'timeout', code: 'tool_timeout', retryable: true, message: `Tool '${tool.name}' did not finish within ${tool.timeoutMs} ms` } };
     }
-    if (result === ABORT_MARKER) {
-      return { ok: false, error: { category: 'aborted', code: 'tool_aborted', retryable: false, message: `Tool '${tool.name}' was aborted because ${abortReasonText(context.signal)}` } };
-    }
+    if (result === ABORT_MARKER) return { ok: false, error: abortedToolError({ tool, signal: context.signal }) };
     return { ok: true, result };
   } catch (error) {
     return { ok: false, error: describeThrown(error) };

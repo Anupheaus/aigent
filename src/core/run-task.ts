@@ -1,6 +1,7 @@
 import type { ToolCache } from '../cache/cache-types.js';
 import type { ProviderMessage } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
+import { envelopeText } from '../tools/envelope-text.js';
 import { addErrorDetails } from '../tools/tool-error-detail.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
@@ -107,12 +108,13 @@ function turnMessages(params: TurnMessagesParams): ProviderMessage[] {
     ...(calls.length > 0 ? { toolCalls: calls } : {}),
     ...(thinkingBlocks.length > 0 ? { thinkingBlocks } : {}),
   };
-  const toolResults = executed.map(({ envelope }): ProviderMessage => ({ role: 'tool', toolCallId: envelope.id, text: JSON.stringify(envelope) }));
+  const toolResults = executed.map(({ envelope }): ProviderMessage => ({ role: 'tool', toolCallId: envelope.id, text: envelopeText(envelope) }));
   return [assistant, ...toolResults];
 }
 
 /**
- * Waits for everything a turn started. Executions race the run's signal and activity renderers are bounded by
+ * Waits for everything a turn started. Executions race the run's signal (tools in `runTool`, cache lookups and the
+ * flights they wait on in `boundedLookup`; a miss always releases its flight) and activity renderers are bounded by
  * `settleActivities`, so this always settles promptly, even after an abort or with a renderer that never finishes.
  */
 async function drainWork(params: DrainWorkParams): Promise<ExecutedToolCall[]> {

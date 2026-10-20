@@ -2,8 +2,10 @@ import { isCacheable } from '../cache/is-cacheable.js';
 import type { CacheLookup, ToolCache } from '../cache/cache-types.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import type { ShapedStep } from '../shapers/shaper-types.js';
+import { boundedLookup } from './bounded-lookup.js';
 import { parseToolArgs } from './parse-tool-args.js';
-import { runTool } from './run-tool.js';
+import { abortedToolError, runTool } from './run-tool.js';
+import { describeThrown } from './tool-error-detail.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { ToolEnvelope } from './tool-envelope.js';
 import type { ToolRegistry } from './tool-registry.js';
@@ -125,18 +127,29 @@ async function executeValidated(params: ValidatedCallParams): Promise<ExecutedTo
 async function executeCached(params: ValidatedCallParams & { cache: ToolCache }): Promise<ExecutedToolCall> {
   const { call, tool, args, context, elapsed, cache, shape } = params;
   const lookup: CacheLookup = { tool, args, context };
-  const hit = await cache.lookup(lookup);
+  const looked = await boundedLookup({ cache, lookup });
+  if (looked.isAborted) return { ...failedCall({ call, error: abortedToolError({ tool, signal: context.signal }), durationMs: elapsed() }), cacheHit: false };
+  const { hit } = looked;
   if (hit != null) return { ...succeededCall({ call, tool, result: hit.value, durationMs: elapsed(), shape }), cacheHit: true, savedMs: hit.savedMs };
-  const outcome = await runTool({ tool, args, context });
-  if (!outcome.ok) {
+  try {
+    const outcome = await runTool({ tool, args, context });
+    if (!outcome.ok) return { ...failedCall({ call, error: outcome.error, durationMs: elapsed() }), cacheHit: false };
+    // The cache stores the full original; only the copy the model sees is shaped.
+    const executed = succeededCall({ call, tool, result: outcome.result, durationMs: elapsed(), shape });
+    const { durationMs, size: { resultBytes, resultTokens } } = executed;
+    await cache.store({ lookup, value: outcome.result, durationMs, bytes: resultBytes, resultTokens });
+    return { ...executed, cacheHit: false };
+  } finally {
+    // A no-op once `store` ran. Otherwise the call failed, or shaping, summarising or storing threw: identical calls
+    // waiting on this miss must be released, or they (and every later identical call) would wait forever.
     cache.abandon(lookup);
-    return { ...failedCall({ call, error: outcome.error, durationMs: elapsed() }), cacheHit: false };
   }
-  // The cache stores the full original; only the copy the model sees is shaped.
-  const executed = succeededCall({ call, tool, result: outcome.result, durationMs: elapsed(), shape });
-  const { durationMs, size: { resultBytes, resultTokens } } = executed;
-  await cache.store({ lookup, value: outcome.result, durationMs, bytes: resultBytes, resultTokens });
-  return { ...executed, cacheHit: false };
+}
+
+/** Shaping and the tool's own `summarise`/`countItems`/`nestedFailures` may throw; that becomes the call's failure. */
+function failOnThrow(params: { execution: Promise<ExecutedToolCall>; call: ToolCall; elapsed(): number }): Promise<ExecutedToolCall> {
+  const { execution, call, elapsed } = params;
+  return execution.catch((error: unknown) => failedCall({ call, error: describeThrown(error), durationMs: elapsed() }));
 }
 
 /** Executes one tool call. Never rejects: every failure becomes a structured envelope. */
@@ -172,6 +185,6 @@ export async function executeToolCall(params: ExecuteToolCallParams): Promise<Ex
   }
   const validated: ValidatedCallParams = { call, tool, args: parsed.value, context, elapsed, ...(shape == null ? {} : { shape }) };
   // Uncached tools take the synchronous path, so `run` starts before this returns and calls start in arrival order.
-  if (cache == null || !isCacheable(tool)) return executeValidated(validated);
-  return executeCached({ ...validated, cache });
+  if (cache == null || !isCacheable(tool)) return failOnThrow({ execution: executeValidated(validated), call, elapsed });
+  return failOnThrow({ execution: executeCached({ ...validated, cache }), call, elapsed });
 }
