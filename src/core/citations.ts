@@ -31,17 +31,38 @@ export interface CitedAnswer {
   unknown: string[];
 }
 
-/** Resolves the answer's `[[cite:<chunkId>]]` markers against the citations the run's tools returned. */
+/** Fenced code blocks (to their closing fence, or the end) and inline code spans: markers there are text, not citations. */
+const CODE_SPAN = /(`{3,}|~{3,})[\s\S]*?(?:\n[ \t]*\1[`~]*[ \t]*(?=\n|$)|$)|`[^`\n]*`/g;
+
+/** Replaces every well-formed marker outside code with what `replace` returns for its chunk id. */
+function replaceMarkers(params: { text: string; replace(chunkId: string): string }): string {
+  const { text, replace } = params;
+  let result = '';
+  let proseStart = 0;
+  const prose = (end: number): string => text.slice(proseStart, end).replace(CITE_MARKER, (_marker, chunkId: string) => replace(chunkId));
+  for (const code of text.matchAll(CODE_SPAN)) {
+    result += prose(code.index) + code[0];
+    proseStart = code.index + code[0].length;
+  }
+  return result + prose(text.length);
+}
+
+/** The text with every well-formed marker outside code removed (as the answer is), for stored copies of a reply. */
+export function stripCitationMarkers(text: string): string {
+  return text.includes('[[cite:') ? replaceMarkers({ text, replace: () => '' }) : text;
+}
+
+/** Resolves the answer's `[[cite:<chunkId>]]` markers (outside code) against the citations the run's tools returned. */
 export function applyCitations(params: { answer: string; known: ReadonlyMap<string, Citation> }): CitedAnswer {
   const { answer, known } = params;
   const cited = new Map<string, Citation>();
   const unknown = new Set<string>();
-  const stripped = answer.replace(CITE_MARKER, (_marker, chunkId: string) => {
+  const stripped = replaceMarkers({ text: answer, replace: chunkId => {
     const citation = known.get(chunkId);
     if (citation == null) unknown.add(chunkId);
     else if (!cited.has(chunkId)) cited.set(chunkId, citation);
     return '';
-  });
+  } });
   return { answer: stripped, citations: [...cited.values()], unknown: [...unknown] };
 }
 

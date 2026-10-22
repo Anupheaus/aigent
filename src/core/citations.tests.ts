@@ -18,6 +18,13 @@ describe('applyCitations', () => {
     expect(result.answer).toBe('A B [[cite:]] C [[cite: abc123]] D [[cite:abc123] E [cite:abc123]');
   });
 
+  it('leaves markers inside inline code and fenced code blocks as written (review M7)', () => {
+    const answer = 'Cite with `[[cite:abc123]]` like this [[cite:abc123]].\n\n```md\nSee [[cite:def456]]\n```\nDone [[cite:def456]].';
+    const result = applyCitations({ answer, known });
+    expect(result.answer).toBe('Cite with `[[cite:abc123]]` like this.\n\n```md\nSee [[cite:def456]]\n```\nDone.');
+    expect(result.citations).toEqual([citation('abc123'), citation('def456')]);
+  });
+
   it('returns an answer without markers unchanged', () => {
     expect(applyCitations({ answer: 'No sources needed.', known })).toEqual({ answer: 'No sources needed.', citations: [], unknown: [] });
   });

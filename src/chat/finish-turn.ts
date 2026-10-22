@@ -1,4 +1,5 @@
 import type { TaskResult } from '../core/agent-types.js';
+import { stripCitationMarkers } from '../core/citations.js';
 import type { RunSummary } from '../core/finish-agent-run.js';
 import type { ProviderMessage } from '../providers/provider-types.js';
 import type { PatchLog } from './apply-patch.js';
@@ -59,7 +60,10 @@ export function finishTurn(params: FinishTurnParams): ChatReply {
   const { log, messageId, result, summary, interruptedBy, now } = params;
   const current: Message | undefined = log.state().messages.find(({ id }) => id === messageId);
   const meta = { ...current?.meta, ...replyMeta(params) };
-  log.append({ type: 'message-updated', messageId, set: { meta, state: messageState(result.status), completedAt: now() } });
+  // The streamed text kept the citation markers; the stored reply reads as `ChatReply.text` does.
+  const [first, ...rest] = current?.parts ?? [];
+  const parts = first?.type === 'text' && stripCitationMarkers(first.text) !== first.text ? { parts: [{ ...first, text: stripCitationMarkers(first.text) }, ...rest] } : {};
+  log.append({ type: 'message-updated', messageId, set: { meta, ...parts, state: messageState(result.status), completedAt: now() } });
   // Only a reply that really was cut short is marked; one that finished before the interrupt landed stays complete.
   if (interruptedBy != null && result.status === 'cancelled') log.append({ type: 'message-interrupted', messageId, byMessageId: interruptedBy });
   log.append({ type: 'usage-updated', usage: addUsage({ usage: log.state().usage, result, ...(summary?.costUsd == null ? {} : { costUsd: summary.costUsd }) }) });

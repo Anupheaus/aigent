@@ -71,6 +71,8 @@ describe('knowledge tools in the agent loop', () => {
     expect(reply.text).toBe('Deliveries are signed.');
     const message = chat.conversation().messages.find(({ id }) => id === reply.messageId);
     expect(message?.meta?.citations).toEqual([expect.objectContaining({ sourceId: 'webhooks.md', chunkId: hit?.chunkId })]);
+    // Review M7: the stored message reads like the reply, without the raw markers.
+    expect(message?.parts[0]).toEqual({ type: 'text', text: 'Deliveries are signed.' });
     await ai.close();
   });
 });
