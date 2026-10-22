@@ -3,7 +3,7 @@ import { guardedFetch } from '../../../security/guarded-fetch.js';
 import type { GuardedFetchResult } from '../../../security/guarded-fetch.js';
 import { httpErrorReason } from '../../../security/http-access.js';
 import type { HttpAccess } from '../../../security/http-access.js';
-import { createFetchHttpAccess } from '../../../security/http-access-fetch.js';
+import { createNodeHttpAccess } from '../../../security/http-access-node.js';
 import type { HttpPolicy } from '../../../security/http-policy-types.js';
 import { toolFailure } from '../../tool-failure.js';
 import type { SearchProvider } from './search-provider.js';
@@ -12,7 +12,10 @@ import type { SearchProvider } from './search-provider.js';
 export interface WebToolsOptions {
   /** The URL authority every request (and every redirect) goes through; deny by default. */
   policy: HttpPolicy;
-  /** Default: global `fetch` (`createFetchHttpAccess()`); `createNodeHttpAccess()` also pins the checked address. */
+  /**
+   * Default `createNodeHttpAccess()`: it connects to the address the policy checked, so a DNS answer that changes after
+   * the check (rebinding) is never used. `createFetchHttpAccess()` (global `fetch`) resolves the host again and cannot pin.
+   */
   access?: HttpAccess;
   /** Registers `web_search`; without one the tool is not offered. */
   search?: SearchProvider;
@@ -29,7 +32,7 @@ export interface WebDeps {
 }
 
 export function resolveWebDeps(options: WebToolsOptions): WebDeps {
-  const { policy, access = createFetchHttpAccess(), search, userAgent = `aigent/${LIBRARY_VERSION}` } = options;
+  const { policy, access = createNodeHttpAccess(), search, userAgent = `aigent/${LIBRARY_VERSION}` } = options;
   return { policy, access, userAgent, ...(search == null ? {} : { search }) };
 }
 

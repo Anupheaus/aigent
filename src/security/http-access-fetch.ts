@@ -16,7 +16,7 @@ function headersOf(response: Response): Record<string, string> {
 }
 
 /**
- * The default `HttpAccess`, over global `fetch` with `redirect: 'manual'` (the caller checks every hop). It cannot
+ * An `HttpAccess` over global `fetch` with `redirect: 'manual'` (the caller checks every hop). It cannot
  * pin the address the policy checked (`fetch` resolves the host again), so a DNS answer that changes between the check
  * and the connection is not caught here; use an access with `pinsAddress` (`createNodeHttpAccess`) where that matters.
  * The timeout covers the whole request including the body, so a slow-loris server is cut off.
