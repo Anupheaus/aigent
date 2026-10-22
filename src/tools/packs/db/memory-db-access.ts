@@ -25,10 +25,18 @@ function project(params: { doc: Record<string, unknown>; projection?: Record<str
   return pruneDocument({ allowFields, denyFields: excluded }, doc);
 }
 
-/** The first value of the sort path (missing sorts as null), as MongoDB's ascending order would. */
-function sortValue(params: { doc: Record<string, unknown>; field: string }): unknown {
-  const { doc, field } = params;
-  return valuesAt({ doc, path: field })[0] ?? null;
+/**
+ * The sort key of a document, as MongoDB picks it: an array sorts by its smallest element ascending and its largest
+ * descending; a missing field sorts as null.
+ */
+function sortValue(params: { doc: Record<string, unknown>; key: DbSortKey }): unknown {
+  const { doc, key: { field, direction } } = params;
+  const values = valuesAt({ doc, path: field }).flatMap(value => (Array.isArray(value) ? value : [value])).filter(value => value !== undefined);
+  if (values.length === 0) return null;
+  return values.reduce((chosen, value) => {
+    const order = compareValues(value, chosen);
+    return (direction === 'asc' ? order < 0 : order > 0) ? value : chosen;
+  });
 }
 
 function sortDocs(params: { docs: Record<string, unknown>[]; sort?: DbSortKey[] }): Record<string, unknown>[] {
@@ -36,9 +44,9 @@ function sortDocs(params: { docs: Record<string, unknown>[]; sort?: DbSortKey[] 
   if (sort.length === 0) return docs;
   // Array#sort is stable, so equal keys keep insertion order.
   return [...docs].sort((left, right) => {
-    for (const { field, direction } of sort) {
-      const order = compareValues(sortValue({ doc: left, field }), sortValue({ doc: right, field }));
-      if (order !== 0) return direction === 'asc' ? order : -order;
+    for (const key of sort) {
+      const order = compareValues(sortValue({ doc: left, key }), sortValue({ doc: right, key }));
+      if (order !== 0) return key.direction === 'asc' ? order : -order;
     }
     return 0;
   });

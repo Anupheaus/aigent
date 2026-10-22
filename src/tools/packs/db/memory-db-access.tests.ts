@@ -116,6 +116,27 @@ describe('createMemoryDbAccess: sorting, paging, projection and types', () => {
     expect(found).toEqual([{ _id: 1, when: { $date: '2021-01-01T00:00:00.000Z' } }, { _id: 3, when: { $date: '2022-01-01T00:00:00.000Z' } }]);
   });
 
+  // Review M5: where the in-memory evaluator differed from MongoDB.
+  it('matches $all against a scalar field as MongoDB does (an $and of equalities)', async () => {
+    const tagged = createMemoryDbAccess({ collections: { docs: [{ _id: 1, tags: 'a' }, { _id: 2, tags: ['a', 'b'] }, { _id: 3, tags: 'b' }] } });
+    const { docs: found } = await tagged.find({ ...base, collection: 'docs', filter: { tags: { $all: ['a'] } } });
+    expect(found.map(doc => doc._id)).toEqual([1, 2]);
+  });
+
+  it('matches {"a.b": null} when some array element lacks b', async () => {
+    const nested = createMemoryDbAccess({ collections: { docs: [{ _id: 1, a: [{ b: 1 }, {}] }, { _id: 2, a: [{ b: 1 }, { b: 2 }] }, { _id: 3, a: [{ b: null }] }] } });
+    const { docs: found } = await nested.find({ ...base, collection: 'docs', filter: { 'a.b': null } });
+    expect(found.map(doc => doc._id)).toEqual([1, 3]);
+  });
+
+  it('sorts arrays by their smallest element ascending and largest descending', async () => {
+    const scored = createMemoryDbAccess({ collections: { docs: [{ _id: 1, s: [5, 1] }, { _id: 2, s: [3] }, { _id: 3, s: [2, 9] }] } });
+    const ascending = await scored.find({ ...base, collection: 'docs', sort: [{ field: 's', direction: 'asc' }] });
+    expect(ascending.docs.map(doc => doc._id)).toEqual([1, 3, 2]);
+    const descending = await scored.find({ ...base, collection: 'docs', sort: [{ field: 's', direction: 'desc' }] });
+    expect(descending.docs.map(doc => doc._id)).toEqual([3, 1, 2]);
+  });
+
   it('counts matches, finds nothing in an unknown collection, and refuses to run once aborted', async () => {
     expect(await access.count({ collection: 'people', filter: { age: { $exists: true } }, maxTimeMs: 1_000, signal })).toBe(2);
     expect(await access.find({ ...base, collection: 'nothing' })).toEqual({ docs: [], truncated: false });

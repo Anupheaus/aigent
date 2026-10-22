@@ -55,21 +55,30 @@ function equals(left: unknown, right: unknown): boolean {
   return compareValues(left, right) === 0;
 }
 
-/** Every value a dotted path reaches, through arrays (MongoDB's implicit array traversal). */
+/**
+ * Every value a dotted path reaches, through arrays (MongoDB's implicit array traversal). An array element that is a
+ * document without the field yields `undefined` (missing), so `{ "a.b": null }` matches when some element lacks `b`.
+ */
 export function valuesAt(params: { doc: unknown; path: string }): unknown[] {
   const { doc, path } = params;
   let current: unknown[] = [doc];
   for (const segment of path.split('.')) {
     const next: unknown[] = [];
     for (const value of current) {
-      if (Array.isArray(value)) {
+      if (value === undefined) next.push(undefined);
+      else if (Array.isArray(value)) {
         if (ARRAY_INDEX.test(segment) && Number(segment) < value.length) next.push(value[Number(segment)]);
-        for (const element of value) if (isRecord(element) && Object.hasOwn(element, segment)) next.push(element[segment]);
+        for (const element of value) if (isRecord(element)) next.push(Object.hasOwn(element, segment) ? element[segment] : undefined);
       } else if (isRecord(value) && Object.hasOwn(value, segment)) next.push(value[segment]);
     }
     current = next;
   }
   return current;
+}
+
+/** The values a path reaches that are present (a missing branch counts as null for equality only). */
+function presentValues(values: unknown[]): unknown[] {
+  return values.filter(value => value !== undefined);
 }
 
 /** A leaf array matches through its elements as well as itself. */
@@ -105,10 +114,11 @@ function matchesOperator(params: { values: unknown[]; operator: string; operand:
     case '$lte': return ordered(order => order <= 0);
     case '$in': return (operand as unknown[]).some(literal => matchesEquality({ values, literal }));
     case '$nin': return !(operand as unknown[]).some(literal => matchesEquality({ values, literal }));
-    case '$all': return values.some(value => Array.isArray(value) && (operand as unknown[]).every(literal => value.some(element => equals(element, literal))));
-    case '$exists': return (values.length > 0) === operand;
+    // As in MongoDB, `$all` is an `$and` of equalities, so it matches a scalar field too; an empty list matches nothing.
+    case '$all': return (operand as unknown[]).length > 0 && (operand as unknown[]).every(literal => matchesEquality({ values, literal }));
+    case '$exists': return (presentValues(values).length > 0) === operand;
     case '$size': return values.some(value => Array.isArray(value) && value.length === operand);
-    case '$type': return (Array.isArray(operand) ? operand : [operand]).some(name => candidates.some(value => typeMatches({ value, name: String(name) })));
+    case '$type': return (Array.isArray(operand) ? operand : [operand]).some(name => presentValues(candidates).some(value => typeMatches({ value, name: String(name) })));
     case '$regex': {
       const options = typeof expression.$options === 'string' ? expression.$options : '';
       return candidates.some(candidate => typeof candidate === 'string' && testRegex({ pattern: operand as string, options, text: candidate }));
