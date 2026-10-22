@@ -87,6 +87,13 @@ describe('ShellPolicy decisions', () => {
     expect(await policy.checkCommand({ command: 'node', args: ['-e', 'x'.repeat(31_000)] })).toMatchObject({ allowed: false, code: 'invalid_args' });
   });
 
+  it('denies abbreviations of a denied long option and values attached to a denied short one', async () => {
+    const policy = policyWith({ commands: [{ name: 'node', resolvedPath: process.execPath, argRules: { denyArgs: ['--upload-pack', '-c', 'exec'] } }] });
+    const decide = async (arg: string): Promise<boolean> => (await policy.checkCommand({ command: 'node', args: [arg] })).allowed;
+    for (const arg of ['--upload-pack', '--upload-pack=x', '--upload-p', '--upload-p=x', '--u', '-c', '-cfoo', '-c=x', 'exec', 'exec=x']) expect(await decide(arg), arg).toBe(false);
+    for (const arg of ['--', '--upload-packs', '--uploadx', '--count', '-v', 'c', '--c', 'execute', 'cexec']) expect(await decide(arg), arg).toBe(true);
+  });
+
   it('keeps shell metacharacters as plain arguments: there is no shell to interpret them', async () => {
     const args = ['; rm -rf /', '&& calc', '| cat', '`id`', '$(id)', 'a\nb', '> out.txt', '*.ts', '--', '-rf', '"quoted"', '$HOME', '%PATH%'];
     expect(await policyWith().checkCommand({ command: 'node', args })).toMatchObject({ allowed: true, args });

@@ -6,7 +6,11 @@ import type { EnvSpec } from './scrub-env.js';
 export interface ArgRules {
   /** The first argument must be one of these (e.g. `['status', 'log']` for git). */
   allowSubcommands?: string[];
-  /** Arguments refused: a string matches the argument exactly or as `<string>=...`; a RegExp is tested on each. */
+  /**
+   * Arguments refused (best effort): a string matches the argument exactly or as `<string>=...`, a long option also
+   * abbreviated (`--upload-p` for `--upload-pack`) and a short option also with an attached value (`-cfoo` for `-c`);
+   * bundled short options (`-vc`) are not taken apart. A RegExp is tested on each argument. Prefer `allowSubcommands`.
+   */
   denyArgs?: (string | RegExp)[];
   /** Most arguments (default `DEFAULT_MAX_ARGS`). */
   maxArgs?: number;

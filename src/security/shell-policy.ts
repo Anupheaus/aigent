@@ -30,6 +30,24 @@ function validate(options: ShellPolicyOptions): void {
 
 type Refusal = Extract<CommandDecision, { allowed: false }>;
 
+/** A short option such as `-c`: one dash and one character. */
+const SHORT_OPTION = /^-[^-]$/;
+const LONG_OPTION_PREFIX = '--';
+
+/**
+ * A string `denyArgs` rule: the argument exactly or as `rule=...`; for a long option (`--upload-pack`) also any
+ * abbreviation (`--upload-p`, `--u=x`), since many parsers accept unique prefixes; for a short option (`-c`) also a
+ * value attached to it (`-cfoo`). Best effort: bundled short options (`-vc`) are not taken apart.
+ */
+function matchesDeniedArg(params: { arg: string; rule: string }): boolean {
+  const { arg, rule } = params;
+  if (arg === rule || arg.startsWith(`${rule}=`)) return true;
+  if (SHORT_OPTION.test(rule)) return arg.startsWith(rule);
+  if (!rule.startsWith(LONG_OPTION_PREFIX) || !arg.startsWith(LONG_OPTION_PREFIX)) return false;
+  const [option = ''] = arg.split('=', 1);
+  return option.length > LONG_OPTION_PREFIX.length && rule.startsWith(option);
+}
+
 /** The first problem with the argv, or undefined. */
 function argProblem(params: { command: AllowedCommand; args: readonly unknown[] }): Refusal | undefined {
   const { command: { name, argRules = {} }, args } = params;
@@ -41,7 +59,7 @@ function argProblem(params: { command: AllowedCommand; args: readonly unknown[] 
   if (allowSubcommands != null && !allowSubcommands.includes(strings[0] ?? '')) {
     return { allowed: false, code: 'subcommand_not_allowed', message: `'${name} ${strings[0] ?? ''}' is not allowed`, suggestion: `Allowed: ${allowSubcommands.map(sub => `${name} ${sub}`).join(', ')}` };
   }
-  const denied = strings.find(arg => denyArgs.some(rule => (typeof rule === 'string' ? arg === rule || arg.startsWith(`${rule}=`) : rule.test(arg))));
+  const denied = strings.find(arg => denyArgs.some(rule => (typeof rule === 'string' ? matchesDeniedArg({ arg, rule }) : rule.test(arg))));
   return denied == null ? undefined : { allowed: false, code: 'denied_arg', message: `The argument '${denied.slice(0, 80)}' is not allowed for '${name}'` };
 }
 
