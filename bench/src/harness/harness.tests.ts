@@ -82,7 +82,9 @@ describe('model solver and CLI', () => {
 
   it('parses the CLI flags', () => {
     expect(parseArgs([])).toEqual({ tier: 'scripted', repeat: 1, heldOut: false, buildSpecs: false, policies: ['naive', 'reference'], tools: 'round0', gate: false });
-    expect(parseArgs(['--tier', 'model', '--seed', '1,2', '--repeat', '3', '--held-out', '--label', 'round-0', '--fresh-seeds', '7', '--gate', '--write-budgets', 'round-9', '--tools', 'optimised'])).toMatchObject({ gate: true, writeBudgets: 'round-9', tools: 'optimised', tier: 'model', seeds: [1, 2], repeat: 3, heldOut: true, label: 'round-0', freshSeeds: [7] });
+    expect(parseArgs(['--tier', 'model', '--seed', '1,2', '--repeat', '3', '--held-out', '--label', 'round-0', '--fresh-seeds', '7', '--write-budgets', 'round-9', '--tools', 'optimised'])).toMatchObject({ writeBudgets: 'round-9', tools: 'optimised', tier: 'model', seeds: [1, 2], repeat: 3, heldOut: true, label: 'round-0', freshSeeds: [7] });
+    expect(parseArgs(['--gate', '--policies', 'optimised'])).toMatchObject({ gate: true });
+    for (const subset of [['--seed', '1'], ['--tasks', 'endpoints'], ['--fresh-seeds', '7'], ['--held-out']]) expect(() => parseArgs(['--gate', ...subset])).toThrow(/whole committed suite/);
     expect(() => parseArgs(['--repeat', '0'])).toThrow(/at least 1/);
     expect(() => parseArgs(['--seed'])).toThrow(/needs a value/);
     expect(() => parseArgs(['--bogus'])).toThrow(/unknown option/);

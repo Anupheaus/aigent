@@ -60,5 +60,7 @@ export function parseArgs(argv: string[]): BenchArgs {
       default: throw benchError(`unknown option '${flag}'`, { flag });
     }
   }
+  // The gate judges the whole committed suite: a subset could hide a regression, fresh seeds have no budgets.
+  if (args.gate && (args.seeds != null || args.tasks != null || args.freshSeeds != null || args.heldOut)) throw benchError('--gate runs the whole committed suite: drop --seed, --tasks, --fresh-seeds and --held-out', { gate: true });
   return args;
 }
