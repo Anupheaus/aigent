@@ -18,6 +18,8 @@ export interface CodeToolsOptions {
   tsconfigPath?: string;
   /** Most code files per root in one program (default 5000); past it the program is marked truncated. */
   maxFiles?: number;
+  /** A root's program and its compiler process are closed after this long without a code call (default 5 minutes). */
+  idleCloseMs?: number;
 }
 
 /** What every code tool is built from. */
@@ -28,6 +30,8 @@ export interface CodeDeps {
 }
 
 export const DEFAULT_MAX_CODE_FILES = 5_000;
+/** An idle program's compiler process holds the whole program in memory; it is closed after five minutes unused. */
+export const DEFAULT_IDLE_CLOSE_MS = 300_000;
 /** Cached answers are kept ten minutes; `validity` (every file's mtime and size) catches every edit before then. */
 export const CODE_CACHE_TTL_MS = 600_000;
 /** Upper bound on items in one code call. */
@@ -54,12 +58,12 @@ async function readCompilerOptions(params: { policy: FsPolicy; access: FsAccess;
 }
 
 export function resolveCodeDeps(params: { options: CodeToolsOptions; loadTypeScript?: () => Promise<TsModules> }): CodeDeps {
-  const { options: { policy, access = createNodeFsAccess(), tsconfigPath, maxFiles = DEFAULT_MAX_CODE_FILES }, loadTypeScript = loadInstalledTypeScript } = params;
+  const { options: { policy, access = createNodeFsAccess(), tsconfigPath, maxFiles = DEFAULT_MAX_CODE_FILES, idleCloseMs = DEFAULT_IDLE_CLOSE_MS }, loadTypeScript = loadInstalledTypeScript } = params;
   let options: Promise<Record<string, unknown>> | undefined;
   const compilerOptions = (): Promise<Record<string, unknown>> => (options ??= readCompilerOptions({ policy, access, ...(tsconfigPath == null ? {} : { tsconfigPath }) }));
   // Whatever the loader throws, the model is told what is missing and how to install it.
   const load = (): Promise<TsModules> => loadTypeScript().catch((error: unknown) => { throw isToolFailure(error) ? error : typescriptUnavailable(error); });
-  return { policy, access, programs: createProgramCache({ policy, access, maxFiles, compilerOptions, loadTypeScript: load }) };
+  return { policy, access, programs: createProgramCache({ policy, access, maxFiles, idleCloseMs, compilerOptions, loadTypeScript: load }) };
 }
 
 /** The file, checked by the policy, in its root's program; a failure the model can act on otherwise. */
@@ -72,7 +76,7 @@ export async function sourceFor(params: { deps: CodeDeps; path: string }): Promi
   }
   const program = await programs.programFor(decision.root);
   const compilerPath = program.compilerPath(decision.canonicalPath);
-  const source = compilerPath == null ? undefined : program.project.program.getSourceFile(compilerPath);
+  const source = compilerPath == null ? undefined : await program.project.program.getSourceFile(compilerPath);
   if (source == null) {
     throw toolFailure({ code: 'not_in_project', message: `'${path}' is not in the code index of '${decision.root}' (missing, ignored, too large or past maxFiles)`, retryable: false, suggestion: 'Check the path with fs_list, or use fs_read', details: { path } });
   }

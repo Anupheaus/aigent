@@ -64,17 +64,20 @@ interface ProgramFile {
   source: TsSourceFile;
 }
 
-function filesOf(program: CodeProgram): ProgramFile[] {
-  return program.files.entries.flatMap(({ path }) => {
+/** The program's files, fetched one at a time so the event loop runs between them. */
+async function filesOf(program: CodeProgram): Promise<ProgramFile[]> {
+  const files: ProgramFile[] = [];
+  for (const { path } of program.files.entries) {
     const compilerPath = program.compilerPath(path);
-    const source = compilerPath == null ? undefined : program.project.program.getSourceFile(compilerPath);
-    return source == null ? [] : [{ program, path, source }];
-  });
+    const source = compilerPath == null ? undefined : await program.project.program.getSourceFile(compilerPath);
+    if (source != null) files.push({ program, path, source });
+  }
+  return files;
 }
 
 /** The alias site's targets: an overloaded function resolves to its implementation (the declaration with a body). */
-function targetsOf(params: { program: CodeProgram; site: AliasSite }): TsNode[] {
-  const targets = resolveAlias(params);
+async function targetsOf(params: { program: CodeProgram; site: AliasSite }): Promise<TsNode[]> {
+  const targets = await resolveAlias(params);
   const implementations = targets.filter(node => field<TsNode>(node, 'body') != null);
   return targets.length > 1 && implementations.length > 0 ? implementations : targets;
 }
@@ -88,7 +91,8 @@ export async function collectDefinitions(params: { deps: CodeDeps; name: string;
   const wanted = name.toLowerCase();
   const { roots, prefix } = await searchRoots({ deps, ...(scope == null ? {} : { scope }) });
   const programs = await Promise.all(roots.map(root => deps.programs.programFor(root)));
-  const files = programs.flatMap(filesOf);
+  const files: ProgramFile[] = [];
+  for (const program of programs) files.push(...await filesOf(program));
   const found = new Map<string, Definition>();
   const keyOf = (definition: Pick<Definition, 'path' | 'line' | 'kind'>): string => `${definition.path}\u0000${definition.line}\u0000${definition.kind}`;
   for (const { program, path, source } of files) {
@@ -104,7 +108,7 @@ export async function collectDefinitions(params: { deps: CodeDeps; name: string;
       const isNamed = site.name.toLowerCase() === wanted;
       const leadsFromName = site.originalName.toLowerCase() === wanted && (site.isReexport || site.name !== site.originalName);
       if (!isNamed && !leadsFromName) continue;
-      for (const node of targetsOf({ program, site })) {
+      for (const node of await targetsOf({ program, site })) {
         const kind = declarationKind({ node, kinds: program.syntaxKind });
         const ownPath = program.ownPath(node.getSourceFile().fileName);
         if (kind == null || ownPath == null) continue;

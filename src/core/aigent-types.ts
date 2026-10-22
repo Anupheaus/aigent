@@ -98,6 +98,7 @@ export interface Aigent {
    * Resolves once every run and `ai.feedback` call started so far (and any started while closing) has settled and every pending store
    * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.
    * Open chats are closed first (`chat.close()`): their running turns finish, and a turn waiting for an answer is cancelled.
+   * Last, every agent's tools release what they hold (`Tool.dispose`, e.g. the code pack's compiler processes).
    */
   close(): Promise<void>;
   /** A stored run with its ordered steps, or undefined when it was not stored (no store, unknown id, disableTelemetry). */

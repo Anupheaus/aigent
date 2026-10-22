@@ -269,6 +269,22 @@ describe('agent.task', () => {
     expect((await store.list('runs')).map(record => record.key).sort()).toEqual([first.runId, second.runId].sort());
   });
 
+  it('close disposes every agent\'s tools once per dispose function, after the runs finished, and still reports a failing one', async () => {
+    const order: string[] = [];
+    const shared = vi.fn(async () => { order.push('shared'); });
+    const failing = vi.fn(async () => { throw new Error('compiler would not close'); });
+    const provider = createFakeProvider({ turns: [textTurn('slow', { delayMs: 20 })] });
+    const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), enableFeedback: false });
+    const one = ai.agent({ name: 'one', model: 'fake:m', tools: [{ ...echoTool, name: 'a', dispose: shared }, { ...echoTool, name: 'b', dispose: shared }] });
+    ai.agent({ name: 'two', model: 'fake:m', tools: [{ ...echoTool, name: 'c', dispose: shared }, { ...echoTool, name: 'd', dispose: failing }] });
+    const run = one.task({ task: 'x' });
+    void run.then(() => order.push('run done'));
+    await expect(ai.close()).rejects.toThrow('compiler would not close');
+    expect(shared).toHaveBeenCalledTimes(1);
+    expect(failing).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['run done', 'shared']);
+  });
+
   it('close resolves immediately when nothing is running', async () => {
     const { ai } = setup({ turns: [] });
     await expect(ai.close()).resolves.toBeUndefined();

@@ -27,23 +27,25 @@ async function references(item: Record<string, unknown>, own: CodeDeps = deps): 
 async function expectedPositions(params: { path: string; position: number }): Promise<string[]> {
   const { program } = await sourceFor({ deps, path: params.path });
   const { checker } = program.project;
-  const resolve = (file: string, position: number): number | undefined => {
-    const symbol = checker.getSymbolAtPosition(file, position);
+  const resolve = async (file: string, position: number): Promise<number | undefined> => {
+    const symbol = await checker.getSymbolAtPosition(file, position);
     if (symbol == null) return undefined;
-    const target = (symbol.flags & 2_097_152) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
-    return checker.isUnknownSymbol(target) ? undefined : target.id;
+    const target = (symbol.flags & 2_097_152) !== 0 ? await checker.getAliasedSymbol(symbol) : symbol;
+    return await checker.isUnknownSymbol(target) ? undefined : target.id;
   };
-  const target = resolve(program.compilerPath(params.path) ?? '', params.position);
+  const target = await resolve(program.compilerPath(params.path) ?? '', params.position);
   const found: string[] = [];
   for (const { path } of program.files.entries) {
     const compilerPath = program.compilerPath(path) ?? '';
-    const source = program.project.program.getSourceFile(compilerPath);
+    const source = await program.project.program.getSourceFile(compilerPath);
+    const identifiers: TsNode[] = [];
     const visit = (node: TsNode): undefined => {
-      if (isKind({ node, kinds: program.syntaxKind, name: 'Identifier' }) && resolve(compilerPath, node.getStart()) === target) found.push(`${path}:${node.getStart()}`);
+      if (isKind({ node, kinds: program.syntaxKind, name: 'Identifier' })) identifiers.push(node);
       node.forEachChild(visit);
       return undefined;
     };
     if (source != null) visit(source);
+    for (const node of identifiers) if (await resolve(compilerPath, node.getStart()) === target) found.push(`${path}:${node.getStart()}`);
   }
   return found.sort();
 }

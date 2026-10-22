@@ -22,10 +22,10 @@ export function createCodeOutline(deps: CodeDeps): Tool {
       deterministic: false, cache: true, cacheTtlMs: CODE_CACHE_TTL_MS, validity: ({ items }) => codeValidity({ deps, paths: items.map(({ path }) => path) }),
       contentKind: 'search-hits', fidelity: 'verbatim', maxResultTokens: OUTLINE_MAX_RESULT_TOKENS, timeoutMs: CODE_TOOL_TIMEOUT_MS, acceptsAliases: true,
       describeActivity: ({ items }) => ({ title: pathsTitle({ verb: 'Outlining', paths: items.map(({ path }) => path) }) }),
-      runItem: async ({ path }) => {
+      runItem: ({ path }) => deps.programs.hold(async () => {
         const { program, source, path: canonical } = await sourceFor({ deps, path });
         return { path: canonical, symbols: outlineOf({ node: source, kinds: program.syntaxKind }) };
-      },
+      }),
     }),
     ...BATCH_RESULT_HELPERS_WITH_REASONS,
   };

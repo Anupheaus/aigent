@@ -124,6 +124,9 @@ export function createAigent(options: AigentOptions): Aigent {
   /** Stored chat sessions open in this runtime (one live chat per session). */
   const openSessions = new Set<string>();
 
+  /** The distinct `dispose` functions of every agent's tools (tools of one pack share one), called by `close()`. */
+  const toolDisposers = new Set<() => Promise<void>>();
+
   async function close(): Promise<void> {
     // Every chat is closed even when one fails (e.g. its writes did not reach the store); the first failure is reported last.
     const closed = await Promise.allSettled([...chatClosers].map(closeChat => closeChat()));
@@ -131,7 +134,9 @@ export function createAigent(options: AigentOptions): Aigent {
     while (activeWork.size > 0) await Promise.all([...activeWork]);
     await services.writeQueue.flush();
     await resume?.close();
-    const failed = closed.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
+    // Only once nothing runs: tools release what they hold (compiler processes), each even when another fails.
+    const disposed = await Promise.allSettled([...toolDisposers].map(dispose => dispose()));
+    const failed = [...closed, ...disposed].find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
     if (failed != null) throw failed.reason;
   }
 
@@ -165,6 +170,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const { name, instanceId, agentVersion } = base;
     const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
+    for (const { dispose } of definition.tools ?? []) if (dispose != null) toolDisposers.add(dispose);
     const restore = createAgentResume({ agent: resolved, services, isExplicitInstance: definition.instanceId != null });
     /** This agent object's runs, so `close()` waits for them before it lets the instance go. */
     const agentWork = new Set<Promise<void>>();

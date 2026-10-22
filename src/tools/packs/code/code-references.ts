@@ -40,17 +40,17 @@ export function createCodeReferences(deps: CodeDeps): Tool {
       deterministic: false, cache: true, cacheTtlMs: CODE_CACHE_TTL_MS, validity: ({ items }) => codeValidity({ deps, paths: items.map(({ path }) => path) }),
       contentKind: 'search-hits', fidelity: 'verbatim', maxResultTokens: REFERENCES_MAX_RESULT_TOKENS, timeoutMs: CODE_TOOL_TIMEOUT_MS, acceptsAliases: true,
       describeActivity: ({ items }) => ({ title: pathsTitle({ verb: 'Finding usages in', paths: items.map(({ path }) => path) }) }),
-      runItem: async ({ path, line, character, symbol, maxResults = DEFAULT_MAX_RESULTS }) => {
+      runItem: ({ path, line, character, symbol, maxResults = DEFAULT_MAX_RESULTS }) => deps.programs.hold(async () => {
         const { program, source, path: canonical } = await sourceFor({ deps, path });
         const kinds = program.syntaxKind;
         const name = targetName({ source, kinds, ...(line == null ? {} : { line }), ...(character == null ? {} : { character }), ...(symbol == null ? {} : { symbol }) });
         const seen = new Set<string>();
         const usages: Usage[] = [];
         let skipped = 0;
-        for (const { references } of program.project.checker.getReferencedSymbolsForNode(name, name.getStart())) {
+        for (const { references } of await program.project.checker.getReferencedSymbolsForNode(name, name.getStart())) {
           for (const handle of references) {
             const ownPath = program.ownPath(handle.path);
-            const node = ownPath == null ? undefined : handle.resolve();
+            const node = ownPath == null ? undefined : await handle.resolve();
             // Library declarations and files outside the program (never read) are counted, not shown.
             if (ownPath == null || node == null) { skipped += 1; continue; }
             const start = node.getStart();
@@ -68,7 +68,7 @@ export function createCodeReferences(deps: CodeDeps): Tool {
           path: canonical, symbol: field<string>(name, 'text') ?? '', total: usages.length, skipped, truncated: usages.length > maxResults,
           files: [...files.entries()].map(([filePath, fileUsages]) => ({ path: filePath, usages: fileUsages })), ...(program.truncated ? { incompleteIndex: true } : {}),
         };
-      },
+      }),
     }),
     ...BATCH_RESULT_HELPERS_WITH_REASONS,
   };

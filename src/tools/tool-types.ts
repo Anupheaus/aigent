@@ -171,4 +171,9 @@ export interface Tool {
   capturedEffects?(result: unknown): CapturedEffect[];
   /** The tool starts sub-runs of other agents (`delegate`): its context then carries `delegation`. */
   startsSubRuns?: boolean;
+  /**
+   * Releases what the tool holds outside the process's memory (the code pack's compiler processes). `ai.close()` calls
+   * it once per distinct function for the tools of every agent of the runtime; the tool still works afterwards.
+   */
+  dispose?(): Promise<void>;
 }

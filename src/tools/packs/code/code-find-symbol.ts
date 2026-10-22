@@ -43,11 +43,11 @@ export function createCodeFindSymbol(deps: CodeDeps): Tool {
       validity: async ({ items }) => codeValidity({ deps, paths: (await Promise.all(items.map(({ scope }) => searchRoots({ deps, ...(scope == null ? {} : { scope }) })))).flatMap(({ roots }) => roots) }),
       contentKind: 'search-hits', fidelity: 'verbatim', maxResultTokens: FIND_MAX_RESULT_TOKENS, timeoutMs: CODE_TOOL_TIMEOUT_MS,
       describeActivity: ({ items }) => ({ title: items.length === 1 ? `Finding ${items[0]?.name ?? ''}` : `Finding ${items.length} symbols` }),
-      runItem: async ({ name, kind, scope, exportedOnly = false, maxResults = DEFAULT_MAX_RESULTS }) => {
+      runItem: ({ name, kind, scope, exportedOnly = false, maxResults = DEFAULT_MAX_RESULTS }) => deps.programs.hold(async () => {
         const { definitions, isIndexTruncated } = await collectDefinitions({ deps, name, ...(scope == null ? {} : { scope }) });
         const kept = rank({ name, definitions: definitions.filter(definition => (kind == null || definition.kind === kind) && (!exportedOnly || definition.exported)) });
         return { name, total: kept.length, truncated: kept.length > maxResults, definitions: kept.slice(0, maxResults), ...(isIndexTruncated ? { incompleteIndex: true } : {}) };
-      },
+      }),
     }),
     ...BATCH_RESULT_HELPERS_WITH_REASONS,
   };

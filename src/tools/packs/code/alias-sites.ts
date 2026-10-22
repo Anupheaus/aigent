@@ -48,17 +48,19 @@ export function aliasSitesOf(params: { source: TsSourceFile; kinds: SyntaxKinds 
 const ALIAS_FLAG = 2_097_152;
 
 /** The declarations an alias site finally names (following re-export chains), inside the program's own files only. */
-export function resolveAlias(params: { program: CodeProgram; site: AliasSite }): TsNode[] {
+export async function resolveAlias(params: { program: CodeProgram; site: AliasSite }): Promise<TsNode[]> {
   const { program, site: { nameNode } } = params;
   const { checker } = program.project;
   const source = nameNode.getSourceFile();
-  let symbol: TsSymbol | undefined = checker.getSymbolAtPosition(source.fileName, nameNode.getStart());
+  let symbol: TsSymbol | undefined = await checker.getSymbolAtPosition(source.fileName, nameNode.getStart());
   if (symbol == null) return [];
-  if ((symbol.flags & ALIAS_FLAG) !== 0) symbol = checker.getAliasedSymbol(symbol);
-  if (checker.isUnknownSymbol(symbol)) return [];
-  return symbol.declarations.flatMap(handle => {
-    if (program.ownPath(handle.path) == null) return [];
-    const node = handle.resolve();
-    return node == null ? [] : [node];
-  });
+  if ((symbol.flags & ALIAS_FLAG) !== 0) symbol = await checker.getAliasedSymbol(symbol);
+  if (await checker.isUnknownSymbol(symbol)) return [];
+  const nodes: TsNode[] = [];
+  for (const handle of symbol.declarations) {
+    if (program.ownPath(handle.path) == null) continue;
+    const node = await handle.resolve();
+    if (node != null) nodes.push(node);
+  }
+  return nodes;
 }
