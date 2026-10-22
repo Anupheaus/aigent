@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resultsDir } from './bench-paths.js';
 import type { BenchArgs } from './cli-args.js';
+import { budgetsFrom, checkGate, readBudgets, writeBudgets } from './gate.js';
 import { buildReport, reportMarkdown } from './harness/report.js';
 import type { SuiteReport } from './harness/report.js';
 import { runSuite } from './harness/suite.js';
@@ -40,6 +41,15 @@ export async function runBench(params: { args: BenchArgs; log: (line: string) =>
     await mkdir(resultsDir(), { recursive: true });
     await writeFile(join(resultsDir(), `${args.label}.json`), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
     await writeFile(join(resultsDir(), `${args.label}.summary.md`), reportMarkdown(report), 'utf8');
+  }
+  if (args.writeBudgets != null) {
+    await writeBudgets({ budgets: budgetsFrom({ rows: report.rows, round: args.writeBudgets, policy: args.policies[0] ?? 'optimised', tools: args.tools }) });
+    log(`wrote budgets.json from ${args.writeBudgets}`);
+  }
+  if (args.gate) {
+    const gate = checkGate({ report, budgets: await readBudgets() });
+    log(gate.ok ? 'gate: passed' : `gate: FAILED\n${gate.failures.join('\n')}`);
+    if (!gate.ok) process.exitCode = 1;
   }
   return report;
 }

@@ -25,7 +25,7 @@ jobs:
       - run: npx tsc -p packages/claude-code/tsconfig.build.json
       - run: npm pack --dry-run
   bench:
-    # The deterministic scripted tier (no model, no network); the bench self-tests also run in `npm test` above.
+    # The deterministic scripted tier (no model, no network), gated by bench/budgets.json; the self-tests run in `npm test`.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,4 +34,4 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run bench -- --tier scripted --label ci
+      - run: npm run bench -- --tier scripted --policies optimised --tools optimised --gate --label ci

@@ -27,11 +27,28 @@ never published, not part of the package build.
   target and matches its committed measurement, the decoy-falling and lazy policies fail, and the naive policy passes but
   misses target on at least 80% of specs; a deliberately broken checker makes them fail.
 
+## Rounds and the gate
+
+| round | change | median tokens | p90 tokens | p90 turns | write-up |
+|---|---|---|---|---|---|
+| 0 | baseline: plain `fs_list`, `fs_read`, `fs_search` | 3,737 | 14,640 | 3 | `results/round-0.md` |
+| 1 | `fs_search` files/counts layers and relevance order | 3,862 (reference 3,882) | 14,936 | 3 | `results/round-1.md` |
+| 2 | repository index and classification tags (`@anupheaus/aigent/tools/index`) | 4,844 | 5,151 | 2 | `results/round-2.md` |
+| 3 | layered answers everywhere, `fs_read` + index only | 3,429 | 3,760 | 2 | `results/round-3.md` |
+
+Round 0's figures predate the `fs_search` schema growth; Rounds 1-3 compare against the reference re-measured on the
+current tools (3,882 / 14,936). The held-out set was run once at the end (`results/held-out.md`). Each round is tagged
+locally (`bench-round-N`). `budgets.json` holds the Round 3 budgets (each spec's best run plus 15%; median tokens and p90
+turns likewise) and CI fails when the scripted tier regresses against them (`--gate`, `src/gate.ts`). Policies:
+`reference`, `naive`, `decoy`, `lazy`, `optimised-r1`, `optimised-r2`, `optimised`; tool sets: `round0`, `index`,
+`optimised` (`src/harness/tool-sets.ts`).
+
 ## Running
 
 ```
 npm run bench -- --tier scripted --repeat 3 --label my-run      # all non-held-out specs, reference and naive
-npm run bench -- --policies reference,optimised --tools optimised
+npm run bench -- --policies optimised --tools optimised --gate   # what CI runs
+npm run bench -- --policies optimised --tools optimised --write-budgets round-N   # only after a proven round
 npm run bench -- --fresh-seeds 21,22                             # also rebuild the run variants on fresh seeds
 npm run bench -- --held-out                                      # held-out specs only (milestones, never tuning)
 npm run bench -- --build-specs                                   # regenerate tasks/*.json

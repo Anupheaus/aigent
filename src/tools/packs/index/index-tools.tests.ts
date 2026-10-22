@@ -74,6 +74,13 @@ describe('index tools', () => {
     expect(trace?.steps.filter(({ tool }) => tool === 'repo_find').map(({ cacheHit }) => cacheHit)).toEqual([false, true, false]);
     await ai.close();
   });
+  it('refuses unknown tags with the list of known ones', async () => {
+    const tool = tools().tools.find(({ name }) => name === 'repo_tags');
+    if (tool == null) throw new TypeError('no repo_tags');
+    const [refused] = entriesOf(await call({ tool, items: [{ tags: ['widgets'] }] }));
+    expect(refused).toMatchObject({ ok: false, error: { code: 'unknown_tag' } });
+  });
+
   it('refuses unsafe patterns per item', async () => {
     const tool = tools().tools.find(({ name }) => name === 'search_layers');
     if (tool == null) throw new TypeError('no search_layers');

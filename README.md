@@ -999,7 +999,10 @@ codebase questions with the library's tools: seeded synthetic repositories (300 
 and decoys, ground truth computed by independent exhaustive scripts, 25 tasks in several wordings plus held-out ones,
 a hint linter that keeps answers out of task text, and scripted policies that play the model through the real agent
 loop. `npm run bench` runs the deterministic scripted tier; a real model runs only on request (`BENCH_MODEL`, see
-`bench/README.md`). Round results and write-ups are in `bench/results/`.
+`bench/README.md`). Round results and write-ups are in `bench/results/`: on the scripted tier, Round 3 (the repository
+index with layered answers) answers every task correctly with median tokens 12% and p90 tokens 75% below the expert
+path on the plain filesystem tools, and CI gates regressions against `bench/budgets.json`. Real-model gains are not
+measured by the scripted tier.
 
 ## Stream directives
 
@@ -1044,7 +1047,8 @@ Phase 1 foundation core, implemented in this slice:
 - Delegated-loop mode for providers that own the tool loop (`capabilities.ownsLoop`, `ProviderRequest.toolExecutor`), and the separate, unpublished `@anupheaus/aigent-claude-code` package (`packages/claude-code`)
 - The MCP consuming plugin (`@anupheaus/aigent/mcp`): stdio and streamable-HTTP transports, strict schema conversion with a report, sanitised descriptions, envelope-wrapped results
 - Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
-- The benchmark suite (`bench/`): generated repositories, independent ground truth, hint linting, scripted solvers with self-tests, and the Round 0 baseline
+- The benchmark suite (`bench/`): generated repositories, independent ground truth, hint linting, scripted solvers with self-tests, the Round 0 baseline, optimisation rounds 1-3 and the CI budget gate
+- The repository index pack (`@anupheaus/aigent/tools/index`): incremental file cards, classification tags, `repo_map`, `repo_find`, `repo_tags` and `search_layers`
 
 Roadmap (later slices, each with its own spec): vision, more built-in tool packs (shell, git, database), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
 

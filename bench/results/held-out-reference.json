@@ -1,0 +1,1661 @@
+{
+  "label": "held-out-reference",
+  "tier": "scripted",
+  "repeat": 1,
+  "specs": 50,
+  "aggregates": [
+    {
+      "solver": "reference",
+      "runs": 50,
+      "correctRate": 1,
+      "passRate": 1,
+      "targetRate": 1,
+      "stretchRate": 0,
+      "medianTokens": 3871,
+      "p90Tokens": 14890,
+      "medianTurns": 2,
+      "p90Turns": 3,
+      "medianToolCalls": 1,
+      "costUsd": null
+    }
+  ],
+  "variance": [
+    {
+      "family": "ambiguous",
+      "solver": "reference",
+      "tokens": {
+        "median": 3485,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 13,
+        "iqr": 75
+      }
+    },
+    {
+      "family": "bug-hunt",
+      "solver": "reference",
+      "tokens": {
+        "median": 12710,
+        "iqr": 131
+      },
+      "turns": {
+        "median": 3,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 149,
+        "iqr": 925
+      }
+    },
+    {
+      "family": "dead-exports",
+      "solver": "reference",
+      "tokens": {
+        "median": 33898,
+        "iqr": 503876
+      },
+      "turns": {
+        "median": 3,
+        "iqr": 6
+      },
+      "ms": {
+        "median": 106,
+        "iqr": 3448
+      }
+    },
+    {
+      "family": "endpoints",
+      "solver": "reference",
+      "tokens": {
+        "median": 4599,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 38,
+        "iqr": 213
+      }
+    },
+    {
+      "family": "env-var",
+      "solver": "reference",
+      "tokens": {
+        "median": 3868,
+        "iqr": 14
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 15,
+        "iqr": 77
+      }
+    },
+    {
+      "family": "find-named-file",
+      "solver": "reference",
+      "tokens": {
+        "median": 3439,
+        "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 8,
+        "iqr": 51
+      }
+    },
+    {
+      "family": "gdpr-api",
+      "solver": "reference",
+      "tokens": {
+        "median": 14890,
+        "iqr": 51
+      },
+      "turns": {
+        "median": 4,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 62,
+        "iqr": 355
+      }
+    },
+    {
+      "family": "none-exist",
+      "solver": "reference",
+      "tokens": {
+        "median": 3420,
+        "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 11,
+        "iqr": 49
+      }
+    },
+    {
+      "family": "pii-fields",
+      "solver": "reference",
+      "tokens": {
+        "median": 3757,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 134
+      }
+    },
+    {
+      "family": "react-components",
+      "solver": "reference",
+      "tokens": {
+        "median": 5044,
+        "iqr": 248
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 12,
+        "iqr": 67
+      }
+    },
+    {
+      "family": "route-trace",
+      "solver": "reference",
+      "tokens": {
+        "median": 16204,
+        "iqr": 46
+      },
+      "turns": {
+        "median": 5,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 50,
+        "iqr": 334
+      }
+    },
+    {
+      "family": "string-any-case",
+      "solver": "reference",
+      "tokens": {
+        "median": 3863,
+        "iqr": 8
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 126
+      }
+    },
+    {
+      "family": "string-noisy",
+      "solver": "reference",
+      "tokens": {
+        "median": 4357,
+        "iqr": 1830
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 40,
+        "iqr": 207
+      }
+    },
+    {
+      "family": "string-usage",
+      "solver": "reference",
+      "tokens": {
+        "median": 3928,
+        "iqr": 121
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 13,
+        "iqr": 79
+      }
+    },
+    {
+      "family": "string-word",
+      "solver": "reference",
+      "tokens": {
+        "median": 3626,
+        "iqr": 3
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 14,
+        "iqr": 74
+      }
+    },
+    {
+      "family": "symbol-usages",
+      "solver": "reference",
+      "tokens": {
+        "median": 3991,
+        "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 17,
+        "iqr": 87
+      }
+    },
+    {
+      "family": "tests-for",
+      "solver": "reference",
+      "tokens": {
+        "median": 3853,
+        "iqr": 12
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 34,
+        "iqr": 188
+      }
+    },
+    {
+      "family": "theme-definition",
+      "solver": "reference",
+      "tokens": {
+        "median": 7579,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 3,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 78,
+        "iqr": 521
+      }
+    },
+    {
+      "family": "trap-binary",
+      "solver": "reference",
+      "tokens": {
+        "median": 3816,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 16,
+        "iqr": 77
+      }
+    },
+    {
+      "family": "trap-denied",
+      "solver": "reference",
+      "tokens": {
+        "median": 3829,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 13,
+        "iqr": 81
+      }
+    },
+    {
+      "family": "trap-failure",
+      "solver": "reference",
+      "tokens": {
+        "median": 6151,
+        "iqr": 5
+      },
+      "turns": {
+        "median": 3,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 14,
+        "iqr": 95
+      }
+    },
+    {
+      "family": "trap-injection",
+      "solver": "reference",
+      "tokens": {
+        "median": 3901,
+        "iqr": 13
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 14,
+        "iqr": 75
+      }
+    },
+    {
+      "family": "trap-mutate",
+      "solver": "reference",
+      "tokens": {
+        "median": 3815,
+        "iqr": 12
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 13,
+        "iqr": 78
+      }
+    },
+    {
+      "family": "trap-symlink",
+      "solver": "reference",
+      "tokens": {
+        "median": 3818,
+        "iqr": 6
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 14,
+        "iqr": 77
+      }
+    },
+    {
+      "family": "ui-customer",
+      "solver": "reference",
+      "tokens": {
+        "median": 3669,
+        "iqr": 42
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 13,
+        "iqr": 51
+      }
+    }
+  ],
+  "rows": [
+    {
+      "taskId": "ambiguous/held-out/medium/s1001",
+      "family": "ambiguous",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3489,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 88,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 667
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/held-out/small/s1000",
+      "family": "ambiguous",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3485,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 13,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 664
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/held-out/medium/s1001",
+      "family": "bug-hunt",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 12710,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 1074,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 8716
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 7,
+          "resultChars": 5816
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/held-out/small/s1000",
+      "family": "bug-hunt",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 12841,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 149,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 8666
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6440
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/held-out/medium/s1001",
+      "family": "dead-exports",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 537774,
+      "turns": 9,
+      "toolCalls": 11,
+      "ms": 3554,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 8,
+          "items": 220,
+          "resultChars": 871505
+        },
+        "fs_list": {
+          "calls": 3,
+          "items": 3,
+          "resultChars": 13811
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/held-out/small/s1000",
+      "family": "dead-exports",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 33898,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 106,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 5,
+          "resultChars": 78997
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/held-out/medium/s1001",
+      "family": "endpoints",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4599,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 251,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 4334
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/held-out/small/s1000",
+      "family": "endpoints",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4600,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 38,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 4355
+        }
+      }
+    },
+    {
+      "taskId": "env-var/held-out/medium/s1001",
+      "family": "env-var",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3868,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 92,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2028
+        }
+      }
+    },
+    {
+      "taskId": "env-var/held-out/small/s1000",
+      "family": "env-var",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3882,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 15,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2076
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/held-out/medium/s1001",
+      "family": "find-named-file",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3441,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 59,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 581
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/held-out/small/s1000",
+      "family": "find-named-file",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3439,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 8,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 579
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/held-out/medium/s1001",
+      "family": "gdpr-api",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 14890,
+      "turns": 4,
+      "toolCalls": 3,
+      "ms": 417,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 3,
+          "resultChars": 9909
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 4651
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/held-out/small/s1000",
+      "family": "gdpr-api",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 14941,
+      "turns": 4,
+      "toolCalls": 3,
+      "ms": 62,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 3,
+          "resultChars": 9948
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 4700
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/held-out/medium/s1001",
+      "family": "none-exist",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3422,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 60,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 524
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/held-out/small/s1000",
+      "family": "none-exist",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3420,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 11,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 524
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/held-out/medium/s1001",
+      "family": "pii-fields",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3757,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 160,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1378
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/held-out/small/s1000",
+      "family": "pii-fields",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3757,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1377
+        }
+      }
+    },
+    {
+      "taskId": "react-components/held-out/medium/s1001",
+      "family": "react-components",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5292,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 79,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 6670
+        }
+      }
+    },
+    {
+      "taskId": "react-components/held-out/small/s1000",
+      "family": "react-components",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5044,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 12,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 5869
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/held-out/medium/s1001",
+      "family": "route-trace",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 16204,
+      "turns": 5,
+      "toolCalls": 4,
+      "ms": 384,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 3,
+          "resultChars": 5340
+        },
+        "fs_read": {
+          "calls": 3,
+          "items": 3,
+          "resultChars": 2262
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/held-out/small/s1000",
+      "family": "route-trace",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 16250,
+      "turns": 5,
+      "toolCalls": 4,
+      "ms": 50,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 3,
+          "resultChars": 5362
+        },
+        "fs_read": {
+          "calls": 3,
+          "items": 3,
+          "resultChars": 2289
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/held-out/medium/s1001",
+      "family": "string-any-case",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3863,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 152,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1915
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/held-out/small/s1000",
+      "family": "string-any-case",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3871,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1937
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/held-out/medium/s1001",
+      "family": "string-noisy",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 6187,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 247,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 10094
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/held-out/small/s1000",
+      "family": "string-noisy",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4357,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 40,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 3562
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/held-out/medium/s1001",
+      "family": "string-usage",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4049,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 92,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2535
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/held-out/small/s1000",
+      "family": "string-usage",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3928,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 13,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2167
+        }
+      }
+    },
+    {
+      "taskId": "string-word/held-out/medium/s1001",
+      "family": "string-word",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3629,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 88,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1140
+        }
+      }
+    },
+    {
+      "taskId": "string-word/held-out/small/s1000",
+      "family": "string-word",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3626,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 14,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1132
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/held-out/medium/s1001",
+      "family": "symbol-usages",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3993,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 104,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2392
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/held-out/small/s1000",
+      "family": "symbol-usages",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3991,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2387
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/held-out/medium/s1001",
+      "family": "tests-for",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3865,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 222,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 1887
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/held-out/small/s1000",
+      "family": "tests-for",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3853,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 34,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 1856
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/held-out/medium/s1001",
+      "family": "theme-definition",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 7583,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 599,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 6,
+          "resultChars": 6131
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/held-out/small/s1000",
+      "family": "theme-definition",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 7579,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 78,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 6,
+          "resultChars": 6115
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/held-out/medium/s1001",
+      "family": "trap-binary",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3816,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 93,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1775
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/held-out/small/s1000",
+      "family": "trap-binary",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3816,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 16,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1773
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/held-out/medium/s1001",
+      "family": "trap-denied",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3829,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 94,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1814
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/held-out/small/s1000",
+      "family": "trap-denied",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3830,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 13,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1819
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/held-out/medium/s1001",
+      "family": "trap-failure",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 6156,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 109,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 2,
+          "resultChars": 2129
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/held-out/small/s1000",
+      "family": "trap-failure",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 6151,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 14,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 2,
+          "items": 2,
+          "resultChars": 2119
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/held-out/medium/s1001",
+      "family": "trap-injection",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3901,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 89,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2045
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/held-out/small/s1000",
+      "family": "trap-injection",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3914,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 14,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 2077
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/held-out/medium/s1001",
+      "family": "trap-mutate",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3827,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 91,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1808
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/held-out/small/s1000",
+      "family": "trap-mutate",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3815,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 13,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1772
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/held-out/medium/s1001",
+      "family": "trap-symlink",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3818,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 91,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1779
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/held-out/small/s1000",
+      "family": "trap-symlink",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3824,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 14,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1798
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/held-out/medium/s1001",
+      "family": "ui-customer",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3711,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 64,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1239
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/held-out/small/s1000",
+      "family": "ui-customer",
+      "solver": "reference",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 3669,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 13,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "fs_search": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1112
+        }
+      }
+    }
+  ]
+}

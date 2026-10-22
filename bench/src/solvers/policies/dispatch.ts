@@ -15,7 +15,7 @@ import { solveAnyCase, solveWord } from '../strategies/text-search.js';
 import { solveTheme } from '../strategies/theme.js';
 
 /** One intent's strategy for a style; `undefined` falls back to the Round-0 strategy for that style. */
-export type IntentOverride = (params: { ctx: PolicyContext; intent: Intent }) => Promise<SolverAnswer> | undefined;
+export type IntentOverride = (params: { ctx: PolicyContext; intent: Intent }) => Promise<SolverAnswer | undefined>;
 
 /** The Round-0 strategy for an intent and style. */
 export function solveIntent(params: { ctx: PolicyContext; intent: Intent; style: Style }): Promise<SolverAnswer> {
