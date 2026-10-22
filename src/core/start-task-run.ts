@@ -1,4 +1,5 @@
 import type { StartSubRun } from './delegation-types.js';
+import type { RegisteredHooks } from '../plugins/run-hooks.js';
 import type { ToolCache } from '../cache/cache-types.js';
 import type { FeedbackCollector } from '../feedback/feedback-collector.js';
 import type { Provider } from '../providers/provider-types.js';
@@ -111,6 +112,8 @@ export interface RuntimeServices {
   effects?: EffectLog;
   /** Starts a run of another agent of this runtime, for the `delegate` tool. */
   startSubRun?: StartSubRun;
+  /** The runtime's plugins with hooks (read per event, so `ai.use` plugins take part); absent: no hooks. */
+  pluginHooks?(): RegisteredHooks[];
 }
 
 export interface StartTaskRunParams {

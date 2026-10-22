@@ -6,6 +6,7 @@ import type { Agent } from '../core/agent-types.js';
 import type { ModelSettings } from '../core/model-settings.js';
 import type { Clock, IdGenerator } from '../core/runtime-services.js';
 import { defineTool } from '../tools/define-tool.js';
+import { definePlugin } from '../plugins/define-plugin.js';
 import { anthropic } from './anthropic.js';
 import {
   anthropicSse, interleavedToolUseBlocks, messageDelta, messageStart, messageStop, redactedThinkingBlock, textBlock, textBlockStart, textDelta,
@@ -65,11 +66,13 @@ interface EndToEndParams {
   modelSettings?: ModelSettings;
   /** Default false: these tests pin the adapters' request shapes; one test below covers the feedback fields end to end. */
   enableFeedback?: boolean;
+  /** How the provider reaches the runtime: `createAigent({ providers })` (default) or a plugin carrying it. */
+  wiring?: 'providers' | 'plugin';
 }
 
 /** An agent with the echo tool on the given provider, its HTTP answered by the fixtures. */
 function endToEnd(params: EndToEndParams): EndToEnd {
-  const { createProvider, responses, modelSettings, enableFeedback = false } = params;
+  const { createProvider, responses, modelSettings, enableFeedback = false, wiring = 'providers' } = params;
   let nextResponse = 0;
   const { fetch, requests } = createFakeFetch(request => {
     const response = responses[nextResponse];
@@ -79,7 +82,8 @@ function endToEnd(params: EndToEndParams): EndToEnd {
   });
   const provider = createProvider(fetch);
   // These tests watch the adapters' own deltas (cancelling on the first one), so the secrets hold-back is off.
-  const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), guardrails: { builtins: { secrets: false } } });
+  const wired = wiring === 'providers' ? { providers: [provider] } : { plugins: [definePlugin({ name: 'provider-under-test', version: '1.0.0', providers: [provider] })] };
+  const ai = createAigent({ ...wired, clock, ids: sequentialIds(), guardrails: { builtins: { secrets: false } } });
   const agent = ai.agent({ name: 'helper', model: `${provider.id}:${MODEL}`, tools: [echoTool], enableFeedback, ...(modelSettings == null ? {} : { modelSettings }) });
   return { agent, requests };
 }
@@ -313,5 +317,20 @@ describe('end to end through anthropic', () => {
     const body = hangingAfter(anthropicSse([messageStart(), textBlockStart(0), textDelta({ index: 0, text: 'Thinking' })]));
     const { agent } = anthropicEndToEnd([{ body }]);
     expect(await cancelOnFirstText({ agent, body })).toBe('cancelled');
+  });
+});
+
+describe('end to end through the plugin form', () => {
+  it.each([
+    { label: 'openAiCompatible', createProvider: (fetchImpl: FetchImpl) => openAiCompatible({ id: 'compat', baseUrl: 'https://llm.test/v1', apiKey: 'sk-test', fetch: fetchImpl }), responses: () => [openAiToolTurn(PARALLEL_CALLS), openAiAnswerTurn()] },
+    { label: 'anthropic', createProvider: (fetchImpl: FetchImpl) => anthropic({ apiKey: 'sk-ant-test', baseUrl: 'https://anthropic.test', fetch: fetchImpl }), responses: () => [anthropicToolTurn(PARALLEL_CALLS), anthropicAnswerTurn()] },
+  ])('$label behaves exactly as when given in providers', async ({ createProvider, responses }) => {
+    const direct = endToEnd({ createProvider, responses: responses() });
+    const plugged = endToEnd({ createProvider, responses: responses(), wiring: 'plugin' });
+    const directResult = await direct.agent.task({ task: 'Echo' });
+    const pluggedResult = await plugged.agent.task({ task: 'Echo' });
+    expect(pluggedResult).toMatchObject({ status: 'completed', answer: 'All done.', usage: { ...TOTAL_USAGE, turns: 2, toolCalls: 2 } });
+    expect({ ...pluggedResult, usage: { ...pluggedResult.usage, durationMs: 0 } }).toEqual({ ...directResult, usage: { ...directResult.usage, durationMs: 0 } });
+    expect(plugged.requests.map(({ url, init }) => [url, init.body])).toEqual(direct.requests.map(({ url, init }) => [url, init.body]));
   });
 });

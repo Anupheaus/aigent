@@ -13,6 +13,7 @@ import type { PlannedEffect } from '../effects/planned-effects.js';
 import type { UndoReport, UndoTarget } from '../effects/undo-types.js';
 import type { DelegatedUsage } from './delegation-types.js';
 import type { Tool } from '../tools/tool-types.js';
+import type { PluginToolsRef } from '../plugins/plugin-types.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
 import type { RunCallbacks } from './run-callbacks.js';
@@ -30,7 +31,8 @@ export interface AgentDefinition {
   skillset?: string;
   /** The environment the consumer places the agent in. */
   context?: string;
-  tools?: Tool[];
+  /** The agent's tools; `pluginTools('<plugin>')` stands for every tool of a registered plugin (resolved by `ai.agent`). */
+  tools?: (Tool | PluginToolsRef)[];
   /** Defaults for every task; a task's own limits win field by field. */
   limits?: TaskLimits;
   /** Model settings for every task; a task's own settings win field by field, and these win over `createAigent`'s. */

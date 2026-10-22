@@ -142,6 +142,33 @@ AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
 
 The MongoDB adapter has its own live test, `src/tools/packs/db/mongo-db-access.live.tests.ts`, skipped unless `AIGENT_LIVE_MONGO` holds a connection string and the optional `mongodb` package is installed. It writes a scratch collection in the `aigent_live_tests` database with the driver directly and drops it afterwards.
 
+## Plugins
+
+A plugin bundles providers, tools, stores and lifecycle hooks, and is wired in with one line: `createAigent({ plugins: [plugin] })`, or `ai.use(plugin)` after creation. `definePlugin` validates it (kebab-case `name`, semver-style `version`, the shape of every contribution, no duplicate provider ids, tool names or store ids inside it) and throws `invalid_definition` with the failing paths.
+
+```ts
+import { createAigent, definePlugin, pluginTools, anthropicPlugin } from '@anupheaus/aigent';
+
+const audit = definePlugin({
+  name: 'audit-log',
+  version: '1.0.0',
+  tools: [lookupTool],                                  // offered only to agents that ask for them
+  stores: [{ id: 'audit-store', store: myStore }],      // selectable with createAigent({ store: 'audit-store' })
+  hooks: { onToolCall: info => console.log(info.tool, info.args) },
+});
+
+const ai = createAigent({ plugins: [anthropicPlugin({ apiKey: process.env.ANTHROPIC_API_KEY! }), audit], store: 'audit-store' });
+const agent = ai.agent({ name: 'helper', model: 'anthropic:claude-sonnet-5-5', tools: [pluginTools('audit-log')] });
+```
+
+- **Providers** are selected as `'<provider id>:<model>'`, exactly like providers passed in `providers`. A plugin provider whose id collides with another provider (direct or from another plugin) is refused with `invalid_definition`, naming both sources. The built-in providers are available as plugins too: `anthropicPlugin`, `openAiCompatiblePlugin`, `deepseekPlugin`, `openaiPlugin` and `ollamaPlugin` take the same options as the plain factories (which remain) and behave identically; each plugin is named after its provider id.
+- **Tools** are never added to every agent: an agent opts in with `tools: [pluginTools('<plugin name>')]`, alongside its own tools.
+- **Stores**: `createAigent({ store: '<id>' })` selects a store a plugin given in `plugins` offers; an unknown id is `invalid_definition`.
+- **Hooks** (`onRunStart`, `onToolCall`, `onToolResult`, `onRunEnd`, `onError`) are read-only observers of every task and chat turn. Each receives a deep-frozen copy (never the live object), so a hook that tries to change it throws inside the hook. Hooks run one at a time, in event order and then plugin order, off the run's path; each is bounded by a 1000 ms timeout. A throwing or slow hook becomes a `warning` event and the run carries on. `onRunEnd` runs after the run's records are written and before its `done` event.
+- **Mutating plugins:** a plugin that declares `mutating: true` is refused unless the runtime names it in `createAigent({ allowMutatingPlugins: ['<name>'] })`. Hooks still receive frozen copies; there is no mutation API yet, so the flag reserves the opt-in for one.
+- **Lifecycle:** a plugin may have an asynchronous `setup()` (e.g. connecting to servers and listing their tools) and a `close()`. `await ai.ready()` runs every setup once and rejects with the first failure; agents that use `pluginTools` of a plugin with a setup must be defined after it (before, `ai.agent` throws). `ai.close()` calls every plugin's `close` once, after the tools are disposed.
+- The core package never depends on a plugin package; a test scans `src` to keep it that way.
+
 ## Model settings
 
 Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is keyed by provider id (`{ anthropic: { ... }, openai: { ... } }`), each provider's entry is shallow-merged across levels with higher levels winning per key, and each provider, a fallback included, receives only its own entry.
@@ -957,6 +984,7 @@ Phase 1 foundation core, implemented in this slice:
 - Resumable instances (checkpoints, call ledger, fenced leases) and human approvals
 - Guardrails (secrets, PII, injection, scope, loop and output-schema built-ins plus custom ones), dry runs with planned effects, and the effect log with `agent.undo`
 - `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
+- Plugins (`definePlugin`, `createAigent({ plugins })`, `ai.use`, `pluginTools`, plugin stores and read-only hooks), with the built-in providers available as plugins
 - Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
 
 Roadmap (later slices, each with its own spec): vision, more built-in tool packs (shell, git, database), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.

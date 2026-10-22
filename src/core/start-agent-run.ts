@@ -34,6 +34,7 @@ import { createRunGuardrails } from './run-guardrails.js';
 import { createRunEffects } from './run-effects.js';
 import { DRY_RUN_SECTION } from '../effects/dry-run.js';
 import { createRunTelemetry } from './run-telemetry.js';
+import { createRunPluginHooks } from './run-plugin-hooks.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
 
@@ -95,7 +96,13 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const thinking = createEventStream<AigentEvent, void>();
   let activity: ActivityPublisher | undefined;
   const emitter = createRunEmitter({ push: event => stream.push(event), pushThinking: event => thinking.push(event), showThinking: settings.showThinking ?? true, activity: () => activity });
-  const { emit } = emitter;
+  const pluginHooks = createRunPluginHooks({
+    ...(services.pluginHooks == null ? {} : { plugins: services.pluginHooks }),
+    run: { runId, agentName, instanceId, model: primary.label, mode: conversation == null ? 'task' : 'chat' },
+    warn: message => emitter.emit({ type: 'warning', message }),
+  });
+  /** Every run event, also shown to the plugins' hooks (which only observe, off the run's path). */
+  const emit = (event: AigentEvent): void => { emitter.emit(event); pluginHooks.observe(event); };
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs: limits.timeoutMs });
   const planned = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
   const { planning } = planned;
@@ -116,6 +123,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       runId, ...(conversation == null ? {} : { messageId: conversation.messageId }), clock, sleep: services.activityTimers, ...(services.activity == null ? {} : { options: services.activity }),
       maxTurns: limits.maxTurns, plan: planning.state.plan, criteriaTotal: input.acceptanceCriteria?.length ?? 0, price, publish: update => stream.push({ type: 'activity', update }),
     });
+    pluginHooks.start();
     for (const message of primary.warnings) emit({ type: 'warning', message });
     let compression: RunCompression | undefined;
     const resultData = await (async () => {
@@ -166,6 +174,8 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price,
       ...(onFinished == null ? {} : { onFinished }),
     });
+    // Hooks are bounded by their timeouts, so a slow observer delays done by at most that, never forever.
+    await pluginHooks.end(result);
     activity.finish(result.status);
     // `done` is last and only after the records are flushed, so a consumer that sees it can read them.
     stream.push({ type: 'done', status: result.status, responseId });

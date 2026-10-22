@@ -33,7 +33,7 @@ export type { AnthropicOptions } from './providers/anthropic.js';
 export { openAiCompatible } from './providers/openai-compatible.js';
 export type { OpenAiCompatibleOptions } from './providers/openai-compatible.js';
 export type { OpenAiTokenLimitField, ReasoningModelMatcher } from './providers/openai-settings.js';
-export { deepseek, ollama, openai } from './providers/presets.js';
+export { anthropicPlugin, deepseek, deepseekPlugin, ollama, ollamaPlugin, openai, openAiCompatiblePlugin, openaiPlugin } from './providers/presets.js';
 export type { PresetOptions } from './providers/presets.js';
 export type { Directive } from './streaming/directive-parser.js';
 export { defineTool } from './tools/define-tool.js';
@@ -99,3 +99,6 @@ export type {
 export type { DryRunOutput, PlannedEffect, PlannedEffectInput, SimulatedResult } from './effects/planned-effects.js';
 export { EFFECTS_COLLECTION } from './effects/undo-types.js';
 export type { CapturedEffect, EffectLogEntry, EffectStatus, UndoContext, UndoDescriptor, UndoOptions, UndoOutcome, UndoReport, UndoResult, UndoResultStatus, UndoTarget } from './effects/undo-types.js';
+export { definePlugin } from './plugins/define-plugin.js';
+export { pluginTools } from './plugins/plugin-tools.js';
+export type { Plugin, PluginHooks, PluginSetupResult, PluginStore, PluginToolsRef, RunEndInfo, RunErrorInfo, RunStartInfo, ToolCallInfo, ToolResultInfo } from './plugins/plugin-types.js';

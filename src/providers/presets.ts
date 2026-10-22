@@ -1,4 +1,10 @@
+import { LIBRARY_VERSION } from '../core/library-version.js';
+import { definePlugin } from '../plugins/define-plugin.js';
+import type { Plugin } from '../plugins/plugin-types.js';
+import { anthropic } from './anthropic.js';
+import type { AnthropicOptions } from './anthropic.js';
 import { openAiCompatible } from './openai-compatible.js';
+import type { OpenAiCompatibleOptions } from './openai-compatible.js';
 import type { ReasoningModelMatcher } from './openai-settings.js';
 import type { Provider } from './provider-types.js';
 
@@ -42,4 +48,36 @@ export function openai(options: PresetOptions = {}): Provider {
 export function ollama(options: PresetOptions = {}): Provider {
   const { baseUrl = OLLAMA_BASE_URL, ...rest } = options;
   return openAiCompatible({ id: 'ollama', baseUrl, ...rest });
+}
+
+// ─── The same providers as plugins ───
+
+/** A plugin offering exactly one provider, named after its id and versioned with this library. */
+function providerPlugin(provider: Provider): Plugin {
+  return definePlugin({ name: provider.id, version: LIBRARY_VERSION, providers: [provider] });
+}
+
+/** `anthropic(options)` as a plugin: `createAigent({ plugins: [anthropicPlugin({ apiKey })] })`. */
+export function anthropicPlugin(options: AnthropicOptions): Plugin {
+  return providerPlugin(anthropic(options));
+}
+
+/** `openAiCompatible(options)` as a plugin named after its `id` (which must then be kebab-case). */
+export function openAiCompatiblePlugin(options: OpenAiCompatibleOptions): Plugin {
+  return providerPlugin(openAiCompatible(options));
+}
+
+/** `deepseek(options)` as a plugin. */
+export function deepseekPlugin(options: PresetOptions = {}): Plugin {
+  return providerPlugin(deepseek(options));
+}
+
+/** `openai(options)` as a plugin. */
+export function openaiPlugin(options: PresetOptions = {}): Plugin {
+  return providerPlugin(openai(options));
+}
+
+/** `ollama(options)` as a plugin. */
+export function ollamaPlugin(options: PresetOptions = {}): Plugin {
+  return providerPlugin(ollama(options));
 }

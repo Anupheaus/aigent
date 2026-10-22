@@ -52,6 +52,7 @@ import { parseGuardrailOptions } from '../guardrails/guardrail-options.js';
 import { createRuntimeEffectLog } from '../effects/runtime-effect-log.js';
 import { parseUndoTarget, undoEffects } from '../effects/undo.js';
 import type { ActivityOptions } from './activity.js';
+import { createPluginRegistry } from '../plugins/plugin-registry.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
@@ -64,9 +65,12 @@ function resolveScheduler(params: { scheduler: Scheduler | SchedulerOptions | un
 }
 
 export function createAigent(options: AigentOptions): Aigent {
-  const { providers, store, clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
+  const { providers = [], plugins = [], clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
+  const pluginRegistry = createPluginRegistry({ providers, ...(options.allowMutatingPlugins == null ? {} : { allowMutatingPlugins: options.allowMutatingPlugins }) });
+  for (const plugin of plugins) pluginRegistry.add(plugin);
+  const store = typeof options.store === 'string' ? pluginRegistry.store(options.store) : options.store;
   validateResumeOptions({ ...(options.resume == null ? {} : { resume: options.resume }), captureContent, hasRedact: redact != null });
-  const resolveTarget = createTargetResolver({ providers, ...(options.providerModelSettings == null ? {} : { providerModelSettings: options.providerModelSettings }) });
+  const resolveTarget = createTargetResolver({ providersById: pluginRegistry.providers, ...(options.providerModelSettings == null ? {} : { providerModelSettings: options.providerModelSettings }) });
   const { expiresInMs } = parseRetention(options.retention) ?? {};
   const pricing = parsePricing(options.pricing);
   const runtimeSettings = parseModelSettings({ owner: 'createAigent', settings: options.modelSettings });
@@ -97,6 +101,7 @@ export function createAigent(options: AigentOptions): Aigent {
     guardrails: parseGuardrailOptions(options.guardrails),
     effects: effectLog,
     startSubRun: request => startSubRun(request),
+    pluginHooks: () => pluginRegistry.hooks(),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -135,7 +140,7 @@ export function createAigent(options: AigentOptions): Aigent {
     await services.writeQueue.flush();
     await resume?.close();
     // Only once nothing runs: tools release what they hold (compiler processes), each even when another fails.
-    const disposed = await Promise.allSettled([...toolDisposers].map(dispose => dispose()));
+    const disposed = await Promise.allSettled([...[...toolDisposers].map(dispose => dispose()), pluginRegistry.close()]);
     const failed = [...closed, ...disposed].find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
     if (failed != null) throw failed.reason;
   }
@@ -166,11 +171,12 @@ export function createAigent(options: AigentOptions): Aigent {
   const audit = createAuditTrail({ ...(writer == null ? {} : { records: writer }), clock });
 
   function agent(definition: AgentDefinition): Agent {
-    const base = resolveAgent({ definition, context: agentContext });
+    const tools = pluginRegistry.expandTools(definition.tools ?? []);
+    const base = resolveAgent({ definition: { ...definition, tools }, context: agentContext });
     const { name, instanceId, agentVersion } = base;
     const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
-    for (const { dispose } of definition.tools ?? []) if (dispose != null) toolDisposers.add(dispose);
+    for (const { dispose } of tools) if (dispose != null) toolDisposers.add(dispose);
     const restore = createAgentResume({ agent: resolved, services, isExplicitInstance: definition.instanceId != null });
     /** This agent object's runs, so `close()` waits for them before it lets the instance go. */
     const agentWork = new Set<Promise<void>>();
@@ -216,6 +222,8 @@ export function createAigent(options: AigentOptions): Aigent {
   }
 
   return {
+    use: plugin => pluginRegistry.add(plugin),
+    ready: () => pluginRegistry.ready(),
     agent,
     restoreAgent,
     close,

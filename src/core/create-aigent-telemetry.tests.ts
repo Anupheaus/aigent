@@ -59,7 +59,7 @@ function recordingStore(base: Store = createInMemoryStore()): { store: Store; wr
 interface SetupParams {
   turns: FakeTurn[];
   tools?: Tool[];
-  options?: Partial<AigentOptions>;
+  options?: Partial<Omit<AigentOptions, 'store'>> & { store?: Store };
   provider?: FakeProvider;
 }
 

@@ -16,6 +16,7 @@ import type { TargetResolver } from './model-targets.js';
 import { parseResiliencePolicy } from './resilience-policy.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
+import type { Tool } from '../tools/tool-types.js';
 import type { ResolvedAgent } from './start-task-run.js';
 import { memoiseStaticPrompt } from './static-prompt.js';
 import { parseAgentLimits } from './task-input.js';
@@ -33,8 +34,13 @@ export interface AgentResolutionContext {
   compressionCache: CompressionCache;
 }
 
+/** A definition whose `pluginTools` references were replaced by the plugins' tools. */
+export interface ToolsResolvedDefinition extends Omit<AgentDefinition, 'tools'> {
+  tools?: Tool[];
+}
+
 /** Validates a definition (throws `invalid_definition` / `unknown_provider`) into the agent every run of it uses. */
-export function resolveAgent(params: { definition: AgentDefinition; context: AgentResolutionContext }): ResolvedAgent {
+export function resolveAgent(params: { definition: ToolsResolvedDefinition; context: AgentResolutionContext }): ResolvedAgent {
   const { definition, context: { resolveTarget, runtimeSettings, clock, ids, toolCache, compressionCache } } = params;
   const { name, persona, skillset, context, tools = [], version, fallbackModels, resilience } = definition;
   // process is absent outside Node (e.g. edge runtimes); without it no NODE_ENV is set.

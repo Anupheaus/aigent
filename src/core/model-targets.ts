@@ -6,7 +6,8 @@ import type { ModelSettings } from './model-settings.js';
 import type { ModelTarget } from './start-task-run.js';
 
 export interface CreateTargetResolverParams {
-  providers: Provider[];
+  /** Every provider by id; live, so providers added later (`ai.use`) resolve too. Ids are checked for duplicates by the plugin registry. */
+  providersById: ReadonlyMap<string, Provider>;
   /** `createAigent({ providerModelSettings })`, keyed by provider id. */
   providerModelSettings?: Record<string, ModelSettings>;
 }
@@ -14,25 +15,14 @@ export interface CreateTargetResolverParams {
 /** Turns `provider:model` references into targets (provider resolved, its settings layer attached). */
 export type TargetResolver = (reference: string) => ModelTarget;
 
-function indexProviders(providers: Provider[]): Map<string, Provider> {
-  const byId = new Map<string, Provider>();
-  for (const provider of providers) {
-    if (byId.has(provider.id)) {
-      throw createAigentError({ code: 'invalid_definition', message: `Duplicate provider id '${provider.id}'; each provider must have a unique id`, details: { providerId: provider.id } });
-    }
-    byId.set(provider.id, provider);
-  }
-  return byId;
-}
-
-function unknownProviderError(params: { providerId: string; providersById: Map<string, Provider> }): Error {
+function unknownProviderError(params: { providerId: string; providersById: ReadonlyMap<string, Provider> }): Error {
   const { providerId, providersById } = params;
   const knownIds = [...providersById.keys()].join(', ') || '(none)';
   return createAigentError({ code: 'unknown_provider', message: `Unknown provider '${providerId}'; known providers: ${knownIds}`, details: { providerId } });
 }
 
 /** Validates every per-provider settings layer up front, so a typo fails at `createAigent`, not on a later task. */
-function parseProviderModelSettings(params: { settings: Record<string, ModelSettings> | undefined; providersById: Map<string, Provider> }): Map<string, ModelSettings> {
+function parseProviderModelSettings(params: { settings: Record<string, ModelSettings> | undefined; providersById: ReadonlyMap<string, Provider> }): Map<string, ModelSettings> {
   const { settings = {}, providersById } = params;
   return new Map(Object.entries(settings).map(([providerId, providerSettings]) => {
     if (!providersById.has(providerId)) throw unknownProviderError({ providerId, providersById });
@@ -42,7 +32,7 @@ function parseProviderModelSettings(params: { settings: Record<string, ModelSett
 
 /** Validates the providers and their settings layers once; the resolver throws `unknown_provider` for other ids. */
 export function createTargetResolver(params: CreateTargetResolverParams): TargetResolver {
-  const providersById = indexProviders(params.providers);
+  const { providersById } = params;
   const providerSettingsById = parseProviderModelSettings({ settings: params.providerModelSettings, providersById });
   return reference => {
     const { providerId, model } = parseModelReference(reference);

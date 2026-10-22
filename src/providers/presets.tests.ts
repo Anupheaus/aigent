@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createFakeBody, createFakeFetch, encodeText } from './fake-fetch.test-support.js';
 import type { FakeFetch } from './fake-fetch.test-support.js';
 import { finishChunk, sseBody } from './openai-fixtures.test-support.js';
-import { deepseek, ollama, openai } from './presets.js';
+import { LIBRARY_VERSION } from '../core/library-version.js';
+import { anthropic } from './anthropic.js';
+import { openAiCompatible } from './openai-compatible.js';
+import { anthropicPlugin, deepseek, deepseekPlugin, ollama, ollamaPlugin, openai, openAiCompatiblePlugin, openaiPlugin } from './presets.js';
 import type { Provider, ProviderRequest } from './provider-types.js';
 
 const REQUEST: ProviderRequest = { model: 'm', messages: [{ role: 'user', text: 'hi' }], tools: [] };
@@ -82,5 +85,29 @@ describe('ollama preset', () => {
     const { fetch, requests } = finishedFetch();
     await drain(ollama({ fetch }));
     expect(new Headers(requests[0]?.init.headers).has('authorization')).toBe(false);
+  });
+});
+
+describe('built-in providers as plugins', () => {
+  it.each([
+    { make: () => deepseekPlugin({ fetch: finishedFetch().fetch }), plain: () => deepseek({}), id: 'deepseek' },
+    { make: () => openaiPlugin({ fetch: finishedFetch().fetch }), plain: () => openai({}), id: 'openai' },
+    { make: () => ollamaPlugin({ fetch: finishedFetch().fetch }), plain: () => ollama({}), id: 'ollama' },
+    { make: () => openAiCompatiblePlugin({ id: 'compat', baseUrl: 'https://llm.test/v1' }), plain: () => openAiCompatible({ id: 'compat', baseUrl: 'https://llm.test/v1' }), id: 'compat' },
+    { make: () => anthropicPlugin({ apiKey: 'k' }), plain: () => anthropic({ apiKey: 'k' }), id: 'anthropic' },
+  ])('$id: one provider with the same id and capabilities as the plain factory, named after it', ({ make, plain, id }) => {
+    const plugin = make();
+    expect(plugin).toMatchObject({ name: id, version: LIBRARY_VERSION });
+    expect(plugin.providers?.map(provider => provider.id)).toEqual([id]);
+    expect(plugin.providers?.[0]?.capabilities).toEqual(plain().capabilities);
+  });
+
+  it('streams exactly as the plain factory does', async () => {
+    const plain = finishedFetch();
+    const plugged = finishedFetch();
+    await drain(deepseek({ apiKey: 'k', fetch: plain.fetch }));
+    const [provider] = deepseekPlugin({ apiKey: 'k', fetch: plugged.fetch }).providers ?? [];
+    await drain(provider!);
+    expect(plugged.requests.map(({ url, init }) => [url, init.body])).toEqual(plain.requests.map(({ url, init }) => [url, init.body]));
   });
 });

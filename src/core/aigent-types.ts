@@ -16,13 +16,21 @@ import type { GuardrailOptions } from '../guardrails/guardrail-types.js';
 import type { UndoOptions } from '../effects/undo-types.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
+import type { Plugin } from '../plugins/plugin-types.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 
 export interface AigentOptions {
-  /** Every provider agents may use; ids must be unique. */
-  providers: Provider[];
-  /** Where run records are written; nothing is persisted without one. */
-  store?: Store;
+  /** Providers agents may use (besides those of `plugins`); ids must be unique across both. Default none. */
+  providers?: Provider[];
+  /**
+   * Plugins wired in with one line: their providers (selected as `'<provider id>:<model>'`), tools (offered to agents
+   * with `tools: [pluginTools('<name>')]`), stores and read-only hooks. More can be added later with `ai.use`.
+   */
+  plugins?: Plugin[];
+  /** The only plugins allowed to declare `mutating: true`; any other mutating plugin is refused. */
+  allowMutatingPlugins?: string[];
+  /** Where run records are written; nothing is persisted without one. A string selects a store a plugin offers, by id. */
+  store?: Store | string;
   clock?: Clock;
   ids?: IdGenerator;
   /** Waits between retries (default: real timers). Inject a fake to control time in tests. */
@@ -87,6 +95,16 @@ export interface AigentOptions {
 }
 
 export interface Aigent {
+  /**
+   * Registers a plugin after creation (validated like `plugins`; throws `invalid_definition` on any conflict). Its
+   * providers and hooks apply to agents and runs created afterwards; its stores cannot replace the runtime's store.
+   */
+  use(plugin: Plugin): void;
+  /**
+   * Resolves once every plugin's asynchronous `setup` (e.g. connecting to MCP servers) has finished; rejects with the
+   * first failure. Await it before defining agents that use `pluginTools` of a plugin with a `setup`.
+   */
+  ready(): Promise<void>;
   /** Validates the definition (throws `invalid_definition` / `unknown_provider`) and returns the agent. */
   agent(definition: AgentDefinition): Agent;
   /**
@@ -98,7 +116,8 @@ export interface Aigent {
    * Resolves once every run and `ai.feedback` call started so far (and any started while closing) has settled and every pending store
    * write has been flushed, so run records are not lost on shutdown. It does not stop runs; stop them first to close quickly.
    * Open chats are closed first (`chat.close()`): their running turns finish, and a turn waiting for an answer is cancelled.
-   * Last, every agent's tools release what they hold (`Tool.dispose`, e.g. the code pack's compiler processes).
+   * Last, every agent's tools release what they hold (`Tool.dispose`, e.g. the code pack's compiler processes), then
+   * every plugin's `close` (e.g. MCP server processes).
    */
   close(): Promise<void>;
   /** A stored run with its ordered steps, or undefined when it was not stored (no store, unknown id, disableTelemetry). */
