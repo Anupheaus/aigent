@@ -62,6 +62,13 @@ describe('knowledgeTools: contract', () => {
     expect(search.cacheKey?.({ items: [{ query: '  backups ', filter: '{"b":1,"a":2}' }] })).toEqual(search.cacheKey?.({ items: [{ query: 'backups', k: 5, mode: 'hybrid', filter: '{ "a": 2, "b": 1 }' }] }));
     expect(await search.validity?.({ items: [] }, CONTEXT)).toBe(await base.version());
   });
+
+  it('keys the shared cache on the result budget too, which decides how many results fit (review M6)', async () => {
+    const { search: roomy } = await tools({ maxResultTokens: 8_000 });
+    const { search: tight } = await tools({ maxResultTokens: 500 });
+    const items = [{ query: 'backups' }];
+    expect(roomy.cacheKey?.({ items })).not.toEqual(tight.cacheKey?.({ items }));
+  });
 });
 
 describe('knowledge_search', () => {
