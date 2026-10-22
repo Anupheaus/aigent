@@ -1,0 +1,607 @@
+[
+  {
+    "id": "dead-exports/held-out/medium/s1001",
+    "family": "dead-exports",
+    "variant": "held-out",
+    "prompt": "Name the exported functions that nothing else references.",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "blendMesacrest",
+        "foldMesacrest",
+        "roundMesacrest"
+      ],
+      "forbidden": [
+        "clampMesacrest",
+        "scaleMesacrest",
+        "shiftMesacrest"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-mesacrest.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-mesacrest.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/mesamere/mesacrest-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "clampMesacrest"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "scaleMesacrest"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "shiftMesacrest"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 2147676,
+        "maxTurns": 36,
+        "maxToolCalls": 44,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 805379,
+        "maxTurns": 14,
+        "maxToolCalls": 17,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 429535,
+        "maxTurns": 7,
+        "maxToolCalls": 8,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_list",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 220,
+          "purpose": "8 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 536919,
+        "turns": 9,
+        "toolCalls": 11,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "dead-exports/held-out/small/s1000",
+    "family": "dead-exports",
+    "variant": "held-out",
+    "prompt": "Name the exported functions that nothing else references.",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "padLichenfield",
+        "shiftLichenfield",
+        "trimLichenfield"
+      ],
+      "forbidden": [
+        "blendLichenfield",
+        "foldLichenfield",
+        "scaleLichenfield"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-lichenfield.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-lichenfield.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/mosscrest/lichenfield-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "blendLichenfield"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "foldLichenfield"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "scaleLichenfield"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 134704,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 50514,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 26940,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 5,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 33676,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "dead-exports/jargon/small/s3",
+    "family": "dead-exports",
+    "variant": "jargon",
+    "prompt": "Report the dead exports: exported functions with no references outside their own file.",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "blendHazelholm",
+        "clampHazelholm",
+        "padHazelholm"
+      ],
+      "forbidden": [
+        "roundHazelholm",
+        "scaleHazelholm",
+        "shiftHazelholm"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-hazelholm.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-hazelholm.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/violetdale/hazelholm-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "roundHazelholm"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "scaleHazelholm"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "shiftHazelholm"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 134856,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 50571,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 26971,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 5,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 33714,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "dead-exports/precise/small/s1",
+    "family": "dead-exports",
+    "variant": "precise",
+    "prompt": "Which exported functions are never used anywhere else (not imported, re-exported, dynamically imported or used by tests)? Answer with their names.",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "blendQuilldale",
+        "shiftQuilldale",
+        "trimQuilldale"
+      ],
+      "forbidden": [
+        "clampQuilldale",
+        "foldQuilldale",
+        "roundQuilldale"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-quilldale.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-quilldale.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/onyxdale/quilldale-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "clampQuilldale"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "foldQuilldale"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "roundQuilldale"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 133628,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 50111,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 26725,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 5,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 33407,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "dead-exports/vague/small/s2",
+    "family": "dead-exports",
+    "variant": "vague",
+    "prompt": "which exported functions are unused?",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "blendCanyonmere",
+        "clampCanyonmere",
+        "roundCanyonmere"
+      ],
+      "forbidden": [
+        "padCanyonmere",
+        "scaleCanyonmere",
+        "trimCanyonmere"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-canyonmere.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-canyonmere.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/nectarholm/canyonmere-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "padCanyonmere"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "scaleCanyonmere"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "trimCanyonmere"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 134164,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 50312,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 26832,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 5,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 33541,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "dead-exports/wrong-terms/small/s1",
+    "family": "dead-exports",
+    "variant": "wrong-terms",
+    "prompt": "Which public methods can I delete because nothing calls them?",
+    "scope": [
+      "."
+    ],
+    "query": "dead-exports",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "identifier",
+      "required": [
+        "blendQuilldale",
+        "shiftQuilldale",
+        "trimQuilldale"
+      ],
+      "forbidden": [
+        "clampQuilldale",
+        "foldQuilldale",
+        "roundQuilldale"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/app/lazy-quilldale.ts",
+        "reason": "keeps one helper alive through a dynamic import"
+      },
+      {
+        "path": "src/app/notes-quilldale.ts",
+        "reason": "names dead helpers in a comment and a longer identifier"
+      },
+      {
+        "path": "src/lib/onyxdale/quilldale-helpers.test.ts",
+        "reason": "keeps one helper alive from a test"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "clampQuilldale"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "foldQuilldale"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "roundQuilldale"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 133376,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 50016,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 26675,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One search for exports, then alternation searches of 40 names read line by line.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 5,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 33344,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  }
+]

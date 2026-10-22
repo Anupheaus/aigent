@@ -1,0 +1,590 @@
+[
+  {
+    "id": "gdpr-api/held-out/medium/s1001",
+    "family": "gdpr-api",
+    "variant": "held-out",
+    "prompt": "List the API endpoints' handler files that actually carry out GDPR requests.",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/reed/bundleFjord.ts",
+        "src/server/api/reed/eraseLagoon.ts",
+        "src/server/api/reed/grantCairn.ts",
+        "src/server/api/reed/revokeCedar.ts",
+        "src/server/api/reed/sweepOpal.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/reed/listQuill.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/reed/ordersCloverCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/reed/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/plume/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/fennel/FennelNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58376,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 21891,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 11675,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14594,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "gdpr-api/held-out/small/s1000",
+    "family": "gdpr-api",
+    "variant": "held-out",
+    "prompt": "List the API endpoints' handler files that actually carry out GDPR requests.",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/ember/bundleNectar.ts",
+        "src/server/api/ember/eraseMaple.ts",
+        "src/server/api/ember/grantPrism.ts",
+        "src/server/api/ember/revokeRowan.ts",
+        "src/server/api/ember/sweepLagoon.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/ember/listMesa.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/ember/ordersCobaltCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/ember/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/fjord/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/bramble/BrambleNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58580,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 21968,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 11716,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14645,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "gdpr-api/jargon/small/s3",
+    "family": "gdpr-api",
+    "variant": "jargon",
+    "prompt": "Find the HTTP API handlers implementing data-subject rights under GDPR (consent, erasure, portability, retention).",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/lagoon/bundleOnyx.ts",
+        "src/server/api/lagoon/eraseKelp.ts",
+        "src/server/api/lagoon/grantMesa.ts",
+        "src/server/api/lagoon/revokeMica.ts",
+        "src/server/api/lagoon/sweepRaven.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/lagoon/listComet.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/lagoon/ordersLarchCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/lagoon/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/tundra/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/coral/CoralNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58648,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 21993,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 11729,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14662,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "gdpr-api/precise/small/s1",
+    "family": "gdpr-api",
+    "variant": "precise",
+    "prompt": "Which API handler files implement GDPR operations: consent, erasure, personal-data export or retention?",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/umber/bundleYarrow.ts",
+        "src/server/api/umber/eraseCairn.ts",
+        "src/server/api/umber/grantCobalt.ts",
+        "src/server/api/umber/revokeCoral.ts",
+        "src/server/api/umber/sweepLinden.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/umber/listJasper.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/umber/ordersFernCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/umber/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/mesa/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/garnet/GarnetNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58564,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 21962,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 11712,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14641,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "gdpr-api/vague/small/s2",
+    "family": "gdpr-api",
+    "variant": "vague",
+    "prompt": "what API code does the GDPR work?",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/sorrel/bundleQuill.ts",
+        "src/server/api/sorrel/eraseKestrel.ts",
+        "src/server/api/sorrel/grantAtlas.ts",
+        "src/server/api/sorrel/revokeCanyon.ts",
+        "src/server/api/sorrel/sweepMarble.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/sorrel/listPrism.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/sorrel/ordersVioletCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/sorrel/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/shale/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/summit/SummitNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58472,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 21927,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 11694,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14618,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "gdpr-api/wrong-terms/medium/s1",
+    "family": "gdpr-api",
+    "variant": "wrong-terms",
+    "prompt": "Which GDPR controllers handle consent and erasure requests?",
+    "scope": [
+      "."
+    ],
+    "query": "gdpr",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/umber/bundleZephyr.ts",
+        "src/server/api/umber/eraseCairn.ts",
+        "src/server/api/umber/grantCinder.ts",
+        "src/server/api/umber/revokeCobalt.ts",
+        "src/server/api/umber/sweepLichen.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/gdpr.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/server/api/umber/listIndigo.ts",
+        "reason": "mentions GDPR only in a TODO"
+      },
+      {
+        "path": "src/server/api/umber/ordersEmberCsv.ts",
+        "reason": "an export that is not a personal-data export"
+      },
+      {
+        "path": "src/server/api/umber/privacy.test.ts",
+        "reason": "test of the erasure operation"
+      },
+      {
+        "path": "src/server/marble/subject-ops.ts",
+        "reason": "the privacy service the handlers call (not an API handler)"
+      },
+      {
+        "path": "src/ui/flint/FlintNotice.tsx",
+        "reason": "privacy copy in the UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 58560,
+        "maxTurns": 16,
+        "maxToolCalls": 12,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 21960,
+        "maxTurns": 6,
+        "maxToolCalls": 5,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 11712,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 14640,
+        "turns": 4,
+        "toolCalls": 3,
+        "ms": 15000
+      }
+    }
+  }
+]

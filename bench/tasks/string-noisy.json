@@ -1,0 +1,614 @@
+[
+  {
+    "id": "string-noisy/held-out/medium/s1001",
+    "family": "string-noisy",
+    "variant": "held-out",
+    "prompt": "Find the code that calls the analytics `publish` function.",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "publish"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/prism/prism-flow.ts",
+        "src/core/thorn/thorn-flow.ts",
+        "src/domain/iris/iris-flow.ts",
+        "src/domain/sorrel/sorrel-flow.ts",
+        "src/utils/coral/coral-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/thorn/thorn-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/mica3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/mica1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/core/thorn/thorn-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/geo/mica0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/lib/onyx/analytics.ts",
+        "reason": "defines the call, does not make it"
+      },
+      {
+        "path": "src/models/mica4-publisher.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/styles/mica2.css",
+        "reason": "contains the word but makes no analytics call"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 24156,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 9059,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 4831,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 6039,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "string-noisy/held-out/small/s1000",
+    "family": "string-noisy",
+    "variant": "held-out",
+    "prompt": "Find the code that calls the analytics `track` function.",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "track"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/atlas/atlas-flow.ts",
+        "src/core/nimbus/nimbus-flow.ts",
+        "src/domain/zephyr/zephyr-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/atlas/atlas-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/harbor3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/harbor1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/core/atlas/atlas-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/geo/harbor0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/lib/quartz/analytics.ts",
+        "reason": "defines the call, does not make it"
+      },
+      {
+        "path": "src/models/harbor4-tracker.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/styles/harbor2.css",
+        "reason": "contains the word but makes no analytics call"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 16836,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6314,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3367,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4209,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-noisy/jargon/small/s3",
+    "family": "string-noisy",
+    "variant": "jargon",
+    "prompt": "List the call sites of the imported analytics helper `publish` (not tests, not other functions with the same name).",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "publish"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/reed/reed-flow.ts",
+        "src/domain/bramble/bramble-flow.ts",
+        "src/lib/ridge/ridge-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/ridge/ridge-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/granite3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/granite1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/domain/zinnia/analytics.ts",
+        "reason": "defines the call, does not make it"
+      },
+      {
+        "path": "src/geo/granite0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/lib/ridge/ridge-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/models/granite4-publisher.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/styles/granite2.css",
+        "reason": "contains the word but makes no analytics call"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17020,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6383,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3404,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4255,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-noisy/precise/small/s1",
+    "family": "string-noisy",
+    "variant": "precise",
+    "prompt": "Which source files call the analytics `publish()` function?",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "publish"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/shared/kelp/kelp-flow.ts",
+        "src/shared/spruce/spruce-flow.ts",
+        "src/shared/thorn/thorn-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/spruce/spruce-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/cypress3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/cypress1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/geo/cypress0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/models/cypress4-publisher.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/shared/canyon/analytics.ts",
+        "reason": "defines the call, does not make it"
+      },
+      {
+        "path": "src/shared/spruce/spruce-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/styles/cypress2.css",
+        "reason": "contains the word but makes no analytics call"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 16888,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6333,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3377,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4222,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-noisy/vague/small/s2",
+    "family": "string-noisy",
+    "variant": "vague",
+    "prompt": "who sends analytics events with `publish`?",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "publish"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/kelp/kelp-flow.ts",
+        "src/lib/aspen/aspen-flow.ts",
+        "src/shared/yarrow/yarrow-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/kelp/kelp-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/thorn3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/thorn1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/core/kelp/kelp-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/geo/thorn0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/models/thorn4-publisher.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/styles/thorn2.css",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/utils/lumen/analytics.ts",
+        "reason": "defines the call, does not make it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 16852,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6320,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3370,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4213,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-noisy/wrong-terms/large/s1",
+    "family": "string-noisy",
+    "variant": "wrong-terms",
+    "prompt": "Which modules emit analytics telemetry through `publish`?",
+    "scope": [
+      "."
+    ],
+    "query": "string-noisy",
+    "repo": {
+      "seed": 1,
+      "size": "large"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "publish"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/nimbus/nimbus-flow.ts",
+        "src/core/pine/pine-flow.ts",
+        "src/domain/velvet/velvet-flow.ts",
+        "src/lib/harbor/harbor-flow.ts",
+        "src/shared/fern/fern-flow.ts",
+        "src/shared/orchid/orchid-flow.ts",
+        "src/utils/fjord/fjord-flow.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/velvet/velvet-flow.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/notes/iris3.md",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/content/iris1.json",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/domain/velvet/velvet-flow.test.ts",
+        "reason": "test call"
+      },
+      {
+        "path": "src/geo/iris0-path.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/lib/zephyr/analytics.ts",
+        "reason": "defines the call, does not make it"
+      },
+      {
+        "path": "src/models/iris4-publisher.ts",
+        "reason": "contains the word but makes no analytics call"
+      },
+      {
+        "path": "src/styles/iris2.css",
+        "reason": "contains the word but makes no analytics call"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 46512,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 160000
+      },
+      "target": {
+        "maxTokens": 17442,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 60000
+      },
+      "stretch": {
+        "maxTokens": 9302,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 32000
+      }
+    },
+    "reference": {
+      "description": "One turn: a regex for the import and one for the call, crossed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 11628,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 40000
+      }
+    }
+  }
+]

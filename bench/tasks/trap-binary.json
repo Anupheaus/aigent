@@ -1,0 +1,584 @@
+[
+  {
+    "id": "trap-binary/held-out/medium/s1001",
+    "family": "trap-binary",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `tundramereRankCode` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "tundramereRankCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/atlaswyn/atlaswyn-picker.ts",
+        "src/utils/hazelcrest/hazelcrest-reader.ts",
+        "src/utils/hazelmere/hazelmere-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/juniperstead.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/emberdale-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/fennelstead/fennelstead-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/fennelstead-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/fennelstead/fennelstead-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/hazelmere/fennelstead-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/hazelmere/fennelstead.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14672,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5502,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2934,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3668,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "trap-binary/held-out/small/s1000",
+    "family": "trap-binary",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `lynxfieldTierBand` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "lynxfieldTierBand"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/basilstead/basilstead-picker.ts",
+        "src/shared/cobaltcrest/cobaltcrest-fields.ts",
+        "src/utils/kestrelwyn/kestrelwyn-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/velvetcrest.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/valeford-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/opalfield/opalfield-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/opalfield-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/opalfield/opalfield-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/shared/cobaltcrest/opalfield-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/shared/cobaltcrest/opalfield.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14672,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5502,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2934,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3668,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-binary/jargon/small/s3",
+    "family": "trap-binary",
+    "variant": "jargon",
+    "prompt": "Give me all non-test source references to the identifier `atlasholmGradeCode` (code only, exact identifier).",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "atlasholmGradeCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/mesamere/mesamere-fields.ts",
+        "src/lib/harborcrest/harborcrest-picker.ts",
+        "src/lib/mossbury/mossbury-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/maplebury.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/fennelcrest-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/saffrondale/saffrondale-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/saffrondale-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/mesamere/saffrondale-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/mesamere/saffrondale.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/lib/saffrondale/saffrondale-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14676,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5504,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2935,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3669,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-binary/precise/small/s1",
+    "family": "trap-binary",
+    "variant": "precise",
+    "prompt": "List every source file that uses `cypressfieldRankLevel` in code. Leave out comments, strings, tests, docs and build output.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cypressfieldRankLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/lindenstead/lindenstead-fields.ts",
+        "src/domain/reedfield/reedfield-reader.ts",
+        "src/lib/cedarcrest/cedarcrest-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/zinniastead.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/flintwyn-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/yarrowbury/yarrowbury-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/yarrowbury-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/lindenstead/yarrowbury-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/lindenstead/yarrowbury.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/lib/yarrowbury/yarrowbury-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14756,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5534,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2951,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3689,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-binary/vague/small/s2",
+    "family": "trap-binary",
+    "variant": "vague",
+    "prompt": "where do we actually use `lindensteadMarginBand` in the code?",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "lindensteadMarginBand"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/ambercrest/ambercrest-reader.ts",
+        "src/lib/quillford/quillford-picker.ts",
+        "src/utils/brambledale/brambledale-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/maplefield.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/pebblecrest-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/cedardale/cedardale-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cedardale-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/cedardale/cedardale-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/brambledale/cedardale-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/brambledale/cedardale.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14628,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5486,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2925,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3657,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-binary/wrong-terms/medium/s1",
+    "family": "trap-binary",
+    "variant": "wrong-terms",
+    "prompt": "Which classes read the `cypresscrestRankLevel` column? Only real code, not tests or docs.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-binary",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cypresscrestRankLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/lindenmere/lindenmere-fields.ts",
+        "src/domain/ridgedale/ridgedale-reader.ts",
+        "src/lib/cedarbury/cedarbury-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "assets/zinniastead.png",
+        "reason": "binary file containing the bytes"
+      },
+      {
+        "path": "data/flintwyn-dump.json",
+        "reason": "huge data file mentioning it"
+      },
+      {
+        "path": "dist/yarrowbury/yarrowbury-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/yarrowbury-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/lindenmere/yarrowbury-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/lindenmere/yarrowbury.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/lib/yarrowbury/yarrowbury-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14684,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5507,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2936,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Binary and huge files are skipped.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3671,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

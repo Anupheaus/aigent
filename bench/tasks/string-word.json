@@ -1,0 +1,494 @@
+[
+  {
+    "id": "string-word/held-out/medium/s1001",
+    "family": "string-word",
+    "variant": "held-out",
+    "prompt": "List the files where the exact word `cometFactor` occurs on its own, matching case.",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "cometFactor"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/comet-guide.md",
+        "src/lib/spruce/comet-message.ts",
+        "src/lib/spruce/comet-notes.ts",
+        "src/lib/spruce/comet-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/comet/comet-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/lib/spruce/comet-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/lib/spruce/comet-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13924,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5222,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2784,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3481,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "string-word/held-out/small/s1000",
+    "family": "string-word",
+    "variant": "held-out",
+    "prompt": "List the files where the exact word `quillMargin` occurs on its own, matching case.",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "quillMargin"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/quill-guide.md",
+        "src/lib/sage/quill-message.ts",
+        "src/lib/sage/quill-notes.ts",
+        "src/lib/sage/quill-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/quill/quill-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/lib/sage/quill-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/lib/sage/quill-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13912,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5217,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2782,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3478,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-word/jargon/small/s3",
+    "family": "string-word",
+    "variant": "jargon",
+    "prompt": "Whole-word, case-sensitive matches of `oakGrade` anywhere in our own files.",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "oakGrade"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/oak-guide.md",
+        "src/lib/birch/oak-message.ts",
+        "src/lib/birch/oak-notes.ts",
+        "src/lib/birch/oak-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/oak/oak-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/lib/birch/oak-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/lib/birch/oak-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13868,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5201,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2773,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3467,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-word/precise/small/s1",
+    "family": "string-word",
+    "variant": "precise",
+    "prompt": "Which files contain the exact word `prismBias` (case-sensitive, not part of a longer name)? Include comments and docs; skip build output.",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "prismBias"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/prism-guide.md",
+        "src/shared/shale/prism-message.ts",
+        "src/shared/shale/prism-notes.ts",
+        "src/shared/shale/prism-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/prism/prism-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/shared/shale/prism-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/shared/shale/prism-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14032,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5262,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2806,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3508,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-word/vague/small/s2",
+    "family": "string-word",
+    "variant": "vague",
+    "prompt": "find the exact word `wrenRank`, whole word only",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "wrenRank"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/wren-guide.md",
+        "src/shared/meadow/wren-message.ts",
+        "src/shared/meadow/wren-notes.ts",
+        "src/shared/meadow/wren-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/wren/wren-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/shared/meadow/wren-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/shared/meadow/wren-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13844,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5192,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2768,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3461,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-word/wrong-terms/medium/s1",
+    "family": "string-word",
+    "variant": "wrong-terms",
+    "prompt": "Search for the exact word `mapleFactor` as a token with word boundaries and exact case.",
+    "scope": [
+      "."
+    ],
+    "query": "string-word",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "mapleFactor"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/maple-guide.md",
+        "src/lib/spruce/maple-message.ts",
+        "src/lib/spruce/maple-notes.ts",
+        "src/lib/spruce/maple-rules.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/maple/maple-rules.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/lib/spruce/maple-constants.ts",
+        "reason": "other case"
+      },
+      {
+        "path": "src/lib/spruce/maple-extended.ts",
+        "reason": "longer identifiers"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13932,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5225,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2786,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One whole-word, case-sensitive search; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3483,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

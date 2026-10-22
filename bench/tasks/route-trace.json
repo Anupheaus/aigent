@@ -1,0 +1,494 @@
+[
+  {
+    "id": "route-trace/held-out/medium/s1001",
+    "family": "route-trace",
+    "variant": "held-out",
+    "prompt": "For `GET /api/lagoonwicks/:id`, list the files from the registration to the database call.",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "GET /api/lagoonwicks/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/heroncrest/loadAspenfield.ts",
+        "src/server/data/lagoonmere-repo.ts",
+        "src/server/oakwick-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/loadAspenfield.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63336,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 23751,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 12667,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15834,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "route-trace/held-out/small/s1000",
+    "family": "route-trace",
+    "variant": "held-out",
+    "prompt": "For `GET /api/valesteads/:id`, list the files from the registration to the database call.",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "GET /api/valesteads/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/willowmere/loadQuillwyn.ts",
+        "src/server/data/sprucebury-repo.ts",
+        "src/server/zinniadale-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/loadQuillwyn.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63520,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 23820,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 12704,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15880,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "route-trace/jargon/small/s3",
+    "family": "route-trace",
+    "variant": "jargon",
+    "prompt": "Follow `PATCH /api/zinniameres/:id` from its registration through the handler to the data access call.",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "PATCH /api/zinniameres/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/ospreycrest/updateSagestead.ts",
+        "src/server/data/tamarindholm-repo.ts",
+        "src/server/harborwick-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/updateSagestead.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63740,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 23903,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 12748,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15935,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "route-trace/precise/small/s1",
+    "family": "route-trace",
+    "variant": "precise",
+    "prompt": "Trace the request `PATCH /api/sierrawyns/:id`: which files does it pass through, from where it is registered to the database query?",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "PATCH /api/sierrawyns/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/heronfield/updateHazelholm.ts",
+        "src/server/data/pebbleford-repo.ts",
+        "src/server/larchmere-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/updateHazelholm.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63596,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 23849,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 12719,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15899,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "route-trace/vague/small/s2",
+    "family": "route-trace",
+    "variant": "vague",
+    "prompt": "what code runs for `GET /api/marbledales/:id`?",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "GET /api/marbledales/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/nimbuswick/loadNectarbury.ts",
+        "src/server/data/yarrowcrest-repo.ts",
+        "src/server/kestrelmere-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/loadNectarbury.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63432,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 23787,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 12686,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15858,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "route-trace/wrong-terms/medium/s1",
+    "family": "route-trace",
+    "variant": "wrong-terms",
+    "prompt": "Which controller and SQL file serve `PATCH /api/sierracrests/:id`?",
+    "scope": [
+      "."
+    ],
+    "query": "route-trace",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "PATCH /api/sierracrests/:id"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/server/api/heroncrest/updateHazelholm.ts",
+        "src/server/data/pebbleford-repo.ts",
+        "src/server/larchford-router.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "src/server/legacy/updateHazelholm.ts",
+        "reason": "legacy handler with the same name, not registered"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 63544,
+        "maxTurns": 20,
+        "maxToolCalls": 16,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 23829,
+        "maxTurns": 8,
+        "maxToolCalls": 6,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 12708,
+        "maxTurns": 4,
+        "maxToolCalls": 3,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Find the live registration, then read router, handler and data module in turn.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 3,
+          "purpose": "3 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 3,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 15886,
+        "turns": 5,
+        "toolCalls": 4,
+        "ms": 15000
+      }
+    }
+  }
+]

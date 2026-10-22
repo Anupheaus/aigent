@@ -1,0 +1,692 @@
+[
+  {
+    "id": "string-usage/held-out/medium/s1001",
+    "family": "string-usage",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `meadowTierLevel` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "meadowTierLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/sequoia/sequoia-reader.ts",
+        "src/domain/flint/flint-fields.ts",
+        "src/domain/obsidian/obsidian-picker.ts",
+        "src/domain/saffron/saffron-apply.js",
+        "src/utils/atlas/atlas-reader.ts",
+        "src/utils/raven/raven-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/maple/maple-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/maple-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/maple.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/maple/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/domain/flint/__snapshots__/maple.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/domain/flint/maple-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/flint/maple.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/domain/maple/maple-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/lib/maple/maple-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "src/utils/maple/maple-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "vendor/maple.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15604,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5852,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 3120,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3901,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "string-usage/held-out/small/s1000",
+    "family": "string-usage",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `reedFactorLevel` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "reedFactorLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/juniper/juniper-fields.ts",
+        "src/domain/sierra/sierra-picker.ts",
+        "src/utils/amber/amber-reader.ts",
+        "src/utils/sorrel/sorrel-apply.js"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/meadow/meadow-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/meadow-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/meadow.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/meadow/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/core/meadow/meadow-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "src/domain/juniper/__snapshots__/meadow.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/domain/juniper/meadow-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/juniper/meadow.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/lib/meadow/meadow-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/meadow/meadow-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "vendor/meadow.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15120,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5670,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3024,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3780,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-usage/jargon/small/s3",
+    "family": "string-usage",
+    "variant": "jargon",
+    "prompt": "Give me all non-test source references to the identifier `prismOffsetCode` (code only, exact identifier).",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "prismOffsetCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/harbor/harbor-apply.js",
+        "src/utils/canyon/canyon-picker.ts",
+        "src/utils/rowan/rowan-reader.ts",
+        "src/utils/sequoia/sequoia-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/marble/marble-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/marble-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/marble.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/marble/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/domain/marble/marble-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "src/lib/marble/marble-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "src/shared/marble/marble-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/sequoia/__snapshots__/marble.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/utils/sequoia/marble-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/sequoia/marble.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "vendor/marble.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15136,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5676,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3027,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3784,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-usage/precise/small/s1",
+    "family": "string-usage",
+    "variant": "precise",
+    "prompt": "List every source file that uses `micaWeightCode` in code. Leave out comments, strings, tests, docs and build output.",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "micaWeightCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/wren/wren-picker.ts",
+        "src/shared/amber/amber-apply.js",
+        "src/shared/meadow/meadow-reader.ts",
+        "src/utils/ridge/ridge-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/onyx/onyx-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/onyx-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/onyx.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/onyx/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/core/onyx/onyx-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "src/domain/onyx/onyx-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "src/shared/onyx/onyx-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/ridge/__snapshots__/onyx.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/utils/ridge/onyx-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/ridge/onyx.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "vendor/onyx.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15112,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5667,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3022,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3778,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-usage/vague/small/s2",
+    "family": "string-usage",
+    "variant": "vague",
+    "prompt": "where do we actually use `birchMarginCode` in the code?",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "birchMarginCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/umber/umber-fields.ts",
+        "src/lib/oak/oak-apply.js",
+        "src/shared/jasper/jasper-reader.ts",
+        "src/shared/reed/reed-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/orchid/orchid-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/orchid-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/orchid.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/orchid/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/core/orchid/orchid-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/core/umber/__snapshots__/orchid.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/core/umber/orchid-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/umber/orchid.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/domain/orchid/orchid-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "src/utils/orchid/orchid-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "vendor/orchid.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15008,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5628,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3001,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3752,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-usage/wrong-terms/large/s1",
+    "family": "string-usage",
+    "variant": "wrong-terms",
+    "prompt": "Which classes read the `micaWeightCode` column? Only real code, not tests or docs.",
+    "scope": [
+      "."
+    ],
+    "query": "string-usage",
+    "repo": {
+      "seed": 1,
+      "size": "large"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "micaWeightCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/onyx/onyx-fields.ts",
+        "src/core/wren/wren-picker.ts",
+        "src/domain/moss/moss-reader.ts",
+        "src/shared/amber/amber-apply.js",
+        "src/shared/juniper/juniper-apply.js",
+        "src/shared/meadow/meadow-reader.ts",
+        "src/shared/nectar/nectar-picker.ts",
+        "src/utils/ridge/ridge-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/oak/oak-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/oak-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "migrations/oak.sql",
+        "reason": "snake_case spelling"
+      },
+      {
+        "path": "packages/oak/yarn.lock",
+        "reason": "lockfile"
+      },
+      {
+        "path": "src/domain/oak/oak-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/domain/oak/oak-types.ts",
+        "reason": "PascalCase spelling"
+      },
+      {
+        "path": "src/shared/oak/oak-log.ts",
+        "reason": "inside a string literal only"
+      },
+      {
+        "path": "src/utils/ridge/__snapshots__/oak.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/utils/ridge/oak-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/ridge/oak.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "vendor/oak.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15952,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 160000
+      },
+      "target": {
+        "maxTokens": 5982,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 60000
+      },
+      "stretch": {
+        "maxTokens": 3190,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 32000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3988,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 40000
+      }
+    }
+  }
+]

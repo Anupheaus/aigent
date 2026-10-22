@@ -1,0 +1,529 @@
+[
+  {
+    "id": "ui-customer/held-out/medium/s1001",
+    "family": "ui-customer",
+    "variant": "held-out",
+    "prompt": "Where does the UI show a customer's personal information?",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/aspen/AspenFrame.tsx",
+        "src/ui/lynx/LynxDrawer.tsx",
+        "src/ui/mesa/MesaStrip.tsx",
+        "src/ui/rowan/RowanBanner.tsx",
+        "src/ui/sierra/SierraPlaque.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/zinnia/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/FernTotals.tsx",
+        "reason": "UI without personal data"
+      },
+      {
+        "path": "src/ui/granite/GraniteList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      },
+      {
+        "path": "src/ui/yarrow/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/yarrow/entities.ts",
+        "reason": "type and formatter, not UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14252,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5345,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2850,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3563,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "ui-customer/held-out/small/s1000",
+    "family": "ui-customer",
+    "variant": "held-out",
+    "prompt": "Where does the UI show a customer's personal information?",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/comet/CometToolbar.tsx",
+        "src/ui/opal/OpalFrame.tsx",
+        "src/ui/saffron/SaffronBanner.tsx",
+        "src/ui/summit/SummitToolbar.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/willow/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/kelp/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/kelp/entities.ts",
+        "reason": "type and formatter, not UI"
+      },
+      {
+        "path": "src/ui/OrchidTotals.tsx",
+        "reason": "UI without personal data"
+      },
+      {
+        "path": "src/ui/vale/ValeList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14084,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5282,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2816,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3521,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ui-customer/jargon/small/s3",
+    "family": "ui-customer",
+    "variant": "jargon",
+    "prompt": "Find the UI components that render customer PII fields.",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/pine/PineStrip.tsx",
+        "src/ui/saffron/SaffronBanner.tsx",
+        "src/ui/velvet/VelvetBadge.tsx",
+        "src/ui/violet/VioletFrame.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/lynx/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/CloverTotals.tsx",
+        "reason": "UI without personal data"
+      },
+      {
+        "path": "src/ui/glacier/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/glacier/entities.ts",
+        "reason": "type and formatter, not UI"
+      },
+      {
+        "path": "src/ui/kestrel/KestrelList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14064,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5274,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2812,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3516,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ui-customer/precise/small/s1",
+    "family": "ui-customer",
+    "variant": "precise",
+    "prompt": "Which UI components display customer personal data (names, emails, phone numbers, postal addresses or dates of birth)?",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/atlas/AtlasBanner.tsx",
+        "src/ui/cinder/CinderPlaque.tsx",
+        "src/ui/glacier/GlacierPanel.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/clover/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/EmberTotals.tsx",
+        "reason": "UI without personal data"
+      },
+      {
+        "path": "src/ui/fennel/FennelList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      },
+      {
+        "path": "src/ui/quill/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/quill/entities.ts",
+        "reason": "type and formatter, not UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13952,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5232,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2790,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3488,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ui-customer/vague/small/s2",
+    "family": "ui-customer",
+    "variant": "vague",
+    "prompt": "which screens show customer details?",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/glacier/GlacierStrip.tsx",
+        "src/ui/heron/HeronTile.tsx",
+        "src/ui/osprey/OspreyStrip.tsx",
+        "src/ui/rowan/RowanPlaque.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/maple/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/garnet/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/garnet/entities.ts",
+        "reason": "type and formatter, not UI"
+      },
+      {
+        "path": "src/ui/iris/IrisList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      },
+      {
+        "path": "src/ui/SpruceTotals.tsx",
+        "reason": "UI without personal data"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14024,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5259,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2804,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3506,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ui-customer/wrong-terms/medium/s1",
+    "family": "ui-customer",
+    "variant": "wrong-terms",
+    "prompt": "Which pages print the customer record on screen (email, phone, name, birth date)?",
+    "scope": [
+      "."
+    ],
+    "query": "ui-customer",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/atlas/AtlasBanner.tsx",
+        "src/ui/canyon/CanyonPlaque.tsx",
+        "src/ui/fjord/FjordPanel.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/cedar/formatCustomerName.ts",
+        "reason": "formats names, renders nothing"
+      },
+      {
+        "path": "src/ui/CometTotals.tsx",
+        "reason": "UI without personal data"
+      },
+      {
+        "path": "src/ui/cypress/CypressList.tsx",
+        "reason": "keys by customer id, shows no personal data"
+      },
+      {
+        "path": "src/ui/reed/entities.test.tsx",
+        "reason": "test rendering customer data"
+      },
+      {
+        "path": "src/ui/reed/entities.ts",
+        "reason": "type and formatter, not UI"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13872,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5202,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2774,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One regex search for JSX reading a personal-data field in .tsx files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3468,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

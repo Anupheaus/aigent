@@ -20,7 +20,7 @@ const PII_VIEWS: readonly string[][] = [
  */
 export function plantUiCustomer(ctx: PlantContext): void {
   const typeDir = `src/ui/${ctx.freshWord()}`;
-  const typeFile = `${typeDir}/person.ts`;
+  const typeFile = `${typeDir}/entities.ts`;
   ctx.add({
     path: typeFile,
     content: lines('export interface Person {', '  id: string;', '  fullName: string;', '  email: string;', '  phone: string;', '  address: string;', '  dateOfBirth: string;', '}', '', 'export function formatPostal(address: string): string {', "  return address.split(',').map(part => part.trim()).join('\\n');", '}'),
@@ -51,5 +51,5 @@ export function plantUiCustomer(ctx: PlantContext): void {
   const formatterPath = `src/lib/${ctx.freshWord()}/formatCustomerName.ts`;
   ctx.add({ path: formatterPath, content: lines('export function formatCustomerName(first: string, last: string): string {', '  return `${last.toUpperCase()}, ${first}`;', '}'), item: { kind: 'decoy', reason: 'formats names, renders nothing', decoyFor: [QUERY] } });
   ctx.publicExport({ names: ['formatCustomerName'], file: formatterPath });
-  ctx.add({ path: `${typeDir}/person.test.tsx`, content: componentTest({ name: list, module: relativeImport({ from: `${typeDir}/person.test.tsx`, to: listPath }).replace(/^\.\//, ''), args: "people={[{ id: '1', fullName: 'Ada', email: 'ada@example.com', phone: '1', address: 'x', dateOfBirth: '1990-01-01' }]} labels={{}}" }), item: { kind: 'decoy', reason: 'test rendering customer data', decoyFor: [QUERY] } });
+  ctx.add({ path: `${typeDir}/entities.test.tsx`, content: componentTest({ name: list, module: relativeImport({ from: `${typeDir}/entities.test.tsx`, to: listPath }).replace(/^\.\//, ''), args: "people={[{ id: '1', fullName: 'Ada', email: 'ada@example.com', phone: '1', address: 'x', dateOfBirth: '1990-01-01' }]} labels={{}}" }), item: { kind: 'decoy', reason: 'test rendering customer data', decoyFor: [QUERY] } });
 }

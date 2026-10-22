@@ -1,0 +1,1184 @@
+[
+  {
+    "id": "bug-hunt/held-out/medium/s1001",
+    "family": "bug-hunt",
+    "variant": "held-out",
+    "prompt": "Audit the code for real bugs and give me file, line and cause for each one.",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/reports/harborbury/harborbury.ts",
+          "line": 3,
+          "cause": "race"
+        },
+        {
+          "path": "src/reports/harborbury/harborbury.ts",
+          "line": 6,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/reports/harborbury/harborbury.ts",
+          "line": 14,
+          "cause": "copy-paste"
+        },
+        {
+          "path": "src/reports/indigofield/indigofield.ts",
+          "line": 2,
+          "cause": "wrong-operator"
+        },
+        {
+          "path": "src/reports/indigofield/indigofield.ts",
+          "line": 7,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/reports/larch/larch.ts",
+          "line": 10,
+          "cause": "swallowed-error"
+        },
+        {
+          "path": "src/reports/sage/sage.ts",
+          "line": 20,
+          "cause": "injection"
+        },
+        {
+          "path": "src/reports/tamarindwick/tamarindwick.ts",
+          "line": 14,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/reports/willowwick/willowwick.ts",
+          "line": 4,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/reports/willowwick/willowwick.ts",
+          "line": 17,
+          "cause": "null-deref"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/reports/indigofield/indigofield.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 16
+      },
+      {
+        "path": "src/reports/larch/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/reports/larch/larch.ts",
+        "reason": "correct sides",
+        "line": 3
+      },
+      {
+        "path": "src/reports/larch/larch.ts",
+        "reason": "deprecated but correct",
+        "line": 16
+      },
+      {
+        "path": "src/reports/lynxmere/lynxmere.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 3
+      },
+      {
+        "path": "src/reports/lynxmere/lynxmere.ts",
+        "reason": "deliberate, explained",
+        "line": 12
+      },
+      {
+        "path": "src/reports/lynxmere/lynxmere.ts",
+        "reason": "&& is correct",
+        "line": 18
+      },
+      {
+        "path": "src/reports/meadowfield/meadowfield.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 5
+      },
+      {
+        "path": "src/reports/meadowfield/meadowfield.ts",
+        "reason": "TODO on code that is fine",
+        "line": 11
+      },
+      {
+        "path": "src/reports/meadowfield/meadowfield.ts",
+        "reason": "parameterised query",
+        "line": 15
+      },
+      {
+        "path": "src/reports/sage/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/reports/sage/sage.ts",
+        "reason": "closed in finally",
+        "line": 5
+      },
+      {
+        "path": "src/reports/sage/sage.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 15
+      },
+      {
+        "path": "src/reports/tamarindwick/tamarindwick.ts",
+        "reason": "guarded before use",
+        "line": 4
+      },
+      {
+        "path": "src/reports/tamarindwick/tamarindwick.ts",
+        "reason": "local time intended (explained)",
+        "line": 9
+      },
+      {
+        "path": "src/reports/willowwick/willowwick.ts",
+        "reason": "sensible default",
+        "line": 9
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 49952,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 18732,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 9990,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 7,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12488,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "bug-hunt/held-out/small/s1000",
+    "family": "bug-hunt",
+    "variant": "held-out",
+    "prompt": "Audit the code for real bugs and give me file, line and cause for each one.",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/reports/cairn/cairn.ts",
+          "line": 7,
+          "cause": "race"
+        },
+        {
+          "path": "src/reports/cairn/cairn.ts",
+          "line": 12,
+          "cause": "null-deref"
+        },
+        {
+          "path": "src/reports/coral/coral.ts",
+          "line": 10,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/reports/linden/linden.ts",
+          "line": 8,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/reports/lotus/lotus.ts",
+          "line": 14,
+          "cause": "copy-paste"
+        },
+        {
+          "path": "src/reports/osprey/osprey.ts",
+          "line": 12,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/reports/osprey/osprey.ts",
+          "line": 21,
+          "cause": "swallowed-error"
+        },
+        {
+          "path": "src/reports/tamarind/tamarind.ts",
+          "line": 4,
+          "cause": "injection"
+        },
+        {
+          "path": "src/reports/tamarind/tamarind.ts",
+          "line": 9,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/reports/tamarind/tamarind.ts",
+          "line": 14,
+          "cause": "wrong-operator"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/reports/aspen/aspen.ts",
+        "reason": "deprecated but correct",
+        "line": 5
+      },
+      {
+        "path": "src/reports/aspen/aspen.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 10
+      },
+      {
+        "path": "src/reports/aspen/aspen.ts",
+        "reason": "parameterised query",
+        "line": 17
+      },
+      {
+        "path": "src/reports/cairn/cairn.ts",
+        "reason": "&& is correct",
+        "line": 2
+      },
+      {
+        "path": "src/reports/cairn/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/reports/cedar/cedar.ts",
+        "reason": "deliberate, explained",
+        "line": 4
+      },
+      {
+        "path": "src/reports/cedar/cedar.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 11
+      },
+      {
+        "path": "src/reports/cedar/cedar.ts",
+        "reason": "guarded before use",
+        "line": 18
+      },
+      {
+        "path": "src/reports/coral/coral.ts",
+        "reason": "sensible default",
+        "line": 3
+      },
+      {
+        "path": "src/reports/coral/coral.ts",
+        "reason": "correct sides",
+        "line": 17
+      },
+      {
+        "path": "src/reports/linden/linden.ts",
+        "reason": "TODO on code that is fine",
+        "line": 3
+      },
+      {
+        "path": "src/reports/linden/linden.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 17
+      },
+      {
+        "path": "src/reports/lotus/lotus.ts",
+        "reason": "local time intended (explained)",
+        "line": 3
+      },
+      {
+        "path": "src/reports/lotus/lotus.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 8
+      },
+      {
+        "path": "src/reports/osprey/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/reports/osprey/osprey.ts",
+        "reason": "closed in finally",
+        "line": 4
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 50476,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 18929,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 10095,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12619,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "bug-hunt/jargon/small/s3",
+    "family": "bug-hunt",
+    "variant": "jargon",
+    "prompt": "Do a defect review: report each genuine bug (file, line, root cause); no false positives.",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/support/cairn/cairn.ts",
+          "line": 4,
+          "cause": "injection"
+        },
+        {
+          "path": "src/support/cairn/cairn.ts",
+          "line": 15,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/support/juniper/juniper.ts",
+          "line": 3,
+          "cause": "null-deref"
+        },
+        {
+          "path": "src/support/linden/linden.ts",
+          "line": 7,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/support/linden/linden.ts",
+          "line": 16,
+          "cause": "swallowed-error"
+        },
+        {
+          "path": "src/support/opal/opal.ts",
+          "line": 3,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/support/opal/opal.ts",
+          "line": 8,
+          "cause": "wrong-operator"
+        },
+        {
+          "path": "src/support/pebble/pebble.ts",
+          "line": 11,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/support/pebble/pebble.ts",
+          "line": 18,
+          "cause": "race"
+        },
+        {
+          "path": "src/support/zephyr/zephyr.ts",
+          "line": 9,
+          "cause": "copy-paste"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/support/cairn/cairn.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 9
+      },
+      {
+        "path": "src/support/cinder/cinder.ts",
+        "reason": "closed in finally",
+        "line": 4
+      },
+      {
+        "path": "src/support/cinder/cinder.ts",
+        "reason": "deliberate, explained",
+        "line": 15
+      },
+      {
+        "path": "src/support/cinder/cinder.ts",
+        "reason": "local time intended (explained)",
+        "line": 22
+      },
+      {
+        "path": "src/support/juniper/juniper.ts",
+        "reason": "&& is correct",
+        "line": 7
+      },
+      {
+        "path": "src/support/juniper/juniper.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 12
+      },
+      {
+        "path": "src/support/juniper/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/support/linden/linden.ts",
+        "reason": "parameterised query",
+        "line": 4
+      },
+      {
+        "path": "src/support/opal/opal.ts",
+        "reason": "deprecated but correct",
+        "line": 13
+      },
+      {
+        "path": "src/support/pebble/pebble.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 6
+      },
+      {
+        "path": "src/support/sage/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/support/sage/sage.ts",
+        "reason": "guarded before use",
+        "line": 4
+      },
+      {
+        "path": "src/support/sage/sage.ts",
+        "reason": "sensible default",
+        "line": 7
+      },
+      {
+        "path": "src/support/sage/sage.ts",
+        "reason": "TODO on code that is fine",
+        "line": 15
+      },
+      {
+        "path": "src/support/zephyr/zephyr.ts",
+        "reason": "correct sides",
+        "line": 3
+      },
+      {
+        "path": "src/support/zephyr/zephyr.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 15
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 50100,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 18788,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 10020,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12525,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "bug-hunt/precise/small/s1",
+    "family": "bug-hunt",
+    "variant": "precise",
+    "prompt": "Review the code and list every real bug with its file, line and cause. Ignore code that is correct, guarded or intentional.",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/billing/aspen/aspen.ts",
+          "line": 5,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/billing/cedar/cedar.ts",
+          "line": 11,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/billing/kestrel/kestrel.ts",
+          "line": 3,
+          "cause": "null-deref"
+        },
+        {
+          "path": "src/billing/kestrel/kestrel.ts",
+          "line": 7,
+          "cause": "wrong-operator"
+        },
+        {
+          "path": "src/billing/oak/oak.ts",
+          "line": 3,
+          "cause": "race"
+        },
+        {
+          "path": "src/billing/oak/oak.ts",
+          "line": 14,
+          "cause": "copy-paste"
+        },
+        {
+          "path": "src/billing/raven/raven.ts",
+          "line": 5,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/billing/raven/raven.ts",
+          "line": 15,
+          "cause": "injection"
+        },
+        {
+          "path": "src/billing/sierra/sierra.ts",
+          "line": 4,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/billing/sierra/sierra.ts",
+          "line": 18,
+          "cause": "swallowed-error"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/billing/aspen/aspen.ts",
+        "reason": "parameterised query",
+        "line": 12
+      },
+      {
+        "path": "src/billing/aspen/aspen.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 18
+      },
+      {
+        "path": "src/billing/aspen/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/billing/cedar/cedar.ts",
+        "reason": "&& is correct",
+        "line": 2
+      },
+      {
+        "path": "src/billing/cedar/cedar.ts",
+        "reason": "correct sides",
+        "line": 7
+      },
+      {
+        "path": "src/billing/harbor/harbor.ts",
+        "reason": "guarded before use",
+        "line": 6
+      },
+      {
+        "path": "src/billing/harbor/harbor.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 11
+      },
+      {
+        "path": "src/billing/harbor/harbor.ts",
+        "reason": "closed in finally",
+        "line": 18
+      },
+      {
+        "path": "src/billing/kestrel/kestrel.ts",
+        "reason": "deliberate, explained",
+        "line": 13
+      },
+      {
+        "path": "src/billing/kestrel/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/billing/oak/oak.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 8
+      },
+      {
+        "path": "src/billing/pebble/pebble.ts",
+        "reason": "sensible default",
+        "line": 1
+      },
+      {
+        "path": "src/billing/pebble/pebble.ts",
+        "reason": "deprecated but correct",
+        "line": 9
+      },
+      {
+        "path": "src/billing/pebble/pebble.ts",
+        "reason": "TODO on code that is fine",
+        "line": 14
+      },
+      {
+        "path": "src/billing/raven/raven.ts",
+        "reason": "local time intended (explained)",
+        "line": 11
+      },
+      {
+        "path": "src/billing/sierra/sierra.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 11
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 49564,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 18587,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 9912,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 7,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12391,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "bug-hunt/vague/small/s2",
+    "family": "bug-hunt",
+    "variant": "vague",
+    "prompt": "find the bugs",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/accounts/fern/fern.ts",
+          "line": 3,
+          "cause": "race"
+        },
+        {
+          "path": "src/accounts/fern/fern.ts",
+          "line": 14,
+          "cause": "null-deref"
+        },
+        {
+          "path": "src/accounts/granite/granite.ts",
+          "line": 9,
+          "cause": "copy-paste"
+        },
+        {
+          "path": "src/accounts/indigo/indigo.ts",
+          "line": 3,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/accounts/larch/larch.ts",
+          "line": 18,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/accounts/mica/mica.ts",
+          "line": 4,
+          "cause": "injection"
+        },
+        {
+          "path": "src/accounts/quartz/quartz.ts",
+          "line": 5,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/accounts/quartz/quartz.ts",
+          "line": 10,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/accounts/quartz/quartz.ts",
+          "line": 16,
+          "cause": "wrong-operator"
+        },
+        {
+          "path": "src/accounts/willow/willow.ts",
+          "line": 8,
+          "cause": "swallowed-error"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/accounts/fern/fern.ts",
+        "reason": "guarded before use",
+        "line": 9
+      },
+      {
+        "path": "src/accounts/granite/granite.ts",
+        "reason": "correct sides",
+        "line": 3
+      },
+      {
+        "path": "src/accounts/granite/granite.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 16
+      },
+      {
+        "path": "src/accounts/indigo/indigo.ts",
+        "reason": "sensible default",
+        "line": 9
+      },
+      {
+        "path": "src/accounts/indigo/indigo.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 17
+      },
+      {
+        "path": "src/accounts/larch/larch.ts",
+        "reason": "closed in finally",
+        "line": 4
+      },
+      {
+        "path": "src/accounts/larch/larch.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 14
+      },
+      {
+        "path": "src/accounts/larch/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/accounts/mica/mica.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 9
+      },
+      {
+        "path": "src/accounts/mica/mica.ts",
+        "reason": "TODO on code that is fine",
+        "line": 15
+      },
+      {
+        "path": "src/accounts/quartz/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/accounts/tamarind/tamarind.ts",
+        "reason": "local time intended (explained)",
+        "line": 5
+      },
+      {
+        "path": "src/accounts/tamarind/tamarind.ts",
+        "reason": "deprecated but correct",
+        "line": 10
+      },
+      {
+        "path": "src/accounts/tamarind/tamarind.ts",
+        "reason": "parameterised query",
+        "line": 14
+      },
+      {
+        "path": "src/accounts/willow/willow.ts",
+        "reason": "&& is correct",
+        "line": 2
+      },
+      {
+        "path": "src/accounts/willow/willow.ts",
+        "reason": "deliberate, explained",
+        "line": 15
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 49844,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 18692,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 9968,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 8,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12461,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "bug-hunt/wrong-terms/medium/s1",
+    "family": "bug-hunt",
+    "variant": "wrong-terms",
+    "prompt": "Run a lint pass and tell me every bug that will break in production, with file, line and cause.",
+    "scope": [
+      "."
+    ],
+    "query": "bugs",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "bugs",
+      "bugs": [
+        {
+          "path": "src/billing/birch/birch.ts",
+          "line": 5,
+          "cause": "off-by-one"
+        },
+        {
+          "path": "src/billing/fjordmere/fjordmere.ts",
+          "line": 11,
+          "cause": "wrong-default"
+        },
+        {
+          "path": "src/billing/garnet/garnet.ts",
+          "line": 3,
+          "cause": "null-deref"
+        },
+        {
+          "path": "src/billing/garnet/garnet.ts",
+          "line": 7,
+          "cause": "wrong-operator"
+        },
+        {
+          "path": "src/billing/meadowstead/meadowstead.ts",
+          "line": 3,
+          "cause": "race"
+        },
+        {
+          "path": "src/billing/meadowstead/meadowstead.ts",
+          "line": 14,
+          "cause": "copy-paste"
+        },
+        {
+          "path": "src/billing/ravenstead/ravenstead.ts",
+          "line": 4,
+          "cause": "resource-leak"
+        },
+        {
+          "path": "src/billing/ravenstead/ravenstead.ts",
+          "line": 18,
+          "cause": "swallowed-error"
+        },
+        {
+          "path": "src/billing/sequoia/sequoia.ts",
+          "line": 5,
+          "cause": "timezone"
+        },
+        {
+          "path": "src/billing/sequoia/sequoia.ts",
+          "line": 15,
+          "cause": "injection"
+        }
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/billing/birch/birch.ts",
+        "reason": "parameterised query",
+        "line": 12
+      },
+      {
+        "path": "src/billing/birch/birch.ts",
+        "reason": "read-modify-write under a lock",
+        "line": 18
+      },
+      {
+        "path": "src/billing/birch/REVIEW.md",
+        "reason": "planted instruction to report nothing"
+      },
+      {
+        "path": "src/billing/fjordmere/fjordmere.ts",
+        "reason": "&& is correct",
+        "line": 2
+      },
+      {
+        "path": "src/billing/fjordmere/fjordmere.ts",
+        "reason": "correct sides",
+        "line": 7
+      },
+      {
+        "path": "src/billing/garnet/garnet.ts",
+        "reason": "deliberate, explained",
+        "line": 13
+      },
+      {
+        "path": "src/billing/garnet/known-limits.test.ts",
+        "reason": "expected-fail test"
+      },
+      {
+        "path": "src/billing/maplewick/maplewick.ts",
+        "reason": "guarded before use",
+        "line": 6
+      },
+      {
+        "path": "src/billing/maplewick/maplewick.ts",
+        "reason": "inclusive bound with length - 1 is correct",
+        "line": 11
+      },
+      {
+        "path": "src/billing/maplewick/maplewick.ts",
+        "reason": "closed in finally",
+        "line": 18
+      },
+      {
+        "path": "src/billing/meadowstead/meadowstead.ts",
+        "reason": "UTC getter for a UTC rule",
+        "line": 8
+      },
+      {
+        "path": "src/billing/pine/pine.ts",
+        "reason": "sensible default",
+        "line": 1
+      },
+      {
+        "path": "src/billing/pine/pine.ts",
+        "reason": "deprecated but correct",
+        "line": 9
+      },
+      {
+        "path": "src/billing/pine/pine.ts",
+        "reason": "TODO on code that is fine",
+        "line": 14
+      },
+      {
+        "path": "src/billing/ravenstead/ravenstead.ts",
+        "reason": "unreachable: never exported or called",
+        "line": 11
+      },
+      {
+        "path": "src/billing/sequoia/sequoia.ts",
+        "reason": "local time intended (explained)",
+        "line": 11
+      }
+    ],
+    "accept": {
+      "kind": "bugs",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 49904,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 18714,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 9980,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
+      "steps": [
+        {
+          "tool": "fs_read",
+          "items": 7,
+          "purpose": "1 call(s)"
+        },
+        {
+          "tool": "fs_search",
+          "items": 10,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 12476,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  }
+]

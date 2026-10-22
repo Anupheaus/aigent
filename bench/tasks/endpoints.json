@@ -1,0 +1,662 @@
+[
+  {
+    "id": "endpoints/held-out/medium/s1001",
+    "family": "endpoints",
+    "variant": "held-out",
+    "prompt": "Which method and path pairs does the running API answer?",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/juniper/:id/erase",
+        "DELETE /api/juniper/:id/revoke",
+        "GET /api/juniper/:id",
+        "GET /api/juniper/:id/bundle",
+        "GET /api/juniper/orders.csv",
+        "GET /api/lagoonwicks",
+        "GET /api/lagoonwicks/:id",
+        "GET /api/sorrelfords",
+        "GET /api/sorrelfords/:id",
+        "PATCH /api/lagoonwicks/:id",
+        "PATCH /api/sorrelfords/:id",
+        "POST /api/juniper/:id/grant",
+        "POST /api/juniper/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/lagoonwicks/:id/legacy",
+        "GET /api/lagoonwicks/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/lagoonwicks/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/lagoonwicks/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17804,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 6677,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 3560,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4451,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "endpoints/held-out/small/s1000",
+    "family": "endpoints",
+    "variant": "held-out",
+    "prompt": "Which method and path pairs does the running API answer?",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/heron/:id/erase",
+        "DELETE /api/heron/:id/revoke",
+        "GET /api/heron/:id",
+        "GET /api/heron/:id/bundle",
+        "GET /api/heron/orders.csv",
+        "GET /api/juniperdales",
+        "GET /api/juniperdales/:id",
+        "GET /api/valesteads",
+        "GET /api/valesteads/:id",
+        "PATCH /api/juniperdales/:id",
+        "PATCH /api/valesteads/:id",
+        "POST /api/heron/:id/grant",
+        "POST /api/heron/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/valesteads/:id/legacy",
+        "GET /api/valesteads/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/valesteads/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/valesteads/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17808,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6678,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3561,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4452,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "endpoints/jargon/small/s3",
+    "family": "endpoints",
+    "variant": "jargon",
+    "prompt": "Enumerate the mounted HTTP API surface: each method and path that is actually served.",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/lotus/:id/erase",
+        "DELETE /api/lotus/:id/revoke",
+        "GET /api/cometfords",
+        "GET /api/cometfords/:id",
+        "GET /api/lotus/:id",
+        "GET /api/lotus/:id/bundle",
+        "GET /api/lotus/orders.csv",
+        "GET /api/zinniameres",
+        "GET /api/zinniameres/:id",
+        "PATCH /api/cometfords/:id",
+        "PATCH /api/zinniameres/:id",
+        "POST /api/lotus/:id/grant",
+        "POST /api/lotus/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/zinniameres/:id/legacy",
+        "GET /api/zinniameres/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/zinniameres/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/zinniameres/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17884,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6707,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3576,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4471,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "endpoints/precise/small/s1",
+    "family": "endpoints",
+    "variant": "precise",
+    "prompt": "List every live HTTP endpoint of the API with its method, one per line like GET /path.",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/larch/:id/erase",
+        "DELETE /api/larch/:id/revoke",
+        "GET /api/larch/:id",
+        "GET /api/larch/:id/bundle",
+        "GET /api/larch/orders.csv",
+        "GET /api/lichenfields",
+        "GET /api/lichenfields/:id",
+        "GET /api/sierrawyns",
+        "GET /api/sierrawyns/:id",
+        "PATCH /api/lichenfields/:id",
+        "PATCH /api/sierrawyns/:id",
+        "POST /api/larch/:id/grant",
+        "POST /api/larch/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/sierrawyns/:id/legacy",
+        "GET /api/sierrawyns/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/sierrawyns/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/sierrawyns/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17848,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6693,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3569,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4462,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "endpoints/vague/small/s2",
+    "family": "endpoints",
+    "variant": "vague",
+    "prompt": "what endpoints does the API have?",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/raven/:id/erase",
+        "DELETE /api/raven/:id/revoke",
+        "GET /api/marbledales",
+        "GET /api/marbledales/:id",
+        "GET /api/raven/:id",
+        "GET /api/raven/:id/bundle",
+        "GET /api/raven/orders.csv",
+        "GET /api/sagesteads",
+        "GET /api/sagesteads/:id",
+        "PATCH /api/marbledales/:id",
+        "PATCH /api/sagesteads/:id",
+        "POST /api/raven/:id/grant",
+        "POST /api/raven/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/marbledales/:id/legacy",
+        "GET /api/marbledales/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/marbledales/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/marbledales/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17776,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 6666,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3555,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4444,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "endpoints/wrong-terms/medium/s1",
+    "family": "endpoints",
+    "variant": "wrong-terms",
+    "prompt": "List all the REST URLs the backend serves, with their verbs.",
+    "scope": [
+      "."
+    ],
+    "query": "endpoints",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "criteria",
+      "itemKind": "endpoint",
+      "required": [
+        "DELETE /api/kestrel/:id/erase",
+        "DELETE /api/kestrel/:id/revoke",
+        "GET /api/kestrel/:id",
+        "GET /api/kestrel/:id/bundle",
+        "GET /api/kestrel/orders.csv",
+        "GET /api/lichenburys",
+        "GET /api/lichenburys/:id",
+        "GET /api/sierracrests",
+        "GET /api/sierracrests/:id",
+        "PATCH /api/lichenburys/:id",
+        "PATCH /api/sierracrests/:id",
+        "POST /api/kestrel/:id/grant",
+        "POST /api/kestrel/:id/sweep"
+      ],
+      "forbidden": [
+        "DELETE /api/sierracrests/:id/legacy",
+        "GET /api/sierracrests/:id/archive",
+        "POST /api/test-only"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/api.md",
+        "reason": "docs listing a retired endpoint"
+      },
+      {
+        "path": "src/server/api/routes.test.ts",
+        "reason": "route registered only in a test"
+      },
+      {
+        "path": "src/server/legacy/legacy-router.ts",
+        "reason": "router that is never mounted"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "DELETE /api/sierracrests/:id/legacy"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "GET /api/sierracrests/:id/archive"
+      },
+      {
+        "path": "",
+        "reason": "listed but not a correct item",
+        "item": "POST /api/test-only"
+      }
+    ],
+    "accept": {
+      "kind": "criteria",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 17852,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 6695,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 3570,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4463,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

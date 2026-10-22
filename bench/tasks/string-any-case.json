@@ -1,0 +1,512 @@
+[
+  {
+    "id": "string-any-case/held-out/medium/s1001",
+    "family": "string-any-case",
+    "variant": "held-out",
+    "prompt": "Which files refer to `valeWeightScore` in any spelling (snake, kebab, Pascal or camel)?",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "valeWeightScore"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/vale-score.md",
+        "migrations/vale-weight.sql",
+        "src/utils/thistle/vale-label.ts",
+        "src/utils/thistle/vale-model.ts",
+        "src/utils/thistle/vale-types.ts",
+        "src/utils/thistle/vale.css",
+        "src/utils/thistle/vale.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/vale/vale-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/utils/thistle/vale-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/vale-weight.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14860,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5573,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2972,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3715,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "string-any-case/held-out/small/s1000",
+    "family": "string-any-case",
+    "variant": "held-out",
+    "prompt": "Which files refer to `thistleTierLevel` in any spelling (snake, kebab, Pascal or camel)?",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "thistleTierLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/thistle-level.md",
+        "migrations/thistle-tier.sql",
+        "src/core/fennel/thistle-label.ts",
+        "src/core/fennel/thistle-model.ts",
+        "src/core/fennel/thistle-types.ts",
+        "src/core/fennel/thistle.css",
+        "src/core/fennel/thistle.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/thistle/thistle-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/core/fennel/thistle-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/thistle-tier.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14892,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5585,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2978,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3723,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-any-case/jargon/small/s3",
+    "family": "string-any-case",
+    "variant": "jargon",
+    "prompt": "Case- and separator-insensitive search for `summitMarginLevel` across our own files (no generated or vendored files).",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "summitMarginLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/summit-level.md",
+        "migrations/summit-margin.sql",
+        "src/domain/tamarind/summit-label.ts",
+        "src/domain/tamarind/summit-model.ts",
+        "src/domain/tamarind/summit-types.ts",
+        "src/domain/tamarind/summit.css",
+        "src/domain/tamarind/summit.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/summit/summit-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/domain/tamarind/summit-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/summit-margin.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15008,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5628,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3001,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3752,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-any-case/precise/small/s1",
+    "family": "string-any-case",
+    "variant": "precise",
+    "prompt": "Find every file that mentions `nectarMarginLevel` in any spelling: camelCase, snake_case, PascalCase or kebab-case. Skip build output, vendored code and lockfiles.",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "nectarMarginLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/nectar-level.md",
+        "migrations/nectar-margin.sql",
+        "src/shared/nimbus/nectar-label.ts",
+        "src/shared/nimbus/nectar-model.ts",
+        "src/shared/nimbus/nectar-types.ts",
+        "src/shared/nimbus/nectar.css",
+        "src/shared/nimbus/nectar.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/nectar/nectar-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/shared/nimbus/nectar-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/nectar-margin.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15072,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5652,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3014,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3768,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-any-case/vague/small/s2",
+    "family": "string-any-case",
+    "variant": "vague",
+    "prompt": "anything mentioning `lichenMarginLevel`, however it is spelled?",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "lichenMarginLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/lichen-level.md",
+        "migrations/lichen-margin.sql",
+        "src/utils/sequoia/lichen-label.ts",
+        "src/utils/sequoia/lichen-model.ts",
+        "src/utils/sequoia/lichen-types.ts",
+        "src/utils/sequoia/lichen.css",
+        "src/utils/sequoia/lichen.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lichen/lichen-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/utils/sequoia/lichen-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/lichen-margin.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14876,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5579,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2975,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3719,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "string-any-case/wrong-terms/medium/s1",
+    "family": "string-any-case",
+    "variant": "wrong-terms",
+    "prompt": "Grep `nimbusRankBand` ignoring capitals and underscores in any spelling, in the docs and code we wrote.",
+    "scope": [
+      "."
+    ],
+    "query": "string-any-case",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "nimbusRankBand"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "docs/nimbus-band.md",
+        "migrations/nimbus-rank.sql",
+        "src/shared/shale/nimbus-label.ts",
+        "src/shared/shale/nimbus-model.ts",
+        "src/shared/shale/nimbus-types.ts",
+        "src/shared/shale/nimbus.css",
+        "src/shared/shale/nimbus.test.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/nimbus/nimbus-model.js",
+        "reason": "build output"
+      },
+      {
+        "path": "src/shared/shale/nimbus-near.ts",
+        "reason": "near-miss spellings"
+      },
+      {
+        "path": "vendor/nimbus-rank.min.js",
+        "reason": "vendored minified bundle"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14884,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5582,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2976,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-insensitive regex allowing _ or - between the words; drop generated files.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3721,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

@@ -1,0 +1,649 @@
+[
+  {
+    "id": "react-components/held-out/medium/s1001",
+    "family": "react-components",
+    "variant": "held-out",
+    "prompt": "Give me every React component file we have.",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/FernTotals.tsx",
+        "src/ui/ThemelessEmberBadge.tsx",
+        "src/ui/amber/AmberBadge.tsx",
+        "src/ui/aspen/AspenFrame.tsx",
+        "src/ui/bramble/BrambleStrip.tsx",
+        "src/ui/fennel/FennelNotice.tsx",
+        "src/ui/granite/GraniteList.tsx",
+        "src/ui/jasper/JasperFrame.tsx",
+        "src/ui/lumen/LumenPanel.tsx",
+        "src/ui/lynx/LynxDrawer.tsx",
+        "src/ui/mesa/MesaStrip.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/ridge/RidgeRibbon.tsx",
+        "src/ui/rowan/RowanBanner.tsx",
+        "src/ui/shale/ShalePlaque.tsx",
+        "src/ui/sierra/SierraPlaque.tsx",
+        "src/ui/tundra/TundraTile.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/CypressToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/lib/markup/OrchidMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/ui/__mocks__/LumenPanel.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/hocs/withKestrel.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/useBasil.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/lumen/LumenPanel.test.tsx",
+        "reason": "component test"
+      },
+      {
+        "path": "src/ui/ridge/RidgeRibbon.stories.tsx",
+        "reason": "Storybook story"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 20576,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 7716,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 4115,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5144,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "react-components/held-out/small/s1000",
+    "family": "react-components",
+    "variant": "held-out",
+    "prompt": "Give me every React component file we have.",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/OrchidTotals.tsx",
+        "src/ui/ThemelessPebbleBadge.tsx",
+        "src/ui/bramble/BrambleNotice.tsx",
+        "src/ui/clover/CloverBadge.tsx",
+        "src/ui/comet/CometToolbar.tsx",
+        "src/ui/dune/DuneToolbar.tsx",
+        "src/ui/jasper/JasperRibbon.tsx",
+        "src/ui/lichen/LichenToolbar.tsx",
+        "src/ui/opal/OpalFrame.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/saffron/SaffronBanner.tsx",
+        "src/ui/summit/SummitToolbar.tsx",
+        "src/ui/vale/ValeList.tsx",
+        "src/ui/zinnia/ZinniaBadge.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/CypressToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/lib/markup/LarchMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/ui/__mocks__/ZinniaBadge.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/hocs/withCanyon.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/useLynx.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/jasper/JasperRibbon.stories.tsx",
+        "reason": "Storybook story"
+      },
+      {
+        "path": "src/ui/zinnia/ZinniaBadge.test.tsx",
+        "reason": "component test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 19584,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 7344,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3916,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4896,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "react-components/jargon/small/s3",
+    "family": "react-components",
+    "variant": "jargon",
+    "prompt": "Enumerate the .tsx files exporting React function components that return JSX.",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/CloverTotals.tsx",
+        "src/ui/ThemelessSorrelBadge.tsx",
+        "src/ui/cobalt/CobaltToolbar.tsx",
+        "src/ui/coral/CoralNotice.tsx",
+        "src/ui/cypress/CypressToolbar.tsx",
+        "src/ui/dune/DuneStrip.tsx",
+        "src/ui/indigo/IndigoRibbon.tsx",
+        "src/ui/kestrel/KestrelList.tsx",
+        "src/ui/pine/PineStrip.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/saffron/SaffronBanner.tsx",
+        "src/ui/spruce/SprucePlaque.tsx",
+        "src/ui/velvet/VelvetBadge.tsx",
+        "src/ui/violet/VioletFrame.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/markup/ObsidianMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/lib/NectarToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/ui/__mocks__/CobaltToolbar.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/cobalt/CobaltToolbar.test.tsx",
+        "reason": "component test"
+      },
+      {
+        "path": "src/ui/hocs/withMaple.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/useVale.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/spruce/SprucePlaque.stories.tsx",
+        "reason": "Storybook story"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 19652,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 7370,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3930,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4913,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "react-components/precise/small/s1",
+    "family": "react-components",
+    "variant": "precise",
+    "prompt": "Which files declare React components? Exclude stories, mocks, tests, hooks and higher-order components.",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/EmberTotals.tsx",
+        "src/ui/ThemelessMapleBadge.tsx",
+        "src/ui/atlas/AtlasBanner.tsx",
+        "src/ui/basil/BasilBadge.tsx",
+        "src/ui/cinder/CinderPlaque.tsx",
+        "src/ui/fennel/FennelList.tsx",
+        "src/ui/garnet/GarnetNotice.tsx",
+        "src/ui/glacier/GlacierPanel.tsx",
+        "src/ui/marble/MarbleBadge.tsx",
+        "src/ui/plume/PlumeRibbon.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/saffron/SaffronFrame.tsx",
+        "src/ui/violet/VioletFrame.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/JuniperToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/lib/markup/IrisMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/ui/__mocks__/PlumeRibbon.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/hocs/withTamarind.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/useObsidian.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/marble/MarbleBadge.stories.tsx",
+        "reason": "Storybook story"
+      },
+      {
+        "path": "src/ui/plume/PlumeRibbon.test.tsx",
+        "reason": "component test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 19296,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 7236,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3859,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4824,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "react-components/vague/small/s2",
+    "family": "react-components",
+    "variant": "vague",
+    "prompt": "list our React components",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/SpruceTotals.tsx",
+        "src/ui/ThemelessZephyrBadge.tsx",
+        "src/ui/clover/CloverBadge.tsx",
+        "src/ui/glacier/GlacierStrip.tsx",
+        "src/ui/hazel/HazelToolbar.tsx",
+        "src/ui/heron/HeronTile.tsx",
+        "src/ui/iris/IrisList.tsx",
+        "src/ui/osprey/OspreyStrip.tsx",
+        "src/ui/pine/PineBadge.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/rowan/RowanPlaque.tsx",
+        "src/ui/summit/SummitNotice.tsx",
+        "src/ui/velvet/VelvetBanner.tsx",
+        "src/ui/zinnia/ZinniaToolbar.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/EmberToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/lib/markup/LagoonMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/ui/__mocks__/ZinniaToolbar.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/hazel/HazelToolbar.stories.tsx",
+        "reason": "Storybook story"
+      },
+      {
+        "path": "src/ui/hocs/withFennel.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/useBasil.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/zinnia/ZinniaToolbar.test.tsx",
+        "reason": "component test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 19516,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 7319,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3903,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 4879,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "react-components/wrong-terms/large/s1",
+    "family": "react-components",
+    "variant": "wrong-terms",
+    "prompt": "Which files are the React widgets or views?",
+    "scope": [
+      "."
+    ],
+    "query": "react",
+    "repo": {
+      "seed": 1,
+      "size": "large"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/App.tsx",
+        "src/ui/CobaltTotals.tsx",
+        "src/ui/ThemelessMapleBadge.tsx",
+        "src/ui/atlas/AtlasBanner.tsx",
+        "src/ui/basil/BasilBadge.tsx",
+        "src/ui/canyon/CanyonPlaque.tsx",
+        "src/ui/comet/CometList.tsx",
+        "src/ui/ember/EmberPanel.tsx",
+        "src/ui/flint/FlintNotice.tsx",
+        "src/ui/heron/HeronFrame.tsx",
+        "src/ui/kestrel/KestrelFrame.tsx",
+        "src/ui/lotus/LotusBadge.tsx",
+        "src/ui/mesa/MesaDrawer.tsx",
+        "src/ui/opal/OpalRibbon.tsx",
+        "src/ui/providers/AppProviders.tsx",
+        "src/ui/quartz/QuartzRibbon.tsx",
+        "src/ui/sage/SageFrame.tsx",
+        "src/ui/violet/VioletFrame.tsx"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/lib/markup/WillowMarkup.tsx",
+        "reason": "returns JSX-like markup as a string"
+      },
+      {
+        "path": "src/lib/SaffronToolbar.ts",
+        "reason": "class named like a component, a plain utility"
+      },
+      {
+        "path": "src/ui/__mocks__/QuartzRibbon.tsx",
+        "reason": "mock component"
+      },
+      {
+        "path": "src/ui/hocs/withGlacier.tsx",
+        "reason": "higher-order component (returns a component)"
+      },
+      {
+        "path": "src/ui/hooks/usePrism.ts",
+        "reason": "hook, renders nothing"
+      },
+      {
+        "path": "src/ui/lotus/LotusBadge.stories.tsx",
+        "reason": "Storybook story"
+      },
+      {
+        "path": "src/ui/quartz/QuartzRibbon.test.tsx",
+        "reason": "component test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 20552,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 160000
+      },
+      "target": {
+        "maxTokens": 7707,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 60000
+      },
+      "stretch": {
+        "maxTokens": 4110,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 32000
+      }
+    },
+    "reference": {
+      "description": "One regex search for exported PascalCase declarations with 3 context lines; judge the returned JSX.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5138,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 40000
+      }
+    }
+  }
+]

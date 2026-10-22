@@ -87,6 +87,7 @@
     "typecheck": "tsc --noEmit && tsc -p bench",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench": "tsc -p bench/tsconfig.build.json && node bench/dist/bench/src/cli.js",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

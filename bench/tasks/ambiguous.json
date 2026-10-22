@@ -1,0 +1,530 @@
+[
+  {
+    "id": "ambiguous/held-out/medium/s1001",
+    "family": "ambiguous",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `cinderburyCoralburySnapshot.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "cinderburyCoralburySnapshot.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/quillbury/cinderburyCoralburySnapshot.ts",
+        "src/server/kestrelwyn/cinderburyCoralburySnapshot.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/quillbury/cinderburyCoralburySnapshot.ts"
+        ],
+        [
+          "src/server/kestrelwyn/cinderburyCoralburySnapshot.ts"
+        ],
+        [
+          "src/app/quillbury/cinderburyCoralburySnapshot.ts",
+          "src/server/kestrelwyn/cinderburyCoralburySnapshot.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/cinderburyCoralburySnapshot.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/cinderburyCoralburySnapshot.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13364,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5012,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2672,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3341,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "ambiguous/held-out/small/s1000",
+    "family": "ambiguous",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `meadowwickSagefordDigest.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "meadowwickSagefordDigest.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/cindercrest/meadowwickSagefordDigest.ts",
+        "src/server/granitedale/meadowwickSagefordDigest.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/cindercrest/meadowwickSagefordDigest.ts"
+        ],
+        [
+          "src/server/granitedale/meadowwickSagefordDigest.ts"
+        ],
+        [
+          "src/app/cindercrest/meadowwickSagefordDigest.ts",
+          "src/server/granitedale/meadowwickSagefordDigest.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/meadowwickSagefordDigest.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/meadowwickSagefordDigest.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13348,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5006,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2669,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3337,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ambiguous/jargon/small/s3",
+    "family": "ambiguous",
+    "variant": "jargon",
+    "prompt": "Locate the source module `quartzfordQuillholmRollup.ts` and return its repo-relative path.",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "quartzfordQuillholmRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/dunedale/quartzfordQuillholmRollup.ts",
+        "src/server/cairnstead/quartzfordQuillholmRollup.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/dunedale/quartzfordQuillholmRollup.ts"
+        ],
+        [
+          "src/server/cairnstead/quartzfordQuillholmRollup.ts"
+        ],
+        [
+          "src/app/dunedale/quartzfordQuillholmRollup.ts",
+          "src/server/cairnstead/quartzfordQuillholmRollup.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/quartzfordQuillholmRollup.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/quartzfordQuillholmRollup.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13344,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5004,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2668,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3336,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ambiguous/precise/small/s1",
+    "family": "ambiguous",
+    "variant": "precise",
+    "prompt": "Find the file named `canyonmereJuniperwynRegistry.ts` in this repository and give me its path.",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "canyonmereJuniperwynRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/larchcrest/canyonmereJuniperwynRegistry.ts",
+        "src/server/plumefield/canyonmereJuniperwynRegistry.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/larchcrest/canyonmereJuniperwynRegistry.ts"
+        ],
+        [
+          "src/server/plumefield/canyonmereJuniperwynRegistry.ts"
+        ],
+        [
+          "src/app/larchcrest/canyonmereJuniperwynRegistry.ts",
+          "src/server/plumefield/canyonmereJuniperwynRegistry.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/canyonmereJuniperwynRegistry.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/canyonmereJuniperwynRegistry.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13372,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5015,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2674,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3343,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ambiguous/vague/small/s2",
+    "family": "ambiguous",
+    "variant": "vague",
+    "prompt": "where is `sequoiamereCedarcrestSnapshot.ts`?",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "sequoiamereCedarcrestSnapshot.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/hazelfield/sequoiamereCedarcrestSnapshot.ts",
+        "src/server/ferndale/sequoiamereCedarcrestSnapshot.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/hazelfield/sequoiamereCedarcrestSnapshot.ts"
+        ],
+        [
+          "src/server/ferndale/sequoiamereCedarcrestSnapshot.ts"
+        ],
+        [
+          "src/app/hazelfield/sequoiamereCedarcrestSnapshot.ts",
+          "src/server/ferndale/sequoiamereCedarcrestSnapshot.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/sequoiamereCedarcrestSnapshot.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/sequoiamereCedarcrestSnapshot.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13272,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4977,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2654,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3318,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "ambiguous/wrong-terms/medium/s1",
+    "family": "ambiguous",
+    "variant": "wrong-terms",
+    "prompt": "Which folder is the `canyonholmJunipersteadRegistry.ts` class file in? I need the file itself.",
+    "scope": [
+      "."
+    ],
+    "query": "ambiguous",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "canyonholmJunipersteadRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/app/larchbury/canyonholmJunipersteadRegistry.ts",
+        "src/server/prismwick/canyonholmJunipersteadRegistry.ts"
+      ],
+      "alternatives": [
+        [
+          "src/app/larchbury/canyonholmJunipersteadRegistry.ts"
+        ],
+        [
+          "src/server/prismwick/canyonholmJunipersteadRegistry.ts"
+        ],
+        [
+          "src/app/larchbury/canyonholmJunipersteadRegistry.ts",
+          "src/server/prismwick/canyonholmJunipersteadRegistry.ts"
+        ]
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/canyonholmJunipersteadRegistry.md",
+        "reason": "docs named after it"
+      },
+      {
+        "path": "src/archive/canyonholmJunipersteadRegistry.old.ts",
+        "reason": "old copy"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13380,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5018,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2676,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; report every exact match.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3345,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

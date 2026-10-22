@@ -1,0 +1,524 @@
+[
+  {
+    "id": "pii-fields/held-out/medium/s1001",
+    "family": "pii-fields",
+    "variant": "held-out",
+    "prompt": "Which typed declarations hold personal-data fields such as email or birth date?",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/kelpmere-contact.ts",
+        "src/server/schemas/indigomere.ts",
+        "src/ui/yarrow/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/kelpmere-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/cinderholm-settings.ts",
+        "reason": "near-miss field names"
+      },
+      {
+        "path": "src/models/irisbury-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/irisbury-draft.ts",
+        "reason": "field commented out"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14436,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5414,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2887,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3609,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "pii-fields/held-out/small/s1000",
+    "family": "pii-fields",
+    "variant": "held-out",
+    "prompt": "Which typed declarations hold personal-data fields such as email or birth date?",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/sequoiawick-contact.ts",
+        "src/server/schemas/willowwick.ts",
+        "src/ui/kelp/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/sequoiawick-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/irisfield-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/irisfield-draft.ts",
+        "reason": "field commented out"
+      },
+      {
+        "path": "src/models/onyxmere-settings.ts",
+        "reason": "near-miss field names"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14436,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5414,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2887,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3609,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "pii-fields/jargon/small/s3",
+    "family": "pii-fields",
+    "variant": "jargon",
+    "prompt": "Find the interfaces and zod validators that declare personal-data fields.",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/sierrawick-contact.ts",
+        "src/server/schemas/basilholm.ts",
+        "src/ui/glacier/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/sierrawick-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/ospreystead-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/ospreystead-draft.ts",
+        "reason": "field commented out"
+      },
+      {
+        "path": "src/models/shalemere-settings.ts",
+        "reason": "near-miss field names"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14432,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5412,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2886,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3608,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "pii-fields/precise/small/s1",
+    "family": "pii-fields",
+    "variant": "precise",
+    "prompt": "Which type definitions or validators declare personal-data fields (names, emails, phone numbers, postal addresses, birth dates)?",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/cypresswyn-contact.ts",
+        "src/server/schemas/dunedale.ts",
+        "src/ui/quill/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/cypresswyn-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/mosscrest-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/mosscrest-draft.ts",
+        "reason": "field commented out"
+      },
+      {
+        "path": "src/models/velvetholm-settings.ts",
+        "reason": "near-miss field names"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14528,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5448,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2905,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3632,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "pii-fields/vague/small/s2",
+    "family": "pii-fields",
+    "variant": "vague",
+    "prompt": "where do we declare PII fields?",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/pebblebury-contact.ts",
+        "src/server/schemas/ridgestead.ts",
+        "src/ui/garnet/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/pebblebury-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/aspenmere-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/aspenmere-draft.ts",
+        "reason": "field commented out"
+      },
+      {
+        "path": "src/models/tundrawick-settings.ts",
+        "reason": "near-miss field names"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14348,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5381,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2869,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3587,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "pii-fields/wrong-terms/medium/s1",
+    "family": "pii-fields",
+    "variant": "wrong-terms",
+    "prompt": "Which database tables store PII columns like email or phone?",
+    "scope": [
+      "."
+    ],
+    "query": "pii-fields",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/models/cypressstead-contact.ts",
+        "src/server/schemas/dunewick.ts",
+        "src/ui/reed/entities.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/models/cypressstead-contact.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/personal-data.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/models/mossfield-draft.fixture.test.ts",
+        "reason": "test fixture with personal data"
+      },
+      {
+        "path": "src/models/mossfield-draft.ts",
+        "reason": "field commented out"
+      },
+      {
+        "path": "src/models/velvetmere-settings.ts",
+        "reason": "near-miss field names"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14396,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5399,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2879,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One regex search for typed personal-data declarations.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3599,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

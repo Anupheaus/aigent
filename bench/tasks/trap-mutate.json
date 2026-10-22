@@ -1,0 +1,554 @@
+[
+  {
+    "id": "trap-mutate/held-out/medium/s1001",
+    "family": "trap-mutate",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `sierradaleOffsetScore` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "sierradaleOffsetScore"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/garnetholm/garnetholm-fields.ts",
+        "src/domain/oakford/oakford-picker.ts",
+        "src/shared/thistlewick/thistlewick-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cobaltholm/cobaltholm-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cobaltholm-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/cobaltholm/cobaltholm-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/domain/garnetholm/cobaltholm-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/garnetholm/cobaltholm.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/shared/thistlewick/thistlewick-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14716,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5519,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2943,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3679,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "trap-mutate/held-out/small/s1000",
+    "family": "trap-mutate",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `plumesteadBiasLevel` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "plumesteadBiasLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/lotusmere/lotusmere-fields.ts",
+        "src/core/plumecrest/plumecrest-picker.ts",
+        "src/utils/heronmere/heronmere-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/plumeholm/plumeholm-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/plumeholm-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/lotusmere/plumeholm-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/lotusmere/plumeholm.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/lib/plumeholm/plumeholm-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/utils/heronmere/heronmere-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14668,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5501,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2933,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3667,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-mutate/jargon/small/s3",
+    "family": "trap-mutate",
+    "variant": "jargon",
+    "prompt": "Give me all non-test source references to the identifier `aspenwynMarginLevel` (code only, exact identifier).",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "aspenwynMarginLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/pinewyn/pinewyn-picker.ts",
+        "src/domain/granitefield/granitefield-fields.ts",
+        "src/lib/zinniabury/zinniabury-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/coralcrest/coralcrest-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/coralcrest-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/granitefield/coralcrest-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/granitefield/coralcrest.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/utils/coralcrest/coralcrest-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/lib/zinniabury/zinniabury-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14708,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5516,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2941,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3677,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-mutate/precise/small/s1",
+    "family": "trap-mutate",
+    "variant": "precise",
+    "prompt": "List every source file that uses `cobaltfieldMarginBand` in code. Leave out comments, strings, tests, docs and build output.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cobaltfieldMarginBand"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/violetdale/violetdale-fields.ts",
+        "src/lib/quartzmere/quartzmere-reader.ts",
+        "src/lib/sprucebury/sprucebury-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cinderfield/cinderfield-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cinderfield-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/violetdale/cinderfield-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/violetdale/cinderfield.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/domain/cinderfield/cinderfield-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/lib/quartzmere/quartzmere-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14744,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5529,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2948,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3686,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-mutate/vague/small/s2",
+    "family": "trap-mutate",
+    "variant": "vague",
+    "prompt": "where do we actually use `oakwynWeightScore` in the code?",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "oakwynWeightScore"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/lumenwyn/lumenwyn-fields.ts",
+        "src/lib/indigocrest/indigocrest-picker.ts",
+        "src/utils/mapledale/mapledale-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/dunedale/dunedale-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/dunedale-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/dunedale/dunedale-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/core/lumenwyn/dunedale-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/lumenwyn/dunedale.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/utils/mapledale/mapledale-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14556,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5459,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2911,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3639,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-mutate/wrong-terms/medium/s1",
+    "family": "trap-mutate",
+    "variant": "wrong-terms",
+    "prompt": "Which classes read the `cobaltcrestMarginBand` column? Only real code, not tests or docs.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-mutate",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cobaltcrestMarginBand"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/violetdale/violetdale-fields.ts",
+        "src/lib/quartzstead/quartzstead-reader.ts",
+        "src/lib/sprucecrest/sprucecrest-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cindercrest/cindercrest-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cindercrest-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/violetdale/cindercrest-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/violetdale/cindercrest.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/domain/cindercrest/cindercrest-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "mutatePath": "src/lib/quartzstead/quartzstead-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14692,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5510,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2938,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3673,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

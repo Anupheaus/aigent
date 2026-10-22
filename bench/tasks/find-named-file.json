@@ -1,0 +1,572 @@
+[
+  {
+    "id": "find-named-file/held-out/medium/s1001",
+    "family": "find-named-file",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `lichenCinderMatrix.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "lichenCinderMatrix.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/garnet/lichenCinderMatrix.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/garnet/lichenCinderMatrix.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/lichenCinderMatrix.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/lichenCinderMatrix.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/LichenCinderMatrix.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/garnet/__snapshots__/lichenCinderMatrix.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/garnet/lichenCinderMatrix.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/garnet/lichenCinderMatrix.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13172,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 4940,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2634,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3293,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "find-named-file/held-out/small/s1000",
+    "family": "find-named-file",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `pineIndigoSnapshot.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "pineIndigoSnapshot.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/mica/pineIndigoSnapshot.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/mica/pineIndigoSnapshot.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/pineIndigoSnapshot.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/pineIndigoSnapshot.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/PineIndigoSnapshot.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/mica/__snapshots__/pineIndigoSnapshot.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/mica/pineIndigoSnapshot.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/mica/pineIndigoSnapshot.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13164,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4937,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2632,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3291,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "find-named-file/jargon/small/s3",
+    "family": "find-named-file",
+    "variant": "jargon",
+    "prompt": "Locate the source module `flintLumenRegistry.ts` and return its repo-relative path.",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "flintLumenRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/thorn/flintLumenRegistry.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/thorn/flintLumenRegistry.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/flintLumenRegistry.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/flintLumenRegistry.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/FlintLumenRegistry.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/thorn/__snapshots__/flintLumenRegistry.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/thorn/flintLumenRegistry.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/thorn/flintLumenRegistry.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13164,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4937,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2632,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3291,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "find-named-file/precise/small/s1",
+    "family": "find-named-file",
+    "variant": "precise",
+    "prompt": "Find the file named `rowanThistleSnapshot.ts` in this repository and give me its path.",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "rowanThistleSnapshot.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/tundra/rowanThistleSnapshot.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/tundra/rowanThistleSnapshot.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/rowanThistleSnapshot.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/rowanThistleSnapshot.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/RowanThistleSnapshot.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/tundra/__snapshots__/rowanThistleSnapshot.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/tundra/rowanThistleSnapshot.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/tundra/rowanThistleSnapshot.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13176,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4941,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2635,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3294,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "find-named-file/vague/small/s2",
+    "family": "find-named-file",
+    "variant": "vague",
+    "prompt": "where is `fjordSierraDigest.ts`?",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "fjordSierraDigest.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/comet/fjordSierraDigest.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/comet/fjordSierraDigest.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/fjordSierraDigest.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/fjordSierraDigest.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/FjordSierraDigest.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/comet/__snapshots__/fjordSierraDigest.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/comet/fjordSierraDigest.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/comet/fjordSierraDigest.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13056,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4896,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2611,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3264,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "find-named-file/wrong-terms/large/s1",
+    "family": "find-named-file",
+    "variant": "wrong-terms",
+    "prompt": "Which folder is the `rowanThistleSnapshot.ts` class file in? I need the file itself.",
+    "scope": [
+      "."
+    ],
+    "query": "find-file",
+    "repo": {
+      "seed": 1,
+      "size": "large"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "rowanThistleSnapshot.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/tundra/rowanThistleSnapshot.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/tundra/rowanThistleSnapshot.js",
+        "reason": "build output copy"
+      },
+      {
+        "path": "docs/rowanThistleSnapshot.md",
+        "reason": "documentation named after it"
+      },
+      {
+        "path": "src/archive/rowanThistleSnapshot.backup.ts",
+        "reason": "backup copy"
+      },
+      {
+        "path": "src/legacy/RowanThistleSnapshot.ts",
+        "reason": "same name in another case"
+      },
+      {
+        "path": "src/lib/tundra/__snapshots__/rowanThistleSnapshot.test.ts.snap",
+        "reason": "snapshot named after it"
+      },
+      {
+        "path": "src/lib/tundra/rowanThistleSnapshot.old.ts",
+        "reason": "old copy with a similar name"
+      },
+      {
+        "path": "src/lib/tundra/rowanThistleSnapshot.test.ts",
+        "reason": "test file named after it"
+      }
+    ],
+    "accept": {
+      "kind": "exact",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13168,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 160000
+      },
+      "target": {
+        "maxTokens": 4938,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 60000
+      },
+      "stretch": {
+        "maxTokens": 2633,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 32000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; keep the exact base name.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3292,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 40000
+      }
+    }
+  }
+]

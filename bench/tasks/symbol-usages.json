@@ -1,0 +1,548 @@
+[
+  {
+    "id": "symbol-usages/held-out/medium/s1001",
+    "family": "symbol-usages",
+    "variant": "held-out",
+    "prompt": "Show me where `computeMossfieldTotals` is declared and everywhere it is used.",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "computeMossfieldTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/marblewick/marblewick-summary.ts",
+        "src/shared/harborfield/harborfield-summary.ts",
+        "src/shared/sierrawyn/sierrawyn-summary.ts",
+        "src/utils/atlascrest/totals.test.ts",
+        "src/utils/atlascrest/totals.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/heronwyn/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/heronwyn-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/domain/heronwyn/heronwyn-legacy.ts",
+        "reason": "longer name defined and used"
+      },
+      {
+        "path": "src/lib/marblebury/marblebury-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/utils/atlascrest/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15380,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5768,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 3076,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3845,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "symbol-usages/held-out/small/s1000",
+    "family": "symbol-usages",
+    "variant": "held-out",
+    "prompt": "Show me where `computeCedarwickTotals` is declared and everywhere it is used.",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "computeCedarwickTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/kelpford/kelpford-summary.ts",
+        "src/core/maplemere/maplemere-summary.ts",
+        "src/shared/harborfield/totals.test.ts",
+        "src/shared/harborfield/totals.ts",
+        "src/shared/shalecrest/shalecrest-summary.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cloverbury/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cloverbury-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/core/cypressbury/cypressbury-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/shared/cloverbury/cloverbury-legacy.ts",
+        "reason": "longer name defined and used"
+      },
+      {
+        "path": "src/shared/harborfield/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15372,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5765,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3074,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3843,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "symbol-usages/jargon/small/s3",
+    "family": "symbol-usages",
+    "variant": "jargon",
+    "prompt": "Find the definition and all references of the symbol `computeGlaciercrestTotals`, tests included.",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "computeGlaciercrestTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/quartzfield/quartzfield-summary.ts",
+        "src/lib/canyonmere/canyonmere-summary.ts",
+        "src/shared/clovermere/clovermere-summary.ts",
+        "src/utils/sorrelbury/totals.test.ts",
+        "src/utils/sorrelbury/totals.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/sequoiaholm/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/sequoiaholm-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/shared/flintdale/flintdale-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/utils/sequoiaholm/sequoiaholm-legacy.ts",
+        "reason": "longer name defined and used"
+      },
+      {
+        "path": "src/utils/sorrelbury/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15468,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5801,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3093,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3867,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "symbol-usages/precise/small/s1",
+    "family": "symbol-usages",
+    "variant": "precise",
+    "prompt": "Where is `computeHeronfordTotals` defined, and which files use it (tests included)?",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "computeHeronfordTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/rowanford/rowanford-summary.ts",
+        "src/domain/garnetmere/garnetmere-summary.ts",
+        "src/domain/herondale/herondale-summary.ts",
+        "src/lib/maplewyn/totals.test.ts",
+        "src/lib/maplewyn/totals.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/yarrowwick/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/yarrowwick-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/domain/quartzford/quartzford-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/lib/maplewyn/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      },
+      {
+        "path": "src/lib/yarrowwick/yarrowwick-legacy.ts",
+        "reason": "longer name defined and used"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15352,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5757,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3070,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3838,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "symbol-usages/vague/small/s2",
+    "family": "symbol-usages",
+    "variant": "vague",
+    "prompt": "who uses `computeOrchidsteadTotals`?",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "computeOrchidsteadTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/micastead/totals.test.ts",
+        "src/domain/micastead/totals.ts",
+        "src/domain/zinniacrest/zinniacrest-summary.ts",
+        "src/lib/mossfield/mossfield-summary.ts",
+        "src/shared/summitford/summitford-summary.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/graniteholm/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/graniteholm-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/domain/micastead/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      },
+      {
+        "path": "src/lib/larchholm/larchholm-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/utils/graniteholm/graniteholm-legacy.ts",
+        "reason": "longer name defined and used"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15316,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5744,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 3063,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3829,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "symbol-usages/wrong-terms/medium/s1",
+    "family": "symbol-usages",
+    "variant": "wrong-terms",
+    "prompt": "Which files call the `computeHerondaleTotals` method, and where is it declared?",
+    "scope": [
+      "."
+    ],
+    "query": "symbol",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "computeHerondaleTotals"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/rowanmere/rowanmere-summary.ts",
+        "src/domain/garnetmere/garnetmere-summary.ts",
+        "src/domain/heronford/heronford-summary.ts",
+        "src/lib/maplewyn/totals.test.ts",
+        "src/lib/maplewyn/totals.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/yarrowwick/totals.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/yarrowwick-totals.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/domain/quartzholm/quartzholm-audit.ts",
+        "reason": "comment and string only"
+      },
+      {
+        "path": "src/lib/maplewyn/__mocks__/totals.ts",
+        "reason": "mock with the same name"
+      },
+      {
+        "path": "src/lib/yarrowwick/yarrowwick-legacy.ts",
+        "reason": "longer name defined and used"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 15344,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5754,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 3068,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Tests count; mocks do not.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3836,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

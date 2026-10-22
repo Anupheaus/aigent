@@ -78,7 +78,9 @@ function lintGivenTerms(params: { givenTerms: string[]; sources: HintSources }):
   const directories = [...new Set(sources.paths.flatMap(path => path.split('/').slice(0, -1)))].filter(directory => directory.length >= MIN_GIVEN_DIR_CHARS);
   return givenTerms.flatMap(term => {
     const lower = normalise(term);
-    const leaked = [...sources.paths.filter(path => lower.includes(normalise(path))), ...directories.filter(directory => lower.includes(normalise(directory)))];
+    // Words of the term (camelCase, separators, slashes): a folder leaks only as a whole word, not inside one ("Score").
+    const words = new Set(term.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(word => word !== ''));
+    const leaked = [...sources.paths.filter(path => lower.includes(normalise(path))), ...directories.filter(directory => words.has(normalise(directory)) || (directory.includes('-') && lower.includes(normalise(directory))))];
     return leaked.map(leak => ({ field: 'givenTerms', kind: 'given-term' as const, term: leak, message: `givenTerms: '${term}' contains '${leak}' from an answer path` }));
   });
 }

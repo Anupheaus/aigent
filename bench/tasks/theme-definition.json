@@ -1,0 +1,572 @@
+[
+  {
+    "id": "theme-definition/held-out/medium/s1001",
+    "family": "theme-definition",
+    "variant": "held-out",
+    "prompt": "What files hold the definition of the live app theme?",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-osprey.ts",
+        "src/ui/theme/scale-violet.ts",
+        "src/ui/theme/swatch-quartz.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-dune.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/look-osprey.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-osprey.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessEmberBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29444,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 11042,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 5888,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7361,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "theme-definition/held-out/small/s1000",
+    "family": "theme-definition",
+    "variant": "held-out",
+    "prompt": "What files hold the definition of the live app theme?",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-glacier.ts",
+        "src/ui/theme/scale-marble.ts",
+        "src/ui/theme/swatch-fern.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-glacier.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-glacier.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/look-shale.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessPebbleBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29428,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 11036,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 5885,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7357,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "theme-definition/jargon/small/s3",
+    "family": "theme-definition",
+    "variant": "jargon",
+    "prompt": "Find the design-token sources and the createTheme call feeding the theme of the running app.",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-hazel.ts",
+        "src/ui/theme/scale-quartz.ts",
+        "src/ui/theme/swatch-plume.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-fjord.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/look-hazel.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-hazel.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessSorrelBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29536,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 11076,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 5907,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7384,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "theme-definition/precise/small/s1",
+    "family": "theme-definition",
+    "variant": "precise",
+    "prompt": "Which files define the theme our UI actually uses (colour, font and spacing values)? Leave out re-exports, unused themes, tests and stories.",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-lichen.ts",
+        "src/ui/theme/scale-osprey.ts",
+        "src/ui/theme/swatch-summit.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-lichen.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-lichen.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/look-lynx.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessMapleBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29668,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 11126,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 5933,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7417,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "theme-definition/vague/small/s2",
+    "family": "theme-definition",
+    "variant": "vague",
+    "prompt": "where is our theme defined?",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-obsidian.ts",
+        "src/ui/theme/scale-cairn.ts",
+        "src/ui/theme/swatch-nectar.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-obsidian.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-obsidian.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/look-thistle.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessZephyrBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29432,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 11037,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 5886,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7358,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "theme-definition/wrong-terms/medium/s1",
+    "family": "theme-definition",
+    "variant": "wrong-terms",
+    "prompt": "Which stylesheet sets the theme colours of the app we ship?",
+    "scope": [
+      "."
+    ],
+    "query": "theme",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/ui/theme/look-lagoon.ts",
+        "src/ui/theme/scale-pebble.ts",
+        "src/ui/theme/swatch-tamarind.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "src/ui/providers/AppProviders.tsx",
+        "reason": "passes the theme down, defines nothing"
+      },
+      {
+        "path": "src/ui/theme/index.ts",
+        "reason": "re-exports the theme"
+      },
+      {
+        "path": "src/ui/theme/look-lagoon.stories.tsx",
+        "reason": "story-only theme"
+      },
+      {
+        "path": "src/ui/theme/look-lagoon.test.ts",
+        "reason": "mock theme in a test"
+      },
+      {
+        "path": "src/ui/theme/look-lumen.ts",
+        "reason": "a theme defined but never imported (dead)"
+      },
+      {
+        "path": "src/ui/theme/types.ts",
+        "reason": "token types, no values"
+      },
+      {
+        "path": "src/ui/ThemelessLynxBadge.tsx",
+        "reason": "component whose name contains the word"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 29492,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 11060,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 5898,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "Search createTheme and token-typed constants; keep those referenced elsewhere.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 6,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 7373,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  }
+]

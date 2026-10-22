@@ -1,0 +1,512 @@
+[
+  {
+    "id": "tests-for/held-out/medium/s1001",
+    "family": "tests-for",
+    "variant": "held-out",
+    "prompt": "List every test that imports `quartzfieldRollup.ts`.",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "quartzfieldRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/fjordcrest/__tests__/quartzfieldRollup.edge.test.ts",
+        "src/lib/fjordcrest/quartzfieldRollup.test.ts",
+        "tests/integration/zephyrfield.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-quartzfieldRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/birchford/quartzfieldRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/fjordcrest/__snapshots__/quartzfieldRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/fjordcrest/quartzfieldRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14868,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5576,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2973,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3717,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "tests-for/held-out/small/s1000",
+    "family": "tests-for",
+    "variant": "held-out",
+    "prompt": "List every test that imports `meadowwynRollup.ts`.",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "meadowwynRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/dunefield/__tests__/meadowwynRollup.edge.test.ts",
+        "src/lib/dunefield/meadowwynRollup.test.ts",
+        "tests/integration/flintwick.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-meadowwynRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/ridgewyn/meadowwynRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/dunefield/__snapshots__/meadowwynRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/dunefield/meadowwynRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14820,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5558,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2964,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3705,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "tests-for/jargon/small/s3",
+    "family": "tests-for",
+    "variant": "jargon",
+    "prompt": "Which spec files exercise the module `zephyrburyRollup.ts` (any test that imports it)?",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "zephyrburyRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/obsidianwick/__tests__/zephyrburyRollup.edge.test.ts",
+        "src/lib/obsidianwick/zephyrburyRollup.test.ts",
+        "tests/integration/zinniastead.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-zephyrburyRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/thistlewyn/zephyrburyRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/obsidianwick/__snapshots__/zephyrburyRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/obsidianwick/zephyrburyRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14936,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5601,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2987,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3734,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "tests-for/precise/small/s1",
+    "family": "tests-for",
+    "variant": "precise",
+    "prompt": "Find the tests for `irisfordRollup.ts`.",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "irisfordRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/cinderstead/__tests__/irisfordRollup.edge.test.ts",
+        "src/lib/cinderstead/irisfordRollup.test.ts",
+        "tests/integration/velvetford.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-irisfordRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/cinderwyn/irisfordRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/cinderstead/__snapshots__/irisfordRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/cinderstead/irisfordRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14792,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5547,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2958,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3698,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "tests-for/vague/small/s2",
+    "family": "tests-for",
+    "variant": "vague",
+    "prompt": "what tests cover `cypresswynRollup.ts`?",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cypresswynRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/kestrelfield/__tests__/cypresswynRollup.edge.test.ts",
+        "src/lib/kestrelfield/cypresswynRollup.test.ts",
+        "tests/integration/flintwyn.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-cypresswynRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/lotusmere/cypresswynRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/kestrelfield/__snapshots__/cypresswynRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/kestrelfield/cypresswynRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14840,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5565,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2968,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3710,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "tests-for/wrong-terms/medium/s1",
+    "family": "tests-for",
+    "variant": "wrong-terms",
+    "prompt": "Show the unit tests of `irisdaleRollup.ts`, including any wider specs.",
+    "scope": [
+      "."
+    ],
+    "query": "tests-for",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "irisdaleRollup.ts"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/cindermere/__tests__/irisdaleRollup.edge.test.ts",
+        "src/lib/cindermere/irisdaleRollup.test.ts",
+        "tests/integration/velvetford.spec.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "docs/testing-irisdaleRollup.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/legacy/cinderstead/irisdaleRollup.test.ts",
+        "reason": "named like its test, tests another module"
+      },
+      {
+        "path": "src/lib/cindermere/__snapshots__/irisdaleRollup.test.ts.snap",
+        "reason": "snapshot"
+      },
+      {
+        "path": "src/lib/cindermere/irisdaleRollup-format.test.ts",
+        "reason": "tests a similarly named module"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14856,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5571,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2971,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One turn: the module by name and imports ending in its stem; resolve each.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3714,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

@@ -36,6 +36,9 @@ function plantAmbiguous(ctx: PlantContext): void {
     const path = `${dir}/${stem}.ts`;
     ctx.add({ path, content: lines(`export const ${stem}Settings = { side: '${position === 0 ? 'client' : 'api'}', retries: ${position + 2} };`), item: { kind: 'needle', reason: 'one of two files with this name', answers: ['ambiguous'] } });
   }
+  const decoy = (reason: string) => ({ kind: 'decoy' as const, reason, decoyFor: ['ambiguous'] });
+  ctx.add({ path: `docs/${stem}.md`, content: markdownDoc({ title: stem, paragraphs: ['Client and API each keep their own copy.'] }), item: decoy('docs named after it') });
+  ctx.add({ path: `src/archive/${stem}.old.ts`, content: lines('// Before the split into client and API copies.', 'export {};'), item: decoy('old copy') });
 }
 
 /** The behavioural traps over an identifier search: injected text, failing reads, changing files, denied, binary, links. */

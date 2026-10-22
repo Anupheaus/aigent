@@ -1,0 +1,482 @@
+[
+  {
+    "id": "none-exist/held-out/medium/s1001",
+    "family": "none-exist",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `marblecrestFlintwynMatrix.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "marblecrestFlintwynMatrix.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/marblecrestFlintwynMatrix.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/marblecrestFlintwynMatrix-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/prismholm/marblecrestFlintwynMatrix.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/prismholm/marblecrestFlintwynMatrixHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13096,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 4911,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2619,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3274,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "none-exist/held-out/small/s1000",
+    "family": "none-exist",
+    "variant": "held-out",
+    "prompt": "I cannot remember where `ridgeNectarfordRegistry.ts` lives. Can you find that file for me?",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "ridgeNectarfordRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/ridgeNectarfordRegistry.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/ridgeNectarfordRegistry-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/velvetholm/ridgeNectarfordRegistry.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/velvetholm/ridgeNectarfordRegistryHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13088,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4908,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2617,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3272,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "none-exist/jargon/small/s3",
+    "family": "none-exist",
+    "variant": "jargon",
+    "prompt": "Locate the source module `fennelHeronfordRegistry.ts` and return its repo-relative path.",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "fennelHeronfordRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/fennelHeronfordRegistry.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/fennelHeronfordRegistry-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/mossholm/fennelHeronfordRegistry.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/mossholm/fennelHeronfordRegistryHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13084,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4907,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2616,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3271,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "none-exist/precise/small/s1",
+    "family": "none-exist",
+    "variant": "precise",
+    "prompt": "Find the file named `duneSageRegistry.ts` in this repository and give me its path.",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "duneSageRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/duneSageRegistry.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/duneSageRegistry-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/dunebury/duneSageRegistry.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/dunebury/duneSageRegistryHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13060,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4898,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2612,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3265,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "none-exist/vague/small/s2",
+    "family": "none-exist",
+    "variant": "vague",
+    "prompt": "where is `opalAmberfordMatrix.ts`?",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "opalAmberfordMatrix.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/opalAmberfordMatrix.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/opalAmberfordMatrix-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/kestrelwick/opalAmberfordMatrix.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/kestrelwick/opalAmberfordMatrixHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 12972,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 4865,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2594,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3243,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "none-exist/wrong-terms/medium/s1",
+    "family": "none-exist",
+    "variant": "wrong-terms",
+    "prompt": "Which folder is the `lotusfordPinewickRegistry.ts` class file in? I need the file itself.",
+    "scope": [
+      "."
+    ],
+    "query": "none-exist",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "lotusfordPinewickRegistry.ts"
+    ],
+    "groundTruth": {
+      "kind": "none"
+    },
+    "decoys": [
+      {
+        "path": "dist/lib/lotusfordPinewickRegistry.js",
+        "reason": "stale build output"
+      },
+      {
+        "path": "docs/lotusfordPinewickRegistry-removal.md",
+        "reason": "docs about it"
+      },
+      {
+        "path": "src/lib/dunestead/lotusfordPinewickRegistry.old.ts",
+        "reason": "old copy"
+      },
+      {
+        "path": "src/lib/dunestead/lotusfordPinewickRegistryHelper.ts",
+        "reason": "longer name"
+      }
+    ],
+    "accept": {
+      "kind": "none-exist",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 13096,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 4911,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2619,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One case-sensitive name search; no exact match means none.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3274,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

@@ -1,0 +1,554 @@
+[
+  {
+    "id": "trap-failure/held-out/medium/s1001",
+    "family": "trap-failure",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `rowanfieldFactorCode` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "rowanfieldFactorCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/nectarmere/nectarmere-fields.ts",
+        "src/shared/sorrelwick/sorrelwick-reader.ts",
+        "src/utils/valeford/valeford-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/basilholm/basilholm-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/basilholm-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/nectarmere/basilholm-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/nectarmere/basilholm.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/domain/basilholm/basilholm-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/shared/sorrelwick/sorrelwick-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23736,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 8901,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 4747,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5934,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "trap-failure/held-out/small/s1000",
+    "family": "trap-failure",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `jasperfieldBiasLevel` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "jasperfieldBiasLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/sorrelford/sorrelford-picker.ts",
+        "src/lib/garnetwick/garnetwick-fields.ts",
+        "src/utils/rowanholm/rowanholm-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/amberwick/amberwick-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/amberwick-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/amberwick/amberwick-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/lib/garnetwick/amberwick-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/lib/garnetwick/amberwick.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/utils/rowanholm/rowanholm-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23716,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 8894,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 4743,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5929,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-failure/jargon/small/s3",
+    "family": "trap-failure",
+    "variant": "jargon",
+    "prompt": "Give me all non-test source references to the identifier `sorrelfieldRankCode` (code only, exact identifier).",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "sorrelfieldRankCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/obsidiancrest/obsidiancrest-reader.ts",
+        "src/domain/emberwyn/emberwyn-fields.ts",
+        "src/lib/sageford/sageford-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/bramblestead/bramblestead-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/bramblestead-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/bramblestead/bramblestead-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/domain/emberwyn/bramblestead-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/domain/emberwyn/bramblestead.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/core/obsidiancrest/obsidiancrest-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23776,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 8916,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 4755,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5944,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-failure/precise/small/s1",
+    "family": "trap-failure",
+    "variant": "precise",
+    "prompt": "List every source file that uses `thornmereTierCode` in code. Leave out comments, strings, tests, docs and build output.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "thornmereTierCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/thornfield/thornfield-reader.ts",
+        "src/lib/nimbuswyn/nimbuswyn-picker.ts",
+        "src/shared/thorndale/thorndale-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cometdale/cometdale-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cometdale-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/cometdale/cometdale-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/shared/thorndale/cometdale-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/shared/thorndale/cometdale.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/core/thornfield/thornfield-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23712,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 8892,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 4742,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5928,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-failure/vague/small/s2",
+    "family": "trap-failure",
+    "variant": "vague",
+    "prompt": "where do we actually use `cobaltcrestRankCode` in the code?",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cobaltcrestRankCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/nimbuscrest/nimbuscrest-reader.ts",
+        "src/lib/opalbury/opalbury-fields.ts",
+        "src/utils/flintfield/flintfield-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/coralstead/coralstead-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/coralstead-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/coralstead/coralstead-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/lib/opalbury/coralstead-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/lib/opalbury/coralstead.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/domain/nimbuscrest/nimbuscrest-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23592,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 8847,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 4718,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5898,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-failure/wrong-terms/medium/s1",
+    "family": "trap-failure",
+    "variant": "wrong-terms",
+    "prompt": "Which classes read the `thornsteadTierCode` column? Only real code, not tests or docs.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-failure",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "thornsteadTierCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/tundrawick/tundrawick-reader.ts",
+        "src/lib/nimbusbury/nimbusbury-picker.ts",
+        "src/shared/thornford/thornford-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/cometwick/cometwick-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/cometwick-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/cometwick/cometwick-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/shared/thornford/cometwick-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/shared/thornford/cometwick.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "trap": {
+      "failPath": "src/core/tundrawick/tundrawick-reader.ts"
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 23644,
+        "maxTurns": 12,
+        "maxToolCalls": 8,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 8867,
+        "maxTurns": 5,
+        "maxToolCalls": 3,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 4728,
+        "maxTurns": 2,
+        "maxToolCalls": 1,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Files reported unreadable are searched again.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 2,
+          "purpose": "2 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 5911,
+        "turns": 3,
+        "toolCalls": 2,
+        "ms": 15000
+      }
+    }
+  }
+]

@@ -978,6 +978,15 @@ result.citations; // [{ sourceId, chunkId, uri, span }]
 - **Citations:** the tools add one rule to the system prompt (a tool's `promptAddendum`; identical addenda appear once, sorted, in the stable prefix): cite passages as `[[cite:<chunkId>]]`. When the run ends, the answer's markers are removed from `TaskResult.answer` (and the chat reply) and resolved into `TaskResult.citations` (and the reply message's `meta.citations`) from the passages the run's knowledge calls returned, in order of first citation; an id no call returned is dropped with a `warning` event, and malformed markers are left as written. Markers inside inline code or a fenced code block are text, not citations, and stay. Streamed text still shows the markers; the stored chat message is stripped as the reply is. In a chat, each reply resolves against the passages its own turn's calls returned, so a follow-up that cites an earlier turn's passage without searching again has that id dropped. Any tool can offer citations through its `citations(result)` hook; calls made inside `aigent_multi` are not collected.
 - **Measuring retrieval:** `evalRetrieval({ base, cases: [{ query, relevant: [sourceId or chunkId] }], k? })` returns `{ recallAtK, mrr, perCase }` (`recallAtK` is the share of cases with any relevant result in the top `k`: the ids in `relevant` are alternatives, not a set that must all be found), for holding a corpus to a declared threshold in tests.
 
+## Benchmark (`bench/`)
+
+`bench/` is a separate, private project (never published) that measures how cheaply and correctly an agent answers
+codebase questions with the library's tools: seeded synthetic repositories (300 to 20,000 files) with planted needles
+and decoys, ground truth computed by independent exhaustive scripts, 25 tasks in several wordings plus held-out ones,
+a hint linter that keeps answers out of task text, and scripted policies that play the model through the real agent
+loop. `npm run bench` runs the deterministic scripted tier; a real model runs only on request (`BENCH_MODEL`, see
+`bench/README.md`). Round results and write-ups are in `bench/results/`.
+
 ## Stream directives
 
 The model may emit single-line directives anywhere in its reply, each on its own line starting with `::aigent`. The system prompt only describes them when [feedback](#agent-feedback-enablefeedback) is on, but they are always parsed as the tokens arrive (chunk-boundary safe), removed from the visible `text-delta` stream and published as `directive` events:
@@ -1021,6 +1030,7 @@ Phase 1 foundation core, implemented in this slice:
 - Delegated-loop mode for providers that own the tool loop (`capabilities.ownsLoop`, `ProviderRequest.toolExecutor`), and the separate, unpublished `@anupheaus/aigent-claude-code` package (`packages/claude-code`)
 - The MCP consuming plugin (`@anupheaus/aigent/mcp`): stdio and streamable-HTTP transports, strict schema conversion with a report, sanitised descriptions, envelope-wrapped results
 - Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
+- The benchmark suite (`bench/`): generated repositories, independent ground truth, hint linting, scripted solvers with self-tests, and the Round 0 baseline
 
 Roadmap (later slices, each with its own spec): vision, more built-in tool packs (shell, git, database), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
 

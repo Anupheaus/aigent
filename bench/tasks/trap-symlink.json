@@ -1,0 +1,560 @@
+[
+  {
+    "id": "trap-symlink/held-out/medium/s1001",
+    "family": "trap-symlink",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `summitwickTierCode` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "summitwickTierCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/bramblemere/bramblemere-picker.ts",
+        "src/lib/birchfield/birchfield-reader.ts",
+        "src/lib/velvetcrest/velvetcrest-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/juniperwick/juniperwick-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/juniperwick-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/domain/juniperwick/juniperwick-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/lib/velvetcrest/juniperwick-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/lib/velvetcrest/juniperwick.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/mirror-willowmere",
+        "reason": "symlinked duplicate of a needle folder"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14680,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5505,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2936,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3670,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "trap-symlink/held-out/small/s1000",
+    "family": "trap-symlink",
+    "variant": "held-out",
+    "prompt": "Show me the source files where `zephyrfordOffsetLevel` appears as real code, not in comments or tests.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "zephyrfordOffsetLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/core/jasperdale/jasperdale-fields.ts",
+        "src/lib/coralbury/coralbury-picker.ts",
+        "src/shared/atlaswick/atlaswick-reader.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/brambledale/brambledale-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/brambledale-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/core/jasperdale/brambledale-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/core/jasperdale/brambledale.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/mirror-umberwyn",
+        "reason": "symlinked duplicate of a needle folder"
+      },
+      {
+        "path": "src/utils/brambledale/brambledale-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14704,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5514,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2940,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3676,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-symlink/jargon/small/s3",
+    "family": "trap-symlink",
+    "variant": "jargon",
+    "prompt": "Give me all non-test source references to the identifier `cometwynBiasCode` (code only, exact identifier).",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "cometwynBiasCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/domain/lotuscrest/lotuscrest-reader.ts",
+        "src/lib/cypressbury/cypressbury-picker.ts",
+        "src/utils/rowanstead/rowanstead-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/sagebury/sagebury-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/sagebury-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/mirror-kelpmere",
+        "reason": "symlinked duplicate of a needle folder"
+      },
+      {
+        "path": "src/shared/sagebury/sagebury-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/utils/rowanstead/sagebury-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/rowanstead/sagebury.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14664,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5499,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2932,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3666,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-symlink/precise/small/s1",
+    "family": "trap-symlink",
+    "variant": "precise",
+    "prompt": "List every source file that uses `mesamereFactorLevel` in code. Leave out comments, strings, tests, docs and build output.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "mesamereFactorLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/cypressdale/cypressdale-picker.ts",
+        "src/shared/umbercrest/umbercrest-reader.ts",
+        "src/utils/saffronmere/saffronmere-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/wrenholm/wrenholm-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/wrenholm-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/lib/wrenholm/wrenholm-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/mirror-shalebury",
+        "reason": "symlinked duplicate of a needle folder"
+      },
+      {
+        "path": "src/utils/saffronmere/wrenholm-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/saffronmere/wrenholm.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14736,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5526,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2947,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3684,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-symlink/vague/small/s2",
+    "family": "trap-symlink",
+    "variant": "vague",
+    "prompt": "where do we actually use `harborwynBiasCode` in the code?",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "harborwynBiasCode"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/shared/atlasstead/atlasstead-fields.ts",
+        "src/shared/thistlebury/thistlebury-reader.ts",
+        "src/utils/opaldale/opaldale-picker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/valebury/valebury-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/valebury-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/mirror-onyxcrest",
+        "reason": "symlinked duplicate of a needle folder"
+      },
+      {
+        "path": "src/shared/atlasstead/valebury-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/shared/atlasstead/valebury.test.ts",
+        "reason": "used only in a test"
+      },
+      {
+        "path": "src/utils/valebury/valebury-label.ts",
+        "reason": "longer identifier containing it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14580,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5468,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2916,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3645,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "trap-symlink/wrong-terms/medium/s1",
+    "family": "trap-symlink",
+    "variant": "wrong-terms",
+    "prompt": "Which classes read the `mesasteadFactorLevel` column? Only real code, not tests or docs.",
+    "scope": [
+      "."
+    ],
+    "query": "trap-symlink",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "mesasteadFactorLevel"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "src/lib/cypresswick/cypresswick-picker.ts",
+        "src/shared/umberfield/umberfield-reader.ts",
+        "src/utils/saffronstead/saffronstead-fields.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": "dist/wrenholm/wrenholm-build.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/wrenholm-fields.md",
+        "reason": "documentation mention"
+      },
+      {
+        "path": "src/lib/wrenholm/wrenholm-label.ts",
+        "reason": "longer identifier containing it"
+      },
+      {
+        "path": "src/mirror-shalecrest",
+        "reason": "symlinked duplicate of a needle folder"
+      },
+      {
+        "path": "src/utils/saffronstead/wrenholm-forward.ts",
+        "reason": "mentioned only in a comment"
+      },
+      {
+        "path": "src/utils/saffronstead/wrenholm.test.ts",
+        "reason": "used only in a test"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14680,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5505,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2936,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines. Links are not followed.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3670,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]

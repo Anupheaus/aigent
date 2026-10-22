@@ -1,0 +1,536 @@
+[
+  {
+    "id": "env-var/held-out/medium/s1001",
+    "family": "env-var",
+    "variant": "held-out",
+    "prompt": "What code reads the environment variable `QUILLWICK_RIDGEWICK_BUCKET`?",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 1001,
+      "size": "medium"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "QUILLWICK_RIDGEWICK_BUCKET"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/shared/atlasford/atlasford-worker.ts",
+        "src/utils/tamarindcrest/settings.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/tamarindcrest/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-tamarindcrest.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/lib/valeholm/valeholm-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      },
+      {
+        "path": "src/shared/atlasford/atlasford-worker.test.ts",
+        "reason": "test sets it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14880,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5580,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2976,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3720,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  },
+  {
+    "id": "env-var/held-out/small/s1000",
+    "family": "env-var",
+    "variant": "held-out",
+    "prompt": "What code reads the environment variable `MAPLEBURY_RAVENFIELD_TIMEOUT_MS`?",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 1000,
+      "size": "small"
+    },
+    "heldOut": true,
+    "givenTerms": [
+      "MAPLEBURY_RAVENFIELD_TIMEOUT_MS"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/core/lotuswyn/lotuswyn-worker.ts",
+        "src/shared/amberbury/settings.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/amberbury/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-amberbury.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/core/lotuswyn/lotuswyn-worker.test.ts",
+        "reason": "test sets it"
+      },
+      {
+        "path": "src/shared/fennelwyn/fennelwyn-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14936,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5601,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2987,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3734,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "env-var/jargon/small/s3",
+    "family": "env-var",
+    "variant": "jargon",
+    "prompt": "Find every read of the env var `UMBERFORD_FJORDDALE_BUCKET` in our code (not tests, docs or CI config).",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 3,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "UMBERFORD_FJORDDALE_BUCKET"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/domain/canyoncrest/canyoncrest-worker.ts",
+        "src/domain/oakcrest/settings.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/oakcrest/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-oakcrest.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/domain/canyoncrest/canyoncrest-worker.test.ts",
+        "reason": "test sets it"
+      },
+      {
+        "path": "src/shared/cindermere/cindermere-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14948,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5606,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2989,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3737,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "env-var/precise/small/s1",
+    "family": "env-var",
+    "variant": "precise",
+    "prompt": "Which source files read the `LAGOONSTEAD_HAZELBURY_BUCKET` environment variable?",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 1,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "LAGOONSTEAD_HAZELBURY_BUCKET"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/core/violetwick/settings.ts",
+        "src/utils/canyonholm/canyonholm-worker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/violetwick/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-violetwick.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/lib/meadowford/meadowford-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      },
+      {
+        "path": "src/utils/canyonholm/canyonholm-worker.test.ts",
+        "reason": "test sets it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14912,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5592,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2982,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3728,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "env-var/vague/small/s2",
+    "family": "env-var",
+    "variant": "vague",
+    "prompt": "where is `FENNELWICK_TAMARINDSTEAD_TIMEOUT_MS` used?",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 2,
+      "size": "small"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "FENNELWICK_TAMARINDSTEAD_TIMEOUT_MS"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/domain/oakstead/settings.ts",
+        "src/lib/sierraholm/sierraholm-worker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/oakstead/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-oakstead.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/core/micawick/micawick-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      },
+      {
+        "path": "src/lib/sierraholm/sierraholm-worker.test.ts",
+        "reason": "test sets it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14948,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 20000
+      },
+      "target": {
+        "maxTokens": 5606,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 7500
+      },
+      "stretch": {
+        "maxTokens": 2989,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 4000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3737,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 5000
+      }
+    }
+  },
+  {
+    "id": "env-var/wrong-terms/medium/s1",
+    "family": "env-var",
+    "variant": "wrong-terms",
+    "prompt": "Which files load the `LAGOONHOLM_HAZELWYN_BUCKET` value from the environment?",
+    "scope": [
+      "."
+    ],
+    "query": "env-var",
+    "repo": {
+      "seed": 1,
+      "size": "medium"
+    },
+    "heldOut": false,
+    "givenTerms": [
+      "LAGOONHOLM_HAZELWYN_BUCKET"
+    ],
+    "groundTruth": {
+      "kind": "files",
+      "files": [
+        "scripts/healthcheck.js",
+        "src/core/violetwick/settings.ts",
+        "src/utils/canyonmere/canyonmere-worker.ts"
+      ]
+    },
+    "decoys": [
+      {
+        "path": ".github/workflows/deploy.yml",
+        "reason": "CI configuration sets it"
+      },
+      {
+        "path": "dist/violetwick/settings.js",
+        "reason": "build output"
+      },
+      {
+        "path": "docs/deploy-violetwick.md",
+        "reason": "documentation"
+      },
+      {
+        "path": "src/lib/meadowford/meadowford-legacy.ts",
+        "reason": "reads a longer variable; the name is only in a comment"
+      },
+      {
+        "path": "src/utils/canyonmere/canyonmere-worker.test.ts",
+        "reason": "test sets it"
+      }
+    ],
+    "accept": {
+      "kind": "set",
+      "minRecall": 1,
+      "minPrecision": 1
+    },
+    "budgets": {
+      "pass": {
+        "maxTokens": 14888,
+        "maxTurns": 8,
+        "maxToolCalls": 4,
+        "maxMs": 60000
+      },
+      "target": {
+        "maxTokens": 5583,
+        "maxTurns": 3,
+        "maxToolCalls": 2,
+        "maxMs": 22500
+      },
+      "stretch": {
+        "maxTokens": 2977,
+        "maxTurns": 1,
+        "maxToolCalls": 0,
+        "maxMs": 12000
+      }
+    },
+    "reference": {
+      "description": "One exact whole-word search with the default ignores, judged from the matched lines.",
+      "steps": [
+        {
+          "tool": "fs_search",
+          "items": 1,
+          "purpose": "1 call(s)"
+        }
+      ],
+      "measured": {
+        "tokens": 3722,
+        "turns": 2,
+        "toolCalls": 1,
+        "ms": 15000
+      }
+    }
+  }
+]
