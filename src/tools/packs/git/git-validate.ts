@@ -47,8 +47,24 @@ export function validRemote(value: string): string {
  * runs with literal pathspecs).
  */
 export async function validRepoPath(params: { deps: GitDeps; repo: string; path: string; permission?: FsPermission }): Promise<string> {
-  const { deps: { policy }, repo, path, permission = 'read' } = params;
+  const { path } = params;
   if (path === '' || path.startsWith('-') || path.startsWith(':') || /[\0\r\n]/.test(path)) invalid({ code: 'invalid_path', message: `Path '${path.slice(0, 80)}' is not a plain path inside the repository` });
+  return policyRepoPath(params);
+}
+
+/**
+ * The paths git reported (relative, `/` separated) that the FsPolicy refuses for `permission` or that resolve outside
+ * the repository. A pathspec such as `.` or no paths at all reaches every file below it, so what git would show or
+ * commit is checked path by path.
+ */
+export async function deniedRepoPaths(params: { deps: GitDeps; repo: string; paths: readonly string[]; permission?: FsPermission }): Promise<string[]> {
+  const { paths, ...rest } = params;
+  const verdicts = await Promise.all(paths.map(path => policyRepoPath({ ...rest, path }).then(() => false, () => true)));
+  return paths.filter((_path, index) => verdicts[index] === true);
+}
+
+async function policyRepoPath(params: { deps: GitDeps; repo: string; path: string; permission?: FsPermission }): Promise<string> {
+  const { deps: { policy }, repo, path, permission = 'read' } = params;
   const { cwdPolicy, access } = policy;
   const separator = separatorOf(access.platform);
   const decision = await cwdPolicy.check({ path: `${repo}${separator}${path}`, permission, access });

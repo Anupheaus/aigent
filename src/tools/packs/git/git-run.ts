@@ -24,6 +24,8 @@ export interface GitCall {
   settings?: string[];
   /** Exit codes that are not failures (default 0 only). */
   okExitCodes?: number[];
+  /** Written to git's standard input (for `--pathspec-from-file=-`). */
+  stdin?: string;
 }
 
 function failed(params: { code: string; message: string; category?: 'denied' | 'thrown'; details?: Record<string, unknown> }): never {
@@ -62,11 +64,11 @@ async function gitEnvironment(params: { deps: GitDeps; repo: GitRepo }): Promise
   };
 }
 
-async function spawnGit(params: { deps: GitDeps; repo: GitRepo; argv: string[]; signal: AbortSignal }): Promise<ProcessResult> {
-  const { deps: { policy, runner }, repo, argv, signal } = params;
+async function spawnGit(params: { deps: GitDeps; repo: GitRepo; argv: string[]; signal: AbortSignal; stdin?: string }): Promise<ProcessResult> {
+  const { deps: { policy, runner }, repo, argv, signal, stdin } = params;
   const env = await gitEnvironment(params);
   try {
-    return await runner.run({ file: repo.file, args: argv, cwd: repo.path, env, signal, timeoutMs: policy.limits.timeoutMs, maxOutputBytes: policy.limits.maxOutputBytes });
+    return await runner.run({ file: repo.file, args: argv, cwd: repo.path, env, signal, timeoutMs: policy.limits.timeoutMs, maxOutputBytes: policy.limits.maxOutputBytes, ...(stdin == null ? {} : { stdin }) });
   } catch (error) {
     return failed({ code: 'spawn_failed', message: `git could not be started: ${error instanceof Error ? error.message : String(error)}` });
   }
@@ -108,10 +110,10 @@ async function overridesFor(params: { deps: GitDeps; repo: GitRepo; signal: Abor
  * pinned off, with no optional locks. A timeout, a stop or an unexpected exit code is a failure with git's message.
  */
 export async function runGit(call: GitCall): Promise<ProcessResult> {
-  const { deps, repo, args, signal, runHooks = false, settings = [], okExitCodes = [0] } = call;
+  const { deps, repo, args, signal, runHooks = false, settings = [], okExitCodes = [0], stdin } = call;
   const { hooksDir } = await gitSandbox();
   const hardened = hardenedSettings({ hooksDir, runHooks });
   const overrides = await overridesFor({ deps, repo, signal, hardened });
-  const result = await spawnGit({ deps, repo, signal, argv: [...asConfig([...overrides, ...hardened, ...settings]), '--no-optional-locks', ...args] });
+  const result = await spawnGit({ deps, repo, signal, argv: [...asConfig([...overrides, ...hardened, ...settings]), '--no-optional-locks', ...args], ...(stdin == null ? {} : { stdin }) });
   return checked({ result, args, okExitCodes });
 }

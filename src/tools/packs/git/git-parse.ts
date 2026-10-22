@@ -66,6 +66,21 @@ export function parseNumstat(output: string): { files: number; insertions: numbe
   return { files, insertions, deletions };
 }
 
+/** Every path in `git diff --numstat -z`, in git's order, a rename giving its source and its destination. */
+export function numstatPaths(output: string): string[] {
+  const records = output.split('\0');
+  const paths: string[] = [];
+  for (let at = 0; at < records.length; at += 1) {
+    const match = /^(?:-|\d+)\t(?:-|\d+)\t([\s\S]*)$/.exec(records[at] ?? '');
+    if (match == null) continue;
+    const [, path = ''] = match;
+    if (path !== '') { paths.push(path); continue; }
+    paths.push(records[at + 1] ?? '', records[at + 2] ?? '');
+    at += 2;
+  }
+  return [...new Set(paths.filter(path => path !== ''))];
+}
+
 /** Separates the fields of one `git log` record (the unit separator never appears in names or subjects). */
 export const LOG_FIELD_SEPARATOR = '\u001f';
 /** `--format` for `parseLog`: hash, author, ISO date, subject. */
