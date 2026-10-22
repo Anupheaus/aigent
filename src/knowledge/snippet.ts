@@ -12,8 +12,8 @@ interface Sentence {
 
 /**
  * The part of `text` most about `query`, at most `maxChars` characters: the sentence with the most distinct query terms
- * (the earliest on a tie), widened with its neighbours while it fits. A sentence longer than the limit is cut around
- * the first query term. Text that fits is returned whole.
+ * (the earliest on a tie), widened with its neighbours while it fits. A sentence longer than the limit is cut to a
+ * window centred on the first query term in it. Text that fits is returned whole.
  */
 export function snippetFor(params: { text: string; query: string; maxChars?: number }): string {
   const { text, query, maxChars = MAX_SNIPPET_CHARS } = params;
@@ -26,8 +26,10 @@ export function snippetFor(params: { text: string; query: string; maxChars?: num
   const best = sentences.reduce((winner, sentence) => (sentence.hits > winner.hits ? sentence : winner), sentences[0] ?? { start: 0, end: text.length, hits: 0 });
   if (best.end - best.start > maxChars) {
     const lowered = text.toLowerCase();
-    const firstHit = Math.min(...[...terms].map(term => lowered.indexOf(term, best.start)).filter(at => at >= 0 && at < best.end), best.start);
-    const start = Math.max(best.start, Math.min(firstHit, best.end - maxChars));
+    const hits = [...terms].map(term => lowered.indexOf(term, best.start)).filter(at => at >= 0 && at < best.end);
+    const firstHit = hits.length === 0 ? best.start : Math.min(...hits);
+    // Centre the window on the term, kept inside the sentence.
+    const start = Math.max(best.start, Math.min(firstHit - Math.floor(maxChars / 2), best.end - maxChars));
     return text.slice(start, start + maxChars).trim();
   }
   let { start, end } = best;
