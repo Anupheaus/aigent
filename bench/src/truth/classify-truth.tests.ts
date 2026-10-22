@@ -72,6 +72,29 @@ describe('classification truth (hand-built repositories)', () => {
     expect(traceRoute({ tree: repo, endpoint: 'GET /api/a' })).toEqual(['src/h.ts', 'src/r.ts', 'src/repo.ts']);
   });
 
+  it('resolves a mounted router through the mounting file\'s imports: a same-named unmounted router stays dead, path mounts prefix', () => {
+    const repo = tree({
+      'src/app.ts': "import { r as live } from './live';\nserver.use('/v1', live);",
+      'src/live.ts': "export const r = createRouter();\nr.get('/a', h);",
+      'src/legacy.ts': "export const r = createRouter();\nr.get('/legacy', h);",
+      'src/local.ts': "export const own = createRouter();\nown.get('/own', h);\nserver.use(own);",
+    });
+    expect(liveEndpoints(repo)).toEqual(['GET /own', 'GET /v1/a']);
+  });
+
+  it('a same-named local function elsewhere does not keep a dead export alive; namespace, alias and star uses do', () => {
+    const repo = tree({
+      'src/a.ts': 'export function formatName(x: string) { return x; }\nexport function shared() { return 1; }',
+      'src/b.ts': 'function formatName(y: number) { return String(y); }\nexport function main() { return formatName(1); }',
+      'src/c.ts': "import { main } from './b';\nimport { shared as aliased } from './a';\nmain();\naliased();",
+      'src/d.ts': 'export function viaNamespace() { return 1; }\nexport function notViaNamespace() { return 2; }',
+      'src/e.ts': "import * as d from './d';\nd.viaNamespace();",
+      'src/f.ts': 'export function starred() { return 1; }',
+      'src/barrel.ts': "export * from './f';",
+    });
+    expect(deadExports(repo)).toEqual(['formatName', 'notViaNamespace']);
+  });
+
   it('finds exports nobody else references (comments and longer names do not count)', () => {
     const repo = tree({
       'src/h.ts': 'export function used() {}\nexport function dead() {}\nexport const deadArrow = () => 1;\nexport function viaTest() {}\nexport function viaDynamic() {}',

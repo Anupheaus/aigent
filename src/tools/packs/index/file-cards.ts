@@ -1,19 +1,25 @@
 import { contentTags, isTestMaterial, pathTags } from './classify.js';
 import { codeOnly, identifiersOf } from './code-text.js';
-import type { CardImport, CardRoute, ContentFacts, FileCard } from './index-types.js';
+import { callArgs, nameArg, stringArg } from './call-args.js';
+import type { CardBinding, CardImport, CardMount, CardRoute, ContentFacts, FileCard } from './index-types.js';
 
 /**
  * Version of what `analyseContent` derives (parsers and classifier rules). Cached facts are keyed by it, so a change to
  * either must bump it, or a shared store would serve facts an older classifier derived.
  */
-export const CONTENT_FACTS_VERSION = 2;
+export const CONTENT_FACTS_VERSION = 3;
 const LANGUAGES: Record<string, string> = { ts: 'ts', tsx: 'tsx', js: 'js', jsx: 'jsx', mjs: 'js', cjs: 'js', json: 'json', md: 'md', css: 'css', html: 'html', yml: 'yaml', yaml: 'yaml', sql: 'sql' };
 const CODE_LANGUAGES = new Set(['ts', 'tsx', 'js', 'jsx']);
 const JSX_LANGUAGES = new Set(['tsx', 'jsx']);
 const PURPOSE_CHARS = 160;
 const STATIC_IMPORT = /\b(import|export)\s+(?:type\s+)?([^;]*?)\s*from\s+['"]([^'"]+)['"]/g;
-const DYNAMIC_IMPORT = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
-const ROUTE = /\b(\w+)\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]\s*,\s*(\w+)\s*\)/g;
+/** Whole-module loads: dynamic `import('x')` and CommonJS `require('x')`. */
+const MODULE_LOAD = /\b(?:import|require)\(\s*['"]([^'"]+)['"]\s*\)/g;
+const ROUTE_CALL = /\b([A-Za-z_$][\w$]*)\.(get|post|put|patch|delete)\(/g;
+const USE_CALL = /\b([A-Za-z_$][\w$]*)\.use\(/g;
+/** A variable made by a router factory: `Router()`, `express.Router()`, `createRouter()`, `new Router()`. */
+const ROUTER_DECLARATION = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]+)?=\s*(?:new\s+)?(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$]*Router\s*\(/g;
+const DEFAULT_EXPORT = /^export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$/m;
 
 export function languageOf(path: string): string {
   return LANGUAGES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()] ?? 'other';
@@ -28,16 +34,25 @@ function purposeOf(params: { text: string; language: string }): string | undefin
   return found?.slice(0, PURPOSE_CHARS);
 }
 
-const namesIn = (clause: string, which: 'original' | 'alias'): string[] => {
+/** What an import or re-export clause binds (`a, { b as c }`, `* as ns`, `{ d }`, `*`). */
+function bindingsOf(params: { clause: string; isReexport: boolean }): { bindings: CardBinding[]; isWholeModule: boolean } {
+  const { clause, isReexport } = params;
   const braces = /\{([^}]*)\}/.exec(clause)?.[1];
-  if (braces == null) return [];
-  return braces.split(',').map(part => part.trim().replace(/^type\s+/, '')).filter(part => part !== '').map(part => {
-    const [name = '', alias] = part.split(/\s+as\s+/);
-    return which === 'alias' ? alias ?? name : name;
+  const named = (braces ?? '').split(',').map(part => part.trim().replace(/^type\s+/, '')).filter(part => part !== '').map(part => {
+    const [imported = '', local] = part.split(/\s+as\s+/);
+    return { imported: imported.trim(), local: (local ?? imported).trim() };
   });
-};
+  const outside = clause.replace(/\{[^}]*\}/, '').trim();
+  const namespace = /\*\s*(?:as\s+([A-Za-z_$][\w$]*))?/.exec(outside);
+  // `import x from` / `import x, { y } from`: a default binding (re-exports have none).
+  const defaultLocal = isReexport ? undefined : /^([A-Za-z_$][\w$]*)\s*(?:,|$)/.exec(outside)?.[1];
+  return {
+    bindings: [...(defaultLocal == null ? [] : [{ imported: 'default', local: defaultLocal }]), ...(namespace?.[1] == null ? [] : [{ imported: '*', local: namespace[1] }]), ...named],
+    isWholeModule: namespace != null,
+  };
+}
 
-/** Imports and re-exports (static and dynamic), read where the code (not a comment or string) has the keyword. */
+/** Imports and re-exports (static, dynamic and `require`), read where the code (not a comment or string) has the keyword. */
 function importsOf(params: { text: string; code: string }): CardImport[] {
   const { text, code } = params;
   const live = (offset: number): boolean => code[offset] !== ' ';
@@ -45,18 +60,41 @@ function importsOf(params: { text: string; code: string }): CardImport[] {
   for (const match of text.matchAll(STATIC_IMPORT)) {
     if (!live(match.index ?? 0)) continue;
     const isReexport = match[1] === 'export';
-    const clause = match[2] ?? '';
-    imports.push({ specifier: match[3] ?? '', names: namesIn(clause, isReexport ? 'alias' : 'original'), isReexport });
+    const { bindings, isWholeModule } = bindingsOf({ clause: match[2] ?? '', isReexport });
+    const named = bindings.filter(({ imported }) => imported !== 'default' && imported !== '*');
+    imports.push({ specifier: match[3] ?? '', names: named.map(({ imported, local }) => (isReexport ? local : imported)), bindings, isWholeModule, isReexport });
   }
-  for (const match of text.matchAll(DYNAMIC_IMPORT)) if (live(match.index ?? 0)) imports.push({ specifier: match[1] ?? '', names: [], isReexport: false });
+  for (const match of text.matchAll(MODULE_LOAD)) if (live(match.index ?? 0)) imports.push({ specifier: match[1] ?? '', names: [], bindings: [], isWholeModule: true, isReexport: false });
   return imports;
 }
 
-/** Route registrations in code: the receiver, method, path and handler of each `x.get('/path', handler)`. */
+/** Route registrations in code: receiver, method, path and handler of each `x.get('/path', ...middleware, handler)`. */
 function routesOf(params: { text: string; code: string }): CardRoute[] {
   const { text, code } = params;
-  return [...text.matchAll(ROUTE)].filter(match => code[match.index ?? 0] !== ' ').map(match => ({ router: match[1] ?? '', method: (match[2] ?? '').toUpperCase(), path: match[3] ?? '', handler: match[4] ?? '' }));
+  return [...code.matchAll(ROUTE_CALL)].flatMap(match => {
+    const args = callArgs({ code, text, open: (match.index ?? 0) + match[0].length - 1 });
+    const path = stringArg(args?.[0]);
+    if (args == null || path == null || args.length < 2) return [];
+    return [{ router: match[1] ?? '', method: (match[2] ?? '').toUpperCase(), path, handler: nameArg(args.at(-1)) ?? '' }];
+  });
 }
+
+/** `x.use([path,] ...args)` calls: the receiver, the mount path and the plain names mounted. */
+function mountsOf(params: { text: string; code: string }): CardMount[] {
+  const { text, code } = params;
+  return [...code.matchAll(USE_CALL)].flatMap(match => {
+    const args = callArgs({ code, text, open: (match.index ?? 0) + match[0].length - 1 });
+    if (args == null || args.length === 0) return [];
+    const path = stringArg(args[0]);
+    const routers = (path == null ? args : args.slice(1)).flatMap(arg => nameArg(arg) ?? []);
+    return [{ receiver: match[1] ?? '', path: path ?? '', routers }];
+  });
+}
+
+const defaultExportOf = (code: string): { defaultExport?: string } => {
+  const name = DEFAULT_EXPORT.exec(code)?.[1];
+  return name == null ? {} : { defaultExport: name };
+};
 
 /** Declared top-level names, exported names and exported functions of code. */
 function declarationsOf(code: string): { symbols: string[]; exports: string[]; functions: string[] } {
@@ -74,14 +112,15 @@ export function analyseContent(params: { language: string; text: string }): Cont
   const { language, text } = params;
   const purpose = purposeOf({ text, language });
   const base = purpose == null ? {} : { purpose };
-  if (!CODE_LANGUAGES.has(language)) return { ...base, exports: [], functions: [], symbols: [], imports: [], identifiers: [], routes: [], mounts: [], contentTags: [] };
+  if (!CODE_LANGUAGES.has(language)) return { ...base, exports: [], functions: [], symbols: [], imports: [], identifiers: [], routes: [], mounts: [], routers: [], contentTags: [] };
   const code = codeOnly(text);
   const imports = importsOf({ text, code });
   const declarations = declarationsOf(code);
   return {
     ...base, ...declarations, exports: [...new Set([...declarations.exports, ...imports.filter(({ isReexport }) => isReexport).flatMap(({ names }) => names)])],
     imports, identifiers: identifiersOf(code), routes: routesOf({ text, code }),
-    mounts: [...code.matchAll(/\.use\(\s*(\w+)\s*\)/g)].map(match => match[1] ?? ''),
+    mounts: mountsOf({ text, code }), routers: [...new Set([...code.matchAll(ROUTER_DECLARATION)].map(match => match[1] ?? ''))],
+    ...defaultExportOf(code),
     contentTags: contentTags({ isJsx: JSX_LANGUAGES.has(language), text, code }),
   };
 }

@@ -13,21 +13,48 @@ export interface LiveRoute {
 
 const ROUTE_CALL = /\b(\w+)\.(get|post|put|patch|delete)\(\s*'([^']*)'\s*,\s*(\w+)\s*\)/y;
 
-/** Every route registered on a router that some source file mounts with `.use(router)`. */
+/** `x.use(router)` or `x.use('/prefix', router)` (the generator's mounts, and the common Express path mount). */
+const USE_CALL = /\.use\(\s*(?:'([^']*)'\s*,\s*)?(\w+)\s*\)/y;
+
+/**
+ * Where each mount points: the mounted name resolved through the mounting file's own imports (the exporting file and
+ * name), or the mounting file itself when the name is declared there; with the mount's path prefix.
+ */
+function mountedRouters(params: { tree: RepoTree; sources: { path: string; text: string; code: string }[] }): Map<string, string[]> {
+  const { tree, sources } = params;
+  const prefixes = new Map<string, string[]>();
+  for (const { path, text, code } of sources) {
+    const edges = importsOf({ tree, path, text });
+    for (const call of code.matchAll(/\.use\(/g)) {
+      USE_CALL.lastIndex = call.index ?? 0;
+      const parsed = USE_CALL.exec(text);
+      if (parsed == null) continue;
+      const name = parsed[2] ?? '';
+      const edge = edges.find(({ bindings }) => bindings.some(({ local }) => local === name));
+      const binding = edge?.bindings.find(({ local }) => local === name);
+      const key = edge == null ? `${path}\u0000${name}` : edge.resolved == null || binding == null ? undefined : `${edge.resolved}\u0000${binding.imported}`;
+      if (key != null) prefixes.set(key, [...(prefixes.get(key) ?? []), parsed[1] ?? '']);
+    }
+  }
+  return prefixes;
+}
+
+/** Every route registered on a router that some source file mounts (`.use(router)`, `.use('/prefix', router)`), resolved through imports. */
 export function liveRoutes(tree: RepoTree): LiveRoute[] {
   const sources = textFiles(tree).filter(({ path }) => isSourceCode(path)).map(file => ({ ...file, code: scanSource(file.text).code }));
-  const mounted = new Set(sources.flatMap(({ code }) => [...code.matchAll(/\.use\(\s*(\w+)\s*\)/g)].map(match => match[1] ?? '')));
+  const mounted = mountedRouters({ tree, sources });
   const routes: LiveRoute[] = [];
   for (const { path, text, code } of sources) {
     for (const declared of code.matchAll(/export\s+const\s+(\w+)\s*=\s*createRouter\(\)/g)) {
       const router = declared[1] ?? '';
-      if (!mounted.has(router)) continue;
-      // Find each call in code (so commented-out lines are skipped), then read its path from the original text.
-      for (const call of code.matchAll(new RegExp(`\\b${router}\\.(?:get|post|put|patch|delete)\\(`, 'g'))) {
-        ROUTE_CALL.lastIndex = call.index ?? 0;
-        const parsed = ROUTE_CALL.exec(text);
-        if (parsed == null) continue;
-        routes.push({ method: (parsed[2] ?? '').toUpperCase(), path: parsed[3] ?? '', routerFile: path, handlerName: parsed[4] ?? '' });
+      for (const prefix of mounted.get(`${path}\u0000${router}`) ?? []) {
+        // Find each call in code (so commented-out lines are skipped), then read its path from the original text.
+        for (const call of code.matchAll(new RegExp(`\\b${router}\\.(?:get|post|put|patch|delete)\\(`, 'g'))) {
+          ROUTE_CALL.lastIndex = call.index ?? 0;
+          const parsed = ROUTE_CALL.exec(text);
+          if (parsed == null) continue;
+          routes.push({ method: (parsed[2] ?? '').toUpperCase(), path: `${prefix.replace(/\/$/, '')}${parsed[3] ?? ''}`, routerFile: path, handlerName: parsed[4] ?? '' });
+        }
       }
     }
   }

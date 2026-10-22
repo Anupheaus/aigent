@@ -10,19 +10,51 @@ export const FILE_TAGS = [
 
 export type FileTag = typeof FILE_TAGS[number];
 
+/** A name an import binds: `imported` from the module (`default`, `*` for a namespace) as `local` here (the exported name, for a re-export). */
+export interface CardBinding {
+  imported: string;
+  local: string;
+}
+
 /** One import of a file: its specifier, the names it brings in and the indexed file it resolves to. */
 export interface CardImport {
   specifier: string;
+  /** Names it brings in (the original names of an import; the exported names of a re-export). */
   names: string[];
+  bindings: CardBinding[];
+  /** The whole module is reachable (a namespace or dynamic import, `require`, `export *`), not only `bindings`. */
+  isWholeModule: boolean;
   resolved?: string;
   isReexport: boolean;
 }
 
-/** A route registration in code (`router.get('/x', handler)`). */
+/** A route registration in code (`router.get('/x', auth, handler)`). */
 export interface CardRoute {
+  /** The receiver's name in this file. */
   router: string;
   method: string;
+  /** The path as registered (before any mount prefix). */
   path: string;
+  /** The last argument when it is a name (middleware before it is skipped); empty for an inline handler. */
+  handler: string;
+}
+
+/** A `receiver.use([path,] ...names)` call: the names it mounts under the path. */
+export interface CardMount {
+  receiver: string;
+  /** The mount path; empty when none was given. */
+  path: string;
+  /** Arguments that are plain names (routers, or middleware, which mounts no routes). */
+  routers: string[];
+}
+
+/** A route that is served: registered on a router reachable from an app through mounts (or on the app itself). */
+export interface LiveRoute {
+  method: string;
+  /** The served path: mount prefixes joined with the registered path. */
+  path: string;
+  registeredPath: string;
+  router: string;
   handler: string;
 }
 
@@ -46,8 +78,12 @@ export interface FileCard {
   /** Identifiers used in code (not comments or strings), for usage questions. */
   identifiers: string[];
   routes: CardRoute[];
-  /** Routers this file mounts (`.use(router)`). */
-  mounts: string[];
+  /** `.use(...)` calls. */
+  mounts: CardMount[];
+  /** Variables created by a router factory (`Router()`, `express.Router()`, `createRouter()`). */
+  routers: string[];
+  /** The name in `export default name;`, when there is one. */
+  defaultExport?: string;
   tags: FileTag[];
 }
 
@@ -60,7 +96,10 @@ export interface ContentFacts extends Omit<FileCard, 'path' | 'language' | 'size
 /** A card with what only the whole repository can tell: who imports it, and which of its exports nobody else uses. */
 export interface IndexedFile extends FileCard {
   importers: string[];
+  /** Exported functions no other file imports, re-exports or reaches through a whole-module import. */
   unusedExports: string[];
+  /** Routes registered here that are served (with their mount prefixes). */
+  liveRoutes: LiveRoute[];
 }
 
 /** The index at one moment: every card, a version that changes with any file, and what the last refresh did. */
@@ -68,12 +107,12 @@ export interface IndexSnapshot {
   root: string;
   version: string;
   files: Map<string, IndexedFile>;
-  /** Routers mounted somewhere (their routes are live). */
-  mountedRouters: Set<string>;
   /** Text files built into cards by the last refresh (new or changed content); the rest were reused. */
   processed: string[];
-  /** Entries left out, by reason (ignored, denied, binary, tooLarge...). */
+  /** Entries left out, by reason (ignored, denied, binary, tooLarge, unreadable...); only reasons that occurred. */
   skipped: Record<string, number>;
+  /** Files that could not be read even after a retry (a sample), so answers may miss them. */
+  unreadable: string[];
 }
 
 /** `indexTools(options)` and `createRepoIndex(options)`. */

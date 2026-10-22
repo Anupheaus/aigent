@@ -86,8 +86,9 @@ export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
     }
     remembered = next;
     const cards = [...next.values()].map(({ card }) => card);
-    const { files, mountedRouters } = linkCards(cards);
-    return { root: decision.canonicalPath, version: indexVersion(cards), files, mountedRouters, processed: processed.sort(), skipped: { ...skipped.counts } };
+    const { files } = linkCards(cards);
+    const occurred = Object.fromEntries(Object.entries(skipped.counts).filter(([, count]) => count > 0));
+    return { root: decision.canonicalPath, version: indexVersion(cards), files, processed: processed.sort(), skipped: occurred, unreadable: skipped.samples.unreadable ?? [] };
   }
 
   return {

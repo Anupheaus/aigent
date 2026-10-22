@@ -28,7 +28,7 @@ describe('file classification against hand-labelled fixtures', () => {
     expect(routes?.routes).toEqual([{ router: 'router', method: 'GET', path: '/users/:id', handler: 'getUser' }, { router: 'router', method: 'DELETE', path: '/users/:id', handler: 'deleteAccount' }]);
     expect(routes?.imports.find(({ specifier }) => specifier === './users')).toMatchObject({ names: ['getUser', 'deleteAccount'], resolved: 'src/api/users.ts' });
     expect(cards.get('src/api/legacyRoutes.ts')?.routes).toEqual([]);
-    expect(cards.get('src/server/app.ts')?.mounts).toEqual(['router']);
+    expect(cards.get('src/server/app.ts')?.mounts).toEqual([{ receiver: 'app', path: '', routers: ['router'] }]);
     expect(cards.get('src/util/math.ts')?.functions).toEqual(['clamp']);
     expect(cards.get('src/styles/index.ts')).toMatchObject({ exports: ['theme'] });
     expect(cards.get('src/styles/theme.ts')?.importers).toEqual(['src/styles/index.ts']);

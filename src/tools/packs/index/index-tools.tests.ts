@@ -41,7 +41,7 @@ describe('index tools', () => {
     expect(bySymbol).toMatchObject({ total: 2, cards: [{ path: 'src/lib/total.ts', reasons: ['defines symbol'] }, { path: 'src/lib/use.ts', reasons: ['uses symbol'] }] });
     expect(importers).toMatchObject({ cards: [{ path: 'src/lib/use.ts' }] });
     expect(unused).toMatchObject({ total: 1, cards: [{ path: 'src/lib/total.ts', unusedExports: ['unused'] }] });
-    expect(route).toEqual({ route: 'GET /users/:id', registrations: [{ registeredIn: 'src/server/routes.ts', handler: 'getUser', handlerFile: 'src/server/users.ts', callees: [{ path: 'src/server/user-repo.ts', tags: ['data-access'] }] }] });
+    expect(route).toEqual({ route: 'GET /users/:id', registrations: [{ registeredIn: 'src/server/routes.ts', path: '/users/:id', handler: 'getUser', handlerFile: 'src/server/users.ts', callees: [{ path: 'src/server/user-repo.ts', tags: ['data-access'] }] }] });
   });
 
   it('repo_tags lists files by tag, counts first, with live routes', async () => {

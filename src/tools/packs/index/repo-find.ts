@@ -67,21 +67,46 @@ export function findCards(params: { snapshot: IndexSnapshot; query: FindQuery })
   return { total: scored.length, cards: scored.slice(0, query.limit).map(({ file, reasons }) => view(file, reasons)) };
 }
 
-/** A live route's chain: the registering file, the handler's file, and the files the handler calls into (with their tags). */
-export function traceRoute(params: { snapshot: IndexSnapshot; route: string }): { registeredIn: string; handler: string; handlerFile?: string; callees: { path: string; tags: string[] }[] }[] {
+/** One served registration of a route and what runs for it. */
+export interface RouteTrace {
+  registeredIn: string;
+  /** The served path (mount prefixes included). */
+  path: string;
+  handler: string;
+  handlerFile?: string;
+  /** Files the handler's file imports and uses, with their tags. */
+  callees: { path: string; tags: string[] }[];
+}
+
+/** The file defining a handler named in `file`: one it imports the name from, or `file` itself when declared there. */
+function handlerFileOf(params: { file: IndexedFile; handler: string }): string | undefined {
+  const { file, handler } = params;
+  // `users.getUser` is looked up by its first segment (a namespace or object import).
+  const local = handler.split('.')[0] ?? '';
+  if (local === '') return undefined;
+  const imported = file.imports.find(({ bindings, resolved }) => resolved != null && bindings.some(binding => binding.local === local))?.resolved;
+  return imported ?? (file.symbols.includes(local) ? file.path : undefined);
+}
+
+/**
+ * The chains of a served route (`METHOD /path`, matched against the served path, or the registered path when no
+ * served path matches): the registering file, the handler's file, and the files the handler calls into.
+ */
+export function traceRoute(params: { snapshot: IndexSnapshot; route: string }): RouteTrace[] {
   const { snapshot, route } = params;
-  const [method = '', path = ''] = route.trim().split(/\s+/);
-  return [...snapshot.files.values()].flatMap(file => file.routes
-    .filter(entry => entry.method === method.toUpperCase() && entry.path === path && snapshot.mountedRouters.has(entry.router))
-    .map(entry => {
-      const handlerFile = file.imports.find(({ names }) => names.includes(entry.handler))?.resolved;
-      const handler = handlerFile == null ? undefined : snapshot.files.get(handlerFile);
-      const callees = (handler?.imports ?? []).filter(({ names, resolved }) => resolved != null && names.some(name => handler?.identifiers.includes(name))).flatMap(({ resolved }) => {
-        const target = resolved == null ? undefined : snapshot.files.get(resolved);
-        return target == null ? [] : [{ path: target.path, tags: target.tags }];
-      });
-      return { registeredIn: file.path, handler: entry.handler, ...(handlerFile == null ? {} : { handlerFile }), callees };
-    }));
+  const [rawMethod = '', path = ''] = route.trim().split(/\s+/);
+  const method = rawMethod.toUpperCase();
+  const served = [...snapshot.files.values()].flatMap(file => file.liveRoutes.filter(entry => entry.method === method).map(entry => ({ file, entry })));
+  const exact = served.filter(({ entry }) => entry.path === path);
+  return (exact.length > 0 ? exact : served.filter(({ entry }) => entry.registeredPath === path)).map(({ file, entry }) => {
+    const handlerFile = handlerFileOf({ file, handler: entry.handler });
+    const handler = handlerFile == null ? undefined : snapshot.files.get(handlerFile);
+    const callees = (handler?.imports ?? []).filter(({ bindings, resolved }) => resolved != null && resolved !== handler?.path && bindings.some(({ local }) => handler?.identifiers.includes(local))).flatMap(({ resolved }) => {
+      const target = resolved == null ? undefined : snapshot.files.get(resolved);
+      return target == null ? [] : [{ path: target.path, tags: target.tags }];
+    });
+    return { registeredIn: file.path, path: entry.path, handler: entry.handler, ...(handlerFile == null ? {} : { handlerFile }), callees };
+  });
 }
 
 /** Files carrying the tags (`any` or `all`), counts first; API route files list their live routes. */
@@ -92,7 +117,7 @@ export function filesByTags(params: { snapshot: IndexSnapshot; tags: FileTag[]; 
   return {
     counts, total: files.length,
     files: files.slice(0, limit).map(file => {
-      const live = file.routes.filter(({ router }) => snapshot.mountedRouters.has(router)).map(({ method, path }) => `${method} ${path}`);
+      const live = [...new Set(file.liveRoutes.map(({ method, path }) => `${method} ${path}`))];
       return { path: file.path, tags: file.tags, importers: file.importers.length, ...(live.length === 0 ? {} : { routes: live }) };
     }),
   };
