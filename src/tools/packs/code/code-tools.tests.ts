@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createAigent } from '../../../core/create-aigent.js';
 import { createInMemoryStore } from '../../../store/in-memory-store.js';
@@ -32,6 +33,16 @@ describe('codeTools', () => {
     expect(result.usage.toolCalls).toBe(1);
     const seen = JSON.parse(provider.requests[1]?.messages.find(({ toolCallId }) => toolCallId === 'c1')?.text ?? '{}') as { result: { result: { definitions: { path: string; line: number }[] } }[] };
     expect(seen.result[0]?.result.definitions[0]).toMatchObject({ path: fixture.at('src/shapes.ts'), line: 13 });
+  });
+});
+
+describe('the typescript peer dependency', () => {
+  // npm checks an optional peer's range whenever the package is installed, so a narrow range would refuse every
+  // consumer on TypeScript 5 or 6 even when they never use the code pack; the loader checks the API instead.
+  it('accepts any installed version and stays optional', () => {
+    const packageJson = JSON.parse(readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8')) as { peerDependencies: Record<string, string>; peerDependenciesMeta: Record<string, { optional?: boolean }> };
+    expect(packageJson.peerDependencies.typescript).toBe('*');
+    expect(packageJson.peerDependenciesMeta.typescript?.optional).toBe(true);
   });
 });
 
