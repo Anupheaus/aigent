@@ -2,8 +2,10 @@
 
 **Change (library):** `fs_search` gained `layer: 'files' | 'counts'` (files with their counts, or just totals; never cut
 by `maxMatches`; skip samples reduced to unreadable files) and `order: 'relevance'` (files defining the searched name
-first, then by match count), plus `more: { matches, files }` when lines were left out. Its default output is
-unchanged. The `optimised-r1` policy uses the files layer wherever the match lines were never needed (any-case and
+first, then by match count), plus `more: { matches, files }` when lines were left out. Its default layer keeps its fields and order, but
+not quite unchanged (corrected after review): when matches are cut it now also carries `more`, and the hint names
+`layer: files`. Definitions were marked only from the match lines kept under `maxMatches`; since the review fix they are
+judged from every line of the file. The `optimised-r1` policy uses the files layer wherever the match lines were never needed (any-case and
 whole-word searches, the noisy import/call cross, PII declarations, customer-data JSX).
 
 **Side effect measured first:** the new schema fields add ~74 tokens to every request that offers `fs_search`, so the
@@ -19,12 +21,17 @@ reference went from 3,294 to 3,442 tokens. Round 0's numbers stay as recorded at
 | reference | 600 | 100% | 100% | 3,882 | 14,936 | 2 | 3 |
 | optimised-r1 | 600 | 100% | 100% | 3,862 | 14,936 | 2 | 3 |
 
-Targeted families (median tokens, reference → optimised-r1; IQR across seeds and wordings 21-43 tokens):
+Targeted families (median tokens, reference → optimised-r1; spread (IQR) across seeds and wordings 21-43 tokens):
 any-case 3,869 → 3,506 (-9%), noisy call 4,370 → 3,708 (-15%), whole word 3,625 → 3,437 (-5%), PII fields
 3,747 → 3,469 (-7%), customer UI 3,664 → 3,492 (-5%). Every other family is unchanged (same calls). Fresh seed 41:
 300/300 correct, median 3,854 (fixed seeds 3,862).
 
-**Decision: kept.** The targeted tasks improve by 5-15%, each far beyond its IQR, and nothing regresses (correctness
+**Re-measured after the review fixes** (`--repeat 1`, otherwise the same command; the run is deterministic): identical
+figures, reference 3,882 / 14,936 and optimised-r1 3,862 / 14,936 at median / p90, every family the same. The
+definition-marking fix changes no answer here (the policy does not rely on the marks).
+
+**Decision: kept.** The targeted tasks improve by 5-15%, each larger than the spread across wordings and seeds (the
+scripted tier has no run-to-run noise, so this shows the gain is consistent, not that it beats noise), and nothing regresses (correctness
 100% on fixed and fresh seeds). The gain is small because a turn's fixed cost (system prompt and tool schemas, ~1,500
 tokens) dominates one-search tasks; the expensive multi-step families are untouched by better search output.
 

@@ -1,0 +1,5306 @@
+{
+  "label": "round-3-tools-only",
+  "tier": "scripted",
+  "repeat": 1,
+  "specs": 200,
+  "aggregates": [
+    {
+      "solver": "optimised",
+      "runs": 200,
+      "correctRate": 1,
+      "passRate": 1,
+      "targetRate": 1,
+      "stretchRate": 0.2,
+      "medianTokens": 4569,
+      "p90Tokens": 4912,
+      "medianTurns": 2,
+      "p90Turns": 2,
+      "medianToolCalls": 1,
+      "costUsd": null
+    }
+  ],
+  "variance": [
+    {
+      "family": "ambiguous",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4573,
+        "iqr": 24
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 15
+      }
+    },
+    {
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "tokens": {
+        "median": 10910,
+        "iqr": 139
+      },
+      "turns": {
+        "median": 3,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 67,
+        "iqr": 18
+      }
+    },
+    {
+      "family": "dead-exports",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4501,
+        "iqr": 25
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 2
+      }
+    },
+    {
+      "family": "endpoints",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4665,
+        "iqr": 23
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 7
+      }
+    },
+    {
+      "family": "env-var",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4544,
+        "iqr": 15
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "find-named-file",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4583,
+        "iqr": 29
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 18,
+        "iqr": 8
+      }
+    },
+    {
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4635,
+        "iqr": 32
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "none-exist",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4482,
+        "iqr": 29
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 2
+      }
+    },
+    {
+      "family": "pii-fields",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4522,
+        "iqr": 22
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 18,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "react-components",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4912,
+        "iqr": 42
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 9
+      }
+    },
+    {
+      "family": "route-trace",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4528,
+        "iqr": 30
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 21,
+        "iqr": 6
+      }
+    },
+    {
+      "family": "string-any-case",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4619,
+        "iqr": 33
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 24,
+        "iqr": 2
+      }
+    },
+    {
+      "family": "string-noisy",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4760,
+        "iqr": 40
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 27,
+        "iqr": 8
+      }
+    },
+    {
+      "family": "string-usage",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4575,
+        "iqr": 32
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 5
+      }
+    },
+    {
+      "family": "string-word",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4526,
+        "iqr": 26
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 19
+      }
+    },
+    {
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4598,
+        "iqr": 26
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 25,
+        "iqr": 4
+      }
+    },
+    {
+      "family": "tests-for",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4915,
+        "iqr": 17
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 5
+      }
+    },
+    {
+      "family": "theme-definition",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4528,
+        "iqr": 30
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 2
+      }
+    },
+    {
+      "family": "trap-binary",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4557,
+        "iqr": 25
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "trap-denied",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4561,
+        "iqr": 22
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 29,
+        "iqr": 11
+      }
+    },
+    {
+      "family": "trap-failure",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4559,
+        "iqr": 25
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 24,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "trap-injection",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4586,
+        "iqr": 27
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4559,
+        "iqr": 24
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 3
+      }
+    },
+    {
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4560,
+        "iqr": 25
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 4
+      }
+    },
+    {
+      "family": "ui-customer",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4550,
+        "iqr": 31
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 18,
+        "iqr": 7
+      }
+    }
+  ],
+  "rows": [
+    {
+      "taskId": "ambiguous/jargon/small/s3",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4563,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 36,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 531
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/jargon/small/s43",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 555
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/precise/small/s1",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4573,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 548
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/precise/small/s43",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4577,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 555
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/vague/small/s2",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4548,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 551
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/vague/small/s43",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4552,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 555
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/wrong-terms/medium/s1",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 145,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 556
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/wrong-terms/medium/s43",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 154,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 555
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/jargon/small/s3",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10910,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 76,
+      "decoyHits": 1,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2139
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6435
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/jargon/small/s43",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10983,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 82,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2254
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6445
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/precise/small/s1",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10781,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 66,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2233
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 7,
+          "resultChars": 5742
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/precise/small/s43",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 11008,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 67,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2254
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6445
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/vague/small/s2",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10844,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 56,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2105
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6446
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/vague/small/s43",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10926,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 64,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2254
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6445
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/wrong-terms/medium/s1",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 10853,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 394,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2325
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 7,
+          "resultChars": 5787
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/wrong-terms/medium/s43",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 11067,
+      "turns": 3,
+      "toolCalls": 2,
+      "ms": 371,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 10,
+          "resultChars": 2338
+        },
+        "fs_read": {
+          "calls": 1,
+          "items": 8,
+          "resultChars": 6480
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/jargon/small/s3",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4503,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 20,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 396
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/jargon/small/s43",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4513,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 426
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/precise/small/s1",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4533,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 395
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/precise/small/s43",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4543,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 426
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/vague/small/s2",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4481,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 407
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/vague/small/s43",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4488,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 426
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/wrong-terms/small/s1",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4490,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 395
+        }
+      }
+    },
+    {
+      "taskId": "dead-exports/wrong-terms/small/s43",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4501,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 426
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/jargon/small/s3",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4670,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 742
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/jargon/small/s43",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4665,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 734
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/precise/small/s1",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4670,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 743
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/precise/small/s43",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4665,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 734
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/vague/small/s2",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4643,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 741
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/vague/small/s43",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4639,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 734
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/wrong-terms/medium/s1",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4666,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 119,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 761
+        }
+      }
+    },
+    {
+      "taskId": "endpoints/wrong-terms/medium/s43",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4655,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 123,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 739
+        }
+      }
+    },
+    {
+      "taskId": "env-var/jargon/small/s3",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4556,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 304
+        }
+      }
+    },
+    {
+      "taskId": "env-var/jargon/small/s43",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 306
+        }
+      }
+    },
+    {
+      "taskId": "env-var/precise/small/s1",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4544,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 301
+        }
+      }
+    },
+    {
+      "taskId": "env-var/precise/small/s43",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4546,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 306
+        }
+      }
+    },
+    {
+      "taskId": "env-var/vague/small/s2",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4532,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 299
+        }
+      }
+    },
+    {
+      "taskId": "env-var/vague/small/s43",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4529,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 306
+        }
+      }
+    },
+    {
+      "taskId": "env-var/wrong-terms/medium/s1",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4541,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 143,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 301
+        }
+      }
+    },
+    {
+      "taskId": "env-var/wrong-terms/medium/s43",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4547,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 150,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 308
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/jargon/small/s3",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4588,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 698
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/jargon/small/s43",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4583,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 687
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/precise/small/s1",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4596,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 715
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/precise/small/s43",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4584,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 687
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/vague/small/s2",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 691
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/vague/small/s43",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4558,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 687
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/wrong-terms/large/s1",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4594,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 926,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 715
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/wrong-terms/large/s43",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4582,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 856,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 687
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/jargon/small/s3",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4661,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 689
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/jargon/small/s43",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4662,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 691
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/precise/small/s1",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4656,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 691
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/precise/small/s43",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4656,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 691
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/vague/small/s2",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4624,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 697
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/vague/small/s43",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4622,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 691
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/wrong-terms/medium/s1",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4635,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 123,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 692
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/wrong-terms/medium/s43",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4635,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 124,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 693
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/jargon/small/s3",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4490,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 359
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/jargon/small/s43",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4482,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 351
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/precise/small/s1",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4480,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 345
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/precise/small/s43",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4482,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 351
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/vague/small/s2",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4461,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 357
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/vague/small/s43",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4456,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 351
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/wrong-terms/medium/s1",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4493,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 122,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 365
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/wrong-terms/medium/s43",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4494,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 131,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 367
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/jargon/small/s3",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4529,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 439
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/jargon/small/s43",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4529,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 439
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/precise/small/s1",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4554,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 436
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/precise/small/s43",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4555,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 439
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/vague/small/s2",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4507,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 439
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/vague/small/s43",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4507,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 439
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/wrong-terms/medium/s1",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4520,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 121,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 437
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/wrong-terms/medium/s43",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4522,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 119,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 441
+        }
+      }
+    },
+    {
+      "taskId": "react-components/jargon/small/s3",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4942,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1578
+        }
+      }
+    },
+    {
+      "taskId": "react-components/jargon/small/s43",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4900,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1458
+        }
+      }
+    },
+    {
+      "taskId": "react-components/precise/small/s1",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4912,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1459
+        }
+      }
+    },
+    {
+      "taskId": "react-components/precise/small/s43",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4912,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1458
+        }
+      }
+    },
+    {
+      "taskId": "react-components/vague/small/s2",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4912,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1568
+        }
+      }
+    },
+    {
+      "taskId": "react-components/vague/small/s43",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4874,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1458
+        }
+      }
+    },
+    {
+      "taskId": "react-components/wrong-terms/large/s1",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5009,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 875,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1804
+        }
+      }
+    },
+    {
+      "taskId": "react-components/wrong-terms/large/s43",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5015,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 914,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1819
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/jargon/small/s3",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4546,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 450
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/jargon/small/s43",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4539,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 440
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/precise/small/s1",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4557,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 444
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/precise/small/s43",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4554,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 440
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/vague/small/s2",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4516,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 445
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/vague/small/s43",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4512,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 440
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/wrong-terms/medium/s1",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4528,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 121,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 448
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/wrong-terms/medium/s43",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4521,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 120,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 440
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/jargon/small/s3",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4638,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 512
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/jargon/small/s43",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4621,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 485
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/precise/small/s1",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4655,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 502
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/precise/small/s43",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4644,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 485
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/vague/small/s2",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4605,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 502
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/vague/small/s43",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4594,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 485
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/wrong-terms/medium/s1",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4619,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 155,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 494
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/wrong-terms/medium/s43",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4615,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 158,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 487
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/jargon/small/s3",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4784,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 34,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 928
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/jargon/small/s43",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4777,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 909
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/precise/small/s1",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4760,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 939
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/precise/small/s43",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4749,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 909
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/vague/small/s2",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4744,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 911
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/vague/small/s43",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4741,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 909
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/wrong-terms/large/s1",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 6364,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 1075,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 6491
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/wrong-terms/large/s43",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 6414,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 1094,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 6714
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/jargon/small/s3",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4575,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 358
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/jargon/small/s43",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4572,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 356
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/precise/small/s1",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4578,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 353
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/precise/small/s43",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4580,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 28,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 356
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/vague/small/s2",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4545,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 347
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/vague/small/s43",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4548,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 356
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/wrong-terms/large/s1",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4655,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 1026,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 569
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/wrong-terms/large/s43",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4651,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 937,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 562
+        }
+      }
+    },
+    {
+      "taskId": "string-word/jargon/small/s3",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4518,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 341
+        }
+      }
+    },
+    {
+      "taskId": "string-word/jargon/small/s43",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4526,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 355
+        }
+      }
+    },
+    {
+      "taskId": "string-word/precise/small/s1",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 28,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 358
+        }
+      }
+    },
+    {
+      "taskId": "string-word/precise/small/s43",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4557,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 42,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 355
+        }
+      }
+    },
+    {
+      "taskId": "string-word/vague/small/s2",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4512,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 357
+        }
+      }
+    },
+    {
+      "taskId": "string-word/vague/small/s43",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4512,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 355
+        }
+      }
+    },
+    {
+      "taskId": "string-word/wrong-terms/medium/s1",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4531,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 160,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 352
+        }
+      }
+    },
+    {
+      "taskId": "string-word/wrong-terms/medium/s43",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4538,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 152,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 367
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/jargon/small/s3",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4612,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 459
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/jargon/small/s43",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4612,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 28,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 461
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/precise/small/s1",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4598,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 446
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/precise/small/s43",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4608,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 461
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/vague/small/s2",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4580,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 457
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/vague/small/s43",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4582,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 461
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/wrong-terms/medium/s1",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4596,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 147,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 446
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/wrong-terms/medium/s43",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4604,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 161,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 457
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/jargon/small/s3",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4941,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 836
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 645
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/jargon/small/s43",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4929,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 819
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 631
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/precise/small/s1",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4902,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 813
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 625
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/precise/small/s43",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4906,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 819
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 631
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/vague/small/s2",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4915,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 834
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 642
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/vague/small/s43",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4905,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 20,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 819
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 631
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/wrong-terms/medium/s1",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4917,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 129,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 814
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 622
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/wrong-terms/medium/s43",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4922,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 126,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 819
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 631
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/jargon/small/s3",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4542,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 469
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/jargon/small/s43",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4542,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 471
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/precise/small/s1",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4566,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 470
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/precise/small/s43",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4566,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 471
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/vague/small/s2",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4512,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 474
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/vague/small/s43",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4510,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 471
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/wrong-terms/medium/s1",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4528,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 136,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 473
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/wrong-terms/medium/s43",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4526,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 119,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 472
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/jargon/small/s3",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4562,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 321
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/jargon/small/s43",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4568,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 327
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/precise/small/s1",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 330
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/precise/small/s43",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4574,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 327
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/vague/small/s2",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4543,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/vague/small/s43",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4542,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 327
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/wrong-terms/medium/s1",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4557,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 206,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/wrong-terms/medium/s43",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4557,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 173,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 325
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/jargon/small/s3",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4571,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 29,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 338
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/jargon/small/s43",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4570,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 336
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/precise/small/s1",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4578,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 29,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 339
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/precise/small/s43",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 36,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 336
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/vague/small/s2",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4549,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 27,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 344
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/vague/small/s43",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4544,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 336
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/wrong-terms/medium/s1",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4561,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 174,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 339
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/wrong-terms/medium/s43",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4558,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 155,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 336
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/jargon/small/s3",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4567,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/jargon/small/s43",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4571,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 334
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/precise/small/s1",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4570,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 324
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/precise/small/s43",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4577,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 334
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/vague/small/s2",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4542,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 327
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/vague/small/s43",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4545,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 334
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/wrong-terms/medium/s1",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4554,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 141,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/wrong-terms/medium/s43",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 143,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 334
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/jargon/small/s3",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4595,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 393
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/jargon/small/s43",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4593,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 389
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/precise/small/s1",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4602,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 393
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/precise/small/s43",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4600,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 389
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/vague/small/s2",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4568,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 393
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/vague/small/s43",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4568,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 389
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/wrong-terms/medium/s1",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4586,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 147,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 395
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/wrong-terms/medium/s43",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4580,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 148,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 385
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/jargon/small/s3",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4567,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/jargon/small/s43",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4569,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 328
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/precise/small/s1",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4574,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 325
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/precise/small/s43",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 328
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/vague/small/s2",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4538,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 323
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/vague/small/s43",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4545,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 328
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/wrong-terms/medium/s1",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 165,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 329
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/wrong-terms/medium/s43",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4559,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 154,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 330
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/jargon/small/s3",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4566,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 331
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/jargon/small/s43",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4561,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 319
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/precise/small/s1",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4577,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 333
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/precise/small/s43",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4568,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 319
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/vague/small/s2",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4541,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 330
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/vague/small/s43",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4536,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 319
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/wrong-terms/medium/s1",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4560,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 141,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 335
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/wrong-terms/medium/s43",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4550,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 139,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 319
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/jargon/small/s3",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4574,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 609
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/jargon/small/s43",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4536,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 498
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/precise/small/s1",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4567,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 25,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 497
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/precise/small/s43",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4567,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 498
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/vague/small/s2",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4564,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 608
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/vague/small/s43",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4526,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 18,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 498
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/wrong-terms/medium/s1",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4547,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 120,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 493
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/wrong-terms/medium/s43",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": false,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4550,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 119,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 500
+        }
+      }
+    }
+  ]
+}

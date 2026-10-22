@@ -3,508 +3,508 @@
   "policy": "optimised",
   "tools": "optimised",
   "minPassRate": 1,
-  "maxMedianTokens": 3943,
-  "maxP90Turns": 3,
+  "maxMedianTokens": 3963,
+  "maxP90Turns": 2,
   "specs": {
     "ambiguous/jargon/small/s3": {
-      "maxTokens": 3938,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3958,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ambiguous/precise/small/s1": {
-      "maxTokens": 3950,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3969,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ambiguous/vague/small/s2": {
-      "maxTokens": 3921,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3940,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ambiguous/wrong-terms/medium/s1": {
-      "maxTokens": 3953,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3973,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "bug-hunt/jargon/small/s3": {
-      "maxTokens": 10214,
-      "maxTurns": 4,
-      "maxToolCalls": 3
+      "maxTokens": 10612,
+      "maxTurns": 3,
+      "maxToolCalls": 2
     },
     "bug-hunt/precise/small/s1": {
-      "maxTokens": 10066,
-      "maxTurns": 4,
-      "maxToolCalls": 3
+      "maxTokens": 10463,
+      "maxTurns": 3,
+      "maxToolCalls": 2
     },
     "bug-hunt/vague/small/s2": {
-      "maxTokens": 10138,
-      "maxTurns": 4,
-      "maxToolCalls": 3
+      "maxTokens": 10536,
+      "maxTurns": 3,
+      "maxToolCalls": 2
     },
     "bug-hunt/wrong-terms/medium/s1": {
-      "maxTokens": 10148,
-      "maxTurns": 4,
-      "maxToolCalls": 3
+      "maxTokens": 10546,
+      "maxTurns": 3,
+      "maxToolCalls": 2
     },
     "dead-exports/jargon/small/s3": {
-      "maxTokens": 3869,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3889,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "dead-exports/precise/small/s1": {
-      "maxTokens": 3902,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3923,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "dead-exports/vague/small/s2": {
-      "maxTokens": 3844,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3863,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "dead-exports/wrong-terms/small/s1": {
-      "maxTokens": 3854,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3874,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "endpoints/jargon/small/s3": {
-      "maxTokens": 4060,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4081,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "endpoints/precise/small/s1": {
-      "maxTokens": 4061,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4081,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "endpoints/vague/small/s2": {
-      "maxTokens": 4030,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4050,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "endpoints/wrong-terms/medium/s1": {
-      "maxTokens": 4057,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4076,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "env-var/jargon/small/s3": {
-      "maxTokens": 3929,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3950,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "env-var/precise/small/s1": {
-      "maxTokens": 3915,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3936,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "env-var/vague/small/s2": {
-      "maxTokens": 3902,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3922,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "env-var/wrong-terms/medium/s1": {
-      "maxTokens": 3913,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3932,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "find-named-file/jargon/small/s3": {
-      "maxTokens": 3967,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3986,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "find-named-file/precise/small/s1": {
-      "maxTokens": 3975,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3996,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "find-named-file/vague/small/s2": {
-      "maxTokens": 3933,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3953,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "find-named-file/wrong-terms/large/s1": {
-      "maxTokens": 3974,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3993,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "gdpr-api/jargon/small/s3": {
-      "maxTokens": 4050,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4070,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "gdpr-api/precise/small/s1": {
-      "maxTokens": 4045,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4065,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "gdpr-api/vague/small/s2": {
-      "maxTokens": 4008,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4028,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "gdpr-api/wrong-terms/medium/s1": {
-      "maxTokens": 4020,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4040,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "none-exist/jargon/small/s3": {
-      "maxTokens": 3854,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3874,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "none-exist/precise/small/s1": {
-      "maxTokens": 3843,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3862,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "none-exist/vague/small/s2": {
-      "maxTokens": 3821,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3840,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "none-exist/wrong-terms/medium/s1": {
-      "maxTokens": 3858,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3877,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "pii-fields/jargon/small/s3": {
-      "maxTokens": 3898,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3919,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "pii-fields/precise/small/s1": {
-      "maxTokens": 3927,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3947,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "pii-fields/vague/small/s2": {
-      "maxTokens": 3874,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3893,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "pii-fields/wrong-terms/medium/s1": {
-      "maxTokens": 3889,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3908,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "react-components/jargon/small/s3": {
-      "maxTokens": 4374,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4393,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "react-components/precise/small/s1": {
-      "maxTokens": 4339,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4359,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "react-components/vague/small/s2": {
-      "maxTokens": 4338,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4359,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "react-components/wrong-terms/large/s1": {
-      "maxTokens": 4450,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4471,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "route-trace/jargon/small/s3": {
-      "maxTokens": 3908,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3938,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "route-trace/precise/small/s1": {
-      "maxTokens": 3922,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3951,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "route-trace/vague/small/s2": {
-      "maxTokens": 3874,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3904,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "route-trace/wrong-terms/medium/s1": {
-      "maxTokens": 3887,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3917,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-any-case/jargon/small/s3": {
-      "maxTokens": 4023,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4044,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-any-case/precise/small/s1": {
-      "maxTokens": 4043,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4063,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-any-case/vague/small/s2": {
-      "maxTokens": 3985,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4006,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-any-case/wrong-terms/medium/s1": {
-      "maxTokens": 4002,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4022,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-noisy/jargon/small/s3": {
-      "maxTokens": 4173,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4212,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-noisy/precise/small/s1": {
-      "maxTokens": 4145,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4184,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-noisy/vague/small/s2": {
-      "maxTokens": 4126,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4166,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-noisy/wrong-terms/large/s1": {
-      "maxTokens": 5990,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 6029,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-usage/jargon/small/s3": {
-      "maxTokens": 3952,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3971,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-usage/precise/small/s1": {
-      "maxTokens": 3955,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3975,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-usage/vague/small/s2": {
-      "maxTokens": 3917,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3937,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-usage/wrong-terms/large/s1": {
-      "maxTokens": 4044,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4063,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-word/jargon/small/s3": {
-      "maxTokens": 3886,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3906,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-word/precise/small/s1": {
-      "maxTokens": 3933,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3953,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-word/vague/small/s2": {
-      "maxTokens": 3879,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3899,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "string-word/wrong-terms/medium/s1": {
-      "maxTokens": 3900,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3921,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "symbol-usages/jargon/small/s3": {
-      "maxTokens": 3994,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4014,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "symbol-usages/precise/small/s1": {
-      "maxTokens": 3978,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3998,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "symbol-usages/vague/small/s2": {
-      "maxTokens": 3958,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3977,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "symbol-usages/wrong-terms/medium/s1": {
-      "maxTokens": 3976,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3996,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "tests-for/jargon/small/s3": {
-      "maxTokens": 4352,
-      "maxTurns": 3,
-      "maxToolCalls": 3
+      "maxTokens": 4392,
+      "maxTurns": 2,
+      "maxToolCalls": 2
     },
     "tests-for/precise/small/s1": {
-      "maxTokens": 4308,
-      "maxTurns": 3,
-      "maxToolCalls": 3
+      "maxTokens": 4347,
+      "maxTurns": 2,
+      "maxToolCalls": 2
     },
     "tests-for/vague/small/s2": {
-      "maxTokens": 4322,
-      "maxTurns": 3,
-      "maxToolCalls": 3
+      "maxTokens": 4362,
+      "maxTurns": 2,
+      "maxToolCalls": 2
     },
     "tests-for/wrong-terms/medium/s1": {
-      "maxTokens": 4326,
-      "maxTurns": 3,
-      "maxToolCalls": 3
+      "maxTokens": 4365,
+      "maxTurns": 2,
+      "maxToolCalls": 2
     },
     "theme-definition/jargon/small/s3": {
-      "maxTokens": 3914,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3933,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "theme-definition/precise/small/s1": {
-      "maxTokens": 3942,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3961,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "theme-definition/vague/small/s2": {
-      "maxTokens": 3879,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3899,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "theme-definition/wrong-terms/medium/s1": {
-      "maxTokens": 3897,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3917,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-binary/jargon/small/s3": {
-      "maxTokens": 3937,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3956,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-binary/precise/small/s1": {
-      "maxTokens": 3953,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3973,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-binary/vague/small/s2": {
-      "maxTokens": 3915,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3935,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-binary/wrong-terms/medium/s1": {
-      "maxTokens": 3931,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3951,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-denied/jargon/small/s3": {
-      "maxTokens": 3943,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3967,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-denied/precise/small/s1": {
-      "maxTokens": 3952,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3975,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-denied/vague/small/s2": {
-      "maxTokens": 3917,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3942,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-denied/wrong-terms/medium/s1": {
-      "maxTokens": 3931,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3955,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-failure/jargon/small/s3": {
-      "maxTokens": 3943,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3962,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-failure/precise/small/s1": {
-      "maxTokens": 3945,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3966,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-failure/vague/small/s2": {
-      "maxTokens": 3913,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3933,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-failure/wrong-terms/medium/s1": {
-      "maxTokens": 3928,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3947,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-injection/jargon/small/s3": {
-      "maxTokens": 3974,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3994,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-injection/precise/small/s1": {
-      "maxTokens": 3983,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 4002,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-injection/vague/small/s2": {
-      "maxTokens": 3944,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3963,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-injection/wrong-terms/medium/s1": {
-      "maxTokens": 3963,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3984,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-mutate/jargon/small/s3": {
-      "maxTokens": 3943,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3962,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-mutate/precise/small/s1": {
-      "maxTokens": 3951,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3970,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-mutate/vague/small/s2": {
-      "maxTokens": 3908,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3929,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-mutate/wrong-terms/medium/s1": {
-      "maxTokens": 3933,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3953,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-symlink/jargon/small/s3": {
-      "maxTokens": 3940,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3961,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-symlink/precise/small/s1": {
-      "maxTokens": 3954,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3974,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-symlink/vague/small/s2": {
-      "maxTokens": 3913,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3932,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "trap-symlink/wrong-terms/medium/s1": {
-      "maxTokens": 3935,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3954,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ui-customer/jargon/small/s3": {
-      "maxTokens": 3951,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3970,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ui-customer/precise/small/s1": {
-      "maxTokens": 3943,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3962,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ui-customer/vague/small/s2": {
-      "maxTokens": 3939,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3959,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     },
     "ui-customer/wrong-terms/medium/s1": {
-      "maxTokens": 3920,
-      "maxTurns": 3,
-      "maxToolCalls": 2
+      "maxTokens": 3939,
+      "maxTurns": 2,
+      "maxToolCalls": 1
     }
   }
 }

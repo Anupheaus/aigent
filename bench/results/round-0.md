@@ -1,6 +1,6 @@
 # Round 0: baseline (scripted tier, Round-0 tools)
 
-Run: `npm run bench -- --tier scripted --repeat 3 --policies reference,naive --label round-0` on the 100 committed,
+Run (as first recorded, at tag `bench-round-0`): `npm run bench -- --tier scripted --repeat 3 --policies reference,naive --label round-0` on the 100 committed,
 non-held-out specs (25 tasks x 4 wordings; seeds 1, 2, 3; small, medium and large repositories). Tools: `fs_list`,
 `fs_read`, `fs_search` from the existing filesystem pack, no index. Raw rows: `round-0.json`; generated table:
 `round-0.summary.md`.
@@ -15,9 +15,23 @@ request as sent plus every response. No real model was run; real-model behaviour
 | reference | 300 | 100% | 100% | 100% | 0% | 3737 | 14640 | 2 | 3 | 1 |
 | naive | 300 | 100% | 99% | 0% | 0% | 10298 | 24945 | 4 | 6 | 3 |
 
-Variance: the scripted policies are deterministic, so tokens, turns and calls do not vary between repetitions; the IQRs
-in `round-0.summary.md` are across wordings and seeds (at most 1-2% of a family's median, from prompt length and the
-generated names). Wall time varies by tens of milliseconds and is far inside every budget.
+**Re-measured after the slice-15 review fixes** (`npm run bench -- --policies reference,naive --tools round0 --label
+round-0`, one repetition; `round-0.json` and `round-0.summary.md` now hold this run). The Round-0 tools no longer exist
+as they were: `fs_search` gained its layer and order fields in Round 1, which every request carries, so this is the
+reference on the current tools (the same figures as the reference of the Round 1 run):
+
+| solver | runs | correct | pass | target | stretch | median tokens | p90 tokens | median turns | p90 turns | median calls |
+|---|---|---|---|---|---|---|---|---|---|---|
+| reference | 100 | 100% | 100% | 100% | 0% | 3,885 | 14,936 | 2 | 3 | 1 |
+| naive | 100 | 100% | 99% | 0% | 0% | 10,594 | 25,463 | 4 | 6 | 3 |
+
+The review fixes do not touch the Round-0 tools, so correctness is unchanged; the stricter none-exist check (a text
+answer is no longer read as "none") changed no verdict here.
+
+Variance: the scripted policies are deterministic, so tokens, turns and calls do not vary between repetitions (hence
+one repetition from now on); the IQRs in `round-0.summary.md` are across wordings and seeds (at most 1-2% of a family's
+median, from prompt length and the generated names), not noise. Wall time varies by tens of milliseconds and is far
+inside every budget.
 
 ## What the numbers say
 
