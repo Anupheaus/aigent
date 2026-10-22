@@ -19,7 +19,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 11 | HTTP/web pack, code-intelligence pack | done |
 | 12 | Shell pack, git pack | done |
 | 13 | Database pack, knowledge/RAG pack | done |
-| 14 | Plugins (`definePlugin`), MCP plugin, Claude Code plugin package (unpublished) | todo |
+| 14 | Plugins (`definePlugin`), MCP plugin, Claude Code plugin package (unpublished) | done |
 | 15 | Benchmark suite and optimisation rounds (scripted tiers only) | todo |
 | 16 | Memory (Phase 2) | todo |
 | 17 | Efficiency: routing and caching (Phase 3) | todo |
