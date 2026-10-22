@@ -9,6 +9,12 @@ import type { ToolBaseInput } from './define-tool.js';
 import { describeThrown } from './tool-error-detail.js';
 import type { DescribeActivity, Tool, ToolContext, ToolVerifyResult } from './tool-types.js';
 
+/** What `runItem` gets: the call's context, plus how many items the call carries (so an item can size its share of the result budget). */
+export interface BatchItemContext extends ToolContext {
+  /** Items in this call (at least 1). */
+  itemCount: number;
+}
+
 export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
   item: TItem;
   /** Cached tools only: normalises the arguments into the cache key (default: the arguments). */
@@ -17,7 +23,7 @@ export interface BatchToolInput<TItem extends z.ZodType> extends ToolBaseInput {
   validity?(args: BatchArgs<TItem>, context: ToolContext): Promise<string>;
   maxItems: number;
   describeActivity: DescribeActivity<{ items: z.infer<TItem>[] }>;
-  runItem(item: z.infer<TItem>, context: ToolContext): Promise<unknown>;
+  runItem(item: z.infer<TItem>, context: BatchItemContext): Promise<unknown>;
   /** Tools with side effects: what one item would do, without doing it; failures are per item as with `runItem`. */
   dryRunItem?(item: z.infer<TItem>, context: ToolContext): Promise<DryRunOutput>;
   /** Default false: items run in parallel. True runs them one at a time in order (e.g. edits that may touch one file). */
@@ -50,10 +56,11 @@ export function defineBatchTool<TItem extends z.ZodType>(input: BatchToolInput<T
     ...(verify == null ? {} : { verify: (batchArgs: z.infer<typeof argsSchema>, context: ToolContext) => verify(batchArgs as BatchArgs<TItem>, context) }),
     ...(undo == null ? {} : { undo: (batchArgs: z.infer<typeof argsSchema>, result: unknown, context: ToolContext) => undo(batchArgs as BatchArgs<TItem>, result, context) }),
     run: async (parsed, context) => {
+      const itemContext: BatchItemContext = { ...context, itemCount: parsed.items.length };
       // Each failure is isolated into its own entry.
       const runOne = async (batchItem: unknown, index: number): Promise<BatchEntry> => {
         try {
-          return { index, ok: true as const, result: await runItem(batchItem as z.infer<TItem>, context) };
+          return { index, ok: true as const, result: await runItem(batchItem as z.infer<TItem>, itemContext) };
         } catch (error) {
           return { index, ok: false as const, error: describeThrown(error) };
         }

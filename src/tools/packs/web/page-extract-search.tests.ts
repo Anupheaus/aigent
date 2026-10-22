@@ -25,6 +25,31 @@ describe('page_extract', () => {
     expect(entries[2]).toMatchObject({ ok: false, error: { code: 'unsupported_content', suggestion: expect.stringContaining('http_fetch') } });
   });
 
+  it('fits a batch of long pages within the result budget, each page cut on its own and pageable by offset (review I3)', async () => {
+    const paragraphs = (label: string) => Array.from({ length: 600 }, (_unused, index) => `<p>${label} "line" ${index} of the page.</p>`).join('');
+    const urls = ['a', 'b', 'c'].map(label => `https://example.com/${label}`);
+    const { deps } = fakeWeb({ routes: Object.fromEntries(urls.map((url, index) => [url, html(`<main>${paragraphs(String(index))}</main>`)])) });
+    const tool = createPageExtract(deps);
+    const executed = await call({ tool, items: urls.map(url => ({ url })) });
+    expect(executed.size.truncated).toBe(false);
+    const entries = entriesOf(executed);
+    expect(entries.map(({ result }) => [result?.truncated, typeof result?.nextOffset])).toEqual([[true, 'number'], [true, 'number'], [true, 'number']]);
+    const first = entries[0]?.result as { text: string; nextOffset: number; totalChars: number };
+    expect(first.text.startsWith('0 "line" 0 of the page.')).toBe(true);
+    // Paging: the next call continues exactly where the first stopped, until the whole text has been read.
+    let text = first.text;
+    let offset: number | undefined = first.nextOffset;
+    while (offset != null) {
+      const [next] = entriesOf(await call({ tool, items: [{ url: urls[0], offset }] }));
+      const page = next?.result as { text: string; nextOffset?: number; offset: number };
+      expect(page.offset).toBe(offset);
+      text += page.text;
+      offset = page.nextOffset;
+    }
+    expect(text).toHaveLength(first.totalChars);
+    expect(text.endsWith('0 "line" 599 of the page.')).toBe(true);
+  });
+
   it('refuses a selector argument: only url and maxChars are accepted', async () => {
     const { deps } = fakeWeb({ routes: {} });
     expect((await call({ tool: createPageExtract(deps), items: [{ url: 'https://example.com/', selector: 'main' }] })).envelope).toMatchObject({ ok: false, error: { code: 'invalid_arguments' } });

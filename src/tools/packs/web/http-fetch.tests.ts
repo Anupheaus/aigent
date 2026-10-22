@@ -62,6 +62,28 @@ describe('http_fetch', () => {
     expect(entries.map(({ error }) => [error?.category, error?.code, error?.retryable])).toEqual([['denied', 'dns_failed', true], ['denied', 'domain_not_allowed', false]]);
   });
 
+  it('fits a batch of large bodies within the result budget, each body pageable by offset (review I3)', async () => {
+    const body = JSON.stringify(Array.from({ length: 800 }, (_unused, index) => ({ id: index, name: `item "${index}"` })));
+    const urls = ['https://example.com/1.json', 'https://example.com/2.json'];
+    const { deps } = fakeWeb({ routes: Object.fromEntries(urls.map(url => [url, respond({ body, headers: { 'content-type': 'application/json' } })])) });
+    const tool = createHttpFetch(deps);
+    const executed = await call({ tool, items: urls.map(url => ({ url })) });
+    expect(executed.size.truncated).toBe(false);
+    const [first] = entriesOf(executed);
+    const page = first?.result as { bodyText: string; nextOffset: number; totalChars: number; truncated: boolean };
+    expect(page).toMatchObject({ truncated: false, totalChars: body.length });
+    expect(body.startsWith(page.bodyText)).toBe(true);
+    let text = page.bodyText;
+    let offset: number | undefined = page.nextOffset;
+    while (offset != null) {
+      const [next] = entriesOf(await call({ tool, items: [{ url: urls[0], offset }] }));
+      const result = next?.result as { bodyText: string; nextOffset?: number };
+      text += result.bodyText;
+      offset = result.nextOffset;
+    }
+    expect(text).toBe(body);
+  });
+
   it('accepts only the allowlisted request headers', async () => {
     const { deps } = fakeWeb({ routes: {} });
     const executed = await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/', headers: { authorization: 'Bearer x' } }] });
