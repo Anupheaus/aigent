@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createHttpTransport } from './http-transport.js';
+import { createHttpTransport, MAX_HTTP_BODY_BYTES } from './http-transport.js';
 import { createMcpClient } from './mcp-client.js';
 
 interface Recorded {
@@ -9,6 +9,23 @@ interface Recorded {
 }
 
 const URL_ = 'https://mcp.test/mcp';
+const CHUNK_BYTES = 1024 * 1024;
+
+/** A body of `totalBytes` produced lazily in 1 MiB chunks (`prefix` first), counting how many bytes were pulled. */
+function lazyBody(params: { prefix: string; totalBytes: number }): { body: ReadableStream<Uint8Array>; pulled(): number } {
+  const { prefix, totalBytes } = params;
+  const filler = new Uint8Array(CHUNK_BYTES).fill('x'.charCodeAt(0));
+  let pulled = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull: controller => {
+      if (pulled >= totalBytes) { controller.close(); return; }
+      const chunk = pulled === 0 ? new TextEncoder().encode(prefix) : filler;
+      pulled += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+  });
+  return { body, pulled: () => pulled };
+}
 const SESSION = 'session-42';
 
 /** A streamable-HTTP MCP server: initialize answered as JSON, tools/list and tools/call as SSE, notifications 202. */
@@ -50,4 +67,30 @@ describe('streamable HTTP transport', () => {
     expect(recorded.at(-1)?.method).toBe('DELETE');
     expect(warnings).toContain("MCP server 'remote': ignored an event that is not valid JSON (8 characters)");
   });
+  it('refuses a JSON response body larger than the cap without reading all of it', async () => {
+    const huge = lazyBody({ prefix: '{"jsonrpc":"2.0","id":1,"result":"', totalBytes: MAX_HTTP_BODY_BYTES * 1.5 });
+    const fakeFetch = (async () => new Response(huge.body, { headers: { 'content-type': 'application/json' } })) as typeof fetch;
+    const transport = createHttpTransport({ type: 'http', url: URL_, fetch: fakeFetch });
+    const delivered: unknown[] = [];
+    await transport.start({ onMessage: message => delivered.push(message), onWarning: () => undefined, onClose: () => undefined });
+    await expect(transport.send({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).rejects.toThrow(`the response body from ${URL_} is larger than ${MAX_HTTP_BODY_BYTES} bytes`);
+    expect(delivered).toEqual([]);
+    expect(huge.pulled()).toBeLessThan(MAX_HTTP_BODY_BYTES + 2 * CHUNK_BYTES);
+    await transport.close();
+  });
+
+  it('ends an event stream that grows past the cap, with a warning', async () => {
+    const huge = lazyBody({ prefix: 'event: message\ndata: ', totalBytes: MAX_HTTP_BODY_BYTES * 1.5 });
+    const fakeFetch = (async () => new Response(huge.body, { headers: { 'content-type': 'text/event-stream' } })) as typeof fetch;
+    const transport = createHttpTransport({ type: 'http', url: URL_, fetch: fakeFetch });
+    const warnings: string[] = [];
+    let onWarned: () => void = () => undefined;
+    const warned = new Promise<void>(resolve => { onWarned = resolve; });
+    await transport.start({ onMessage: () => undefined, onWarning: message => { warnings.push(message); onWarned(); }, onClose: () => undefined });
+    await transport.send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+    await warned;
+    expect(warnings).toEqual([`an event stream ended early: the event stream from ${URL_} is larger than ${MAX_HTTP_BODY_BYTES} bytes`]);
+    expect(huge.pulled()).toBeLessThan(MAX_HTTP_BODY_BYTES + 2 * CHUNK_BYTES);
+    await transport.close();
+  }, 30_000);
 });

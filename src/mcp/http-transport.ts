@@ -1,4 +1,5 @@
 import { parseSse } from '../providers/sse-parser.js';
+import { readLimitedBody } from '../security/read-limited-body.js';
 import type { JsonRpcMessage } from './json-rpc.js';
 import type { McpTransport, McpTransportHandlers } from './mcp-transport.js';
 import type { McpHttpTransportConfig } from './mcp-types.js';
@@ -8,11 +9,26 @@ const SESSION_HEADER = 'mcp-session-id';
 const JSON_TYPE = 'application/json';
 const SSE_TYPE = 'text/event-stream';
 const NO_CONTENT = 202;
+/** Largest response body (JSON) or event stream read from one request, like the stdio frame cap (16 MiB). */
+export const MAX_HTTP_BODY_BYTES = 16 * 1024 * 1024;
+
+/** Passes `body` through, failing the stream once more than `maxBytes` went by, so a runaway stream is never read on. */
+function capStream(params: { body: ReadableStream<Uint8Array>; maxBytes: number; describe: string }): ReadableStream<Uint8Array> {
+  const { body, maxBytes, describe } = params;
+  let size = 0;
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform: (chunk, controller) => {
+      size += chunk.byteLength;
+      if (size > maxBytes) { controller.error(new Error(`${describe} is larger than ${maxBytes} bytes`)); return; }
+      controller.enqueue(chunk);
+    },
+  }));
+}
 
 /**
  * MCP over streamable HTTP: each message is a POST; a response body is JSON (one message or a batch) or an SSE stream
  * of messages. The session id the server issues is sent back on every request; `close()` aborts in-flight bodies and
- * ends the session with a DELETE.
+ * ends the session with a DELETE. A JSON body or an event stream larger than `MAX_HTTP_BODY_BYTES` is not read on.
  */
 export function createHttpTransport(config: McpHttpTransportConfig): McpTransport {
   const { url, headers = {}, fetch: fetchImpl = fetch } = config;
@@ -55,8 +71,13 @@ export function createHttpTransport(config: McpHttpTransportConfig): McpTranspor
     if (response.status === NO_CONTENT || response.body == null) return;
     const type = response.headers.get('content-type') ?? '';
     // Read in the background: an SSE response can carry the answer long after the request was accepted.
-    if (type.includes(SSE_TYPE)) { void readStream(response.body); return; }
-    const text = await response.text();
+    if (type.includes(SSE_TYPE)) {
+      void readStream(capStream({ body: response.body, maxBytes: MAX_HTTP_BODY_BYTES, describe: `the event stream from ${url}` }));
+      return;
+    }
+    const { body, truncated } = await readLimitedBody({ stream: response.body, maxBytes: MAX_HTTP_BODY_BYTES, signal: controller.signal });
+    if (truncated) throw new Error(`the response body from ${url} is larger than ${MAX_HTTP_BODY_BYTES} bytes`);
+    const text = new TextDecoder().decode(body);
     if (text.trim() === '') return;
     try {
       deliver(JSON.parse(text));
