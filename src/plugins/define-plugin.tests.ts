@@ -69,4 +69,8 @@ describe('definePlugin', () => {
     const store = createInMemoryStore();
     expect(invalidMessage({ name: 'p', version: '1.0.0', stores: [{ id: 's', store }, { id: 's', store }] })).toContain("Plugin 'p' declares store id 's' twice");
   });
+  it('refuses a provider id with a colon, which could never be selected as <provider id>:<model>', () => {
+    expect(invalidMessage({ name: 'colon', version: '1.0.0', providers: [createFakeProvider({ id: 'my:provider', turns: [] })] }))
+      .toContain("provider id must not contain ':'");
+  });
 });

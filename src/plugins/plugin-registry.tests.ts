@@ -151,4 +151,23 @@ describe('createPluginRegistry', () => {
     await Promise.all([ready, closed]);
     expect(order).toEqual(['setup done', 'close']);
   });
+  it('names both sources when an agent gets the same tool name from two plugins or a plugin and its own tools', () => {
+    const registry = createPluginRegistry({ providers: [] });
+    registry.add(definePlugin({ name: 'pack-a', version: '1.0.0', tools: [tool('read')] }));
+    registry.add(definePlugin({ name: 'pack-b', version: '1.0.0', tools: [tool('read')] }));
+    expect(thrown(() => registry.expandTools([pluginTools('pack-a'), pluginTools('pack-b')]))).toMatchObject({
+      code: 'invalid_definition', message: "Tool 'read' from plugin 'pack-b' collides with tool 'read' from plugin 'pack-a'; tool names must be unique within an agent",
+    });
+    expect(thrown(() => registry.expandTools([tool('read'), pluginTools('pack-a')])).message)
+      .toBe("Tool 'read' from plugin 'pack-a' collides with tool 'read' from the agent's own tools; tool names must be unique within an agent");
+  });
+
+  it('says a plugin failed to set up, not that it is not ready, once its setup failed', async () => {
+    const registry = createPluginRegistry({ providers: [] });
+    registry.add(definePlugin({ name: 'broken', version: '1.0.0', setup: async () => { throw new Error('no server'); } }));
+    await expect(registry.ready()).rejects.toThrow();
+    expect(thrown(() => registry.expandTools([pluginTools('broken')]))).toMatchObject({
+      code: 'invalid_definition', message: "pluginTools('broken'): plugin 'broken' failed to set up (Plugin 'broken' failed to set up: no server); its tools are unavailable",
+    });
+  });
 });

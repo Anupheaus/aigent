@@ -13,8 +13,13 @@ type AnyFunction = (...args: never[]) => unknown;
 
 const fn = z.custom<AnyFunction>(value => typeof value === 'function', { message: 'must be a function' });
 
+/** Separates provider id and model in `'<provider id>:<model>'`, so an id holding it could never be selected. */
+const MODEL_REFERENCE_SEPARATOR = ':';
+
 const providerShape = z.looseObject({
-  id: z.string().min(1),
+  id: z.string().min(1).refine(id => !id.includes(MODEL_REFERENCE_SEPARATOR), {
+    message: `provider id must not contain '${MODEL_REFERENCE_SEPARATOR}' (models are selected as '<provider id>${MODEL_REFERENCE_SEPARATOR}<model>')`,
+  }),
   capabilities: z.looseObject({}),
   stream: fn,
 });

@@ -40,7 +40,12 @@ interface PluginEntry {
   /** Static tools, then those `setup` found; undefined while a `setup` has not finished. */
   tools?: Tool[];
   setup?: Promise<void>;
+  /** Why `setup` failed; `ready` never retries it, so its tools stay unavailable. */
+  failure?: string;
 }
+
+/** Where an agent's tool came from, for collision messages. */
+const OWN_TOOLS_SOURCE = "the agent's own tools";
 
 function invalid(message: string, details: Record<string, unknown>): Error {
   return createAigentError({ code: 'invalid_definition', message, details });
@@ -100,6 +105,25 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
     entries.set(name, { plugin, ...(plugin.setup == null ? { tools: [...tools] } : {}) });
   }
 
+  /** Expands `pluginTools` references, refusing a tool name that two sources give the agent, naming both. */
+  function expandTools(list: (Tool | PluginToolsRef)[]): Tool[] {
+    const sources = new Map<string, string>();
+    const expanded: Tool[] = [];
+    for (const entry of list) {
+      const source = isPluginToolsRef(entry) ? `plugin '${entry.plugin}'` : OWN_TOOLS_SOURCE;
+      for (const tool of isPluginToolsRef(entry) ? toolsOf(entry.plugin) : [entry]) {
+        const taken = sources.get(tool.name);
+        // Two own tools with one name are the agent registry's to report, as before plugins existed.
+        if (taken != null && (taken !== OWN_TOOLS_SOURCE || source !== OWN_TOOLS_SOURCE)) {
+          throw invalid(`Tool '${tool.name}' from ${source} collides with tool '${tool.name}' from ${taken}; tool names must be unique within an agent`, { tool: tool.name });
+        }
+        sources.set(tool.name, source);
+        expanded.push(tool);
+      }
+    }
+    return expanded;
+  }
+
   function store(id: string): Store {
     const found = stores.get(id);
     if (found == null) throw invalid(`Unknown store '${id}'; plugin stores: ${[...stores.keys()].join(', ') || '(none)'}`, { storeId: id });
@@ -109,6 +133,7 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
   function toolsOf(name: string): Tool[] {
     const entry = entries.get(name);
     if (entry == null) throw invalid(`pluginTools('${name}'): no plugin named '${name}'; registered plugins: ${[...entries.keys()].join(', ') || '(none)'}`, { plugin: name });
+    if (entry.failure != null) throw invalid(`pluginTools('${name}'): plugin '${name}' failed to set up (${entry.failure}); its tools are unavailable`, { plugin: name });
     if (entry.tools == null) throw invalid(`pluginTools('${name}'): plugin '${name}' is not ready yet; await ai.ready() before defining agents that use its tools`, { plugin: name });
     return entry.tools;
   }
@@ -120,10 +145,17 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
       try {
         found = (await plugin.setup?.())?.tools ?? [];
       } catch (error) {
-        throw createAigentError({ code: 'invalid_definition', message: `Plugin '${plugin.name}' failed to set up: ${describeError(error)}`, details: { plugin: plugin.name } });
+        const failed = createAigentError({ code: 'invalid_definition', message: `Plugin '${plugin.name}' failed to set up: ${describeError(error)}`, details: { plugin: plugin.name } });
+        entry.failure = failed.message;
+        throw failed;
       }
       const tools = [...plugin.tools ?? [], ...found];
-      rejectDuplicateTools({ plugin: plugin.name, tools });
+      try {
+        rejectDuplicateTools({ plugin: plugin.name, tools });
+      } catch (error) {
+        entry.failure = describeError(error);
+        throw error;
+      }
       entry.tools = tools;
     })();
     return entry.setup;
@@ -151,7 +183,7 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
     providers,
     add,
     store,
-    expandTools: list => list.flatMap(entry => (isPluginToolsRef(entry) ? toolsOf(entry.plugin) : [entry])),
+    expandTools,
     hooks: () => [...entries.values()].flatMap(({ plugin: { name, hooks } }) => (hooks == null ? [] : [{ plugin: name, hooks }])),
     ready,
     close,
