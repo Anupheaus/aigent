@@ -38,6 +38,12 @@ describe('checkResult: none exist', () => {
     expect(checkResult(spec, { files: [] }).correct).toBe(true);
     expect(checkResult(spec, { files: ['src/a.old.ts'] })).toMatchObject({ correct: false, decoyHits: 1 });
   });
+
+  it('fails any other answer shape: a text naming a file, or a bug list, is not "none"', () => {
+    expect(checkResult(spec, { text: 'Found it: dist/lib/Matrix.js' })).toMatchObject({ correct: false, f1: 0, reason: 'expected {"none": true} or an empty list of files' });
+    expect(checkResult(spec, { text: '' }).correct).toBe(false);
+    expect(checkResult(spec, { bugs: [{ path: 'src/a.old.ts', line: 1, cause: 'x' }] }).correct).toBe(false);
+  });
 });
 
 describe('checkResult: bugs', () => {

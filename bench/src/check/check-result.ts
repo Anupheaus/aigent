@@ -46,6 +46,8 @@ function checkFiles(params: { spec: TaskSpec; truth: Extract<GroundTruth, { kind
 
 function checkNone(params: { spec: TaskSpec; answer: SolverAnswer }): CheckResult {
   const { spec, answer } = params;
+  // Only an explicit "none" or an empty file list says none exist; a text or bug list could name anything.
+  if (!('none' in answer) && !('files' in answer)) return fail('expected {"none": true} or an empty list of files');
   const claimed = 'files' in answer ? answer.files.map(normalisePath) : [];
   if ('none' in answer || claimed.length === 0) return { correct: true, precision: 1, recall: 1, f1: 1, decoyHits: 0, falsePositives: [], missed: [] };
   const decoys = new Set(spec.decoys.map(({ path }) => path));
