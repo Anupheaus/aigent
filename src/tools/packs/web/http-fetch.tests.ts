@@ -89,4 +89,18 @@ describe('http_fetch', () => {
     const executed = await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/', headers: { authorization: 'Bearer x' } }] });
     expect(executed.envelope).toMatchObject({ ok: false, error: { code: 'invalid_arguments' } });
   });
+
+  it('describes a body still in a content encoding as binary instead of showing compressed bytes as text (review M5)', async () => {
+    const { deps } = fakeWeb({ routes: { 'https://example.com/z': respond({ body: new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x41]), headers: { 'content-type': 'text/plain', 'content-encoding': 'zstd' } }) } });
+    const [entry] = entriesOf(await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/z' }] }));
+    expect(entry?.result).toMatchObject({ binary: true, contentType: 'text/plain' });
+    expect(entry?.result).not.toHaveProperty('bodyText');
+  });
+
+  it('refuses header values with line breaks or control characters (review M4)', async () => {
+    const { deps, access } = fakeWeb({ routes: {} });
+    const executed = await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/', headers: { accept: 'text/html\r\nX-Injected: 1' } }] });
+    expect(executed.envelope).toMatchObject({ ok: false, error: { code: 'invalid_arguments' } });
+    expect(access.requests).toHaveLength(0);
+  });
 });

@@ -6,7 +6,7 @@ import type { Tool } from '../../tool-types.js';
 import { DEFAULT_MAX_CHARS, htmlToText } from './html-to-text.js';
 import type { ExtractedPage } from './html-to-text.js';
 import { fitList, itemShareChars, pageOfText, textAllowance } from './web-budget.js';
-import { assertSuccess, decodeBody, fetchChecked, isHtml, MAX_FETCH_ITEMS, urlsTitle, WEB_CACHE_TTL_MS } from './web-shared.js';
+import { assertSuccess, decodeBody, fetchChecked, isHtml, isStillEncoded, MAX_FETCH_ITEMS, urlsTitle, WEB_CACHE_TTL_MS } from './web-shared.js';
 import type { WebDeps } from './web-shared.js';
 
 export const PAGE_EXTRACT_TOOL_NAME = 'page_extract';
@@ -44,12 +44,14 @@ async function extractOne(params: { deps: WebDeps; item: ExtractItem; signal: Ab
   assertSuccess(page);
   const contentType = page.headers['content-type'] ?? '';
   const ids = { url: page.url, finalUrl: page.finalUrl };
-  if (isHtml(contentType)) {
+  // Bytes still in a content encoding are not the page: they fall through to the unsupported-content refusal.
+  const isReadable = !isStillEncoded(page.headers);
+  if (isReadable && isHtml(contentType)) {
     // The whole text is extracted, then the window the item asked for is cut from it.
     const extracted = htmlToText({ html: decodeBody({ body: page.body, contentType }), baseUrl: page.finalUrl, maxChars: Number.MAX_SAFE_INTEGER });
     return fitPage({ ids, page: extracted, bodyTruncated: page.truncated, item, shareChars });
   }
-  if (/^text\/plain/i.test(contentType.trim())) {
+  if (isReadable && /^text\/plain/i.test(contentType.trim())) {
     const text = decodeBody({ body: page.body, contentType }).trim();
     return fitPage({ ids, page: { title: '', text, headings: [], links: [] }, bodyTruncated: page.truncated, item, shareChars });
   }

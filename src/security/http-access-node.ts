@@ -1,8 +1,10 @@
 import { request as httpRequest } from 'node:http';
-import type { IncomingMessage } from 'node:http';
+import type { ClientRequest, IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import type { LookupAddress } from 'node:dns';
-import { Readable } from 'node:stream';
+import { pipeline, Readable } from 'node:stream';
+import type { Transform } from 'node:stream';
+import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { httpError } from './http-access.js';
 import type { HttpAccess, HttpRequest, HttpResponse } from './http-access.js';
 import { readLimitedBody } from './read-limited-body.js';
@@ -26,10 +28,44 @@ export function pinnedLookup(address: string): (hostname: string, options: { all
   };
 }
 
+/** Decoders for the encodings a server may send although `identity` was asked for (the fetch access decodes these too). */
+const DECODERS: Readonly<Record<string, () => Transform>> = { 'gzip': createGunzip, 'x-gzip': createGunzip, 'deflate': createInflate, 'br': createBrotliDecompress };
+
 function headersOf(response: IncomingMessage): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const [name, value] of Object.entries(response.headers)) if (value != null) headers[name.toLowerCase()] = Array.isArray(value) ? value.join(', ') : value;
   return headers;
+}
+
+/**
+ * The response body as decoded bytes: a known `content-encoding` is decoded (and its header dropped, since the body no
+ * longer has it), so the byte cap counts decoded bytes and a decompression bomb stops there. Other encodings are left
+ * as they came, header kept.
+ */
+function decodedBody(response: IncomingMessage): { stream: ReadableStream<Uint8Array>; headers: Record<string, string> } {
+  const headers = headersOf(response);
+  const encoding = (headers['content-encoding'] ?? '').trim().toLowerCase();
+  const createDecoder = DECODERS[encoding];
+  if (createDecoder == null) return { stream: Readable.toWeb(response) as ReadableStream<Uint8Array>, headers };
+  const { 'content-encoding': _encoding, ...decodedHeaders } = headers;
+  // `pipeline` passes an aborted response or corrupt data on to the decoder, so the read fails instead of hanging.
+  const decoder = pipeline(response, createDecoder(), () => undefined);
+  return { stream: Readable.toWeb(decoder) as ReadableStream<Uint8Array>, headers: decodedHeaders };
+}
+
+/**
+ * Starts the request; Node throws synchronously for some requests it refuses to send (an invalid header value), so
+ * that comes back as the error instead.
+ */
+function startRequest(params: { request: HttpRequest; signal: AbortSignal; onResponse(response: IncomingMessage): void }): { ok: true; outgoing: ClientRequest } | { ok: false; error: unknown } {
+  const { request: { url, pinnedAddress, method, headers }, signal, onResponse } = params;
+  const target = new URL(url);
+  const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
+  try {
+    return { ok: true, outgoing: send(target, { method, headers: { ...headers, 'accept-encoding': 'identity' }, lookup: pinnedLookup(pinnedAddress) as never, signal }, onResponse) };
+  } catch (error) {
+    return { ok: false, error };
+  }
 }
 
 /**
@@ -40,7 +76,8 @@ function headersOf(response: IncomingMessage): Record<string, string> {
 export function createNodeHttpAccess(): HttpAccess {
   return {
     pinsAddress: true,
-    request: ({ url, pinnedAddress, method, headers, signal, timeoutMs, maxBodyBytes }: HttpRequest): Promise<HttpResponse> => new Promise((resolve, reject) => {
+    request: (request: HttpRequest): Promise<HttpResponse> => new Promise((resolve, reject) => {
+      const { url, method, signal, timeoutMs, maxBodyBytes } = request;
       if (signal.aborted) { reject(httpError({ reason: 'aborted', url, message: 'The request was aborted' })); return; }
       const controller = new AbortController();
       let reason: 'timeout' | 'aborted' | undefined;
@@ -54,16 +91,17 @@ export function createNodeHttpAccess(): HttpAccess {
         else if (reason === 'aborted') reject(httpError({ reason, url, message: 'The request was aborted' }));
         else reject(httpError({ reason: 'network', url, message: `The request failed: ${error instanceof Error ? error.message : String(error)}` }));
       };
-      const target = new URL(url);
-      const send = target.protocol === 'https:' ? httpsRequest : httpRequest;
-      const outgoing = send(target, { method, headers: { ...headers, 'accept-encoding': 'identity' }, lookup: pinnedLookup(pinnedAddress) as never, signal: controller.signal }, response => {
-        const stream = method === 'HEAD' ? null : Readable.toWeb(response) as ReadableStream<Uint8Array>;
+      const onResponse = (response: IncomingMessage): void => {
+        const { stream, headers } = method === 'HEAD' ? { stream: null, headers: headersOf(response) } : decodedBody(response);
         readLimitedBody({ stream, maxBytes: maxBodyBytes, signal: controller.signal }).then(({ body, truncated }) => {
           finish();
           response.destroy();
-          resolve({ status: response.statusCode ?? 0, headers: headersOf(response), body, truncated });
+          resolve({ status: response.statusCode ?? 0, headers, body, truncated });
         }, fail);
-      });
+      };
+      const started = startRequest({ request, signal: controller.signal, onResponse });
+      if (!started.ok) { fail(started.error); return; }
+      const { outgoing } = started;
       outgoing.on('error', fail);
       outgoing.end();
     }),

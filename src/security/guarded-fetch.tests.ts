@@ -73,6 +73,18 @@ describe('guardedFetch', () => {
     expect(access.requests).toHaveLength(1);
   });
 
+  it('fetches a 303 target with GET, except after HEAD, which stays HEAD (review M2)', async () => {
+    const routes = { 'https://example.com/a': redirect('https://example.com/b', 303), 'https://example.com/b': ok('done') };
+    const methodsFor = async (method: 'GET' | 'HEAD') => {
+      const access = fakeAccess(routes);
+      const policy = createHttpPolicy({ allowDomains: ['example.com'], resolveHost: DNS });
+      await guardedFetch({ policy, access, url: 'https://example.com/a', method, headers: {}, signal: new AbortController().signal });
+      return access.requests.map(request => request.method);
+    };
+    expect(await methodsFor('HEAD')).toEqual(['HEAD', 'HEAD']);
+    expect(await methodsFor('GET')).toEqual(['GET', 'GET']);
+  });
+
   it('stops after maxRedirects', async () => {
     const loop = { 'https://example.com/a': redirect('https://example.com/b'), 'https://example.com/b': redirect('https://example.com/a') };
     const { result } = fetchFrom({ url: 'https://example.com/a', routes: loop, maxRedirects: 3 });

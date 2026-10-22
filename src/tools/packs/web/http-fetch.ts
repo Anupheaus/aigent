@@ -12,7 +12,9 @@ const MAX_HEADER_VALUE = 200;
 /** Response headers worth showing; the rest (cookies included) are left out. */
 const SHOWN_HEADERS = ['content-type', 'content-length', 'content-language', 'last-modified', 'etag', 'cache-control', 'location', 'retry-after'];
 
-const headerValue = z.string().max(MAX_HEADER_VALUE);
+/** A header value as HTTP allows it: tabs and visible characters, no line breaks or other control characters. */
+const HEADER_VALUE = /^[\t\x20-\x7e\x80-\xff]*$/;
+const headerValue = z.string().max(MAX_HEADER_VALUE).regex(HEADER_VALUE, 'no line breaks or control characters');
 const fetchItem = z.object({
   url: z.string().min(1).describe('Absolute http(s) URL on an allowed domain'),
   method: z.enum(['GET', 'HEAD']).optional().describe('Default GET; HEAD returns status and headers only'),
@@ -42,7 +44,7 @@ async function fetchOne(params: { deps: WebDeps; item: FetchItem; signal: AbortS
   const contentType = page.headers['content-type'] ?? '';
   const base = { url: page.url, finalUrl, status, headers: shownHeaders(page.headers), contentType, bodyBytes: body.byteLength, truncated, redirected: redirects > 0 };
   if (method === 'HEAD' || body.byteLength === 0) return base;
-  if (!isTextual({ body, contentType })) return { ...base, binary: true };
+  if (!isTextual({ body, contentType, headers: page.headers })) return { ...base, binary: true };
   const text = decodeBody({ body, contentType });
   const window = pageOfText({ text, offset, maxChars: text.length, maxJsonChars: textAllowance({ shareChars, rest: base }) });
   const isPaged = offset > 0 || window.nextOffset != null;

@@ -44,6 +44,8 @@ describe('classifyAddress', () => {
     ['0.0.0.0', 'reserved'], ['0.1.2.3', 'reserved'], ['::', 'reserved'], ['224.0.0.1', 'reserved'], ['255.255.255.255', 'reserved'], ['240.0.0.1', 'reserved'], ['192.0.2.1', 'reserved'], ['2001:db8::1', 'reserved'], ['ff02::1', 'reserved'],
     ['::ffff:127.0.0.1', 'loopback'], ['::ffff:7f00:1', 'loopback'], ['::ffff:169.254.169.254', 'metadata'], ['::ffff:10.0.0.1', 'private'], ['::ffff:8.8.8.8', 'public'],
     ['64:ff9b::7f00:1', 'loopback'], ['2002:7f00:0001::', 'loopback'], ['::127.0.0.1', 'reserved'],
+    // IPv4-translated (::ffff:0:a.b.c.d, RFC 6052/SIIT): an SIIT translator delivers it to the IPv4 address (review M1).
+    ['::ffff:0:7f00:1', 'loopback'], ['::ffff:0:a9fe:a9fe', 'metadata'], ['::ffff:0:10.0.0.1', 'private'], ['::ffff:0:8.8.8.8', 'public'],
     ['not an ip', 'invalid'], ['', 'invalid'], ['1.2.3.256', 'invalid'],
   ])('%s is %s', (ip, kind) => {
     expect(classifyAddress(ip)).toEqual({ kind });

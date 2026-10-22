@@ -119,8 +119,10 @@ function classifyIPv6(bytes: number[]): AddressKind {
   const last = bytes.slice(12);
   if (leadingZeros && last.every(byte => byte === 0)) return 'reserved';
   if (leadingZeros && last.slice(0, 3).every(byte => byte === 0) && last[3] === 1) return 'loopback';
-  // IPv4-mapped (::ffff:a.b.c.d), NAT64 (64:ff9b::a.b.c.d) and 6to4 (2002:aabb:ccdd::) reach an IPv4 address: judged by it.
+  // IPv4-mapped (::ffff:a.b.c.d), IPv4-translated (::ffff:0:a.b.c.d), NAT64 (64:ff9b::a.b.c.d) and 6to4
+  // (2002:aabb:ccdd::) reach an IPv4 address: judged by it.
   if (bytes.slice(0, 10).every(byte => byte === 0) && bytes[10] === 0xff && bytes[11] === 0xff) return classifyIPv4(last);
+  if (bytes.slice(0, 8).every(byte => byte === 0) && bytes[8] === 0xff && bytes[9] === 0xff && bytes[10] === 0 && bytes[11] === 0) return classifyIPv4(last);
   if (inRange({ bytes, prefix: [0, 0x64, 0xff, 0x9b], bits: 96 })) return classifyIPv4(last);
   if (bytes[0] === 0x20 && bytes[1] === 0x02) return classifyIPv4(bytes.slice(2, 6));
   // IPv4-compatible (::a.b.c.d) is deprecated and never a destination.

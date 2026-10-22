@@ -3,6 +3,8 @@ import type { HttpDenialCode, HttpPolicy } from './http-policy-types.js';
 
 /** Statuses whose `location` is followed. */
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
+/** "See Other": the target is fetched with GET. */
+const SEE_OTHER = 303;
 
 export interface GuardedFetchParams {
   policy: HttpPolicy;
@@ -44,7 +46,7 @@ export async function guardedFetch(params: GuardedFetchParams): Promise<GuardedF
     } catch {
       return { ok: false, code: 'invalid_url', message: `Redirect ${hop + 1} refused: its location '${location}' is not a URL`, hop: hop + 1, url: location };
     }
-    // A 303 answer is fetched with GET whatever the first method was.
-    if (response.status === 303) method = 'GET';
+    // A 303 answer is fetched with GET, except that HEAD stays HEAD (as the Fetch standard says): no body is wanted.
+    if (response.status === SEE_OTHER && method !== 'HEAD') method = 'GET';
   }
 }

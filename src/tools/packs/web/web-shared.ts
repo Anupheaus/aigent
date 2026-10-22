@@ -85,9 +85,21 @@ const TEXTUAL_TYPE = /^(?:text\/|application\/(?:json|xml|xhtml\+xml|javascript|
 /** Bytes sniffed for NUL when a response has no content type. */
 const SNIFF_BYTES = 1_024;
 
+/**
+ * Content encodings both accesses decode (the fetch access keeps the header on the decoded body); any other one means
+ * the body is still encoded.
+ */
+const DECODED_ENCODINGS: ReadonlySet<string> = new Set(['', 'identity', 'gzip', 'x-gzip', 'deflate', 'br']);
+
+/** Whether the body is still in a content encoding nothing decoded (e.g. `zstd`): its bytes are not the content. */
+export function isStillEncoded(headers: Record<string, string>): boolean {
+  return !DECODED_ENCODINGS.has((headers['content-encoding'] ?? '').trim().toLowerCase());
+}
+
 /** Whether a body is text to show (by content type, or by sniffing for NUL bytes when there is none). */
-export function isTextual(params: { body: Uint8Array; contentType: string }): boolean {
-  const { body, contentType } = params;
+export function isTextual(params: { body: Uint8Array; contentType: string; headers?: Record<string, string> }): boolean {
+  const { body, contentType, headers = {} } = params;
+  if (isStillEncoded(headers)) return false;
   if (contentType !== '') return TEXTUAL_TYPE.test(contentType.trim());
   return !body.subarray(0, SNIFF_BYTES).includes(0);
 }
