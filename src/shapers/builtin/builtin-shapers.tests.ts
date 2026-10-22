@@ -33,6 +33,17 @@ describe('tabular', () => {
     expect(shape({ shaper: tabularShaper, value: [...rows.slice(0, 2), { id: 3, name: 'x', score: { deep: 1 } }], kind: 'structured-data' })).toBeUndefined();
     expect(shape({ shaper: tabularShaper, value: 'id,name', kind: 'structured-data' })).toBeUndefined();
   });
+
+  it('reaches into batch entries: each item result whose docs are homogeneous flat rows (the database pack)', () => {
+    const batch = [{ index: 0, ok: true, result: { collection: 'people', docs: rows, returned: 3 } }, { index: 1, ok: true, result: { collection: 'x', docs: rows.slice(0, 1), returned: 1 } }, { index: 2, ok: false, error: { code: 'denied' } }];
+    const shaped = shape({ shaper: tabularShaper, value: batch, kind: 'structured-data' });
+    expect(shaped?.value).toEqual([
+      { index: 0, ok: true, result: { collection: 'people', docs: { columns: ['id', 'name', 'score'], rows: [[1, 'Ann', null], [2, 'Bob', 3], [3, 'Cy', '']] }, returned: 3 } },
+      batch[1], batch[2],
+    ]);
+    expect(shaped?.note).toContain('handle H1');
+    expect(shape({ shaper: tabularShaper, value: [batch[1], batch[2]], kind: 'structured-data' })).toBeUndefined();
+  });
 });
 
 describe('strip-noise', () => {

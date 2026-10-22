@@ -140,6 +140,8 @@ The default `npm test` never touches the network. The tests in `src/providers/li
 AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
 ```
 
+The MongoDB adapter has its own live test, `src/tools/packs/db/mongo-db-access.live.tests.ts`, skipped unless `AIGENT_LIVE_MONGO` holds a connection string and the optional `mongodb` package is installed. It writes a scratch collection in the `aigent_live_tests` database with the driver directly and drops it afterwards.
+
 ## Model settings
 
 Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is keyed by provider id (`{ anthropic: { ... }, openai: { ... } }`), each provider's entry is shallow-merged across levels with higher levels winning per key, and each provider, a fallback included, receives only its own entry.
@@ -866,6 +868,28 @@ const agent = ai.agent({ name: 'researcher', model, tools: webTools({ policy, se
 - **`page_extract`** (batch) `{ url, maxChars?, offset? }` returns `{ title (≤ 300 characters, the first `<title>` outside SVG), text, headings (≤ 100), links (≤ 50, absolute http(s)), truncated }`; the items of one call share its result budget (12,000 tokens), so a long text is cut to `maxChars` (20,000) or its share, whichever is less, and then carries `totalChars` and `nextOffset` (pass it as `offset` to read on; headings and links are fitted too): an in-house tolerant tokenizer drops scripts, styles, navigation, footers, asides and form controls (a page inside one `<form>` is still read; a missing `</head>` is closed by the body, as browsers do), prefers a `main` or `article` element, and never runs anything; huge or malformed pages stay linear. Plain text pages are returned as text; other content is `unsupported_content`. `lossy-ok` web-page results, cached for five minutes.
 - **`web_search`** (batch, up to 5 queries) `{ query, limit? (≤ 10) }` needs your `SearchProvider` (`{ name, search(query, { limit, signal }) }`; none ships, and without one the tool is not registered). Results are deduplicated by URL and bounded; a provider error is a `search_failed` item failure.
 - Fetched content is untrusted data: with the guardrail built-ins on, page text that tries to instruct the agent is quarantined, and no directive or approval can come from it.
+
+### Database (`@anupheaus/aigent/tools/db`)
+
+```ts
+import { MongoClient } from 'mongodb';
+import { createDbPolicy, createMongoDbAccess, dbTools } from '@anupheaus/aigent/tools/db';
+
+const client = await new MongoClient(process.env.MONGO_URL!).connect();
+const policy = createDbPolicy({
+  collections: {
+    orders: { permissions: ['read'], allowFields: ['_id', 'status', 'total', 'items.sku', 'createdAt'], maxLimit: 100 },
+    customers: { permissions: ['read'], denyFields: ['passwordHash', 'payment'], requiresApproval: true },
+  },
+});
+const agent = ai.agent({ name: 'analyst', model, tools: dbTools({ policy, access: createMongoDbAccess({ db: client.db('shop') }) }) });
+```
+
+- **Read-only by construction.** A `DbAccess` has only `find` and `count`; there is no method that writes, runs a pipeline or runs code, and `permissions` accepts only `'read'`. The MongoDB adapter calls `collection.find` (with `maxTimeMS`, a sort list and `limit + 1` to see whether more matched) and `countDocuments`, never `aggregate`, and closes its cursor in every case (an aborted run closes it at once). `mongodb` is an optional peer dependency (`>=6`): it is loaded only to build `ObjectId`/`Decimal128` values for filters, or pass `bson: { objectId, decimal128 }`. `createMemoryDbAccess({ collections })` evaluates the same operator subset in memory, for tests and examples.
+- **The policy decides, deny by default.** A collection that is not listed, or lacks `read`, is `collection_denied` (names such as `__proto__` or `constructor` included). Every query is checked before the access sees it (`validateQuery(policy, request)` returns `{ ok: true, query }` or `{ ok: false, code, message, path }` with the place in the request, e.g. `filter.$or[1].$where`). Filter operators default to `$eq $ne $gt $gte $lt $lte $in $nin $and $or $nor $not $exists $type $regex $size $all $elemMatch` (`allowOperators` narrows them, or adds `$mod`); `$where`, `$function`, `$accumulator`, `$expr`, `$jsonSchema`, `$lookup`, `$out`, `$merge` and other code-running, cross-collection or writing operators are `operator_forbidden` wherever they appear (inside `$or`, `$not`, `$elemMatch` or a literal document) and can never be allowed. `$regex` patterns are at most 200 characters without nested quantifiers (`unsafe_regex`), `$options` only `imsx`. Keys `__proto__`, `constructor` and `prototype` are `forbidden_key`; field paths may not have empty or `$`-prefixed segments (`invalid_field`); filters nest at most `maxDepth` (8) levels, arrays hold at most `maxArrayLength` (1,000) entries and a filter at most 10,000 nodes.
+- **Fields:** `allowFields` lists the only fields (and fields below them) that may be filtered on, sorted by, projected or returned; `denyFields` lists fields that never may, nor their parents (projecting `profile` when `profile.ssn` is denied is `field_denied`), however the path is spelt (`cards.0.number` is `cards.number`). Hidden fields are removed by the server-side projection (the allowed fields, or the denied fields excluded, `_id: 0` when `_id` is hidden) and again from every returned document.
+- **`db_query`** (batch, up to 5) `{ collection, filter?, projection?, sort?: [{ field, direction: 'asc' | 'desc' }], limit?, skip?, count? }` returns `{ collection, docs, returned, truncated, count?, note? }`. `filter` is JSON text (the strict tool schema cannot describe free-form objects), and its values only ever reach the database as data. `limit` defaults to 20 and may not exceed the collection's `maxLimit` (200; `limit_exceeded`); each query runs under the collection's `maxTimeMs` (5,000). Documents are tagged JSON (MongoDB relaxed extended JSON: `{ "$oid" }`, `{ "$date": ISO text }`, `{ "$numberDecimal" }`, `{ "$numberLong" }` beyond 2^53, `{ "$binary" }`; see `toTaggedJson`), and filters use the same tags for ids, dates and decimals. Text values over 2,000 characters end in `…[truncated: N more characters]`, documents that do not fit the call's result budget (`maxResultTokens`, 8,000 tokens shared by the items) are dropped from the end, and both, like more matches than the limit, set `truncated: true` with a `note` saying what to do. Results are `structured-data`, `lossy-ok`: flat documents reach the model as columns and rows (the `tabular` shaper), with the original under a `result_original` handle.
+- **Caching and approvals:** results are cached for 30 seconds (`cacheTtlMs`, or `false` for none); database failures are retryable `db_error` item failures (never cached) with credentials removed from connection strings. Queries have no side effects, so unattended runs need no approval, except on collections with `requiresApproval: true`, whose queries always ask first.
 
 ## Stream directives
 

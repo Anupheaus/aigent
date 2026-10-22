@@ -37,15 +37,39 @@ export function decodeTabular(value: TabularValue): Record<string, Cell>[] {
   return rows.map(row => Object.fromEntries(columns.map((column, columnIndex) => [column, row[columnIndex] ?? null])));
 }
 
-/** structured-data: three or more homogeneous flat objects become `{ columns, rows }`, so keys are not repeated per row. */
+/** The tabular form of a list, or undefined when it is not three or more homogeneous flat objects. */
+function toTabular(value: unknown): TabularValue | undefined {
+  if (!Array.isArray(value) || value.length < MIN_ROWS || !value.every(isFlatObject)) return undefined;
+  const columns = sharedColumns(value);
+  if (columns == null) return undefined;
+  return { columns, rows: value.map(object => columns.map(column => object[column] as Cell)) };
+}
+
+/** A batch result whose item results carry `docs` (the database pack): each qualifying `docs` list in tabular form. */
+function shapeBatchDocs(value: unknown[]): unknown[] | undefined {
+  let isChanged = false;
+  const shaped = value.map(entry => {
+    const result = (entry as { result?: { docs?: unknown } } | null)?.result;
+    const docs = typeof result === 'object' && result !== null ? toTabular(result.docs) : undefined;
+    if (docs == null) return entry;
+    isChanged = true;
+    return { ...(entry as object), result: { ...result, docs } };
+  });
+  return isChanged ? shaped : undefined;
+}
+
+/**
+ * structured-data: three or more homogeneous flat objects become `{ columns, rows }`, so keys are not repeated per row;
+ * in a batch result, so do the `docs` of each item result.
+ */
 export const tabularShaper: Shaper = {
   name: 'tabular',
   appliesTo: ['structured-data'],
   shape: ({ value, context }) => {
-    if (!Array.isArray(value) || value.length < MIN_ROWS || !value.every(isFlatObject)) return undefined;
-    const columns = sharedColumns(value);
-    if (columns == null) return undefined;
-    const rows = value.map(object => columns.map(column => object[column] as Cell));
-    return { value: { columns, rows }, note: `${rows.length} rows as columns + rows (each row lists its values in column order); full result: handle ${context.originalHandle()}` };
+    const table = toTabular(value);
+    if (table != null) return { value: table, note: `${table.rows.length} rows as columns + rows (each row lists its values in column order); full result: handle ${context.originalHandle()}` };
+    const batch = Array.isArray(value) ? shapeBatchDocs(value) : undefined;
+    if (batch == null) return undefined;
+    return { value: batch, note: `docs as columns + rows (each row lists its values in column order); full result: handle ${context.originalHandle()}` };
   },
 };

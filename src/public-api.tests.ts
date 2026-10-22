@@ -9,6 +9,7 @@ import * as webPack from './tools/packs/web/index.js';
 import * as codePack from './tools/packs/code/index.js';
 import * as shellPack from './tools/packs/shell/index.js';
 import * as gitPack from './tools/packs/git/index.js';
+import * as dbPack from './tools/packs/db/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -45,6 +46,10 @@ describe('public API', () => {
 
   it('exports the git pack from its own entry', () => {
     expect(Object.keys(gitPack).sort()).toEqual(['gitTools']);
+  });
+
+  it('exports the database pack from its own entry', () => {
+    expect(Object.keys(dbPack).sort()).toEqual(['createDbPolicy', 'createMemoryDbAccess', 'createMongoDbAccess', 'dbTools', 'toTaggedJson', 'validateQuery']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {
