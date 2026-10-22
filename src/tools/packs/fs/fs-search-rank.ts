@@ -25,7 +25,8 @@ export function isDefinitionLine(params: { text: string; name: string }): boolea
 /** Marks definitions (plain-text searches only: a regex has no single name) and orders the files as asked. */
 export function rankFiles(params: { files: FoundFile[]; pattern: string; regex: boolean; order: SearchOrder; markDefinitions: boolean }): FoundFile[] {
   const { files, pattern, regex, order, markDefinitions } = params;
-  const marked = regex || !markDefinitions ? files : files.map(file => ((file.matches ?? []).some(({ text }) => isDefinitionLine({ text, name: pattern })) ? { ...file, defines: true } : file));
+  // A file may already know it defines the name from all its lines (the kept matches can be a cut-down few).
+  const marked = regex || !markDefinitions ? files : files.map(file => (file.defines === true || (file.matches ?? []).some(({ text }) => isDefinitionLine({ text, name: pattern })) ? { ...file, defines: true } : file));
   if (order === 'path') return marked;
   return [...marked].sort((first, second) => Number(second.defines === true) - Number(first.defines === true) || second.count - first.count || (first.path < second.path ? -1 : first.path > second.path ? 1 : 0));
 }

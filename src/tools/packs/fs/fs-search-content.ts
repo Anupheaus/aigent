@@ -1,4 +1,5 @@
 import type { TextMatcher } from './fs-search-matcher.js';
+import { isDefinitionLine } from './fs-search-rank.js';
 import { cutLongLine } from './fs-text.js';
 import { decodeExactly } from './fs-text-codec.js';
 import type { SkipReason } from './fs-walk.js';
@@ -17,6 +18,8 @@ export interface FileMatches {
   count: number;
   /** The ones kept (at most what the caller still had room for). */
   matches: ContentMatch[];
+  /** Asked with `definitionOf`: some line of the file declares that name, kept or not. */
+  defines?: boolean;
 }
 
 export interface SearchFileParams {
@@ -30,6 +33,8 @@ export interface SearchFileParams {
   contextLines: number;
   /** Matches still to keep in full; the rest are only counted. */
   room: number;
+  /** A plain-text pattern whose declaration to look for in every line (relevance must not depend on `room`). */
+  definitionOf?: string;
 }
 
 /** The file's text as fs_read shows it, or undefined when it is binary or not valid in its encoding (never searched as U+FFFD). */
@@ -48,7 +53,7 @@ function decodeWhole(params: { bytes: Uint8Array; path: string }): string | unde
  * `stopped` when the search's matcher ran out of time (or was aborted).
  */
 export async function searchFile(params: SearchFileParams): Promise<FileMatches | { skipped: SkipReason } | { stopped: 'timed-out' | 'aborted' }> {
-  const { read, path, size, maxBytes, matcher, contextLines, room } = params;
+  const { read, path, size, maxBytes, matcher, contextLines, room, definitionOf } = params;
   if (size > maxBytes) return { skipped: 'tooLarge' };
   let bytes: Uint8Array;
   try {
@@ -69,5 +74,6 @@ export async function searchFile(params: SearchFileParams): Promise<FileMatches 
     };
     return { line: index + 1, column: column + 1, text: cutLongLine(lines[index] ?? '').line, ...context };
   });
-  return { count: outcome.count, matches };
+  const defines = definitionOf == null || outcome.count === 0 ? undefined : lines.some(line => isDefinitionLine({ text: line, name: definitionOf }));
+  return { count: outcome.count, matches, ...(defines === true ? { defines } : {}) };
 }

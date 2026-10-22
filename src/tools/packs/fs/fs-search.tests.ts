@@ -115,6 +115,15 @@ describe('fs_search layers and ranking', () => {
     expect((ranked?.result?.['files'] as SearchFile[]).map(({ path }) => path)).toEqual(['src/def.ts', 'src/use.ts', 'src/other.ts']);
     expect(ranked?.result).toMatchObject({ truncated: true, more: { matches: 3, files: 1 } });
   });
+
+  it('marks a definition from every match, not only the lines kept under maxMatches', async () => {
+    // The defining file sorts last by path, so maxMatches is used up before its lines are kept.
+    const tool = createFsSearch(memoryDeps({ files: { '/ws/src/a-use.ts': 'total(1);\ntotal(2);\ntotal(3);\n', '/ws/src/z-def.ts': 'export function total(value: number) {\n  return value;\n}\n' } }));
+    for (const layer of ['files', 'matches'] as const) {
+      const [ranked] = entriesOf(await call({ tool, items: [{ path: '/ws', pattern: 'total', kind: 'content', wholeWord: true, order: 'relevance', layer, maxMatches: 2 }] }));
+      expect((ranked?.result?.['files'] as SearchFile[])[0], layer).toMatchObject({ path: 'src/z-def.ts', defines: true });
+    }
+  });
 });
 
 describe('fs_search bounds and skips', () => {

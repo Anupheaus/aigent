@@ -37,7 +37,7 @@ const searchItem = z.object({
 }).strict();
 
 type SearchItem = z.infer<typeof searchItem>;
-type Found = { path: string; count: number; matches?: ContentMatch[] };
+type Found = { path: string; count: number; matches?: ContentMatch[]; defines?: boolean };
 
 /** Skip samples a smaller layer keeps: only the ones a caller must act on (unreadable files can be retried). */
 function samplesForLayer(params: { samples: Partial<Record<string, string[]>>; layer: SearchLayer }): Partial<Record<string, string[]>> {
@@ -100,23 +100,26 @@ export function createFsSearch(deps: FsDeps): Tool {
             shown = found.length;
           }
         }
+        const layer = item.layer ?? 'matches';
+        // Definitions are marked only when a layer or relevance order was asked for, and only for plain-text patterns.
+        const markDefinitions = (layer !== 'matches' || item.order === 'relevance') && item.regex !== true;
         for (const file of item.kind === 'content' ? files : []) {
-          const searched = await searchFile({ read: path => readVerified({ deps, path }), path: file.path, size: file.size, maxBytes: policy.limits.maxReadBytes, matcher, contextLines: item.contextLines ?? 0, room: maxMatches - shown });
+          const searched = await searchFile({ read: path => readVerified({ deps, path }), path: file.path, size: file.size, maxBytes: policy.limits.maxReadBytes, matcher, contextLines: item.contextLines ?? 0, room: maxMatches - shown, ...(markDefinitions ? { definitionOf: item.pattern } : {}) });
           if ('stopped' in searched) { stoppedBy = searched.stopped; break; }
           if ('skipped' in searched) { skipped.add(searched.skipped, file.relative); continue; }
           if (searched.count === 0) continue;
           totalMatches += searched.count;
           shown += searched.matches.length;
-          found.push({ path: file.relative, count: searched.count, matches: searched.matches });
+          found.push({ path: file.relative, count: searched.count, matches: searched.matches, ...(searched.defines === true ? { defines: true } : {}) });
         }
-        const layer = item.layer ?? 'matches';
         const isMatchesCut = layer === 'matches' && shown < totalMatches;
         const isTruncated = isWalkTruncated || isMatchesCut || stoppedBy != null;
         const hint = stoppedBy != null ? `The regular expression ran out of its ${SEARCH_REGEX_BUDGET_MS} ms budget, so later files were not searched; use a simpler pattern or a narrower path`
           : isWalkTruncated ? `The search stopped after ${policy.limits.maxFiles} entries; search a narrower path or glob`
             : `${totalMatches - shown} more matches are counted but not shown; narrow the path or glob, raise maxMatches, or ask for layer: files`;
-        // The default result is unchanged; definitions are marked only when a layer or relevance order was asked for.
-        const ranked = rankFiles({ files: found, pattern: item.pattern, regex: item.regex ?? false, order: item.order ?? 'path', markDefinitions: layer !== 'matches' || item.order === 'relevance' });
+        // The default layer keeps its fields and order; when matches are cut it also says how many (`more`) and the
+        // hint names the files layer. Definitions are marked only when a layer or relevance order was asked for.
+        const ranked = rankFiles({ files: found, pattern: item.pattern, regex: item.regex ?? false, order: item.order ?? 'path', markDefinitions });
         const shownFiles = filesForLayer({ files: ranked, layer });
         return {
           path: allowed.path, totalMatches, filesWithMatches: found.length, ...(layer === 'matches' ? { shownMatches: shown } : {}), ...(shownFiles == null ? {} : { files: shownFiles }),
