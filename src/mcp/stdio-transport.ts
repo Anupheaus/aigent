@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import { killProcessTree } from '../security/kill-tree.js';
+import { killLeftovers, killProcessTree } from '../security/kill-tree.js';
 import { DEFAULT_ENV_ALLOW, scrubEnv } from '../security/scrub-env.js';
 import { createLineDecoder, encodeFrame } from './json-rpc.js';
 import type { McpTransport, McpTransportHandlers } from './mcp-transport.js';
@@ -21,7 +21,7 @@ function exitReason(params: { code: number | null; signal: NodeJS.Signals | null
 
 /**
  * An MCP server started as a child process (no shell, scrubbed environment), speaking newline-delimited JSON-RPC on
- * stdin/stdout. `close()` kills its whole process tree.
+ * stdin/stdout. `close()` kills its whole process tree, or what a crashed server left running.
  */
 export function createStdioTransport(config: McpStdioTransportConfig): McpTransport {
   const { command, args = [], env = {}, cwd } = config;
@@ -30,6 +30,9 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
   let isClosing = false;
   /** The spawn in flight, so `close()` called meanwhile resolves only once that process is gone too. */
   let starting: Promise<void> | undefined;
+  /** Epoch ms just before the spawn and when the process exited: what a leftover sweep needs (see `killLeftovers`). */
+  let startedAt = 0;
+  let exitedAt: number | undefined;
 
   function attach(params: { process: ChildProcessWithoutNullStreams; handlers: McpTransportHandlers }): void {
     const { process: running, handlers } = params;
@@ -53,6 +56,7 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
     running.stdin.on('error', () => undefined);
     exited = new Promise(resolve => {
       running.on('exit', (code, signal) => {
+        exitedAt = Date.now();
         deliver(decoder.end());
         if (!isClosing) handlers.onClose(exitReason({ code, signal, stderr }));
         resolve();
@@ -71,6 +75,7 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
 
   async function spawnServer(handlers: McpTransportHandlers): Promise<void> {
     const childEnv = scrubEnv({ parent: process.env, spec: { allow: DEFAULT_ENV_ALLOW, set: env }, platform: IS_WINDOWS ? 'win32' : 'posix' });
+    startedAt = Date.now();
     const running = spawn(command, args, { cwd, env: childEnv, shell: false, windowsHide: true, detached: !IS_WINDOWS, stdio: ['pipe', 'pipe', 'pipe'] });
     await new Promise<void>((resolve, reject) => {
       running.once('spawn', () => resolve());
@@ -106,7 +111,9 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
       await starting?.catch(() => undefined);
       return;
     }
-    if (running.pid == null || running.exitCode != null || running.signalCode != null) return;
+    if (running.pid == null) return;
+    // A server that crashed may have left children running (holding ports, files); they go with it.
+    if (running.exitCode != null || running.signalCode != null) { await killLeftovers({ pid: running.pid, startedAt, exitedAt: exitedAt ?? Date.now() }); return; }
     await stop(running);
   }
 

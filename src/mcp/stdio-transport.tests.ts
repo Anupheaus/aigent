@@ -27,6 +27,19 @@ const PID_SERVER_SOURCE = `
 require('node:fs').writeFileSync(process.argv[2], String(process.pid));
 process.stdin.resume();
 `;
+/**
+ * Starts a lingering grandchild that writes its pid to the file named by the first argument, then crashes (exit code 3)
+ * once that file exists, leaving the grandchild behind.
+ */
+const ORPHANING_SERVER_SOURCE = `
+const { existsSync } = require('node:fs');
+const { spawn } = require('node:child_process');
+const file = process.argv[2];
+const linger = "require('node:fs').writeFileSync(process.argv[1], String(process.pid)); setInterval(() => undefined, 1000);";
+// On Windows a child leaves the server's job object only when detached; elsewhere it stays in the server's process group.
+spawn(process.execPath, ['-e', linger, file], { stdio: 'ignore', detached: process.platform === 'win32' });
+const poll = setInterval(() => { if (existsSync(file)) { clearInterval(poll); process.exit(3); } }, 20);
+`;
 /** How long the pid-writing server may take to start before the test treats it as never started. */
 const PID_FILE_WAIT_MS = 5_000;
 const POLL_MS = 25;
@@ -34,6 +47,7 @@ const POLL_MS = 25;
 let directory: string;
 let script: string;
 let pidScript: string;
+let orphaningScript: string;
 
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), 'aigent-mcp-'));
@@ -41,6 +55,8 @@ beforeAll(async () => {
   await writeFile(script, SERVER_SOURCE);
   pidScript = join(directory, 'pid-server.cjs');
   await writeFile(pidScript, PID_SERVER_SOURCE);
+  orphaningScript = join(directory, 'orphaning-server.cjs');
+  await writeFile(orphaningScript, ORPHANING_SERVER_SOURCE);
 });
 
 afterAll(async () => {
@@ -123,6 +139,26 @@ describe('stdio transport with a real node subprocess', () => {
     const client = createMcpClient({ transport: createStdioTransport({ type: 'stdio', command: join(directory, 'missing-program') }), serverName: 'missing', warn: () => undefined });
     await expect(client.connect()).rejects.toThrow("could not start '");
   });
+
+  it('kills a crashed server\'s leftover descendants on close', async () => {
+    const pidFile = join(directory, 'grandchild.pid');
+    const transport = createStdioTransport({ type: 'stdio', command: process.execPath, args: [orphaningScript, pidFile] });
+    let onExit: (reason: string) => void = () => undefined;
+    const exited = new Promise<string>(resolve => { onExit = resolve; });
+    await transport.start({ onMessage: () => undefined, onWarning: () => undefined, onClose: reason => onExit(reason) });
+    const grandchild = await waitForPid(pidFile);
+    try {
+      expect(grandchild).toBeDefined();
+      expect(await exited).toContain('exit code 3');
+      expect(isAlive(grandchild ?? 0)).toBe(true);
+      await transport.close();
+      expect(await waitUntilGone(grandchild ?? 0)).toBe(true);
+    } finally {
+      // Never leave the lingering process behind, whatever the assertions found.
+      if (grandchild != null && isAlive(grandchild)) process.kill(grandchild);
+    }
+  }, 30_000);
+
   it('kills a server whose spawn finishes after close() was called, and rejects the start', async () => {
     const pidFile = join(directory, 'late.pid');
     const transport = createStdioTransport({ type: 'stdio', command: process.execPath, args: [pidScript, pidFile] });
