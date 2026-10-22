@@ -75,4 +75,17 @@ describe('withFirstEventTimeout', () => {
     }
     expect(streamSignal?.aborted).toBe(true);
   });
+  it('stops timing once work outside the stream has started, waiting for the first event however long it takes', async () => {
+    const time = createFakeTime();
+    let release: () => void = () => undefined;
+    async function* slowAfterWork(): AsyncGenerator<ProviderEvent> {
+      await new Promise<void>(resolve => { release = resolve; });
+      yield TEXT;
+      yield DONE;
+    }
+    const outcome = collect(withFirstEventTimeout({ open: slowAfterWork, signal: new AbortController().signal, timeoutMs: TIMEOUT_MS, sleep: time.sleep, label: 'p:m', hasStarted: () => true })).catch((error: unknown) => error);
+    await time.advance(TIMEOUT_MS * 3);
+    release();
+    expect(await outcome).toEqual([TEXT, DONE]);
+  });
 });

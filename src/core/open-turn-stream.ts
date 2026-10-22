@@ -59,6 +59,11 @@ export interface OpenTurnStreamParams {
   signal: AbortSignal;
   counters: ResilienceCounters;
   emit(event: AigentEvent): void;
+  /**
+   * Delegated mode: whether the provider's own loop already ran a tool call in this turn. Once it has, the turn is
+   * never retried or moved to a fallback (that would run the call again), and the first-event timeout stops.
+   */
+  isCommitted?(): boolean;
 }
 
 interface TargetAttemptParams {
@@ -66,6 +71,7 @@ interface TargetAttemptParams {
   request: TurnRequest;
   routing: TurnRouting;
   emit(event: AigentEvent): void;
+  isCommitted?(): boolean;
 }
 
 /** Output tokens assumed for the scheduler's estimate when `maxOutputTokens` is not set. */
@@ -89,7 +95,7 @@ function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouti
 
 /** One target as a resilient attempt: each open waits for a scheduler lease, then applies the first-event timeout. */
 function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
-  const { target: { label, provider, model, settings }, request, routing: { scheduler, priority, agentName, policy, sleep }, emit } = params;
+  const { target: { label, provider, model, settings }, request, routing: { scheduler, priority, agentName, policy, sleep }, emit, isCommitted } = params;
   const { messages, tools, cacheBreakpoints, toolExecutor } = request;
   const executor = provider.capabilities.ownsLoop === true && toolExecutor != null ? { toolExecutor } : {};
   const lease = { key: label, estimatedTokens: estimateTokens({ request, settings }), priority, agentName };
@@ -97,6 +103,7 @@ function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
     label,
     open: signal => leasedStream({
       scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs, maxRateLimitPauseMs: policy.maxDelayMs,
+      ...(isCommitted == null ? {} : { hasStarted: isCommitted }),
       open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }), ...(cacheBreakpoints == null ? {} : { cacheBreakpoints }), ...executor }, streamSignal),
       onQueued: ({ position, reason, waitMs }) => emit({ type: 'queued', position, reason, ...(waitMs == null ? {} : { waitMs }) }),
     }),
@@ -108,13 +115,15 @@ function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
  * `fallback` events (and a fallback target's setting warnings the first time it is used).
  */
 export function openTurnStream(params: OpenTurnStreamParams): AsyncIterable<ProviderEvent> {
-  const { routing, request, signal, counters, emit } = params;
+  const { routing, request, signal, counters, emit, isCommitted } = params;
   const { targets, policy, sleep, random } = routing;
   const [primary, ...fallbacks] = targets;
-  const attempts: [ProviderAttempt, ...ProviderAttempt[]] = [targetAttempt({ target: primary, request, routing, emit }), ...fallbacks.map(target => targetAttempt({ target, request, routing, emit }))];
+  const committed = isCommitted == null ? {} : { isCommitted };
+  const attemptOf = (target: ProviderTarget): ProviderAttempt => targetAttempt({ target, request, routing, emit, ...committed });
+  const attempts: [ProviderAttempt, ...ProviderAttempt[]] = [attemptOf(primary), ...fallbacks.map(attemptOf)];
   const targetsByLabel = new Map(targets.map(target => [target.label, target]));
   return streamWithResilience({
-    attempts, sleep, random, signal,
+    attempts, sleep, random, signal, ...committed,
     // Each attempt applies the first-event timeout itself, after its lease, so queueing never counts as silence.
     policy: { ...policy, firstEventTimeoutMs: undefined },
     onRetry: ({ attempt, delayMs, label, reason }) => {

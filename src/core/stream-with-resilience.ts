@@ -48,6 +48,11 @@ export interface ResilientStreamParams {
   onFallback?(info: FallbackInfo): void;
   /** Overrides `policy.firstEventTimeoutMs`. */
   firstEventTimeoutMs?: number;
+  /**
+   * Whether work outside the stream already happened that a new attempt would repeat (delegated mode: a tool call the
+   * provider's own loop ran). Once true, a failure is thrown as if an event had been yielded: no retry, no fallback.
+   */
+  isCommitted?(): boolean;
 }
 
 type AttemptOutcome = { kind: 'completed' } | { kind: 'failed'; error: unknown };
@@ -110,11 +115,12 @@ async function* streamAttempt(params: StreamAttemptParams): AsyncGenerator<Provi
 /**
  * Streams from the first attempt that works. Retryable failures before any event are retried with backoff (up to
  * `maxRetries` per attempt, and never when the server's `retry-after` exceeds `maxDelayMs`); then, for `provider_failed` errors that are retryable (or any, with
- * `fallbackOnNonRetryable`), the next attempt is tried. A failure after an event was yielded is thrown at once.
+ * `fallbackOnNonRetryable`), the next attempt is tried. A failure after an event was yielded, or once `isCommitted()`,
+ * is thrown at once.
  * An abort at any point (streaming, opening, backing off) throws `aborted` promptly.
  */
 export async function* streamWithResilience(params: ResilientStreamParams): AsyncGenerator<ProviderEvent> {
-  const { attempts, policy, sleep, random, signal, onRetry, onFallback } = params;
+  const { attempts, policy, sleep, random, signal, onRetry, onFallback, isCommitted } = params;
   const firstEventTimeoutMs = params.firstEventTimeoutMs ?? policy.firstEventTimeoutMs;
   for (const [index, attempt] of attempts.entries()) {
     const { label } = attempt;
@@ -123,6 +129,8 @@ export async function* streamWithResilience(params: ResilientStreamParams): Asyn
       const outcome = yield* streamAttempt({ attempt, signal, sleep, firstEventTimeoutMs });
       if (outcome.kind === 'completed') return;
       const { error } = outcome;
+      // Replaying would run the committed work (a side-effecting tool) a second time.
+      if (isCommitted?.() === true) throw error;
       const retryAfterMs = retryAfterMsOf(error);
       // A server asking for a longer wait than the policy allows (a spent quota, typically) is not waited for: the
       // run moves on to its fallback, or fails, rather than sleeping silently for an hour.

@@ -8,6 +8,7 @@ import type { Tool } from '../tools/tool-types.js';
 import { createAigentError } from './aigent-error.js';
 import type { AigentEvent } from './aigent-events.js';
 import { createAigent } from './create-aigent.js';
+import type { ResiliencePolicy } from './resilience-policy.js';
 import type { Clock, IdGenerator } from './runtime-services.js';
 
 const clock: Clock = { now: () => 1_000 };
@@ -22,6 +23,12 @@ interface DelegatedScript {
   answer(results: DelegatedToolResult[]): string;
   /** Wait forever after the calls (until aborted). */
   hangAfterCalls?: boolean;
+  /** Run the calls before yielding any event (the stream's first event comes after them). */
+  callsFirst?: boolean;
+  /** Fail with a retryable `provider_failed` after the calls, before any event. */
+  failAfterCalls?: boolean;
+  /** Wait this long after the calls, before the next event. */
+  delayAfterCallsMs?: number;
 }
 
 interface OwnsLoopProvider extends Provider {
@@ -39,9 +46,11 @@ function ownsLoopProvider(scripts: DelegatedScript[]): OwnsLoopProvider {
     const script = scripts.shift();
     if (script == null) throw createAigentError({ code: 'provider_failed', message: 'no script left' });
     if (toolExecutor == null) throw new Error('expected a toolExecutor in delegated mode');
-    yield { type: 'text-delta', text: 'Working. ' };
+    if (script.callsFirst !== true) yield { type: 'text-delta', text: 'Working. ' };
     const results: DelegatedToolResult[] = [];
     for (const call of script.calls) results.push(await toolExecutor(call));
+    if (script.delayAfterCallsMs != null) await new Promise(resolve => setTimeout(resolve, script.delayAfterCallsMs));
+    if (script.failAfterCalls === true) throw createAigentError({ code: 'provider_failed', message: 'connection reset', details: { retryable: true } });
     if (script.hangAfterCalls === true) {
       await new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(createAigentError({ code: 'aborted', message: 'aborted' })), { once: true }));
     }
@@ -70,11 +79,17 @@ const guarded = defineTool({
   requiresApproval: true, describeActivity: () => ({ title: 'Guarded' }), run: async () => 'ran',
 });
 
-function setup(scripts: DelegatedScript[], tools: Tool[] = [echo]) {
+let sideEffectRuns = 0;
+const sideEffect = defineTool({
+  name: 'side_effect', description: 'Writes once', args: z.object({}).strict(), deterministic: false, cache: false, hasSideEffects: true,
+  describeActivity: () => ({ title: 'Side effect' }), run: async () => { sideEffectRuns += 1; return 'done'; },
+});
+
+function setup(scripts: DelegatedScript[], tools: Tool[] = [echo], resilience?: Partial<ResiliencePolicy>) {
   const provider = ownsLoopProvider(scripts);
   const store = createInMemoryStore();
   const ai = createAigent({ providers: [provider], clock, ids: sequentialIds(), store });
-  const agent = ai.agent({ name: 'helper', model: 'loop:m', tools, enableFeedback: false });
+  const agent = ai.agent({ name: 'helper', model: 'loop:m', tools, enableFeedback: false, ...(resilience == null ? {} : { resilience }) });
   return { ai, agent, provider };
 }
 
@@ -144,5 +159,32 @@ describe('delegated mode (capabilities.ownsLoop)', () => {
     for await (const event of run) if (event.type === 'tool-result') run.cancel();
     expect((await run).status).toBe('cancelled');
     expect(provider.signals[0]?.aborted).toBe(true);
+  });
+  it('never retries or falls back once a delegated call ran in the attempt, so a side effect runs once', async () => {
+    sideEffectRuns = 0;
+    const { agent, provider } = setup([
+      { calls: [{ id: 's1', name: 'side_effect', args: {} }], answer: () => 'never', callsFirst: true, failAfterCalls: true },
+      { calls: [{ id: 's2', name: 'side_effect', args: {} }], answer: () => 'retried' },
+    ], [sideEffect], { baseDelayMs: 1, maxDelayMs: 1 });
+    const run = agent.task({ task: 'x' });
+    const events = await collect(run);
+    const result = await run;
+    expect(sideEffectRuns).toBe(1);
+    expect(provider.requests).toHaveLength(1);
+    expect(events.filter(event => event.type === 'retry')).toEqual([]);
+    expect(result).toMatchObject({ status: 'failed', usage: { toolCalls: 1, retries: 0 } });
+    expect(result.failure).toContain('connection reset');
+  });
+
+  it('does not time out the first event while a delegated call runs', async () => {
+    sideEffectRuns = 0;
+    const firstEventTimeoutMs = 30;
+    const { agent, provider } = setup([
+      { calls: [{ id: 's1', name: 'side_effect', args: {} }], answer: () => 'finished', callsFirst: true, delayAfterCallsMs: firstEventTimeoutMs * 3 },
+    ], [sideEffect], { firstEventTimeoutMs, baseDelayMs: 1, maxDelayMs: 1 });
+    const result = await agent.task({ task: 'x' });
+    expect(result).toMatchObject({ status: 'completed', answer: 'finished', usage: { retries: 0 } });
+    expect(provider.requests).toHaveLength(1);
+    expect(sideEffectRuns).toBe(1);
   });
 });

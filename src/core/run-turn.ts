@@ -176,8 +176,13 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   let reportedTokens: number | undefined;
   // Delegated mode: a provider that owns the loop calls back into the core for each tool call.
   const isDelegating = routing.targets.some(({ provider }) => provider.capabilities.ownsLoop === true);
-  const toolExecutor = isDelegating ? (call: ToolCall) => runDelegatedCall({ call, turn: params }) : undefined;
-  const iterator = openTurnStream({ routing, request: { ...request, ...(toolExecutor == null ? {} : { toolExecutor }) }, signal, counters: totals, emit })[Symbol.asyncIterator]();
+  // Set by the first delegated call: from then on a failed stream is never replayed (the call would run again).
+  let hasDelegatedCall = false;
+  const toolExecutor = isDelegating ? (call: ToolCall) => { hasDelegatedCall = true; return runDelegatedCall({ call, turn: params }); } : undefined;
+  const iterator = openTurnStream({
+    routing, request: { ...request, ...(toolExecutor == null ? {} : { toolExecutor }) }, signal, counters: totals, emit,
+    ...(isDelegating ? { isCommitted: () => hasDelegatedCall } : {}),
+  })[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
     for (;;) {

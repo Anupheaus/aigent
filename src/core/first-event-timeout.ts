@@ -12,6 +12,11 @@ export interface FirstEventTimeoutParams {
   sleep: Sleeper;
   /** Names the stream in the timeout error, e.g. `anthropic:claude-sonnet-5-5`. */
   label: string;
+  /**
+   * Whether the stream already started work outside its events (delegated mode: a tool call the provider's own loop
+   * asked for). Such a stream is not silent, so when the timer fires it is waited for without a limit.
+   */
+  hasStarted?(): boolean;
 }
 
 type FirstStep = { kind: 'event'; result: IteratorResult<ProviderEvent> } | { kind: 'timeout' };
@@ -21,7 +26,7 @@ type FirstStep = { kind: 'event'; result: IteratorResult<ProviderEvent> } | { ki
  * arrives within `timeoutMs` of opening, aborting the stream. The timer is always cancelled once settled.
  */
 export async function* withFirstEventTimeout(params: FirstEventTimeoutParams): AsyncGenerator<ProviderEvent> {
-  const { open, signal, timeoutMs, sleep, label } = params;
+  const { open, signal, timeoutMs, sleep, label, hasStarted } = params;
   const streamController = new AbortController();
   const timerController = new AbortController();
   const forwardAbort = (): void => streamController.abort(signal.reason);
@@ -38,11 +43,14 @@ export async function* withFirstEventTimeout(params: FirstEventTimeoutParams): A
     first.catch(() => undefined);
     // The timer is only cancelled after the race, so winning it always means the time elapsed.
     const timer = sleep(timeoutMs, timerController.signal).then((): FirstStep => ({ kind: 'timeout' }));
-    const step = await Promise.race([first.then((result): FirstStep => ({ kind: 'event', result })), timer]).catch((error: unknown) => {
+    const asEvent = (result: IteratorResult<ProviderEvent>): FirstStep => ({ kind: 'event', result });
+    const onFailure = (error: unknown): never => {
       isSettled = true;
       throw error;
-    });
+    };
+    let step = await Promise.race([first.then(asEvent), timer]).catch(onFailure);
     timerController.abort();
+    if (step.kind === 'timeout' && hasStarted?.() === true) step = await first.then(asEvent).catch(onFailure);
     if (step.kind === 'timeout') {
       streamController.abort(`no event within ${timeoutMs} ms`);
       throw createAigentError({ code: 'provider_failed', message: `Provider '${label}' sent no event within ${timeoutMs} ms`, details: { retryable: true, timeout: true, timeoutMs } });

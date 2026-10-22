@@ -103,15 +103,17 @@ interface RunParams {
   record?: Recorder;
   signal?: AbortSignal;
   firstEventTimeoutMs?: number;
+  isCommitted?(): boolean;
 }
 
 function stream(params: RunParams): AsyncIterable<ProviderEvent> {
-  const { attempts, policy = NO_JITTER, record = recorder(), signal = new AbortController().signal, firstEventTimeoutMs } = params;
+  const { attempts, policy = NO_JITTER, record = recorder(), signal = new AbortController().signal, firstEventTimeoutMs, isCommitted } = params;
   const [first, ...rest] = attempts.map(({ attempt }) => attempt);
   if (first == null) throw new Error('at least one attempt is needed');
   return streamWithResilience({
     attempts: [first, ...rest], policy, sleep: record.sleep, random: () => 0.5, signal,
     onRetry: info => record.retries.push(info), onFallback: info => record.fallbacks.push(info), firstEventTimeoutMs,
+    ...(isCommitted == null ? {} : { isCommitted }),
   });
 }
 
@@ -199,6 +201,18 @@ describe('streamWithResilience', () => {
     const primary = scripted('a:m', [{ kind: 'fail', error: limited }, { kind: 'events', events: [DONE] }]);
     await collect(stream({ attempts: [primary], record }));
     expect(record.delays).toEqual([20_000]);
+  });
+
+  it('neither retries nor falls back after work outside the stream was committed, throwing the failure', async () => {
+    const record = recorder();
+    const error = retryable('connection reset');
+    const primary = scripted('a:m', [{ kind: 'fail', error }, { kind: 'events', events: [TEXT, DONE] }]);
+    const fallback = scripted('b:m', [{ kind: 'events', events: [TEXT, DONE] }]);
+    await expect(collect(stream({ attempts: [primary, fallback], record, isCommitted: () => true }))).rejects.toBe(error);
+    expect(primary.opens()).toBe(1);
+    expect(fallback.opens()).toBe(0);
+    expect(record.retries).toEqual([]);
+    expect(record.fallbacks).toEqual([]);
   });
 
   it('moves to the fallback once retries are exhausted', async () => {
