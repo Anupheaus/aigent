@@ -5,6 +5,8 @@ import type { FsAccess } from '../../../security/fs-access.js';
 import type { FsPolicy } from '../../../security/fs-policy-types.js';
 import { ignoreMatcherFor } from '../fs/fs-list.js';
 import { resolveDeps } from '../fs/fs-shared.js';
+import type { FsDeps } from '../fs/fs-shared.js';
+import { readVerified } from '../fs/fs-verify.js';
 import { createSkipReport, walk } from '../fs/fs-walk.js';
 import { analyseContent, cardFor, CONTENT_FACTS_VERSION, languageOf } from './file-cards.js';
 import { indexVersion, linkCards } from './index-graph.js';
@@ -14,12 +16,21 @@ import type { ContentFacts, FileCard, IndexSnapshot, IndexToolsOptions } from '.
 export const REPO_INDEX_COLLECTION = 'repo-index';
 const MAX_DEPTH = 64;
 const BINARY_SAMPLE = 8_000;
+/** Snapshots kept by call key (`refreshFor`): a few calls run at once, never more than this. */
+const MAX_CALL_SNAPSHOTS = 32;
 
 export interface RepoIndex {
   /** Brings the index up to date (re-reading only files whose size or mtime changed) and returns it. */
   refresh(): Promise<IndexSnapshot>;
+  /**
+   * The snapshot for one tool call: the first request for `callKey` refreshes, later ones reuse it, so a cached
+   * call's validity token and its answer come from one walk and describe the same files.
+   */
+  refreshFor(callKey: string): Promise<IndexSnapshot>;
   policy: FsPolicy;
   access: FsAccess;
+  /** Policy and access as the fs pack's verified reads take them. */
+  deps: FsDeps;
 }
 
 interface Remembered {
@@ -32,6 +43,19 @@ interface Remembered {
 }
 
 const isBinary = (bytes: Uint8Array): boolean => bytes.subarray(0, BINARY_SAMPLE).includes(0);
+
+/**
+ * A file's bytes through a verified open (the handle is the checked file), retried once on failure: a transient
+ * fault (a file being replaced, a busy share) then costs nothing. Undefined when both reads fail; the caller reports it.
+ */
+export async function readWithRetry(params: { deps: FsDeps; path: string }): Promise<Uint8Array | undefined> {
+  try {
+    return await readVerified(params);
+  } catch {
+    // The one deliberate retry; a second failure is reported as unreadable.
+    return readVerified(params).catch(() => undefined);
+  }
+}
 
 /**
  * Where content facts are cached: they depend on the bytes, the language (a `.md` and a `.ts` with the same bytes
@@ -68,7 +92,7 @@ export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
       if (entry.size > policy.limits.maxReadBytes) { skipped.add('tooLarge', entry.relative); continue; }
       const previous = remembered.get(entry.relative);
       if (previous != null && previous.size === entry.size && previous.mtimeMs === entry.mtimeMs) { next.set(entry.relative, previous); continue; }
-      const bytes = await access.readFile(entry.path).catch(() => undefined);
+      const bytes = await readWithRetry({ deps, path: entry.path });
       if (bytes == null) { skipped.add('unreadable', entry.relative); continue; }
       if (isBinary(bytes)) { skipped.add('binary', entry.relative); continue; }
       const hash = createHash('sha256').update(bytes).digest('hex');
@@ -91,12 +115,22 @@ export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
     return { root: decision.canonicalPath, version: indexVersion(cards), files, processed: processed.sort(), skipped: occurred, unreadable: skipped.samples.unreadable ?? [] };
   }
 
+  // Concurrent calls share one refresh, so a batch of tool calls walks the tree once.
+  const refresh = (): Promise<IndexSnapshot> => {
+    running ??= rebuild().finally(() => { running = undefined; });
+    return running;
+  };
+  const byCall = new Map<string, Promise<IndexSnapshot>>();
   return {
-    policy, access,
-    // Concurrent calls share one refresh, so a batch of tool calls walks the tree once.
-    refresh: () => {
-      running ??= rebuild().finally(() => { running = undefined; });
-      return running;
+    policy, access, deps, refresh,
+    refreshFor: callKey => {
+      const known = byCall.get(callKey);
+      if (known != null) return known;
+      const snapshot = refresh();
+      byCall.set(callKey, snapshot);
+      // Oldest first: a map keeps insertion order.
+      for (const oldest of byCall.keys()) { if (byCall.size <= MAX_CALL_SNAPSHOTS) break; byCall.delete(oldest); }
+      return snapshot;
     },
   };
 }

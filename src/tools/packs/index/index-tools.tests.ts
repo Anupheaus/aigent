@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createAigent } from '../../../core/create-aigent.js';
+import type { FsAccess } from '../../../security/fs-access.js';
 import { createMemoryFsAccess } from '../../../security/fs-access-memory.js';
 import { createFsPolicy } from '../../../security/fs-policy.js';
 import { createInMemoryStore } from '../../../store/in-memory-store.js';
 import { createFakeProvider, textTurn, toolTurn } from '../../../testing/fake-provider.js';
+import type { Tool } from '../../tool-types.js';
 import { fsTools } from '../fs/fs-tools.js';
 import { call, entriesOf } from '../fs/fs-tools.test-support.js';
 import { indexTools } from './index-tools.js';
@@ -86,5 +88,64 @@ describe('index tools', () => {
     if (tool == null) throw new TypeError('no search_layers');
     const [entry] = entriesOf(await call({ tool, items: [{ pattern: '(a+)+$', regex: true, layer: 'files' }] }));
     expect(entry).toMatchObject({ ok: false, error: { code: 'unsafe_pattern' } });
+  });
+});
+
+/** An access whose reads of `failing` fail: always, only the first `failures` times, or after the first `succeed` reads. */
+const faulty = (params: { failing: string; failures?: number; succeed?: number }) => {
+  const { failing, failures = Number.MAX_SAFE_INTEGER, succeed = 0 } = params;
+  const base = createMemoryFsAccess({ platform: 'posix', files: FILES });
+  let reads = 0;
+  let walks = 0;
+  const guard = (path: string): void => {
+    if (path !== failing) return;
+    reads += 1;
+    if (reads > succeed && reads <= succeed + failures) throw Object.assign(new Error(`EIO: injected '${path}'`), { code: 'EIO' });
+  };
+  const access: FsAccess = {
+    ...base,
+    readFile: async path => { guard(path); return base.readFile(path); },
+    open: async path => { guard(path); return base.open(path); },
+    readdir: async path => { if (path === '/ws') walks += 1; return base.readdir(path); },
+  };
+  return { access, walks: () => walks };
+};
+const toolNamed = (access: FsAccess, name: string): Tool => {
+  const tool = indexTools({ policy: createFsPolicy({ roots: [{ path: '/ws', permissions: ['read'] }] }), access }).find(candidate => candidate.name === name);
+  if (tool == null) throw new TypeError(`no tool ${name}`);
+  return tool;
+};
+const firstResult = async (params: { access: FsAccess; name: string; item: unknown }) => entriesOf(await call({ tool: toolNamed(params.access, params.name), items: [params.item] }))[0]?.result;
+
+describe('index tools: unreadable files are reported, never silently dropped', () => {
+  const USE = '/ws/src/lib/use.ts';
+
+  it('every tool reports a file that cannot be read (after a retry) in skipped and unreadable', async () => {
+    const { access } = faulty({ failing: USE });
+    for (const [name, item] of [['search_layers', { pattern: 'total', layer: 'files' }], ['repo_find', { name: 'use.ts' }], ['repo_map', {}], ['repo_tags', { tags: ['test'] }]] as const) {
+      expect(await firstResult({ access, name, item }), name).toMatchObject({ skipped: { unreadable: 1 }, unreadable: ['src/lib/use.ts'] });
+    }
+  });
+
+  it('retries a failed read once, deliberately: a transient failure costs nothing and is not reported', async () => {
+    const result = await firstResult({ access: faulty({ failing: USE, failures: 1 }).access, name: 'search_layers', item: { pattern: 'total', layer: 'files' } });
+    expect(result).toMatchObject({ filesWithMatches: 3 });
+    expect(result).not.toHaveProperty('unreadable');
+  });
+
+  it('a file that fails when searched (after indexing) is reported for that query, not a failed item', async () => {
+    const result = await firstResult({ access: faulty({ failing: USE, succeed: 1 }).access, name: 'search_layers', item: { pattern: 'total', layer: 'files' } });
+    expect(result).toMatchObject({ filesWithMatches: 2, unreadable: ['src/lib/use.ts'] });
+  });
+
+  it('walks the tree once per cached call (the validity token and the answer share one snapshot)', async () => {
+    const { access, walks } = faulty({ failing: '/nowhere' });
+    const ask = (id: string, name: string) => toolTurn([{ id, name: 'repo_find', args: { items: [{ name }] } }]);
+    const provider = createFakeProvider({ turns: [ask('f1', 'total.ts'), ask('f2', 'use.ts'), textTurn('done')] });
+    const ai = createAigent({ providers: [provider], store: createInMemoryStore(), enableFeedback: false });
+    const agent = ai.agent({ name: 'indexer', model: 'fake:m', todo: false, tools: indexTools({ policy: createFsPolicy({ roots: [{ path: '/ws', permissions: ['read'] }] }), access }) });
+    await agent.task({ task: 'find' });
+    await ai.close();
+    expect(walks()).toBe(2);
   });
 });
