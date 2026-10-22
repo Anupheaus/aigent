@@ -43,7 +43,11 @@ export function createNodeProcessRunner(): ProcessRunner {
   return {
     run: (request: ProcessRunRequest) => new Promise<ProcessResult>((resolve, reject) => {
       const { file, args, cwd, env, signal, timeoutMs, maxOutputBytes, stdin } = request;
-      const startedAt = performance.now();
+      const startedAtMs = performance.now();
+      // Wall-clock start, which Windows process creation times are compared with.
+      const startedAt = Date.now();
+      let sweeping: Promise<void> | undefined;
+      let exitedAt: number | undefined;
       const child = spawn(file, [...args], { cwd, env, shell: false, windowsHide: true, detached: !IS_WINDOWS, stdio: ['pipe', 'pipe', 'pipe'] });
       let timedOut = false;
       let aborted = false;
@@ -65,7 +69,7 @@ export function createNodeProcessRunner(): ProcessRunner {
         resolve({
           exitCode: exit?.code ?? null, ...(exit?.signal == null ? {} : { signal: exit.signal }),
           stdout: textOf({ captured: stdout, maxBytes: maxOutputBytes }), stderr: textOf({ captured: stderr, maxBytes: maxOutputBytes }),
-          truncated: { stdout: stdout.isTruncated, stderr: stderr.isTruncated }, timedOut, aborted, durationMs: Math.round(performance.now() - startedAt),
+          truncated: { stdout: stdout.isTruncated, stderr: stderr.isTruncated }, timedOut, aborted, durationMs: Math.round(performance.now() - startedAtMs),
         });
       };
       child.on('error', error => {
@@ -73,18 +77,25 @@ export function createNodeProcessRunner(): ProcessRunner {
         signal?.removeEventListener('abort', onAbort);
         if (child.pid == null) reject(error); else void finish();
       });
+      // One sweep per run, whichever of the two paths below gets there first.
+      const sweep = (): Promise<void> => {
+        sweeping ??= child.pid == null ? Promise.resolve() : killLeftovers({ pid: child.pid, startedAt, exitedAt: exitedAt ?? Date.now() });
+        return sweeping;
+      };
       child.on('exit', (code, exitSignal) => {
         exit = { code, signal: exitSignal };
+        exitedAt = Date.now();
         // Output still open after the exit is held by processes the child started: kill them, then stop waiting.
         setTimeout(() => {
           if (isDone || child.pid == null) return;
-          void killLeftovers(child.pid).then(() => { child.stdout.destroy(); child.stderr.destroy(); void finish(); });
+          void sweep().then(() => { child.stdout.destroy(); child.stderr.destroy(); void finish(); });
         }, STDIO_CLOSE_GRACE_MS).unref();
       });
       child.on('close', () => {
-        // Even a clean close may leave a detached grandchild in the group (POSIX): it goes with the run.
-        if (!IS_WINDOWS && child.pid != null) void killLeftovers(child.pid);
-        void finish();
+        // Even a clean close may leave a grandchild running (detached on Windows, in the group on POSIX): it goes with
+        // the run. On Windows that takes a process-table query (about half a second), so the result does not wait.
+        const swept = sweep();
+        if (IS_WINDOWS) void finish(); else void swept.then(() => finish());
       });
       child.stdin.on('error', () => undefined);
       child.stdin.end(stdin ?? '');

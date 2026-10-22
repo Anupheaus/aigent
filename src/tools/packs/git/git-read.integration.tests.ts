@@ -6,6 +6,7 @@ import type { Tool } from '../../tool-types.js';
 import { callTool, CONTEXT, findGit, git, IDENTITY, itemsOf, scriptedRepo, toolsFor } from './git-repo.test-support.js';
 
 const gitPath = findGit();
+const HEAVY_TEST_TIMEOUT_MS = 30_000;
 let setup: Awaited<ReturnType<typeof scriptedRepo>>;
 let tools: Map<string, Tool>;
 const tool = (name: string): Tool => tools.get(name) as Tool;
@@ -115,5 +116,6 @@ describe.skipIf(gitPath == null)(`git read tools against a real repository${gitP
     expect(isPlainGitPwned).toBe(true);
     expect(existsSync(marker)).toBe(false);
     expect(CONTEXT.signal.aborted).toBe(false);
-  });
+    // Many git runs, each with its config listing (and on Windows a leftover sweep in the background): slow under load.
+  }, HEAVY_TEST_TIMEOUT_MS);
 });

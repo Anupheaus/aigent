@@ -8,6 +8,8 @@ export const KILL_GRACE_MS = 2_000;
 const GROUP_POLL_MS = 50;
 /** Longest wait for the Windows helper programs (taskkill, PowerShell). */
 const HELPER_TIMEOUT_MS = 15_000;
+/** How far before the recorded start a descendant's creation time may read (the system tick is about 16 ms). */
+const CREATION_CLOCK_SLACK_MS = 1_000;
 
 /** Windows system programs by absolute path, so a planted `taskkill.exe` on PATH is never what runs. */
 function systemProgram(relative: string): string {
@@ -56,16 +58,31 @@ export async function killProcessTree(params: { pid: number; graceMs?: number })
   if (isGroupAlive(pid)) signalGroup({ pid, signal: 'SIGKILL' });
 }
 
-/** Windows keeps an orphan's parent id, so the process table still says which processes a finished child started. */
-async function windowsDescendants(pid: number): Promise<number[]> {
-  const table = await runHelper({
-    file: systemProgram(join('WindowsPowerShell', 'v1.0', 'powershell.exe')),
-    args: ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId),$($_.ParentProcessId)" }'],
-  });
+/** `killLeftovers` / `descendantsInTable`: the exited child and when it ran. */
+export interface LeftoverQuery {
+  pid: number;
+  /** Epoch milliseconds, taken just before the child was spawned. */
+  startedAt: number;
+  /** Epoch milliseconds when the child exited: no later process can be its own child. */
+  exitedAt?: number;
+}
+
+/**
+ * The descendants of `pid` in a Windows process table (`ProcessId,ParentProcessId,CreationUnixMs` lines). Windows keeps
+ * an orphan's parent id, even after that id is reused, so a parent id alone proves nothing: only processes created
+ * after the child started count, and its direct children must also predate its exit (a later process naming that id
+ * belongs to its next owner).
+ */
+export function descendantsInTable(params: LeftoverQuery & { table: string }): number[] {
+  const { table, pid, startedAt, exitedAt } = params;
+  // Process creation times come from the coarse system tick, so they may read slightly off the precise clock.
+  const notBefore = startedAt - CREATION_CLOCK_SLACK_MS;
+  const directNotAfter = exitedAt == null ? Number.POSITIVE_INFINITY : exitedAt + CREATION_CLOCK_SLACK_MS;
   const childrenOf = new Map<number, number[]>();
   for (const line of table.split(/\r?\n/)) {
-    const [child, parent] = line.trim().split(',').map(Number);
-    if (child == null || parent == null || !Number.isInteger(child) || !Number.isInteger(parent) || child === parent) continue;
+    const [child, parent, created] = line.trim().split(',').map(Number);
+    if (child == null || parent == null || created == null || ![child, parent, created].every(Number.isInteger) || child === parent || created < notBefore) continue;
+    if (parent === pid && created > directNotAfter) continue;
     childrenOf.set(parent, [...childrenOf.get(parent) ?? [], child]);
   }
   const found: number[] = [];
@@ -79,13 +96,47 @@ async function windowsDescendants(pid: number): Promise<number[]> {
   return found;
 }
 
+/** A Windows sweep waiting for the next process-table query. */
+interface PendingSweep {
+  query: LeftoverQuery;
+  done(): void;
+}
+
+let pendingSweeps: PendingSweep[] = [];
+let isSweeping = false;
+
 /**
- * Kills whatever an already-exited child left running (grandchildren holding its output open). POSIX: SIGKILL to its
- * process group. Windows: its descendants from the process table, forcibly. Best effort: a process id reused in the
- * meantime is the documented residual risk.
+ * Runs the queued Windows sweeps, one process-table query (about half a second of PowerShell) per batch: every sweep
+ * queued while a query runs waits for the next one, whose table is taken after its child exited.
  */
-export async function killLeftovers(pid: number): Promise<void> {
-  if (!IS_WINDOWS) { signalGroup({ pid, signal: 'SIGKILL' }); return; }
-  const descendants = await windowsDescendants(pid);
-  if (descendants.length > 0) await runHelper({ file: systemProgram('taskkill.exe'), args: [...descendants.flatMap(child => ['/PID', String(child)]), '/T', '/F'] });
+async function drainSweeps(): Promise<void> {
+  isSweeping = true;
+  while (pendingSweeps.length > 0) {
+    const batch = pendingSweeps;
+    pendingSweeps = [];
+    const table = await runHelper({
+      file: systemProgram(join('WindowsPowerShell', 'v1.0', 'powershell.exe')),
+      args: ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | Where-Object { $_.CreationDate } | ForEach-Object { "$($_.ProcessId),$($_.ParentProcessId),$(([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds())" }'],
+    });
+    const descendants = [...new Set(batch.flatMap(({ query }) => descendantsInTable({ ...query, table })))];
+    // No /T: every descendant is already listed, and taskkill's own tree walk trusts parent ids without creation times.
+    if (descendants.length > 0) await runHelper({ file: systemProgram('taskkill.exe'), args: [...descendants.flatMap(child => ['/PID', String(child)]), '/F'] });
+    for (const { done } of batch) done();
+  }
+  isSweeping = false;
+}
+
+/**
+ * Kills whatever an already-exited child left running (grandchildren, detached or holding its output open). POSIX:
+ * SIGKILL to its process group. Windows: its descendants from the process table (created while it ran, see
+ * `descendantsInTable`), each forcibly; sweeps that overlap share one query. Best effort: a process that left the POSIX
+ * group (`setsid`) is out of reach.
+ */
+export function killLeftovers(query: LeftoverQuery): Promise<void> {
+  const { pid } = query;
+  if (!IS_WINDOWS) { signalGroup({ pid, signal: 'SIGKILL' }); return Promise.resolve(); }
+  return new Promise(resolve => {
+    pendingSweeps.push({ query, done: resolve });
+    if (!isSweeping) void drainSweeps();
+  });
 }

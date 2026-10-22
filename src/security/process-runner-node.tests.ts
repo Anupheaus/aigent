@@ -17,6 +17,8 @@ const scripts: Record<string, string> = {
   stubborn: 'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000)',
   exit: 'process.stderr.write("bad"); process.exit(3)',
   stdin: 'let data = ""; process.stdin.on("data", chunk => { data += chunk; }); process.stdin.on("end", () => process.stdout.write(data.toUpperCase()))',
+  // A grandchild that holds no output open (so the child's output closes at once) and, on Windows, is detached.
+  detach: 'const { spawn } = require("node:child_process"); const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore", detached: process.platform === "win32" }); child.unref(); process.stdout.write(String(child.pid) + "\\n")',
   parent: 'const { spawn } = require("node:child_process"); const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" }); process.stdout.write(String(child.pid) + "\\n"); if (process.argv[2] === "exit") setTimeout(() => process.exit(0), 200); else setInterval(() => {}, 1000)',
 };
 
@@ -122,6 +124,19 @@ describe('createNodeProcessRunner (real node subprocesses)', () => {
     const grandchild = Number(result.stdout.trim().split('\n')[0]);
     expect(result).toMatchObject({ exitCode: 0, timedOut: false });
     expect(await waitUntil({ test: () => !isAlive(grandchild), ms: 5_000 })).toBe(true);
+  }, 30_000);
+
+  it('leaves no grandchild behind when the child exits cleanly and its output closes at once', async () => {
+    const result = await runner.run({ file: process.execPath, args: [join(root, 'detach.cjs')], cwd: root, env: IS_WINDOWS ? { SystemRoot: process.env.SystemRoot ?? 'C:\\Windows' } : {}, timeoutMs: 20_000, maxOutputBytes: 100_000 });
+    const grandchild = Number(result.stdout.trim().split('\n')[0]);
+    expect(result).toMatchObject({ exitCode: 0, timedOut: false });
+    expect(Number.isInteger(grandchild) && grandchild > 0).toBe(true);
+    try {
+      expect(await waitUntil({ test: () => !isAlive(grandchild), ms: 2_000 })).toBe(true);
+    } finally {
+      // Not left running if the assertion fails.
+      if (isAlive(grandchild)) process.kill(grandchild);
+    }
   }, 30_000);
 
   it('rejects when the program cannot be started', async () => {
