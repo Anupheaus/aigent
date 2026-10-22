@@ -41,22 +41,39 @@ export function declaresHandler(code: string): boolean {
 
 const isThemeDefinition = (code: string): boolean => /\bcreateTheme\s*\(/.test(code.replace(/^import[^\n]*$/gm, '')) || /^export\s+const\s+\w+\s*:\s*\w*(?:Tokens|Theme|Palette)\s*=/m.test(code);
 
+/** Tags a file's path alone gives (test, mock, story, config): never cached with the content, since copies differ. */
+export function pathTags(path: string): FileTag[] {
+  const tags: FileTag[] = [];
+  if (isTestPath(path)) tags.push('test');
+  if (isMockPath(path)) tags.push('mock');
+  if (isStoryPath(path)) tags.push('story');
+  if (isConfigPath(path)) tags.push('config');
+  return tags;
+}
+
+/** Whether a file is test material (a test, mock or story), whose own code is not classified. */
+export const isTestMaterial = (tags: readonly FileTag[]): boolean => tags.some(tag => tag === 'test' || tag === 'mock' || tag === 'story');
+
 /**
  * Tags of one file by path and code (comments and strings removed): what kind of file it is and what it does. A
  * theme re-export is tagged later, when the files it re-exports are known.
  */
 export function classifyFile(params: { path: string; text: string; code: string }): FileTag[] {
   const { path, text, code } = params;
+  const byPath = pathTags(path);
+  if (code === '' || isTestMaterial(byPath)) return [...byPath].sort();
+  return [...new Set([...byPath, ...contentTags({ isJsx: /\.[jt]sx$/.test(path), text, code })])].sort();
+}
+
+/**
+ * Tags from the content alone, for a file that is not test material: depends only on the bytes and whether the file
+ * is JSX (`.tsx`/`.jsx`), so it can be cached by content hash and language.
+ */
+export function contentTags(params: { isJsx: boolean; text: string; code: string }): FileTag[] {
+  const { isJsx, text, code } = params;
   const tags = new Set<FileTag>();
-  const isTest = isTestPath(path);
-  const isMock = isMockPath(path);
-  const isStory = isStoryPath(path);
-  if (isTest) tags.add('test');
-  if (isMock) tags.add('mock');
-  if (isStory) tags.add('story');
-  if (isConfigPath(path)) tags.add('config');
-  if (code === '' || isTest || isMock || isStory) return [...tags].sort();
-  const isComponent = /\.[jt]sx$/.test(path) && declaresComponent(code);
+  if (code === '') return [];
+  const isComponent = isJsx && declaresComponent(code);
   if (isComponent) tags.add('react-component');
   if (/^export\s+(?:default\s+)?(?:function\s+use[A-Z]\w*|const\s+use[A-Z]\w*\s*=)/m.test(code)) tags.add('hook');
   if (/\bcreateContext\s*\(/.test(code) || (isComponent && /^export\s+(?:default\s+)?(?:function|const)\s+\w*Provider\b/m.test(code))) tags.add('provider');

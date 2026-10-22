@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createMemoryFsAccess } from '../../../security/fs-access-memory.js';
 import { createFsPolicy } from '../../../security/fs-policy.js';
 import { createInMemoryStore } from '../../../store/in-memory-store.js';
-import { createRepoIndex } from './repo-index.js';
+import { createRepoIndex, REPO_INDEX_COLLECTION } from './repo-index.js';
 
 const FILES = {
   '/ws/src/a.ts': "import { b } from './b';\nexport function a(): number {\n  return b();\n}\n",
@@ -56,6 +57,47 @@ describe('repo index', () => {
     const again = await createRepoIndex({ ...setup(), store }).refresh();
     expect(again.processed).toEqual([]);
     expect(again.files.get('src/a.ts')?.functions).toEqual(['a']);
+  });
+
+  describe('cards reused by content hash keep path-dependent facts per path', () => {
+    const API = "export function fetchUser(req: Request) {\n  return db.query('select 1');\n}\n";
+    const policy = createFsPolicy({ roots: [{ path: '/ws', permissions: ['read'] }] });
+    const indexOver = (files: Record<string, string>, store?: ReturnType<typeof createInMemoryStore>) => createRepoIndex({ policy, access: createMemoryFsAccess({ platform: 'posix', files }), ...(store == null ? {} : { store }) });
+
+    it('copies with identical bytes get their own tags and language', async () => {
+      const snapshot = await indexOver({ '/ws/src/api.ts': API, '/ws/src/__mocks__/api.ts': API, '/ws/src/api.test.ts': API, '/ws/src/api.js': API }).refresh();
+      expect(snapshot.files.get('src/api.ts')).toMatchObject({ language: 'ts', tags: ['api-handler', 'data-access'] });
+      expect(snapshot.files.get('src/__mocks__/api.ts')).toMatchObject({ language: 'ts', tags: ['mock'] });
+      expect(snapshot.files.get('src/api.test.ts')).toMatchObject({ language: 'ts', tags: ['test'] });
+      expect(snapshot.files.get('src/api.js')).toMatchObject({ language: 'js', tags: ['api-handler', 'data-access'] });
+    });
+
+    it('a rename to a test path takes the test tags, and a copy added later does not inherit the original\'s', async () => {
+      const access = createMemoryFsAccess({ platform: 'posix', files: { '/ws/src/api.ts': API, '/ws/src/__mocks__/keep.txt': 'x' } });
+      const index = createRepoIndex({ policy, access });
+      await index.refresh();
+      await access.writeFile({ path: '/ws/src/__mocks__/api.ts', data: new TextEncoder().encode(API) });
+      await access.rename('/ws/src/api.ts', '/ws/src/api.test.ts');
+      const snapshot = await index.refresh();
+      expect(snapshot.files.get('src/api.test.ts')?.tags).toEqual(['test']);
+      expect(snapshot.files.get('src/__mocks__/api.ts')?.tags).toEqual(['mock']);
+    });
+
+    it('a shared store never gives a code file the card of identical bytes stored for a document', async () => {
+      const store = createInMemoryStore();
+      await indexOver({ '/ws/notes.md': API }, store).refresh();
+      const card = (await indexOver({ '/ws/src/api.ts': API }, store).refresh()).files.get('src/api.ts');
+      expect(card).toMatchObject({ language: 'ts', functions: ['fetchUser'], tags: ['api-handler', 'data-access'] });
+    });
+
+    it('keys stored cards by the card schema version, so a card stored by an older classifier is not reused', async () => {
+      const store = createInMemoryStore();
+      const hash = createHash('sha256').update(API).digest('hex');
+      await store.compareAndSet({ collection: REPO_INDEX_COLLECTION, key: hash, expectedVersion: undefined, value: { path: 'old.ts', language: 'ts', size: 1, hash, exports: [], functions: ['stale'], symbols: [], imports: [], identifiers: [], routes: [], mounts: [], tags: [] } });
+      const snapshot = await indexOver({ '/ws/src/api.ts': API }, store).refresh();
+      expect(snapshot.files.get('src/api.ts')?.functions).toEqual(['fetchUser']);
+      expect(snapshot.processed).toEqual(['src/api.ts']);
+    });
   });
 
   it('is deterministic and refuses a root the policy does not allow', async () => {

@@ -26,7 +26,7 @@ export interface CardRoute {
   handler: string;
 }
 
-/** What the index knows about one file (built from its content; reused while its content hash is unchanged). */
+/** What the index knows about one file: its content facts (cached by content hash and language) and its path facts. */
 export interface FileCard {
   /** Relative to the indexed root, `/` separated. */
   path: string;
@@ -49,6 +49,12 @@ export interface FileCard {
   /** Routers this file mounts (`.use(router)`). */
   mounts: string[];
   tags: FileTag[];
+}
+
+/** What a file's bytes say for its language: a card without the path, size, hash and path-given tags. */
+export interface ContentFacts extends Omit<FileCard, 'path' | 'language' | 'size' | 'hash' | 'tags'> {
+  /** Tags the code gives a file that is not test material (dropped for tests, mocks and stories). */
+  contentTags: FileTag[];
 }
 
 /** A card with what only the whole repository can tell: who imports it, and which of its exports nobody else uses. */

@@ -3,15 +3,14 @@ import { createAigentError } from '../../../core/aigent-error.js';
 import { createNodeFsAccess } from '../../../security/fs-access-node.js';
 import type { FsAccess } from '../../../security/fs-access.js';
 import type { FsPolicy } from '../../../security/fs-policy-types.js';
-import type { Store } from '../../../store/store-types.js';
 import { ignoreMatcherFor } from '../fs/fs-list.js';
 import { resolveDeps } from '../fs/fs-shared.js';
 import { createSkipReport, walk } from '../fs/fs-walk.js';
-import { buildCard } from './file-cards.js';
+import { analyseContent, cardFor, CONTENT_FACTS_VERSION, languageOf } from './file-cards.js';
 import { indexVersion, linkCards } from './index-graph.js';
-import type { FileCard, IndexSnapshot, IndexToolsOptions } from './index-types.js';
+import type { ContentFacts, FileCard, IndexSnapshot, IndexToolsOptions } from './index-types.js';
 
-/** Store collection holding cards by content hash. */
+/** Store collection holding content facts by facts version, language and content hash. */
 export const REPO_INDEX_COLLECTION = 'repo-index';
 const MAX_DEPTH = 64;
 const BINARY_SAMPLE = 8_000;
@@ -25,23 +24,26 @@ export interface RepoIndex {
 
 interface Remembered {
   card: FileCard;
+  /** Key of the content facts the card was built from (`factsKey`). */
+  key: string;
+  facts: ContentFacts;
   size: number;
   mtimeMs: number;
 }
 
 const isBinary = (bytes: Uint8Array): boolean => bytes.subarray(0, BINARY_SAMPLE).includes(0);
 
-/** A card for `hash` from the store, when one was kept there. */
-async function storedCard(params: { store?: Store; hash: string; path: string }): Promise<FileCard | undefined> {
-  const { store, hash, path } = params;
-  const record = await store?.get<FileCard>(REPO_INDEX_COLLECTION, hash);
-  return record == null ? undefined : { ...record.value, path };
-}
+/**
+ * Where content facts are cached: they depend on the bytes, the language (a `.md` and a `.ts` with the same bytes
+ * differ) and the analysis code (its version), never on the path, whose facts are recomputed for every file.
+ */
+const factsKey = (params: { hash: string; language: string }): string => `v${CONTENT_FACTS_VERSION}:${params.language}:${params.hash}`;
 
 /**
  * An incremental index of a directory: one card per text file (language, exports, symbols, imports, routes, tags),
- * reused while the file's size and mtime are unchanged and, when they changed, while its content hash is; renamed
- * files reuse their card. Every path comes from a walk through the policy (deny globs and the default search ignores
+ * reused while the file's size and mtime are unchanged. What the content says is cached by content hash and language
+ * (renamed and copied files reuse it); what the path says (language, test/mock/story/config tags) is always the
+ * file's own. Every path comes from a walk through the policy (deny globs and the default search ignores
  * apply), so nothing outside the allowed root is ever read.
  */
 export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
@@ -58,7 +60,7 @@ export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
     const skipped = createSkipReport();
     const ignore = await ignoreMatcherFor({ deps, directory: decision.canonicalPath, caseSensitive: policy.caseSensitive(access) });
     const walked = await walk({ deps, start: decision.canonicalPath, root: decision.root, maxDepth: MAX_DEPTH, includeHidden: false, ignore, maxEntries: policy.limits.maxFiles, skipped });
-    const byHash = new Map([...remembered.values()].map(({ card }) => [card.hash, card]));
+    const byKey = new Map([...remembered.values()].map(({ key, facts }) => [key, facts]));
     const next = new Map<string, Remembered>();
     const processed: string[] = [];
     for (const entry of walked.entries) {
@@ -70,13 +72,17 @@ export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
       if (bytes == null) { skipped.add('unreadable', entry.relative); continue; }
       if (isBinary(bytes)) { skipped.add('binary', entry.relative); continue; }
       const hash = createHash('sha256').update(bytes).digest('hex');
-      const reused = byHash.get(hash) ?? await storedCard({ hash, path: entry.relative, ...(store == null ? {} : { store }) });
-      const card = reused == null ? buildCard({ path: entry.relative, text: new TextDecoder().decode(bytes), size: entry.size, hash }) : { ...reused, path: entry.relative };
+      const language = languageOf(entry.relative);
+      const key = factsKey({ hash, language });
+      const reused = byKey.get(key) ?? (await store?.get<ContentFacts>(REPO_INDEX_COLLECTION, key))?.value;
+      const facts = reused ?? analyseContent({ language, text: new TextDecoder().decode(bytes) });
       if (reused == null) {
         processed.push(entry.relative);
-        await store?.compareAndSet({ collection: REPO_INDEX_COLLECTION, key: hash, expectedVersion: undefined, value: card }).catch(() => false);
+        // Another index sharing the store may have written the same facts first: either copy is the same.
+        await store?.compareAndSet({ collection: REPO_INDEX_COLLECTION, key, expectedVersion: undefined, value: facts }).catch(() => false);
       }
-      next.set(entry.relative, { card, size: entry.size, mtimeMs: entry.mtimeMs });
+      byKey.set(key, facts);
+      next.set(entry.relative, { card: cardFor({ path: entry.relative, size: entry.size, hash, facts }), key, facts, size: entry.size, mtimeMs: entry.mtimeMs });
     }
     remembered = next;
     const cards = [...next.values()].map(({ card }) => card);
