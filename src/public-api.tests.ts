@@ -11,6 +11,7 @@ import * as shellPack from './tools/packs/shell/index.js';
 import * as gitPack from './tools/packs/git/index.js';
 import * as dbPack from './tools/packs/db/index.js';
 import * as knowledgePack from './tools/packs/knowledge/index.js';
+import * as mcp from './mcp/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -21,7 +22,7 @@ describe('public API', () => {
   });
 
   it('exports test helpers separately', () => {
-    expect(Object.keys(testing).sort()).toEqual(['createBrokenCompressor', 'createFakeProvider', 'fakeCompressor', 'textTurn', 'toolTurn']);
+    expect(Object.keys(testing).sort()).toEqual(['createBrokenCompressor', 'createFakeProvider', 'createMemoryTransportPair', 'fakeCompressor', 'textTurn', 'toolTurn']);
   });
 
   it('exports the filesystem pack from its own entry', () => {
@@ -55,6 +56,10 @@ describe('public API', () => {
 
   it('exports the knowledge pack from its own entry', () => {
     expect(Object.keys(knowledgePack).sort()).toEqual(['createChunker', 'createFileVectorIndex', 'createKnowledgeBase', 'createMemoryVectorIndex', 'evalRetrieval', 'hashEmbedder', 'knowledgeTools', 'openAiEmbedder', 'scanSources']);
+  });
+
+  it('exports the MCP plugin from its own entry', () => {
+    expect(Object.keys(mcp).sort()).toEqual(['MCP_PROTOCOL_VERSION', 'createHttpTransport', 'createStdioTransport', 'mcpPlugin']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {

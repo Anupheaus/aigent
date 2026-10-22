@@ -169,6 +169,35 @@ const agent = ai.agent({ name: 'helper', model: 'anthropic:claude-sonnet-5-5', t
 - **Lifecycle:** a plugin may have an asynchronous `setup()` (e.g. connecting to servers and listing their tools) and a `close()`. `await ai.ready()` runs every setup once and rejects with the first failure; agents that use `pluginTools` of a plugin with a setup must be defined after it (before, `ai.agent` throws). `ai.close()` calls every plugin's `close` once, after the tools are disposed.
 - The core package never depends on a plugin package; a test scans `src` to keep it that way.
 
+## MCP servers as tools (`@anupheaus/aigent/mcp`)
+
+`mcpPlugin` consumes [Model Context Protocol](https://modelcontextprotocol.io) servers and turns their tools into strict aigent tools. It speaks JSON-RPC 2.0 itself (no SDK dependency) over stdio (a child process, newline-delimited JSON), streamable HTTP (`fetch`) or any `McpTransport` you supply.
+
+```ts
+import { createAigent, pluginTools } from '@anupheaus/aigent';
+import { mcpPlugin } from '@anupheaus/aigent/mcp';
+
+const mcp = mcpPlugin({
+  servers: [
+    { name: 'files', transport: { type: 'stdio', command: process.execPath, args: ['./my-mcp-server.js'] }, denyTools: ['delete_everything'] },
+    { name: 'tickets', transport: { type: 'http', url: 'https://mcp.example.com/mcp', headers: { authorization: `Bearer ${token}` } }, approvals: true },
+  ],
+  toolOverrides: { files__read_file: { readOnly: true, cache: true, cacheTtlMs: 30_000 } },
+});
+const ai = createAigent({ providers: [/* ... */], plugins: [mcp] });
+await ai.ready();                       // connects, lists and converts the tools
+const agent = ai.agent({ name: 'helper', model: 'anthropic:claude-sonnet-5-5', tools: [pluginTools('mcp')] });
+console.log(mcp.report());              // converted tools, schema changes, skipped tools, warnings
+```
+
+- **Connection:** lazily, on `ai.ready()`; a server that cannot be started or initialised makes `ready()` reject, naming it. `ai.close()` closes every connection; a stdio server's whole process tree is killed (`taskkill /T /F` on Windows, the process group elsewhere). Stdio servers start without a shell and with a scrubbed environment (only `PATH`, `HOME`, temp and locale variables, plus your `env`), so give the program itself as `command` (on Windows `npx` needs the full path of `npx.cmd`).
+- **Names:** `<server>__<tool>` in snake_case (`readFile` becomes `files__read_file`), at most 64 characters; `namePrefix: 'none'` drops the server part. Collisions (and built-in names such as `todo`) get `_2`, `_3`...
+- **Descriptions** are untrusted text: hidden and control characters are stripped, `::aigent` directive markers and instruction-override phrases are neutralised, and they are capped at 1000 characters (300 per argument), prefixed with the server name.
+- **Schemas** are converted into the strict subset: objects closed (`additionalProperties: false`), optional properties sent as null, `[type, "null"]` made optional, `default`, `pattern` and `format` dropped (the server still validates them; server regexes never run here). Every change is listed in `report().tools[].changes` (`schema: 'accepted'` when there was none, `'tightened'` otherwise). Schemas using `oneOf`/`anyOf`/`allOf`, `$ref`, `patternProperties`, open objects or type unions are not offered and are listed in `report().skipped` with the path and reason, unless `toolOverrides: { '<tool>': { strictSchema: false } }` passes the server's schema through with strict decoding off (`schema: 'loose'`).
+- **Flags:** MCP tools are assumed to mutate: `hasSideEffects: true`, `deterministic: false`, `cache: false` (so dry runs refuse them, resumes ask before re-running them, and the effect log records them). Mark a tool `readOnly: true` in `toolOverrides` (keyed by aigent name or `'<server>/<mcp tool>'`) to allow `cache` and `deterministic`; setting either without `readOnly` is refused. `approvals: true` on a server requires approval for every call of its tools (`requiresApproval` per tool overrides it). `defaults` sets `timeoutMs` (default 60 s), `maxResultTokens`, `cacheTtlMs` and the cache flags for every tool; `allowTools` / `denyTools` filter by MCP tool name.
+- **Results** go through the standard envelope, guardrails (the injection guardrail neutralises instructions in results), shapers, telemetry and `maxResultTokens`: text parts are joined into a string; images, audio and binary resources become `binary-ref` summaries (kind, MIME type, uri, size), never their bytes; `structuredContent` is kept. `isError` results become structured failures with the server's text (`mcp_tool_error`). JSON-RPC errors (`mcp_error`), a server exiting mid-call (`mcp_server_exited`, with its exit code and stderr tail), malformed results (`mcp_malformed_result`) and send failures are structured failures too; malformed messages are ignored with a warning (`onWarning`, and `report().warnings`). A timeout or stop sends `notifications/cancelled` to the server.
+- **Testing:** `createMemoryTransportPair()` from `@anupheaus/aigent/testing` connects a client transport to an in-memory server end, for writing fake servers.
+
 ## Model settings
 
 Settings can be given at four levels. Each field is taken from the highest level that sets it: task, then agent, then `createAigent({ modelSettings })`, then `createAigent({ providerModelSettings: { [providerId]: ... } })`. `providerOptions` is the exception: it is keyed by provider id (`{ anthropic: { ... }, openai: { ... } }`), each provider's entry is shallow-merged across levels with higher levels winning per key, and each provider, a fallback included, receives only its own entry.
@@ -985,6 +1014,7 @@ Phase 1 foundation core, implemented in this slice:
 - Guardrails (secrets, PII, injection, scope, loop and output-schema built-ins plus custom ones), dry runs with planned effects, and the effect log with `agent.undo`
 - `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
 - Plugins (`definePlugin`, `createAigent({ plugins })`, `ai.use`, `pluginTools`, plugin stores and read-only hooks), with the built-in providers available as plugins
+- The MCP consuming plugin (`@anupheaus/aigent/mcp`): stdio and streamable-HTTP transports, strict schema conversion with a report, sanitised descriptions, envelope-wrapped results
 - Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
 
 Roadmap (later slices, each with its own spec): vision, more built-in tool packs (shell, git, database), an optimisation phase, then learning (memory first, then prompt/strategy tuning and reusable skills), plus store adapters, packaging and release.
