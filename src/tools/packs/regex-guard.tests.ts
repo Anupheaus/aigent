@@ -17,6 +17,19 @@ describe('compileGuardedRegex', () => {
     expect(() => compileGuardedRegex({ pattern, flags })).toThrow(refusal);
   });
 
+  // Slice 13 review I1: atoms that can match nothing (empty groups, optional atoms, zero-width assertions) between
+  // two overlapping unbounded repetitions do not separate them.
+  it.each([
+    '\\d+()\\d+()\\d+()\\d+!', '\\d+(?:)\\d+!', '\\d+a?\\d+!', '\\d+a*\\d+!', '\\d+\\B\\d+!', '\\d+(\\d+)!', '\\d+(?:a|)\\d+!',
+    '\\d+(?:a?)\\d+!', '\\d+(?=x)?\\d+!', '\\s+$\\s+!',
+  ])('refuses the empty-separator bypass %s', pattern => {
+    expect(() => compileGuardedRegex({ pattern, flags: 'm' })).toThrow(refusal);
+  });
+
+  it.each(['\\w+(\\.)\\w+', '\\d+-\\d+', '\\d+(?:px|em)', '^\\d+$', '\\w+(?:\\.\\w+)?@'])('still accepts the separated repetition %s', pattern => {
+    expect(compileGuardedRegex({ pattern })).toBeInstanceOf(RegExp);
+  });
+
   it.each(['foo', 'fo+', '(foo|bar)+', '\\bword\\b', '[a-z]+\\d{2,4}', '^import .* from', '(?:get|set)Value', '\\d+\\s+\\w+', 'a*b*c*', '(?:ab)+', '[^"]*"', '\\[\\(x\\)\\]+'])('accepts %s', pattern => {
     expect(compileGuardedRegex({ pattern })).toBeInstanceOf(RegExp);
   });

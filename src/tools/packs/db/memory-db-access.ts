@@ -2,6 +2,7 @@ import { pruneDocument } from '../../../security/db-field-paths.js';
 import type { DbSortKey } from '../../../security/db-policy-types.js';
 import type { DbAccess, DbFindParams } from './db-access.js';
 import { compareValues, matchesFilter, valuesAt } from './memory-filter.js';
+import { prepareRegexTest } from './memory-regex.js';
 import { toTaggedJson } from './tagged-json.js';
 
 /** `createMemoryDbAccess(options)`. */
@@ -49,18 +50,20 @@ function sortDocs(params: { docs: Record<string, unknown>[]; sort?: DbSortKey[] 
  */
 export function createMemoryDbAccess(options: MemoryDbAccessOptions): DbAccess {
   const collections = new Map(Object.entries(options.collections).map(([name, docs]) => [name, docs.map(doc => toTaggedJson(doc) as Record<string, unknown>)]));
-  const matching = (params: { collection: string; filter: Record<string, unknown>; signal: AbortSignal }): Record<string, unknown>[] => {
-    const { collection, filter, signal } = params;
+  const matching = async (params: { collection: string; filter: Record<string, unknown>; maxTimeMs: number; signal: AbortSignal }): Promise<Record<string, unknown>[]> => {
+    const { collection, filter, maxTimeMs, signal } = params;
     signal.throwIfAborted();
-    return (collections.get(collection) ?? []).filter(doc => matchesFilter({ doc, filter }));
+    const docs = collections.get(collection) ?? [];
+    const testRegex = await prepareRegexTest({ filter, docs, maxTimeMs, signal });
+    return docs.filter(doc => matchesFilter({ doc, filter, testRegex }));
   };
   return {
     find: async (params: DbFindParams) => {
       const { projection, sort, limit, skip = 0 } = params;
-      const sorted = sortDocs({ docs: matching(params), ...(sort == null ? {} : { sort }) });
+      const sorted = sortDocs({ docs: await matching(params), ...(sort == null ? {} : { sort }) });
       const page = sorted.slice(skip, skip + limit);
       return { docs: page.map(doc => project({ doc: structuredClone(doc), ...(projection == null ? {} : { projection }) })), truncated: sorted.length > skip + limit };
     },
-    count: async params => matching(params).length,
+    count: async params => (await matching(params)).length,
   };
 }

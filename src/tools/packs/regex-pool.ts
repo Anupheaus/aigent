@@ -17,6 +17,8 @@ export interface RegexJob {
   keep: number;
   /** Keep counting past `keep` (false: stop at `keep`, with `isComplete: false`). */
   countAll: boolean;
+  /** Only whether each text matches: each text's first match counts, an empty one included. */
+  firstPerText?: boolean;
 }
 
 /** One match, with the index of the text it was found in. */

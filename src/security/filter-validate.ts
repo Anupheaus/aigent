@@ -1,8 +1,9 @@
-import { unsafeShape } from '../tools/packs/regex-shape.js';
+import { countUnboundedQuantifiers, unsafeShape } from '../tools/packs/regex-shape.js';
 import { fieldAccess, FORBIDDEN_KEYS, forbiddenSegment, pathSyntaxError } from './db-field-paths.js';
 import type { ResolvedDbCollectionRule } from './db-policy-types.js';
 import { checkLiteral, enter, enterArray, FORBIDDEN_OPERATORS, isPlainRecord, refuse, taggedKey } from './filter-walk.js';
 import type { DbRefusal, FilterWalk, WalkAt } from './filter-walk.js';
+import { stripExtendedSyntax } from './regex-extended.js';
 
 /** The operators a collection allows unless its rule says otherwise. */
 export const DEFAULT_FILTER_OPERATORS: readonly string[] = [
@@ -13,6 +14,11 @@ export const DEFAULT_FILTER_OPERATORS: readonly string[] = [
 export const SUPPORTED_FILTER_OPERATORS: readonly string[] = [...DEFAULT_FILTER_OPERATORS, '$mod'];
 /** Longest `$regex` pattern. */
 export const MAX_REGEX_CHARS = 200;
+/**
+ * Most unbounded repetitions in one `$regex`. The shape scan is a heuristic; capping the count bounds the polynomial
+ * degree of any shape it misses, and the database's `maxTimeMS` bounds the rest.
+ */
+export const MAX_UNBOUNDED_QUANTIFIERS = 3;
 
 const LOGICAL_OPERATORS: ReadonlySet<string> = new Set(['$and', '$or', '$nor']);
 const COMPARISON_OPERATORS: ReadonlySet<string> = new Set(['$eq', '$ne', '$gt', '$gte', '$lt', '$lte']);
@@ -42,10 +48,15 @@ function checkRegex(params: { expression: Record<string, unknown>; path: string 
   if (typeof pattern !== 'string') return badValue(path, 'a regular expression as text');
   const flags = typeof options === 'string' ? options : '';
   if (pattern.length > MAX_REGEX_CHARS) return refuse({ code: 'unsafe_regex', path, message: `The pattern at '${path}' is ${pattern.length} characters; at most ${MAX_REGEX_CHARS} are allowed` });
-  const shape = unsafeShape({ pattern, flags: REGEX_OPTIONS.test(flags) ? flags : '' });
+  const validFlags = REGEX_OPTIONS.test(flags) ? flags : '';
+  // Under `x` the engine ignores whitespace and comments, so the scan must see the pattern without them.
+  const effective = validFlags.includes('x') ? stripExtendedSyntax(pattern) : pattern;
+  const unbounded = countUnboundedQuantifiers(effective);
+  if (unbounded > MAX_UNBOUNDED_QUANTIFIERS) return refuse({ code: 'unsafe_regex', path, message: `The pattern at '${path}' has ${unbounded} unbounded repetitions (*, + or {n,}); at most ${MAX_UNBOUNDED_QUANTIFIERS} are allowed, so bound the rest, e.g. {1,20}` });
+  const shape = unsafeShape({ pattern: effective, flags: validFlags.replace(/x/g, '') });
   if (shape != null) return refuse({ code: 'unsafe_regex', path, message: `The pattern at '${path}' can backtrack catastrophically (${shape}); simplify it` });
   try {
-    new RegExp(pattern);
+    new RegExp(effective);
   } catch (error) {
     return badValue(path, `a valid regular expression (${error instanceof Error ? error.message : String(error)})`);
   }

@@ -48,7 +48,12 @@ describe('validateQuery: operator injection corpus (each refused before reaching
     ['nested quantifiers in $regex', { name: { $regex: '(a+)+$' } }, 'unsafe_regex', 'filter.name.$regex'],
     ['an over-long $regex', { name: { $regex: 'a'.repeat(201) } }, 'unsafe_regex', 'filter.name.$regex'],
     ['an unsafe $regex under $not', { name: { $not: { $regex: '(x*)*y' } } }, 'unsafe_regex', 'filter.name.$not.$regex'],
-    ['bad $options', { name: { $regex: 'ab', $options: 'g' } }, 'invalid_operator_value', 'filter.name.$options'],
+    // Review I1: an empty group, x-mode whitespace or an x-mode comment between quantifiers hid the adjacency.
+    ['a $regex chaining \\d+ through empty groups', { name: { $regex: '\\d+()\\d+()\\d+()\\d+()\\d+()\\d+()!' } }, 'unsafe_regex', 'filter.name.$regex'],
+    ['a $regex chaining \\d+ through x-mode whitespace', { name: { $regex: '\\d+ \\d+ \\d+ \\d+!', $options: 'x' } }, 'unsafe_regex', 'filter.name.$regex'],
+    ['a $regex chaining \\d+ through an x-mode comment', { name: { $regex: '\\d+#c\n\\d+!', $options: 'x' } }, 'unsafe_regex', 'filter.name.$regex'],
+    ['a $regex with more unbounded quantifiers than allowed', { name: { $regex: 'a+,b+,c+,d+' } }, 'unsafe_regex', 'filter.name.$regex'],
+    ['bad $options',{ name: { $regex: 'ab', $options: 'g' } }, 'invalid_operator_value', 'filter.name.$options'],
     ['$options without $regex', { name: { $options: 'i' } }, 'invalid_operator_value', 'filter.name.$options'],
     ['a __proto__ key', JSON.parse('{"__proto__":{"isAdmin":true}}'), 'forbidden_key', 'filter.__proto__'],
     ['a constructor key', { constructor: { prototype: 1 } }, 'forbidden_key', 'filter.constructor'],

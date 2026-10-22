@@ -53,6 +53,34 @@ describe('createMemoryDbAccess: operator semantics against reference predicates'
     });
   }
 
+  it('runs $regex off the main thread, bounded by maxTimeMs (review I1)', async () => {
+    // A catastrophic pattern the policy would refuse, sent straight to the access to prove the bound is the adapter's own.
+    const access = createMemoryDbAccess({ collections: { docs: [{ _id: 1, s: `${'a'.repeat(40)}!` }] } });
+    let ticks = 0;
+    const ticker = setInterval(() => { ticks += 1; }, 10);
+    const started = Date.now();
+    try {
+      await expect(access.find({ collection: 'docs', filter: { s: { $regex: '(a+)+$' } }, limit: 10, maxTimeMs: 300, signal })).rejects.toThrow(/300 ms/);
+    } finally {
+      clearInterval(ticker);
+    }
+    expect(Date.now() - started).toBeLessThan(5_000);
+    // The event loop kept running while the pattern backtracked.
+    expect(ticks).toBeGreaterThan(5);
+  });
+
+  it('applies x-mode $options by dropping whitespace and comments, as MongoDB does', async () => {
+    const access = createMemoryDbAccess({ collections: { docs: [{ _id: 1, s: 'ab' }, { _id: 2, s: 'a b' }] } });
+    const { docs: found } = await access.find({ collection: 'docs', filter: { s: { $regex: '^a b # comment\n$', $options: 'x' } }, limit: 10, maxTimeMs: 1_000, signal });
+    expect(found.map(doc => doc._id)).toEqual([1]);
+  });
+
+  it('matches an empty $regex against every text, as MongoDB does', async () => {
+    const access = createMemoryDbAccess({ collections: { docs: [{ _id: 1, s: '' }, { _id: 2, s: 'x' }, { _id: 3, s: 5 }] } });
+    const { docs: found } = await access.find({ collection: 'docs', filter: { s: { $regex: '' } }, limit: 10, maxTimeMs: 1_000, signal });
+    expect(found.map(doc => doc._id)).toEqual([1, 2]);
+  });
+
   it('never matches across types: $gt on a number ignores text', async () => {
     const docs = [{ _id: 1, v: 5 }, { _id: 2, v: 'z' }, { _id: 3, v: [1, 9] }];
     const access = createMemoryDbAccess({ collections: { docs } });

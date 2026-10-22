@@ -1,4 +1,5 @@
 import { createAigentError } from '../../../core/aigent-error.js';
+import type { RegexTest } from './memory-regex.js';
 
 /** A value's comparison bracket and key: MongoDB compares only values of the same bracket (`$gt: 5` never matches text). */
 interface Comparable {
@@ -91,8 +92,8 @@ function matchesEquality(params: { values: unknown[]; literal: unknown }): boole
   return candidatesOf(values).some(candidate => equals(candidate, literal));
 }
 
-function matchesOperator(params: { values: unknown[]; operator: string; operand: unknown; expression: Record<string, unknown> }): boolean {
-  const { values, operator, operand, expression } = params;
+function matchesOperator(params: { values: unknown[]; operator: string; operand: unknown; expression: Record<string, unknown>; testRegex: RegexTest }): boolean {
+  const { values, operator, operand, expression, testRegex } = params;
   const candidates = candidatesOf(values);
   const ordered = (test: (order: number) => boolean): boolean => candidates.some(candidate => !Array.isArray(candidate) && comparable(candidate).bracket === comparable(operand).bracket && test(compareValues(candidate, operand)));
   switch (operator) {
@@ -109,34 +110,37 @@ function matchesOperator(params: { values: unknown[]; operator: string; operand:
     case '$size': return values.some(value => Array.isArray(value) && value.length === operand);
     case '$type': return (Array.isArray(operand) ? operand : [operand]).some(name => candidates.some(value => typeMatches({ value, name: String(name) })));
     case '$regex': {
-      const pattern = new RegExp(operand as string, typeof expression.$options === 'string' ? expression.$options.replace(/x/g, '') : '');
-      return candidates.some(candidate => typeof candidate === 'string' && pattern.test(candidate));
+      const options = typeof expression.$options === 'string' ? expression.$options : '';
+      return candidates.some(candidate => typeof candidate === 'string' && testRegex({ pattern: operand as string, options, text: candidate }));
     }
     case '$options': return true;
     case '$mod': {
       const [divisor, remainder] = operand as [number, number];
       return candidates.some(candidate => typeof candidate === 'number' && Math.trunc(candidate) % Math.trunc(divisor) === Math.trunc(remainder));
     }
-    case '$not': return !matchesExpression({ values, expression: operand as Record<string, unknown> });
-    case '$elemMatch': return values.some(value => Array.isArray(value) && value.some(element => (isOperatorDocument(operand) ? matchesExpression({ values: [element], expression: operand }) : isRecord(element) && matchesFilter({ doc: element, filter: operand as Record<string, unknown> }))));
+    case '$not': return !matchesExpression({ values, expression: operand as Record<string, unknown>, testRegex });
+    case '$elemMatch': return values.some(value => Array.isArray(value) && value.some(element => (isOperatorDocument(operand) ? matchesExpression({ values: [element], expression: operand, testRegex }) : isRecord(element) && matchesFilter({ doc: element, filter: operand as Record<string, unknown>, testRegex }))));
     default: throw createAigentError({ code: 'invalid_input', message: `The in-memory database does not support operator '${operator}'; it supports the database pack's operators only`, details: { operator } });
   }
 }
 
-function matchesExpression(params: { values: unknown[]; expression: Record<string, unknown> }): boolean {
-  const { values, expression } = params;
-  return Object.entries(expression).every(([operator, operand]) => matchesOperator({ values, operator, operand, expression }));
+function matchesExpression(params: { values: unknown[]; expression: Record<string, unknown>; testRegex: RegexTest }): boolean {
+  const { values, expression, testRegex } = params;
+  return Object.entries(expression).every(([operator, operand]) => matchesOperator({ values, operator, operand, expression, testRegex }));
 }
 
-/** Whether a document (tagged JSON) matches a filter in the operator subset the database pack allows. */
-export function matchesFilter(params: { doc: Record<string, unknown>; filter: Record<string, unknown> }): boolean {
-  const { doc, filter } = params;
+/**
+ * Whether a document (tagged JSON) matches a filter in the operator subset the database pack allows. `$regex`
+ * answers come from `testRegex` (see `prepareRegexTest`), so no model pattern runs on this thread.
+ */
+export function matchesFilter(params: { doc: Record<string, unknown>; filter: Record<string, unknown>; testRegex: RegexTest }): boolean {
+  const { doc, filter, testRegex } = params;
   return Object.entries(filter).every(([key, condition]) => {
     const branches = condition as Record<string, unknown>[];
-    if (key === '$and') return branches.every(branch => matchesFilter({ doc, filter: branch }));
-    if (key === '$or') return branches.some(branch => matchesFilter({ doc, filter: branch }));
-    if (key === '$nor') return !branches.some(branch => matchesFilter({ doc, filter: branch }));
+    if (key === '$and') return branches.every(branch => matchesFilter({ doc, filter: branch, testRegex }));
+    if (key === '$or') return branches.some(branch => matchesFilter({ doc, filter: branch, testRegex }));
+    if (key === '$nor') return !branches.some(branch => matchesFilter({ doc, filter: branch, testRegex }));
     const values = valuesAt({ doc, path: key });
-    return isOperatorDocument(condition) ? matchesExpression({ values, expression: condition }) : matchesEquality({ values, literal: condition });
+    return isOperatorDocument(condition) ? matchesExpression({ values, expression: condition, testRegex }) : matchesEquality({ values, literal: condition });
   });
 }
