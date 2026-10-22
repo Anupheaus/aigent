@@ -5,7 +5,7 @@ import type { Tool } from '../tools/tool-types.js';
 import type { JsonSchema } from '../providers/provider-types.js';
 import type { McpClient, McpToolDescriptor } from './mcp-client.js';
 import { toToolResult } from './mcp-result.js';
-import { MAX_DESCRIPTION_CHARS, sanitiseServerText } from './mcp-text.js';
+import { MAX_DESCRIPTION_CHARS, MAX_PROPERTY_DESCRIPTION_CHARS, sanitiseServerText } from './mcp-text.js';
 import { mcpToolName } from './mcp-tool-name.js';
 import type { McpDefaults, McpServerConfig, McpSkippedTool, McpToolFlags, McpToolReport } from './mcp-types.js';
 import { schemaToStrict } from './schema-to-strict.js';
@@ -73,11 +73,24 @@ function buildTool(params: { plan: ToolPlan; args: z.ZodType; client: McpClient;
   });
 }
 
-/** The server's own schema, sent with strict decoding off (`strictSchema: false` overrides). */
+/** Schema keywords whose string value is free text the model reads. */
+const TEXT_KEYWORDS = new Set(['title', 'description', '$comment']);
+
+/** A copy of a loose schema with every free-text annotation sanitised like an argument description. */
+function sanitiseLooseSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(sanitiseLooseSchema);
+  if (typeof node !== 'object' || node === null) return node;
+  return Object.fromEntries(Object.entries(node).map(([key, value]) => [
+    key,
+    TEXT_KEYWORDS.has(key) && typeof value === 'string' ? sanitiseServerText({ text: value, maxChars: MAX_PROPERTY_DESCRIPTION_CHARS }) : sanitiseLooseSchema(value),
+  ]));
+}
+
+/** The server's own schema (its text sanitised), sent with strict decoding off (`strictSchema: false` overrides). */
 function looseTool(params: { plan: ToolPlan; inputSchema: unknown; client: McpClient; server: string }): Tool {
   const { inputSchema, ...rest } = params;
   const tool = buildTool({ ...rest, args: z.looseObject({}) });
-  const { $schema: _meta, ...jsonSchema } = (typeof inputSchema === 'object' && inputSchema !== null ? inputSchema : { type: 'object' }) as JsonSchema;
+  const { $schema: _meta, ...jsonSchema } = sanitiseLooseSchema(typeof inputSchema === 'object' && inputSchema !== null ? inputSchema : { type: 'object' }) as JsonSchema;
   return { ...tool, jsonSchema, schemaHash: hashSchema(jsonSchema) };
 }
 
