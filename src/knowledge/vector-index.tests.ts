@@ -44,6 +44,12 @@ function behavesAsAnIndex(make: () => VectorIndex): void {
     expect(await index.version()).toBe(full);
   });
 
+  it('queries only the chunks of the named embedder (review I3)', async () => {
+    const index = make();
+    await index.upsert(CHUNKS.map((indexed, position) => ({ ...indexed, embedderId: position % 2 === 0 ? 'new' : 'old' })));
+    expect((await index.query({ vector: [1, 0], k: 5, embedderId: 'new' })).map(({ chunkId }) => chunkId)).toEqual(['c2', 'c3']);
+  });
+
   it('versions uri and metadata too: the same text moved to another tenant or uri is a change (review I2)', async () => {
     const index = make();
     await index.upsert(CHUNKS);

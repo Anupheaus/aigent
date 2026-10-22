@@ -14,5 +14,5 @@ export { evalRetrieval } from '../../../knowledge/eval-retrieval.js';
 export type { RetrievalCase, RetrievalCaseResult, RetrievalEval } from '../../../knowledge/eval-retrieval.js';
 export type {
   ChunkPiece, ChunkSpan, Chunker, Citation, Embedder, IndexReport, IndexedChunk, KnowledgeBase, KnowledgeBaseOptions, KnowledgeSource,
-  MetadataFilter, MetadataValue, ReadResult, RerankCandidate, SearchMode, SearchRequest, SearchResult, VectorIndex,
+  MetadataFilter, MetadataValue, ReadResult, RerankCandidate, SearchMode, SearchRequest, SearchResult, VectorIndex, VectorQuery,
 } from '../../../knowledge/knowledge-types.js';

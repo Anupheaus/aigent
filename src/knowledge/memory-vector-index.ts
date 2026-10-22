@@ -36,11 +36,11 @@ export function createChunkStoreIndex(options: ChunkStoreOptions): VectorIndex {
       for (const id of chunkIds ?? []) draft.delete(id);
       if (sourceId != null) for (const [id, chunk] of draft) if (chunk.sourceId === sourceId) draft.delete(id);
     }),
-    query: async ({ vector, k, filter }) => {
+    query: async ({ vector, k, filter, embedderId }) => {
       await queue;
       const map = await current();
       return [...map.values()]
-        .filter(chunk => chunk.vector != null && matchesMetadata({ chunk, ...(filter == null ? {} : { filter }) }))
+        .filter(chunk => chunk.vector != null && (embedderId == null || chunk.embedderId === embedderId) && matchesMetadata({ chunk, ...(filter == null ? {} : { filter }) }))
         .map(chunk => ({ chunkId: chunk.chunkId, score: cosine(vector, chunk.vector ?? []) }))
         .sort(byScoreThenId)
         .slice(0, k);

@@ -49,12 +49,21 @@ export interface IndexedChunk {
   settingsHash?: string;
 }
 
+/** `VectorIndex.query`. */
+export interface VectorQuery {
+  vector: number[];
+  k: number;
+  filter?: MetadataFilter;
+  /** Only chunks whose `embedderId` is this: vectors from another embedder live in another space and are never scored. */
+  embedderId?: string;
+}
+
 /** Stores chunks with their vectors and finds the nearest ones. */
 export interface VectorIndex {
   upsert(chunks: IndexedChunk[]): Promise<void>;
   remove(filter: { sourceId?: string; chunkIds?: string[] }): Promise<void>;
   /** The `k` chunks nearest `vector` by cosine similarity, score descending then chunkId ascending. */
-  query(params: { vector: number[]; k: number; filter?: MetadataFilter }): Promise<{ chunkId: string; score: number }[]>;
+  query(params: VectorQuery): Promise<{ chunkId: string; score: number }[]>;
   get(chunkId: string): Promise<IndexedChunk | undefined>;
   /** Every chunk (of one source when given), in a stable order: sourceId, then span start. */
   list(sourceId?: string): Promise<IndexedChunk[]>;
@@ -163,6 +172,11 @@ export interface KnowledgeBase {
   remove(params: { sourceIds: string[] }): Promise<void>;
   search(request: SearchRequest): Promise<SearchResult[]>;
   read(target: string | { sourceId: string; span: ChunkSpan }): Promise<ReadResult | undefined>;
+  /**
+   * Sources with chunks embedded by another embedder (or none recorded), sorted. Vector search skips those chunks;
+   * `index` the sources again to re-embed them.
+   */
+  staleSources(): Promise<string[]>;
   /** A hash of every chunk id, content hash, uri and metadata, and the embedder id: it changes whenever results could. */
   version(): Promise<string>;
 }

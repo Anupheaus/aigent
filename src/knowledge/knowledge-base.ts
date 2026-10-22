@@ -55,6 +55,11 @@ export function createKnowledgeBase(options: KnowledgeBaseOptions): KnowledgeBas
       return searchKnowledge({ deps: searchDeps, request });
     },
     read,
+    staleSources: async () => {
+      await queue;
+      const stale = (await index.list()).filter(chunk => chunk.embedderId !== embedder.id).map(({ sourceId }) => sourceId);
+      return [...new Set(stale)].sort();
+    },
     version: async () => sha256(`${await index.version()}\n${embedder.id}`),
   };
 }

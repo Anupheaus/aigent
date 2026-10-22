@@ -54,7 +54,9 @@ async function rankings(params: { deps: SearchDeps; request: SearchRequest; mode
   const lists: Ranked[][] = [];
   if (mode !== 'keyword') {
     const [vector] = await embedder.embed([query], signal);
-    lists.push(await index.query({ vector: vector ?? [], k: CANDIDATES_PER_RANKING, ...(filter == null ? {} : { filter }) }));
+    const nearest = await index.query({ vector: vector ?? [], k: CANDIDATES_PER_RANKING, embedderId: embedder.id, ...(filter == null ? {} : { filter }) });
+    // Defence in depth for indexes that ignore `embedderId`: another embedder's vectors are never compared.
+    lists.push(nearest.filter(({ chunkId }) => chunks.get(chunkId)?.embedderId === embedder.id));
   }
   if (mode !== 'vector') {
     // Over-fetch, then filter: BM25 scores do not depend on the filter, so the order is unchanged.
@@ -79,7 +81,9 @@ export async function searchKnowledge(params: { deps: SearchDeps; request: Searc
   const ranked = await rankings({ deps, request, mode, chunks, bm25 });
   let candidates: DiversityCandidate[] = ranked.flatMap(({ chunkId, score }) => {
     const chunk = chunks.get(chunkId);
-    return chunk == null ? [] : [{ chunkId, score, text: chunk.text, ...(chunk.vector == null ? {} : { vector: chunk.vector }) }];
+    // A stale chunk found by keyword keeps its place, but its vector (another embedder's space) is not used for MMR.
+    const hasComparableVector = chunk?.vector != null && chunk.embedderId === deps.embedder.id;
+    return chunk == null ? [] : [{ chunkId, score, text: chunk.text, ...(hasComparableVector ? { vector: chunk.vector } : {}) }];
   });
   if (request.rerank != null) {
     const byId = new Map(candidates.map(candidate => [candidate.chunkId, candidate]));

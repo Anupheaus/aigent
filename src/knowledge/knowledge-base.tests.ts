@@ -7,6 +7,7 @@ import { hashEmbedder } from './embedder.js';
 import { fixtureSources, JUDGMENTS } from './fixtures.test-support.js';
 import { createKnowledgeBase } from './knowledge-base.js';
 import { countingEmbedder, fixtureBase, measure } from './knowledge-base.test-support.js';
+import type { Embedder, KnowledgeSource } from './knowledge-types.js';
 import { createMemoryVectorIndex } from './memory-vector-index.js';
 import { scanSources } from './source-scan.js';
 
@@ -146,6 +147,22 @@ describe('freshness', () => {
     const report = await base.index({ sources: [{ id: 'guide', uri: 'guide.md', path: '/kb/guide.md', metadata: { tenant: 'b' } }] });
     expect(report).toMatchObject({ indexed: ['guide'], skipped: [] });
     expect(await base.search({ query: 'guide', filter: { tenant: 'b' } })).not.toEqual([]);
+  });
+
+  it('never scores vectors of another embedder against the query, and reports their sources as stale (review I3)', async () => {
+    const index = createMemoryVectorIndex();
+    const sources = [{ id: 'a', uri: 'a.txt', text: 'Alpha notes about deployment pipelines.' }, { id: 'b', uri: 'b.txt', text: 'Beta notes about database backups.' }];
+    await createKnowledgeBase({ embedder: hashEmbedder(), index }).index({ sources });
+    // Same dimensions, another model: its vectors live in a different space.
+    const inner = hashEmbedder();
+    const other: Embedder = { id: 'other-model', dimensions: inner.dimensions, embed: async (texts, signal) => (await inner.embed(texts, signal)).map(vector => vector.map(value => -value)) };
+    const base = createKnowledgeBase({ embedder: other, index });
+    await base.index({ sources: [sources[1] as KnowledgeSource] });
+    const vectorHits = await base.search({ query: 'alpha deployment pipelines', mode: 'vector', k: 5 });
+    expect(vectorHits.map(({ sourceId }) => sourceId)).toEqual(['b']);
+    expect(await base.staleSources()).toEqual(['a']);
+    // Keyword ranking does not depend on the embedder, so the stale source stays findable by its words.
+    expect((await base.search({ query: 'alpha', mode: 'keyword' })).map(({ sourceId }) => sourceId)).toEqual(['a']);
   });
 
   it('keeps chunk ids stable across runs for unchanged text', async () => {
