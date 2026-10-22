@@ -174,7 +174,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price,
       ...(onFinished == null ? {} : { onFinished }),
     });
-    // Hooks are bounded by their timeouts, so a slow observer delays done by at most that, never forever.
+    // The wait is bounded overall (1.5 hook timeouts), so slow observers never delay done once per event.
     await pluginHooks.end(result);
     activity.finish(result.status);
     // `done` is last and only after the records are flushed, so a consumer that sees it can read them.

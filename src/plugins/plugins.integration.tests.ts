@@ -118,6 +118,22 @@ describe('plugins wired into createAigent', () => {
     expect(warnings(events)).toEqual(["Plugin 'hanger' hook onRunStart did not finish within 1000 ms; the run continued without it"]);
   });
 
+  it('delays done by a bounded amount when every hook of a plugin hangs, however many calls the run makes', async () => {
+    const hang = (): Promise<void> => new Promise<void>(() => undefined);
+    const turns = [toolTurn([{ id: 'c1', name: 'shout', args: { text: 'a' } }, { id: 'c2', name: 'shout', args: { text: 'b' } }, { id: 'c3', name: 'shout', args: { text: 'c' } }]), textTurn('done')];
+    const ai = createAigent({
+      providers: [createFakeProvider({ turns })],
+      plugins: [definePlugin({ name: 'hanger', version: '1.0.0', hooks: { onToolCall: hang, onToolResult: hang, onRunEnd: hang } })], clock, ids: sequentialIds(),
+    });
+    const started = Date.now();
+    const run = ai.agent({ name: 'helper', model: 'fake:m', tools: [shout], enableFeedback: false }).task({ task: 'x' });
+    const events = await collect(run);
+    expect((await run).status).toBe('completed');
+    // One hook timeout (1000 ms) at most once per plugin, never once per event (which took over 8 s).
+    expect(Date.now() - started).toBeLessThan(2_600);
+    expect(warnings(events)).toEqual(["Plugin 'hanger' hook onToolCall did not finish within 1000 ms; the run continued without it"]);
+  });
+
   it('reports run errors to onError', async () => {
     const errors: string[] = [];
     const provider = createFakeProvider({ turns: [] });

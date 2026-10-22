@@ -5,6 +5,8 @@ import type { ToolCallInfo } from './plugin-types.js';
 
 const CALL: ToolCallInfo = { runId: 'run_1', agentName: 'helper', callId: 'c1', tool: 'echo', args: { text: 'hi', nested: { deep: [1] } } };
 const SHORT_TIMEOUT_MS = 20;
+/** Long enough that timing assertions on overall bounds stay stable under load. */
+const BOUND_TIMEOUT_MS = 100;
 
 describe('createRunHooks', () => {
   it('uses a 1000 ms timeout per hook by default', () => {
@@ -67,6 +69,44 @@ describe('createRunHooks', () => {
     hooks.call({ hook: 'onToolCall', info: CALL });
     await hooks.settled();
     expect(warnings).toEqual([`Plugin 'stuck' hook onToolCall did not finish within ${SHORT_TIMEOUT_MS} ms; the run continued without it`]);
+  });
+
+  it('skips the later hooks of a plugin that timed out, so a hanging plugin costs the run one timeout', async () => {
+    const warnings: string[] = [];
+    let invoked = 0;
+    const hooks = createRunHooks({
+      plugins: () => [{ plugin: 'stuck', hooks: { onToolCall: () => { invoked += 1; return new Promise<void>(() => undefined); } } }],
+      warn: message => warnings.push(message), timeoutMs: BOUND_TIMEOUT_MS,
+    });
+    const started = Date.now();
+    for (const callId of ['c1', 'c2', 'c3']) hooks.call({ hook: 'onToolCall', info: { ...CALL, callId } });
+    await hooks.settled();
+    expect(invoked).toBe(1);
+    expect(Date.now() - started).toBeLessThan(BOUND_TIMEOUT_MS * 2.5);
+    expect(warnings).toEqual([
+      `Plugin 'stuck' hook onToolCall did not finish within ${BOUND_TIMEOUT_MS} ms; the run continued without it`,
+    ]);
+  });
+
+  it('bounds settled() by 1.5 hook timeouts in all and abandons hooks still queued after it', async () => {
+    const warnings: string[] = [];
+    const finished: string[] = [];
+    const slowButInTime = BOUND_TIMEOUT_MS * 0.75;
+    const hooks = createRunHooks({
+      plugins: () => [{ plugin: 'slow', hooks: { onToolCall: async ({ callId }) => { await new Promise(resolve => setTimeout(resolve, slowButInTime)); finished.push(callId); } } }],
+      warn: message => warnings.push(message), timeoutMs: BOUND_TIMEOUT_MS,
+    });
+    for (const callId of ['c1', 'c2', 'c3', 'c4', 'c5']) hooks.call({ hook: 'onToolCall', info: { ...CALL, callId } });
+    const started = Date.now();
+    await hooks.settled();
+    expect(Date.now() - started).toBeLessThan(BOUND_TIMEOUT_MS * 2.5);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(new RegExp(`^Plugin hooks did not finish within ${BOUND_TIMEOUT_MS * 1.5} ms of the run ending; \\d+ queued hook\\(s\\) were abandoned$`));
+    const finishedAtSettle = finished.length;
+    await new Promise(resolve => setTimeout(resolve, BOUND_TIMEOUT_MS * 5));
+    // Abandoned hooks never start after the run ended, and their outcomes produce no late warnings.
+    expect(finished.length).toBeLessThanOrEqual(finishedAtSettle + 1);
+    expect(warnings).toHaveLength(1);
   });
 
   it('skips plugins without the hook and settles at once with none queued', async () => {

@@ -9,7 +9,7 @@ export interface RunPluginHooks {
   observe(event: AigentEvent): void;
   /** Queues `onRunStart`. */
   start(): void;
-  /** Queues `onRunEnd`, then waits (bounded by the hook timeouts) for every queued hook, so warnings precede `done`. */
+  /** Queues `onRunEnd`, then waits (at most 1.5 hook timeouts in all) for every queued hook, so warnings precede `done`. */
   end(result: TaskResult): Promise<void>;
 }
 
