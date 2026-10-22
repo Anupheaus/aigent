@@ -96,6 +96,17 @@ describe('createFileVectorIndex', () => {
     }
   });
 
+  it('gives each instance its own temporary file, so two writers never write into the same one (review M9)', async () => {
+    const access = disk();
+    const temporaries: string[] = [];
+    const recording: FsAccess = { ...access, writeFile: async params => { temporaries.push(params.path); return access.writeFile(params); } };
+    await createFileVectorIndex({ path: PATH, access: recording }).upsert(CHUNKS.slice(0, 1));
+    await createFileVectorIndex({ path: PATH, access: recording }).upsert(CHUNKS.slice(1, 2));
+    expect(temporaries).toHaveLength(2);
+    expect(new Set(temporaries).size).toBe(2);
+    expect(temporaries.every(temporary => temporary.startsWith(`${PATH}.tmp`))).toBe(true);
+  });
+
   it('refuses a corrupt file with the line number', async () => {
     const access = createMemoryFsAccess({ platform: 'posix', files: { [PATH]: '{"chunkId":"x"}\nnot json\n' } });
     await expect(createFileVectorIndex({ path: PATH, access }).list()).rejects.toThrow(/line 2/);

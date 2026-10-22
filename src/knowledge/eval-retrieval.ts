@@ -3,7 +3,7 @@ import type { KnowledgeBase, MetadataFilter, SearchMode } from './knowledge-type
 
 const DEFAULT_EVAL_K = 5;
 
-/** One labelled query: the source ids (or chunk ids) that answer it. */
+/** One labelled query: the source ids (or chunk ids) that answer it (any one of them is a hit). */
 export interface RetrievalCase {
   query: string;
   relevant: string[];
@@ -21,7 +21,10 @@ export interface RetrievalCaseResult {
 
 /** `evalRetrieval`'s figures. */
 export interface RetrievalEval {
-  /** Share of cases with a relevant result in the top k. */
+  /**
+   * Share of cases with at least one relevant result in the top k (a hit rate). `relevant` lists acceptable answers, so
+   * with several ids a case counts once found, not by the share of its ids found.
+   */
   recallAtK: number;
   /** Mean reciprocal rank of the first relevant result (0 for a miss). */
   mrr: number;

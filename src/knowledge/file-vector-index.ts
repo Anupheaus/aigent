@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createAigentError } from '../core/aigent-error.js';
 import { fsErrorCode } from '../security/fs-access.js';
 import type { FsAccess } from '../security/fs-access.js';
@@ -29,9 +30,15 @@ function parseLines(params: { text: string; path: string }): IndexedChunk[] {
  * A `VectorIndex` kept in a JSON-lines file and in memory. Every change rewrites the file atomically: the new content
  * goes to a temporary file that is then renamed over the old one, so a crash at any point leaves the previous (or the
  * new) state readable, never a partial one. A failed write leaves the index unchanged.
+ *
+ * Single writer: the file is loaded once per instance and each change rewrites the whole snapshot, so two instances
+ * (or processes) writing the same file lose each other's changes. Give one instance the file, and share it.
+ * The rename is not preceded by an fsync, so a power loss (not a process crash) can still lose the latest change.
  */
 export function createFileVectorIndex(options: FileVectorIndexOptions): VectorIndex {
   const { path, access } = options;
+  // Unique per instance: two instances over one file never write into the same temporary file.
+  const instanceId = randomUUID();
   let writes = 0;
   return createChunkStoreIndex({
     load: async () => {
@@ -44,7 +51,7 @@ export function createFileVectorIndex(options: FileVectorIndexOptions): VectorIn
     },
     persist: async chunks => {
       writes += 1;
-      const temporary = `${path}${TEMP_SUFFIX}${writes}`;
+      const temporary = `${path}${TEMP_SUFFIX}-${instanceId}-${writes}`;
       const text = chunks.map(chunk => JSON.stringify(chunk)).join('\n');
       await access.writeFile({ path: temporary, data: new TextEncoder().encode(text === '' ? '' : `${text}\n`) });
       try {
