@@ -3,7 +3,7 @@ import { BATCH_RESULT_HELPERS_WITH_REASONS } from '../../batch-entries.js';
 import { defineBatchTool } from '../../define-batch-tool.js';
 import type { Tool } from '../../tool-types.js';
 import { itemShareChars, pageOfText, textAllowance } from './web-budget.js';
-import { assertSuccess, decodeBody, fetchChecked, isTextual, MAX_FETCH_ITEMS, urlsTitle, WEB_CACHE_TTL_MS } from './web-shared.js';
+import { assertSuccess, decodeBody, fetchChecked, fetchToolTimeoutMs, isTextual, MAX_FETCH_ITEMS, urlsTitle, WEB_CACHE_TTL_MS } from './web-shared.js';
 import type { WebDeps } from './web-shared.js';
 
 export const HTTP_FETCH_TOOL_NAME = 'http_fetch';
@@ -64,7 +64,7 @@ export function createHttpFetch(deps: WebDeps): Tool {
       item: fetchItem, maxItems: MAX_FETCH_ITEMS,
       deterministic: false, cache: true, cacheTtlMs: WEB_CACHE_TTL_MS,
       // One batch may mix HTML and other bodies, and non-HTML bodies must reach the model exactly: nothing is shaped.
-      contentKind: 'web-page', fidelity: 'verbatim', maxResultTokens: FETCH_MAX_RESULT_TOKENS, acceptsAliases: true,
+      contentKind: 'web-page', fidelity: 'verbatim', maxResultTokens: FETCH_MAX_RESULT_TOKENS, timeoutMs: fetchToolTimeoutMs(deps.policy), acceptsAliases: true,
       describeActivity: ({ items }, outcome) => outcome.then(
         ({ success, reason }) => ({ title: urlsTitle({ verb: 'Fetched', urls: items.map(({ url }) => url) }), ...(success ? {} : { detail: reason }) }),
         () => ({ title: urlsTitle({ verb: 'Fetching', urls: items.map(({ url }) => url) }) }),

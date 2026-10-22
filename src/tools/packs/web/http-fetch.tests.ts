@@ -97,6 +97,27 @@ describe('http_fetch', () => {
     expect(entry?.result).not.toHaveProperty('bodyText');
   });
 
+  it('shows YAML, CSV, NDJSON, TOML and SQL bodies as text (review M7)', async () => {
+    const types = ['application/yaml', 'application/x-yaml', 'application/csv', 'application/x-ndjson', 'application/toml', 'application/sql'];
+    const { deps } = fakeWeb({ routes: Object.fromEntries(types.map((type, index) => [`https://example.com/${index}`, respond({ body: 'a: 1', headers: { 'content-type': type } })])) });
+    const entries = entriesOf(await call({ tool: createHttpFetch(deps), items: types.map((_type, index) => ({ url: `https://example.com/${index}` })) }));
+    expect(entries.map(({ result }) => result?.bodyText)).toEqual(types.map(() => 'a: 1'));
+  });
+
+  it('decodes HTML by the charset its markup or BOM declares when the header names none (review M7)', async () => {
+    const markup = (charsetTag: string) => new Uint8Array([...new TextEncoder().encode(`<html><head>${charsetTag}</head><body>caf`), 0xe9, ...new TextEncoder().encode('</body></html>')]);
+    const utf16 = new Uint8Array([0xff, 0xfe, ...Array.from('hé', character => [character.charCodeAt(0), 0]).flat()]);
+    const { deps } = fakeWeb({ routes: {
+      'https://example.com/meta': respond({ body: markup('<meta charset="windows-1252">'), headers: { 'content-type': 'text/html' } }),
+      'https://example.com/equiv': respond({ body: markup('<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">'), headers: { 'content-type': 'text/html' } }),
+      'https://example.com/bom': respond({ body: utf16, headers: { 'content-type': 'text/plain' } }),
+    } });
+    const entries = entriesOf(await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/meta' }, { url: 'https://example.com/equiv' }, { url: 'https://example.com/bom' }] }));
+    expect(entries[0]?.result?.bodyText).toContain('café');
+    expect(entries[1]?.result?.bodyText).toContain('café');
+    expect(entries[2]?.result?.bodyText).toBe('hé');
+  });
+
   it('refuses header values with line breaks or control characters (review M4)', async () => {
     const { deps, access } = fakeWeb({ routes: {} });
     const executed = await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/', headers: { accept: 'text/html\r\nX-Injected: 1' } }] });

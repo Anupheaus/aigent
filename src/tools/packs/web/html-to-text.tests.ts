@@ -44,6 +44,19 @@ describe('htmlToText', () => {
     expect(page.text).toBe('Orders\nAll orders ship in two days.');
   });
 
+  it('never leaks script text past the nesting cap, keeps the first title outside SVG, and bounds title and headings (review M6)', () => {
+    const deep = `${'<div>'.repeat(300)}<script>SECRET_SCRIPT_TEXT()</script><style>.x{}</style><p>visible</p>`;
+    const deepPage = htmlToText({ html: deep, baseUrl: BASE });
+    expect(deepPage.text).toContain('visible');
+    expect(deepPage.text).not.toContain('SECRET_SCRIPT_TEXT');
+    expect(deepPage.text).not.toContain('.x{}');
+    expect(htmlToText({ html: '<head><title>Real</title></head><body><svg><title>icon</title></svg><title>later</title><p>x</p></body>', baseUrl: BASE }).title).toBe('Real');
+    const flood = htmlToText({ html: `<title>${'t'.repeat(10_000)}</title><body>${'<h2>heading</h2>'.repeat(1_000)}<h1>${'h'.repeat(10_000)}</h1></body>`, baseUrl: BASE });
+    expect(flood.title.length).toBeLessThanOrEqual(300);
+    expect(flood.headings.length).toBeLessThanOrEqual(100);
+    expect(htmlToText({ html: `<h1>${'h'.repeat(10_000)}</h1>`, baseUrl: BASE }).headings[0]?.text.length).toBeLessThanOrEqual(300);
+  });
+
   it('copes with malformed HTML: unclosed tags, stray brackets, unterminated comments and attributes', () => {
     const page = htmlToText({ html: '<p>one <b>two <i>three</p><p>4 < 5 > 3<div class="x>y">five</div><!-- never closed <p>hidden', baseUrl: BASE });
     expect(page.text).toBe('one two three\n4 < 5 > 3\nfive');

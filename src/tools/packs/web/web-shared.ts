@@ -36,6 +36,18 @@ export function resolveWebDeps(options: WebToolsOptions): WebDeps {
   return { policy, access, userAgent, ...(search == null ? {} : { search }) };
 }
 
+/** Time on top of the requests themselves for reading, decoding and extracting. */
+const TOOL_TIMEOUT_MARGIN_MS = 5_000;
+
+/**
+ * How long one fetch call may take: every hop of a full redirect chain at the policy's timeout, plus a margin, so the
+ * tool timeout never cuts a request the policy still allows (and never drops finished items with it).
+ */
+export function fetchToolTimeoutMs(policy: HttpPolicy): number {
+  const { timeoutMs, maxRedirects } = policy.limits;
+  return timeoutMs * (maxRedirects + 1) + TOOL_TIMEOUT_MARGIN_MS;
+}
+
 /** Fetched pages change; cached results are kept five minutes. */
 export const WEB_CACHE_TTL_MS = 300_000;
 /** Upper bound on items in one `http_fetch` or `page_extract` call. */
@@ -66,22 +78,40 @@ export async function fetchChecked(params: { deps: WebDeps; url: string; method:
   return result;
 }
 
-/** The charset of a `content-type` header (default utf-8). */
-export function charsetOf(contentType: string): string {
-  return /charset\s*=\s*"?([^";\s]+)/i.exec(contentType)?.[1]?.toLowerCase() ?? 'utf-8';
+/** Byte-order marks and the charset each one declares; a BOM decides over everything else, as in browsers. */
+const BYTE_ORDER_MARKS: readonly [number[], string][] = [[[0xef, 0xbb, 0xbf], 'utf-8'], [[0xff, 0xfe], 'utf-16le'], [[0xfe, 0xff], 'utf-16be']];
+const CHARSET_IN_TYPE = /charset\s*=\s*["']?([^"';\s]+)/i;
+/** Bytes of an HTML page searched for a `<meta charset>` or `<meta http-equiv content-type>`, as browsers pre-scan. */
+const META_SNIFF_BYTES = 1_024;
+const META_CHARSET = /<meta[^>]+charset\s*=\s*["']?([\w.:-]+)/i;
+
+/**
+ * The charset a body is in: its BOM, else the `content-type` charset, else (HTML) a `<meta>` charset in its first
+ * kilobyte, else utf-8.
+ */
+function charsetOf(params: { body: Uint8Array; contentType: string }): string {
+  const { body, contentType } = params;
+  const marked = BYTE_ORDER_MARKS.find(([mark]) => mark.every((byte, index) => body[index] === byte));
+  if (marked != null) return marked[1];
+  const declared = CHARSET_IN_TYPE.exec(contentType)?.[1];
+  if (declared != null) return declared.toLowerCase();
+  if (!isHtml(contentType)) return 'utf-8';
+  // Latin-1 maps every byte to one character, so the markup reads the same whatever the page's charset is.
+  const head = new TextDecoder('latin1').decode(body.subarray(0, META_SNIFF_BYTES));
+  return META_CHARSET.exec(head)?.[1]?.toLowerCase() ?? 'utf-8';
 }
 
-/** The body as text in its declared charset (unknown charsets fall back to utf-8; bad bytes become U+FFFD). */
+/** The body as text in its charset (see `charsetOf`; unknown charsets fall back to utf-8; bad bytes become U+FFFD). */
 export function decodeBody(params: { body: Uint8Array; contentType: string }): string {
-  const { body, contentType } = params;
+  const { body } = params;
   try {
-    return new TextDecoder(charsetOf(contentType)).decode(body);
+    return new TextDecoder(charsetOf(params)).decode(body);
   } catch {
     return new TextDecoder('utf-8').decode(body);
   }
 }
 
-const TEXTUAL_TYPE = /^(?:text\/|application\/(?:json|xml|xhtml\+xml|javascript|ecmascript|x-www-form-urlencoded|ld\+json|rss\+xml|atom\+xml|[\w.+-]*\+(?:json|xml))|image\/svg\+xml)/i;
+const TEXTUAL_TYPE = /^(?:text\/|application\/(?:json|xml|xhtml\+xml|javascript|ecmascript|x-www-form-urlencoded|ld\+json|rss\+xml|atom\+xml|(?:x-)?yaml|csv|x-ndjson|ndjson|toml|sql|[\w.+-]*\+(?:json|xml))|image\/svg\+xml)/i;
 /** Bytes sniffed for NUL when a response has no content type. */
 const SNIFF_BYTES = 1_024;
 

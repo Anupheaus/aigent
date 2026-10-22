@@ -35,6 +35,21 @@ const BLOCKS: ReadonlySet<string> = new Set(['p', 'div', 'br', 'li', 'ul', 'ol',
 const VOID: ReadonlySet<string> = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 const MAIN: ReadonlySet<string> = new Set(['main', 'article']);
 const HEADING = /^h([1-6])$/;
+/** Raw-text elements whose content (one text token) is never page text, even past `MAX_DEPTH` where they are not tracked. */
+const RAW_TEXT_DROPPED: ReadonlySet<string> = new Set(['script', 'style', 'textarea', 'noscript', 'iframe', 'xmp', 'noembed', 'noframes', 'title']);
+/** Longest title, heading and link text kept, and most headings listed: a page cannot flood the result with them. */
+const MAX_TITLE_CHARS = 300;
+const MAX_HEADING_CHARS = 300;
+const MAX_HEADINGS = 100;
+const MAX_LINK_TEXT_CHARS = 300;
+/** Raw text collected for a bounded field before it is tidied and cut (whitespace collapses, so keep some slack). */
+const RAW_SLACK = 4;
+
+/** `text` added to `collected` while it is shorter than `limit` times the slack. */
+function appendBounded(params: { collected: string; text: string; limit: number }): string {
+  const { collected, text, limit } = params;
+  return collected.length >= limit * RAW_SLACK ? collected : collected + text;
+}
 
 /** One line per block, spaces collapsed (non-breaking ones too), blank lines dropped. */
 function tidy(text: string): string {
@@ -69,17 +84,25 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
   const seenLinks = new Set<string>();
   let heading: { level: number; text: string } | undefined;
   let link: { url?: string; text: string } | undefined;
+  /** SVG elements open: an SVG `<title>` names an icon, not the page. */
+  let inSvg = 0;
+  let hasTitle = false;
+  /** A raw-text element opened past `MAX_DEPTH` (untracked): its one text token is skipped. */
+  let skipRawText = false;
 
+  const addLinkText = (text: string): void => {
+    if (link != null) link.text = appendBounded({ collected: link.text, text, limit: MAX_LINK_TEXT_CHARS });
+  };
   const write = (text: string): void => {
     body += text;
     if (inMain > 0) main += text;
-    if (heading != null) heading.text += text;
-    if (link != null) link.text += text;
+    if (heading != null) heading.text = appendBounded({ collected: heading.text, text, limit: MAX_HEADING_CHARS });
+    addLinkText(text);
   };
   const closeLink = (): void => {
     if (link?.url != null && !seenLinks.has(link.url) && links.length < MAX_LINKS) {
       seenLinks.add(link.url);
-      links.push({ text: tidy(link.text) || link.url, url: link.url });
+      links.push({ text: tidy(link.text).slice(0, MAX_LINK_TEXT_CHARS) || link.url, url: link.url });
     }
     link = undefined;
   };
@@ -87,11 +110,13 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
     const name = stack.pop() as string;
     if (DROPPED.has(name)) dropped -= 1;
     if (MAIN.has(name)) inMain -= 1;
+    if (name === 'svg') inSvg -= 1;
+    if (name === 'title' && inSvg === 0 && tidy(title) !== '') hasTitle = true;
     if (name === 'a') closeLink();
     const level = HEADING.exec(name)?.[1];
     if (level != null && heading != null) {
-      const text = tidy(heading.text);
-      if (text !== '') headings.push({ level: heading.level, text });
+      const text = tidy(heading.text).slice(0, MAX_HEADING_CHARS);
+      if (text !== '' && headings.length < MAX_HEADINGS) headings.push({ level: heading.level, text });
       heading = undefined;
     }
     if (BLOCKS.has(name) && dropped === 0) write('\n');
@@ -99,12 +124,14 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
 
   for (const token of htmlTokens(html)) {
     if (token.type === 'text') {
-      if (stack.at(-1) === 'title') title += token.text;
+      if (skipRawText) skipRawText = false;
+      else if (stack.at(-1) === 'title') { if (!hasTitle && inSvg === 0) title = appendBounded({ collected: title, text: token.text, limit: MAX_TITLE_CHARS }); }
       else if (dropped === 0) write(decodeEntities(token.text));
       // A link in page chrome (navigation, footer) is still a link worth listing, with its text.
-      else if (link != null) link.text += decodeEntities(token.text);
+      else addLinkText(decodeEntities(token.text));
       continue;
     }
+    skipRawText = false;
     const { name } = token;
     if (token.type === 'end') {
       const index = stack.lastIndexOf(name);
@@ -115,10 +142,12 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
     if (openHead !== -1 && !HEAD_CONTENT.has(name)) while (stack.length > openHead) pop();
     if (name === 'base' && token.attributes.href != null) base = absoluteUrl({ href: token.attributes.href, base: params.baseUrl }) ?? base;
     if (BLOCKS.has(name) && dropped === 0) write('\n');
-    if (VOID.has(name) || token.selfClosing || stack.length >= MAX_DEPTH) continue;
+    if (VOID.has(name) || token.selfClosing) continue;
+    if (stack.length >= MAX_DEPTH) { skipRawText = RAW_TEXT_DROPPED.has(name); continue; }
     stack.push(name);
     if (DROPPED.has(name)) dropped += 1;
     if (MAIN.has(name)) inMain += 1;
+    if (name === 'svg') inSvg += 1;
     const level = HEADING.exec(name)?.[1];
     if (level != null && dropped === 0) heading = { level: Number(level), text: '' };
     if (name === 'a') {
@@ -131,5 +160,5 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
   while (stack.length > 0) pop();
   const content = tidy(main) !== '' ? tidy(main) : tidy(body);
   const truncated = content.length > maxChars;
-  return { title: tidy(decodeEntities(title)), text: truncated ? content.slice(0, maxChars) : content, headings, links, truncated };
+  return { title: tidy(decodeEntities(title)).slice(0, MAX_TITLE_CHARS), text: truncated ? content.slice(0, maxChars) : content, headings, links, truncated };
 }
