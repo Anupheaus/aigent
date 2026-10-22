@@ -195,6 +195,14 @@ describe('freshness', () => {
     expect(await base.search({ query: 'guide', filter: { sourceId: 'guide.md' } })).toEqual([]);
   });
 
+  it('refuses to scan past the policy maxFiles instead of truncating, so a pruning index never drops files silently (review M8)', async () => {
+    const access = createMemoryFsAccess({ platform: 'posix', files: { '/kb/a.md': 'a', '/kb/b.md': 'b', '/kb/c.md': 'c' } });
+    const policy = createFsPolicy({ roots: [{ path: '/kb', permissions: ['read'] }], maxFiles: 2 });
+    await expect(scanSources({ access, policy, root: '/kb' })).rejects.toMatchObject({ code: 'invalid_input', message: expect.stringMatching(/more than 2 files.*maxFiles/) });
+    const exact = createFsPolicy({ roots: [{ path: '/kb', permissions: ['read'] }], maxFiles: 3 });
+    expect((await scanSources({ access, policy: exact, root: '/kb' })).map(({ id }) => id)).toEqual(['a.md', 'b.md', 'c.md']);
+  });
+
   it('reads a chunk with its neighbours, by id or by span', async () => {
     const base = createKnowledgeBase({ embedder: hashEmbedder(), index: createMemoryVectorIndex() });
     await base.index({ sources: [{ id: 'a', uri: 'a.txt', text: long('a') }] });

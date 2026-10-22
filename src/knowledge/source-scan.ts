@@ -51,17 +51,18 @@ export interface ScanSourcesOptions {
 
 /**
  * Path sources for every readable file under `root`: directories and files the policy refuses (deny globs, outside the
- * roots) are skipped, as are dependency and VCS directories; ids are the `/`-separated paths relative to `root`.
+ * roots) are skipped, as are dependency and VCS directories; ids are the `/`-separated paths relative to `root`. More
+ * matching files than the policy's `maxFiles` is an error, never a silently shortened list.
  */
 export async function scanSources(options: ScanSourcesOptions): Promise<KnowledgeSource[]> {
   const { access, policy, root, include } = options;
   const decision = await policy.check({ path: root, permission: 'read', access });
   if (!decision.allowed) throw createAigentError({ code: 'invalid_input', message: `scanSources: '${root}' is not readable: ${decision.message}`, details: { root, code: decision.code } });
   const separator = access.platform === 'win32' ? '\\' : '/';
+  const { maxFiles } = policy.limits;
   const sources: KnowledgeSource[] = [];
   const walk = async (directory: string, relative: string): Promise<void> => {
     for (const entry of await access.readdir(directory)) {
-      if (sources.length >= policy.limits.maxFiles) return;
       const path = `${directory}${directory.endsWith(separator) ? '' : separator}${entry.name}`;
       const id = relative === '' ? entry.name : `${relative}/${entry.name}`;
       if (policy.isDenied({ path, root: decision.root, permission: 'read', access })) continue;
@@ -70,6 +71,8 @@ export async function scanSources(options: ScanSourcesOptions): Promise<Knowledg
         continue;
       }
       if (entry.type !== 'file' || (include != null && !include.some(pattern => matchGlob(pattern, id)))) continue;
+      // A partial list would look complete, and `index({ prune: true })` would drop every file left off it.
+      if (sources.length >= maxFiles) throw createAigentError({ code: 'invalid_input', message: `scanSources: '${root}' holds more than ${maxFiles} files (the policy's maxFiles); narrow it with include, or raise maxFiles`, details: { root, maxFiles } });
       sources.push({ id, uri: `file://${path.replaceAll('\\', '/')}`, path });
     }
   };
