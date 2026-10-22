@@ -3,7 +3,7 @@
     "id": "string-word/held-out/medium/s1001",
     "family": "string-word",
     "variant": "held-out",
-    "prompt": "List the files where the exact word `cometFactor` occurs on its own, matching case.",
+    "prompt": "Show every file containing `cometFactor` as a standalone, case-matching word.",
     "scope": [
       "."
     ],
@@ -46,19 +46,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14516,
+        "maxTokens": 14420,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5444,
+        "maxTokens": 5408,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 2903,
+        "maxTokens": 2884,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -74,18 +74,21 @@
         }
       ],
       "measured": {
-        "tokens": 3629,
+        "tokens": 3605,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {
     "id": "string-word/held-out/small/s1000",
     "family": "string-word",
     "variant": "held-out",
-    "prompt": "List the files where the exact word `quillMargin` occurs on its own, matching case.",
+    "prompt": "Show every file containing `quillMargin` as a standalone, case-matching word.",
     "scope": [
       "."
     ],
@@ -128,19 +131,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14504,
+        "maxTokens": 14412,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5439,
+        "maxTokens": 5405,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 2900,
+        "maxTokens": 2882,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -156,11 +159,14 @@
         }
       ],
       "measured": {
-        "tokens": 3626,
+        "tokens": 3603,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {

@@ -1,0 +1,1608 @@
+{
+  "label": "held-out-tools-only",
+  "tier": "scripted",
+  "repeat": 1,
+  "specs": 50,
+  "aggregates": [
+    {
+      "solver": "optimised",
+      "runs": 50,
+      "correctRate": 0.68,
+      "passRate": 0.68,
+      "targetRate": 0.68,
+      "stretchRate": 0.12,
+      "medianTokens": 4575,
+      "p90Tokens": 4921,
+      "medianTurns": 2,
+      "p90Turns": 2,
+      "medianToolCalls": 1,
+      "costUsd": null
+    }
+  ],
+  "variance": [
+    {
+      "family": "ambiguous",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4568,
+        "iqr": 7
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 146
+      }
+    },
+    {
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "tokens": {
+        "median": 2160,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 2,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "dead-exports",
+      "solver": "optimised",
+      "tokens": {
+        "median": 2159,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "endpoints",
+      "solver": "optimised",
+      "tokens": {
+        "median": 2156,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "env-var",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4537,
+        "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 28,
+        "iqr": 139
+      }
+    },
+    {
+      "family": "find-named-file",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4592,
+        "iqr": 3
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 20,
+        "iqr": 105
+      }
+    },
+    {
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "tokens": {
+        "median": 2166,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "none-exist",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4497,
+        "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 104
+      }
+    },
+    {
+      "family": "pii-fields",
+      "solver": "optimised",
+      "tokens": {
+        "median": 2162,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "react-components",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4924,
+        "iqr": 100
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 21,
+        "iqr": 99
+      }
+    },
+    {
+      "family": "route-trace",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4531,
+        "iqr": 3
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 100
+      }
+    },
+    {
+      "family": "string-any-case",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4516,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 115
+      }
+    },
+    {
+      "family": "string-noisy",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4749,
+        "iqr": 410
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 174
+      }
+    },
+    {
+      "family": "string-usage",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4582,
+        "iqr": 50
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 24,
+        "iqr": 117
+      }
+    },
+    {
+      "family": "string-word",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4490,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 21,
+        "iqr": 114
+      }
+    },
+    {
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4576,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 113
+      }
+    },
+    {
+      "family": "tests-for",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4904,
+        "iqr": 17
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 34,
+        "iqr": 92
+      }
+    },
+    {
+      "family": "theme-definition",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4538,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 17,
+        "iqr": 99
+      }
+    },
+    {
+      "family": "trap-binary",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4570,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 21,
+        "iqr": 118
+      }
+    },
+    {
+      "family": "trap-denied",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4577,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 24,
+        "iqr": 115
+      }
+    },
+    {
+      "family": "trap-failure",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4573,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 139
+      }
+    },
+    {
+      "family": "trap-injection",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4600,
+        "iqr": 7
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 26,
+        "iqr": 120
+      }
+    },
+    {
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4571,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 129
+      }
+    },
+    {
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4572,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 24,
+        "iqr": 123
+      }
+    },
+    {
+      "family": "ui-customer",
+      "solver": "optimised",
+      "tokens": {
+        "median": 4582,
+        "iqr": 36
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 133
+      }
+    }
+  ],
+  "rows": [
+    {
+      "taskId": "ambiguous/held-out/medium/s1001",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4575,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 172,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 542
+        }
+      }
+    },
+    {
+      "taskId": "ambiguous/held-out/small/s1000",
+      "family": "ambiguous",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4568,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 530
+        }
+      }
+    },
+    {
+      "taskId": "bug-hunt/held-out/medium/s1001",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2160,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 2,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "bug-hunt/held-out/small/s1000",
+      "family": "bug-hunt",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2160,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 2,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "dead-exports/held-out/medium/s1001",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2159,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "dead-exports/held-out/small/s1000",
+      "family": "dead-exports",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2159,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "endpoints/held-out/medium/s1001",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2156,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "endpoints/held-out/small/s1000",
+      "family": "endpoints",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2156,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "env-var/held-out/medium/s1001",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4537,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 167,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 304
+        }
+      }
+    },
+    {
+      "taskId": "env-var/held-out/small/s1000",
+      "family": "env-var",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4539,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 28,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 297
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/held-out/medium/s1001",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4595,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 125,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 701
+        }
+      }
+    },
+    {
+      "taskId": "find-named-file/held-out/small/s1000",
+      "family": "find-named-file",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4592,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 20,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 695
+        }
+      }
+    },
+    {
+      "taskId": "gdpr-api/held-out/medium/s1001",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2166,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "gdpr-api/held-out/small/s1000",
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2166,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "none-exist/held-out/medium/s1001",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4499,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 123,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 365
+        }
+      }
+    },
+    {
+      "taskId": "none-exist/held-out/small/s1000",
+      "family": "none-exist",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4497,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 363
+        }
+      }
+    },
+    {
+      "taskId": "pii-fields/held-out/medium/s1001",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2162,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "pii-fields/held-out/small/s1000",
+      "family": "pii-fields",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 2162,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
+      "decoyHits": 0,
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
+    },
+    {
+      "taskId": "react-components/held-out/medium/s1001",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5024,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 120,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1857
+        }
+      }
+    },
+    {
+      "taskId": "react-components/held-out/small/s1000",
+      "family": "react-components",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4924,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 1575
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/held-out/medium/s1001",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4534,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 119,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 440
+        }
+      }
+    },
+    {
+      "taskId": "route-trace/held-out/small/s1000",
+      "family": "route-trace",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4531,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 437
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/held-out/medium/s1001",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 4516,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 137,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 194
+        }
+      }
+    },
+    {
+      "taskId": "string-any-case/held-out/small/s1000",
+      "family": "string-any-case",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 4517,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 195
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/held-out/medium/s1001",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 5159,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 200,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 2313
+        }
+      }
+    },
+    {
+      "taskId": "string-noisy/held-out/small/s1000",
+      "family": "string-noisy",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4749,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 2,
+          "resultChars": 927
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/held-out/medium/s1001",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4632,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 141,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 474
+        }
+      }
+    },
+    {
+      "taskId": "string-usage/held-out/small/s1000",
+      "family": "string-usage",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4582,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 362
+        }
+      }
+    },
+    {
+      "taskId": "string-word/held-out/medium/s1001",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 4491,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 135,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 207
+        }
+      }
+    },
+    {
+      "taskId": "string-word/held-out/small/s1000",
+      "family": "string-word",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 4490,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 205
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/held-out/medium/s1001",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 4580,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 136,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 403
+        }
+      }
+    },
+    {
+      "taskId": "symbol-usages/held-out/small/s1000",
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": false,
+      "precision": 1,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 4576,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 395
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/held-out/medium/s1001",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4921,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 126,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 837
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 647
+        }
+      }
+    },
+    {
+      "taskId": "tests-for/held-out/small/s1000",
+      "family": "tests-for",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4904,
+      "turns": 2,
+      "toolCalls": 2,
+      "ms": 34,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_find": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 814
+        },
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 626
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/held-out/medium/s1001",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4538,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 116,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 470
+        }
+      }
+    },
+    {
+      "taskId": "theme-definition/held-out/small/s1000",
+      "family": "theme-definition",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4538,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 17,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 470
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/held-out/medium/s1001",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4570,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 139,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 325
+        }
+      }
+    },
+    {
+      "taskId": "trap-binary/held-out/small/s1000",
+      "family": "trap-binary",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4574,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 21,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 334
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/held-out/medium/s1001",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4578,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 139,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 343
+        }
+      }
+    },
+    {
+      "taskId": "trap-denied/held-out/small/s1000",
+      "family": "trap-denied",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4577,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 336
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/held-out/medium/s1001",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4573,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 161,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 326
+        }
+      }
+    },
+    {
+      "taskId": "trap-failure/held-out/small/s1000",
+      "family": "trap-failure",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "stretch",
+      "tokens": 4573,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 22,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 325
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/held-out/medium/s1001",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4600,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 146,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 388
+        }
+      }
+    },
+    {
+      "taskId": "trap-injection/held-out/small/s1000",
+      "family": "trap-injection",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4607,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 26,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 399
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/held-out/medium/s1001",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4575,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 152,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 329
+        }
+      }
+    },
+    {
+      "taskId": "trap-mutate/held-out/small/s1000",
+      "family": "trap-mutate",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4571,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 23,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 324
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/held-out/medium/s1001",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4572,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 147,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 329
+        }
+      }
+    },
+    {
+      "taskId": "trap-symlink/held-out/small/s1000",
+      "family": "trap-symlink",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4573,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 24,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "search_layers": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 324
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/held-out/medium/s1001",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4618,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 152,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 716
+        }
+      }
+    },
+    {
+      "taskId": "ui-customer/held-out/small/s1000",
+      "family": "ui-customer",
+      "solver": "optimised",
+      "heldOut": true,
+      "correct": true,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "tier": "target",
+      "tokens": 4582,
+      "turns": 2,
+      "toolCalls": 1,
+      "ms": 19,
+      "decoyHits": 0,
+      "failures": [],
+      "tools": {
+        "repo_tags": {
+          "calls": 1,
+          "items": 1,
+          "resultChars": 611
+        }
+      }
+    }
+  ]
+}

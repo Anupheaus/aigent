@@ -3,7 +3,7 @@
     "id": "dead-exports/held-out/medium/s1001",
     "family": "dead-exports",
     "variant": "held-out",
-    "prompt": "Name the exported functions that nothing else references.",
+    "prompt": "Are there exported functions that no other file imports or uses? List them by name.",
     "scope": [
       "."
     ],
@@ -64,51 +64,43 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 2151096,
-        "maxTurns": 36,
-        "maxToolCalls": 44,
+        "maxTokens": 6364,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 806661,
-        "maxTurns": 14,
-        "maxToolCalls": 17,
+        "maxTokens": 2387,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 430219,
-        "maxTurns": 7,
-        "maxToolCalls": 8,
+        "maxTokens": 1272,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 12000
       }
     },
     "reference": {
       "description": "One search for exports, then alternation searches of 40 names read line by line.",
-      "steps": [
-        {
-          "tool": "fs_list",
-          "items": 3,
-          "purpose": "3 call(s)"
-        },
-        {
-          "tool": "fs_search",
-          "items": 220,
-          "purpose": "8 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 537774,
-        "turns": 9,
-        "toolCalls": 11,
+        "tokens": 1591,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {
     "id": "dead-exports/held-out/small/s1000",
     "family": "dead-exports",
     "variant": "held-out",
-    "prompt": "Name the exported functions that nothing else references.",
+    "prompt": "Are there exported functions that no other file imports or uses? List them by name.",
     "scope": [
       "."
     ],
@@ -169,39 +161,36 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 135592,
-        "maxTurns": 12,
-        "maxToolCalls": 8,
+        "maxTokens": 6364,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 50847,
-        "maxTurns": 5,
-        "maxToolCalls": 3,
+        "maxTokens": 2387,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 27118,
-        "maxTurns": 2,
-        "maxToolCalls": 1,
+        "maxTokens": 1272,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 4000
       }
     },
     "reference": {
       "description": "One search for exports, then alternation searches of 40 names read line by line.",
-      "steps": [
-        {
-          "tool": "fs_search",
-          "items": 5,
-          "purpose": "2 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 33898,
-        "turns": 3,
-        "toolCalls": 2,
+        "tokens": 1591,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {

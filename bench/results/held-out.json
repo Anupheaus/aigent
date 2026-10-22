@@ -7,12 +7,12 @@
     {
       "solver": "optimised",
       "runs": 50,
-      "correctRate": 1,
-      "passRate": 1,
-      "targetRate": 1,
-      "stretchRate": 0.2,
-      "medianTokens": 3426,
-      "p90Tokens": 3767,
+      "correctRate": 0.68,
+      "passRate": 0.68,
+      "targetRate": 0.68,
+      "stretchRate": 0.12,
+      "medianTokens": 3453,
+      "p90Tokens": 3799,
       "medianTurns": 2,
       "p90Turns": 2,
       "medianToolCalls": 1,
@@ -24,71 +24,71 @@
       "family": "ambiguous",
       "solver": "optimised",
       "tokens": {
-        "median": 3424,
-        "iqr": 8
+        "median": 3446,
+        "iqr": 7
       },
       "turns": {
         "median": 2,
         "iqr": 0
       },
       "ms": {
-        "median": 30,
-        "iqr": 189
+        "median": 27,
+        "iqr": 152
       }
     },
     {
       "family": "bug-hunt",
       "solver": "optimised",
       "tokens": {
-        "median": 8830,
-        "iqr": 134
+        "median": 1599,
+        "iqr": 0
       },
       "turns": {
-        "median": 3,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 50,
-        "iqr": 257
+        "median": 2,
+        "iqr": 0
       }
     },
     {
       "family": "dead-exports",
       "solver": "optimised",
       "tokens": {
-        "median": 3349,
-        "iqr": 5
+        "median": 1598,
+        "iqr": 0
       },
       "turns": {
-        "median": 2,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 23,
-        "iqr": 136
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "endpoints",
       "solver": "optimised",
       "tokens": {
-        "median": 3516,
-        "iqr": 6
+        "median": 1595,
+        "iqr": 0
       },
       "turns": {
-        "median": 2,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 23,
-        "iqr": 133
+        "median": 1,
+        "iqr": 1
       }
     },
     {
       "family": "env-var",
       "solver": "optimised",
       "tokens": {
-        "median": 3400,
+        "median": 3415,
         "iqr": 2
       },
       "turns": {
@@ -96,31 +96,15 @@
         "iqr": 0
       },
       "ms": {
-        "median": 25,
-        "iqr": 144
+        "median": 27,
+        "iqr": 140
       }
     },
     {
       "family": "find-named-file",
       "solver": "optimised",
       "tokens": {
-        "median": 3449,
-        "iqr": 2
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 22,
-        "iqr": 130
-      }
-    },
-    {
-      "family": "gdpr-api",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3499,
+        "median": 3470,
         "iqr": 3
       },
       "turns": {
@@ -128,16 +112,240 @@
         "iqr": 0
       },
       "ms": {
-        "median": 24,
-        "iqr": 135
+        "median": 20,
+        "iqr": 110
+      }
+    },
+    {
+      "family": "gdpr-api",
+      "solver": "optimised",
+      "tokens": {
+        "median": 1605,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "none-exist",
       "solver": "optimised",
       "tokens": {
-        "median": 3353,
+        "median": 3375,
         "iqr": 2
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 20,
+        "iqr": 102
+      }
+    },
+    {
+      "family": "pii-fields",
+      "solver": "optimised",
+      "tokens": {
+        "median": 1601,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 1,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 1,
+        "iqr": 0
+      }
+    },
+    {
+      "family": "react-components",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3802,
+        "iqr": 100
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 21,
+        "iqr": 104
+      }
+    },
+    {
+      "family": "route-trace",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3409,
+        "iqr": 3
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 19,
+        "iqr": 102
+      }
+    },
+    {
+      "family": "string-any-case",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3394,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 117
+      }
+    },
+    {
+      "family": "string-noisy",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3627,
+        "iqr": 410
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 27,
+        "iqr": 171
+      }
+    },
+    {
+      "family": "string-usage",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3460,
+        "iqr": 50
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 119
+      }
+    },
+    {
+      "family": "string-word",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3368,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 117
+      }
+    },
+    {
+      "family": "symbol-usages",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3454,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 115
+      }
+    },
+    {
+      "family": "tests-for",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3782,
+        "iqr": 17
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 33,
+        "iqr": 91
+      }
+    },
+    {
+      "family": "theme-definition",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3416,
+        "iqr": 0
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 18,
+        "iqr": 101
+      }
+    },
+    {
+      "family": "trap-binary",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3448,
+        "iqr": 4
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 22,
+        "iqr": 117
+      }
+    },
+    {
+      "family": "trap-denied",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3455,
+        "iqr": 1
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 23,
+        "iqr": 120
+      }
+    },
+    {
+      "family": "trap-failure",
+      "solver": "optimised",
+      "tokens": {
+        "median": 3451,
+        "iqr": 0
       },
       "turns": {
         "median": 2,
@@ -149,91 +357,11 @@
       }
     },
     {
-      "family": "pii-fields",
+      "family": "trap-injection",
       "solver": "optimised",
       "tokens": {
-        "median": 3390,
-        "iqr": 1
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 22,
-        "iqr": 133
-      }
-    },
-    {
-      "family": "react-components",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3785,
-        "iqr": 100
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 23,
-        "iqr": 135
-      }
-    },
-    {
-      "family": "route-trace",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3387,
-        "iqr": 1
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 22,
-        "iqr": 133
-      }
-    },
-    {
-      "family": "string-any-case",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3469,
-        "iqr": 6
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 23,
-        "iqr": 147
-      }
-    },
-    {
-      "family": "string-noisy",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3597,
-        "iqr": 411
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 49,
-        "iqr": 156
-      }
-    },
-    {
-      "family": "string-usage",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3433,
-        "iqr": 50
+        "median": 3478,
+        "iqr": 7
       },
       "turns": {
         "median": 2,
@@ -241,142 +369,14 @@
       },
       "ms": {
         "median": 25,
-        "iqr": 150
-      }
-    },
-    {
-      "family": "string-word",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3387,
-        "iqr": 2
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 23,
-        "iqr": 151
-      }
-    },
-    {
-      "family": "symbol-usages",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3460,
-        "iqr": 3
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 26,
-        "iqr": 143
-      }
-    },
-    {
-      "family": "tests-for",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3751,
-        "iqr": 16
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 24,
-        "iqr": 142
-      }
-    },
-    {
-      "family": "theme-definition",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3384,
-        "iqr": 0
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 22,
-        "iqr": 151
-      }
-    },
-    {
-      "family": "trap-binary",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3421,
-        "iqr": 3
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 24,
-        "iqr": 147
-      }
-    },
-    {
-      "family": "trap-denied",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3424,
-        "iqr": 2
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 32,
-        "iqr": 154
-      }
-    },
-    {
-      "family": "trap-failure",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3424,
-        "iqr": 0
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 28,
-        "iqr": 198
-      }
-    },
-    {
-      "family": "trap-injection",
-      "solver": "optimised",
-      "tokens": {
-        "median": 3450,
-        "iqr": 8
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 32,
-        "iqr": 146
+        "iqr": 124
       }
     },
     {
       "family": "trap-mutate",
       "solver": "optimised",
       "tokens": {
-        "median": 3422,
+        "median": 3449,
         "iqr": 4
       },
       "turns": {
@@ -384,15 +384,15 @@
         "iqr": 0
       },
       "ms": {
-        "median": 25,
-        "iqr": 150
+        "median": 22,
+        "iqr": 139
       }
     },
     {
       "family": "trap-symlink",
       "solver": "optimised",
       "tokens": {
-        "median": 3423,
+        "median": 3450,
         "iqr": 1
       },
       "turns": {
@@ -400,24 +400,24 @@
         "iqr": 0
       },
       "ms": {
-        "median": 23,
-        "iqr": 145
+        "median": 22,
+        "iqr": 125
       }
     },
     {
       "family": "ui-customer",
       "solver": "optimised",
       "tokens": {
-        "median": 3437,
-        "iqr": 35
+        "median": 3460,
+        "iqr": 36
       },
       "turns": {
         "median": 2,
         "iqr": 0
       },
       "ms": {
-        "median": 21,
-        "iqr": 137
+        "median": 20,
+        "iqr": 101
       }
     }
   ],
@@ -432,17 +432,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3432,
+      "tokens": 3453,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 219,
+      "ms": 179,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 483
+          "resultChars": 542
         }
       }
     },
@@ -456,17 +456,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3424,
+      "tokens": 3446,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 30,
+      "ms": 27,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 471
+          "resultChars": 530
         }
       }
     },
@@ -475,154 +475,120 @@
       "family": "bug-hunt",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 8830,
-      "turns": 3,
-      "toolCalls": 2,
-      "ms": 307,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1599,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 2,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "search_layers": {
-          "calls": 1,
-          "items": 10,
-          "resultChars": 1747
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 7,
-          "resultChars": 5816
-        }
-      }
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
     },
     {
       "taskId": "bug-hunt/held-out/small/s1000",
       "family": "bug-hunt",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 8964,
-      "turns": 3,
-      "toolCalls": 2,
-      "ms": 50,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1599,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 2,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "search_layers": {
-          "calls": 1,
-          "items": 10,
-          "resultChars": 1703
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 8,
-          "resultChars": 6440
-        }
-      }
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
     },
     {
       "taskId": "dead-exports/held-out/medium/s1001",
       "family": "dead-exports",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "stretch",
-      "tokens": 3349,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 159,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1598,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_find": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 337
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "dead-exports/held-out/small/s1000",
       "family": "dead-exports",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "stretch",
-      "tokens": 3354,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 23,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1598,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_find": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 353
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "endpoints/held-out/medium/s1001",
       "family": "endpoints",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3522,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 156,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1595,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 2,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 694
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "endpoints/held-out/small/s1000",
       "family": "endpoints",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3516,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 23,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1595,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 688
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "env-var/held-out/medium/s1001",
@@ -634,17 +600,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3400,
+      "tokens": 3415,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 169,
+      "ms": 167,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 245
+          "resultChars": 304
         }
       }
     },
@@ -658,17 +624,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3402,
+      "tokens": 3417,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 25,
+      "ms": 27,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 238
+          "resultChars": 297
         }
       }
     },
@@ -682,17 +648,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3451,
+      "tokens": 3473,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 152,
+      "ms": 130,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 642
+          "resultChars": 701
         }
       }
     },
@@ -706,17 +672,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3449,
+      "tokens": 3470,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 22,
+      "ms": 20,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 636
+          "resultChars": 695
         }
       }
     },
@@ -725,48 +691,40 @@
       "family": "gdpr-api",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "stretch",
-      "tokens": 3499,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 159,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1605,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 624
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "gdpr-api/held-out/small/s1000",
       "family": "gdpr-api",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "stretch",
-      "tokens": 3502,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 24,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1605,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 631
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "none-exist/held-out/medium/s1001",
@@ -778,17 +736,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3355,
+      "tokens": 3377,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 162,
+      "ms": 122,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 306
+          "resultChars": 365
         }
       }
     },
@@ -802,17 +760,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3353,
+      "tokens": 3375,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 21,
+      "ms": 20,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 304
+          "resultChars": 363
         }
       }
     },
@@ -821,48 +779,40 @@
       "family": "pii-fields",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3390,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 155,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1601,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 378
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "pii-fields/held-out/small/s1000",
       "family": "pii-fields",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3391,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 22,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1601,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "repo_tags": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 379
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "react-components/held-out/medium/s1001",
@@ -874,17 +824,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3885,
+      "tokens": 3902,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 158,
+      "ms": 125,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 1798
+          "resultChars": 1857
         }
       }
     },
@@ -898,17 +848,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3785,
+      "tokens": 3802,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 23,
+      "ms": 21,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 1516
+          "resultChars": 1575
         }
       }
     },
@@ -922,17 +872,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3388,
+      "tokens": 3412,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 155,
+      "ms": 121,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 351
+          "resultChars": 440
         }
       }
     },
@@ -946,17 +896,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3387,
+      "tokens": 3409,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 22,
+      "ms": 19,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 349
+          "resultChars": 437
         }
       }
     },
@@ -965,22 +915,24 @@
       "family": "string-any-case",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3469,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 3394,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 170,
+      "ms": 139,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 429
+          "resultChars": 194
         }
       }
     },
@@ -989,22 +941,24 @@
       "family": "string-any-case",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3475,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 3395,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 23,
+      "ms": 22,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 438
+          "resultChars": 195
         }
       }
     },
@@ -1018,17 +972,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 4008,
+      "tokens": 4037,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 205,
+      "ms": 198,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 2,
-          "resultChars": 2195
+          "resultChars": 2313
         }
       }
     },
@@ -1042,17 +996,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3597,
+      "tokens": 3627,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 49,
+      "ms": 27,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 2,
-          "resultChars": 809
+          "resultChars": 927
         }
       }
     },
@@ -1066,17 +1020,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3483,
+      "tokens": 3510,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 175,
+      "ms": 141,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 415
+          "resultChars": 474
         }
       }
     },
@@ -1090,17 +1044,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3433,
+      "tokens": 3460,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 25,
+      "ms": 22,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 303
+          "resultChars": 362
         }
       }
     },
@@ -1109,22 +1063,24 @@
       "family": "string-word",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3389,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 3369,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 174,
+      "ms": 139,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 293
+          "resultChars": 207
         }
       }
     },
@@ -1133,22 +1089,24 @@
       "family": "string-word",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3387,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 3368,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 23,
+      "ms": 22,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 287
+          "resultChars": 205
         }
       }
     },
@@ -1157,22 +1115,24 @@
       "family": "symbol-usages",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3463,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 3458,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 169,
+      "ms": 137,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 401
+          "resultChars": 403
         }
       }
     },
@@ -1181,17 +1141,19 @@
       "family": "symbol-usages",
       "solver": "optimised",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3460,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 3454,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 26,
+      "ms": 22,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "search_layers": {
           "calls": 1,
@@ -1210,22 +1172,22 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3767,
+      "tokens": 3799,
       "turns": 2,
       "toolCalls": 2,
-      "ms": 166,
+      "ms": 124,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 778
+          "resultChars": 837
         },
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 588
+          "resultChars": 647
         }
       }
     },
@@ -1239,22 +1201,22 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3751,
+      "tokens": 3782,
       "turns": 2,
       "toolCalls": 2,
-      "ms": 24,
+      "ms": 33,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_find": {
           "calls": 1,
           "items": 1,
-          "resultChars": 755
+          "resultChars": 814
         },
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 567
+          "resultChars": 626
         }
       }
     },
@@ -1268,17 +1230,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3384,
+      "tokens": 3416,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 173,
+      "ms": 119,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 411
+          "resultChars": 470
         }
       }
     },
@@ -1292,17 +1254,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3384,
+      "tokens": 3416,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 22,
+      "ms": 18,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 411
+          "resultChars": 470
         }
       }
     },
@@ -1316,17 +1278,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3421,
+      "tokens": 3448,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 171,
+      "ms": 139,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 266
+          "resultChars": 325
         }
       }
     },
@@ -1340,17 +1302,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3424,
+      "tokens": 3452,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 24,
+      "ms": 22,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 275
+          "resultChars": 334
         }
       }
     },
@@ -1364,17 +1326,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3426,
+      "tokens": 3456,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 186,
+      "ms": 143,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 273
+          "resultChars": 343
         }
       }
     },
@@ -1388,17 +1350,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3424,
+      "tokens": 3455,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 32,
+      "ms": 23,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 266
+          "resultChars": 336
         }
       }
     },
@@ -1412,17 +1374,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3424,
+      "tokens": 3451,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 226,
+      "ms": 162,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 267
+          "resultChars": 326
         }
       }
     },
@@ -1436,17 +1398,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "stretch",
-      "tokens": 3424,
+      "tokens": 3451,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 28,
+      "ms": 21,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 266
+          "resultChars": 325
         }
       }
     },
@@ -1460,17 +1422,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3450,
+      "tokens": 3478,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 178,
+      "ms": 149,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 329
+          "resultChars": 388
         }
       }
     },
@@ -1484,17 +1446,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3458,
+      "tokens": 3485,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 32,
+      "ms": 25,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 340
+          "resultChars": 399
         }
       }
     },
@@ -1508,17 +1470,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3426,
+      "tokens": 3453,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 175,
+      "ms": 161,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 270
+          "resultChars": 329
         }
       }
     },
@@ -1532,17 +1494,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3422,
+      "tokens": 3449,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 25,
+      "ms": 22,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 265
+          "resultChars": 324
         }
       }
     },
@@ -1556,17 +1518,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3423,
+      "tokens": 3450,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 168,
+      "ms": 147,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 270
+          "resultChars": 329
         }
       }
     },
@@ -1580,17 +1542,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3424,
+      "tokens": 3451,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 23,
+      "ms": 22,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "search_layers": {
           "calls": 1,
           "items": 1,
-          "resultChars": 265
+          "resultChars": 324
         }
       }
     },
@@ -1604,17 +1566,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3472,
+      "tokens": 3496,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 158,
+      "ms": 121,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 657
+          "resultChars": 716
         }
       }
     },
@@ -1628,17 +1590,17 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3437,
+      "tokens": 3460,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 21,
+      "ms": 20,
       "decoyHits": 0,
       "failures": [],
       "tools": {
         "repo_tags": {
           "calls": 1,
           "items": 1,
-          "resultChars": 552
+          "resultChars": 611
         }
       }
     }

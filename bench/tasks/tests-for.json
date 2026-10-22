@@ -3,7 +3,7 @@
     "id": "tests-for/held-out/medium/s1001",
     "family": "tests-for",
     "variant": "held-out",
-    "prompt": "List every test that imports `quartzfieldRollup.ts`.",
+    "prompt": "Which test files cover `quartzfieldRollup.ts`?",
     "scope": [
       "."
     ],
@@ -49,19 +49,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15460,
+        "maxTokens": 15452,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5798,
+        "maxTokens": 5795,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3092,
+        "maxTokens": 3090,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -77,7 +77,7 @@
         }
       ],
       "measured": {
-        "tokens": 3865,
+        "tokens": 3863,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -88,7 +88,7 @@
     "id": "tests-for/held-out/small/s1000",
     "family": "tests-for",
     "variant": "held-out",
-    "prompt": "List every test that imports `meadowwynRollup.ts`.",
+    "prompt": "Which test files cover `meadowwynRollup.ts`?",
     "scope": [
       "."
     ],
@@ -134,19 +134,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15412,
+        "maxTokens": 15400,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5780,
+        "maxTokens": 5775,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3082,
+        "maxTokens": 3080,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -162,7 +162,7 @@
         }
       ],
       "measured": {
-        "tokens": 3853,
+        "tokens": 3850,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

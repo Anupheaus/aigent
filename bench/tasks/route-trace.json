@@ -3,7 +3,7 @@
     "id": "route-trace/held-out/medium/s1001",
     "family": "route-trace",
     "variant": "held-out",
-    "prompt": "For `GET /api/lagoonwicks/:id`, list the files from the registration to the database call.",
+    "prompt": "Walk me through what handles `GET /api/lagoonwicks/:id`, from the route to the query.",
     "scope": [
       "."
     ],
@@ -41,19 +41,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 64816,
+        "maxTokens": 64788,
         "maxTurns": 20,
         "maxToolCalls": 16,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 24306,
+        "maxTokens": 24296,
         "maxTurns": 8,
         "maxToolCalls": 6,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 12963,
+        "maxTokens": 12957,
         "maxTurns": 4,
         "maxToolCalls": 3,
         "maxMs": 12000
@@ -74,7 +74,7 @@
         }
       ],
       "measured": {
-        "tokens": 16204,
+        "tokens": 16197,
         "turns": 5,
         "toolCalls": 4,
         "ms": 15000
@@ -85,7 +85,7 @@
     "id": "route-trace/held-out/small/s1000",
     "family": "route-trace",
     "variant": "held-out",
-    "prompt": "For `GET /api/valesteads/:id`, list the files from the registration to the database call.",
+    "prompt": "Walk me through what handles `GET /api/valesteads/:id`, from the route to the query.",
     "scope": [
       "."
     ],
@@ -123,19 +123,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 65000,
+        "maxTokens": 64968,
         "maxTurns": 20,
         "maxToolCalls": 16,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 24375,
+        "maxTokens": 24363,
         "maxTurns": 8,
         "maxToolCalls": 6,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 13000,
+        "maxTokens": 12993,
         "maxTurns": 4,
         "maxToolCalls": 3,
         "maxMs": 4000
@@ -156,7 +156,7 @@
         }
       ],
       "measured": {
-        "tokens": 16250,
+        "tokens": 16242,
         "turns": 5,
         "toolCalls": 4,
         "ms": 5000

@@ -3,7 +3,7 @@
     "id": "env-var/held-out/medium/s1001",
     "family": "env-var",
     "variant": "held-out",
-    "prompt": "What code reads the environment variable `QUILLWICK_RIDGEWICK_BUCKET`?",
+    "prompt": "Which files pick up `QUILLWICK_RIDGEWICK_BUCKET` from process.env?",
     "scope": [
       "."
     ],
@@ -53,19 +53,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15472,
+        "maxTokens": 15464,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5802,
+        "maxTokens": 5799,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3094,
+        "maxTokens": 3092,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -81,7 +81,7 @@
         }
       ],
       "measured": {
-        "tokens": 3868,
+        "tokens": 3866,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -92,7 +92,7 @@
     "id": "env-var/held-out/small/s1000",
     "family": "env-var",
     "variant": "held-out",
-    "prompt": "What code reads the environment variable `MAPLEBURY_RAVENFIELD_TIMEOUT_MS`?",
+    "prompt": "Which files pick up `MAPLEBURY_RAVENFIELD_TIMEOUT_MS` from process.env?",
     "scope": [
       "."
     ],
@@ -142,19 +142,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15528,
+        "maxTokens": 15520,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5823,
+        "maxTokens": 5820,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3105,
+        "maxTokens": 3104,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -170,7 +170,7 @@
         }
       ],
       "measured": {
-        "tokens": 3882,
+        "tokens": 3880,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

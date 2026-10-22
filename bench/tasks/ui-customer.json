@@ -3,7 +3,7 @@
     "id": "ui-customer/held-out/medium/s1001",
     "family": "ui-customer",
     "variant": "held-out",
-    "prompt": "Where does the UI show a customer's personal information?",
+    "prompt": "Find the UI that displays personal details about a customer on screen.",
     "scope": [
       "."
     ],
@@ -53,19 +53,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14844,
+        "maxTokens": 14868,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5567,
+        "maxTokens": 5576,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 2968,
+        "maxTokens": 2973,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -81,7 +81,7 @@
         }
       ],
       "measured": {
-        "tokens": 3711,
+        "tokens": 3717,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -92,7 +92,7 @@
     "id": "ui-customer/held-out/small/s1000",
     "family": "ui-customer",
     "variant": "held-out",
-    "prompt": "Where does the UI show a customer's personal information?",
+    "prompt": "Find the UI that displays personal details about a customer on screen.",
     "scope": [
       "."
     ],
@@ -141,19 +141,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14676,
+        "maxTokens": 14704,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5504,
+        "maxTokens": 5514,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 2935,
+        "maxTokens": 2940,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -169,7 +169,7 @@
         }
       ],
       "measured": {
-        "tokens": 3669,
+        "tokens": 3676,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

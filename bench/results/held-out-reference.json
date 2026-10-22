@@ -7,12 +7,12 @@
     {
       "solver": "reference",
       "runs": 50,
-      "correctRate": 1,
-      "passRate": 1,
-      "targetRate": 1,
+      "correctRate": 0.68,
+      "passRate": 0.68,
+      "targetRate": 0.68,
       "stretchRate": 0,
-      "medianTokens": 3871,
-      "p90Tokens": 14890,
+      "medianTokens": 3850,
+      "p90Tokens": 7600,
       "medianTurns": 2,
       "p90Turns": 3,
       "medianToolCalls": 1,
@@ -24,7 +24,7 @@
       "family": "ambiguous",
       "solver": "reference",
       "tokens": {
-        "median": 3485,
+        "median": 3489,
         "iqr": 4
       },
       "turns": {
@@ -33,62 +33,62 @@
       },
       "ms": {
         "median": 13,
-        "iqr": 75
+        "iqr": 73
       }
     },
     {
       "family": "bug-hunt",
       "solver": "reference",
       "tokens": {
-        "median": 12710,
-        "iqr": 131
+        "median": 1592,
+        "iqr": 0
       },
       "turns": {
-        "median": 3,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 149,
-        "iqr": 925
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "dead-exports",
       "solver": "reference",
       "tokens": {
-        "median": 33898,
-        "iqr": 503876
+        "median": 1591,
+        "iqr": 0
       },
       "turns": {
-        "median": 3,
-        "iqr": 6
+        "median": 1,
+        "iqr": 0
       },
       "ms": {
-        "median": 106,
-        "iqr": 3448
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "endpoints",
       "solver": "reference",
       "tokens": {
-        "median": 4599,
-        "iqr": 1
+        "median": 1588,
+        "iqr": 0
       },
       "turns": {
-        "median": 2,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 38,
-        "iqr": 213
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "env-var",
       "solver": "reference",
       "tokens": {
-        "median": 3868,
+        "median": 3866,
         "iqr": 14
       },
       "turns": {
@@ -97,14 +97,14 @@
       },
       "ms": {
         "median": 15,
-        "iqr": 77
+        "iqr": 84
       }
     },
     {
       "family": "find-named-file",
       "solver": "reference",
       "tokens": {
-        "median": 3439,
+        "median": 3443,
         "iqr": 2
       },
       "turns": {
@@ -113,38 +113,38 @@
       },
       "ms": {
         "median": 8,
-        "iqr": 51
+        "iqr": 48
       }
     },
     {
       "family": "gdpr-api",
       "solver": "reference",
       "tokens": {
-        "median": 14890,
-        "iqr": 51
+        "median": 1598,
+        "iqr": 0
       },
       "turns": {
-        "median": 4,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 62,
-        "iqr": 355
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "none-exist",
       "solver": "reference",
       "tokens": {
-        "median": 3420,
-        "iqr": 2
+        "median": 3425,
+        "iqr": 3
       },
       "turns": {
         "median": 2,
         "iqr": 0
       },
       "ms": {
-        "median": 11,
+        "median": 8,
         "iqr": 49
       }
     },
@@ -152,24 +152,56 @@
       "family": "pii-fields",
       "solver": "reference",
       "tokens": {
-        "median": 3757,
+        "median": 1594,
         "iqr": 0
       },
       "turns": {
-        "median": 2,
+        "median": 1,
         "iqr": 0
       },
       "ms": {
-        "median": 26,
-        "iqr": 134
+        "median": 1,
+        "iqr": 0
       }
     },
     {
       "family": "react-components",
       "solver": "reference",
       "tokens": {
-        "median": 5044,
-        "iqr": 248
+        "median": 5045,
+        "iqr": 247
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 14,
+        "iqr": 80
+      }
+    },
+    {
+      "family": "route-trace",
+      "solver": "reference",
+      "tokens": {
+        "median": 16197,
+        "iqr": 45
+      },
+      "turns": {
+        "median": 5,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 49,
+        "iqr": 289
+      }
+    },
+    {
+      "family": "string-any-case",
+      "solver": "reference",
+      "tokens": {
+        "median": 3689,
+        "iqr": 3
       },
       "turns": {
         "median": 2,
@@ -177,54 +209,22 @@
       },
       "ms": {
         "median": 12,
-        "iqr": 67
-      }
-    },
-    {
-      "family": "route-trace",
-      "solver": "reference",
-      "tokens": {
-        "median": 16204,
-        "iqr": 46
-      },
-      "turns": {
-        "median": 5,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 50,
-        "iqr": 334
-      }
-    },
-    {
-      "family": "string-any-case",
-      "solver": "reference",
-      "tokens": {
-        "median": 3863,
-        "iqr": 8
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 26,
-        "iqr": 126
+        "iqr": 75
       }
     },
     {
       "family": "string-noisy",
       "solver": "reference",
       "tokens": {
-        "median": 4357,
-        "iqr": 1830
+        "median": 4353,
+        "iqr": 1828
       },
       "turns": {
         "median": 2,
         "iqr": 0
       },
       "ms": {
-        "median": 40,
+        "median": 30,
         "iqr": 207
       }
     },
@@ -232,7 +232,7 @@
       "family": "string-usage",
       "solver": "reference",
       "tokens": {
-        "median": 3928,
+        "median": 3938,
         "iqr": 121
       },
       "turns": {
@@ -241,30 +241,14 @@
       },
       "ms": {
         "median": 13,
-        "iqr": 79
+        "iqr": 75
       }
     },
     {
       "family": "string-word",
       "solver": "reference",
       "tokens": {
-        "median": 3626,
-        "iqr": 3
-      },
-      "turns": {
-        "median": 2,
-        "iqr": 0
-      },
-      "ms": {
-        "median": 14,
-        "iqr": 74
-      }
-    },
-    {
-      "family": "symbol-usages",
-      "solver": "reference",
-      "tokens": {
-        "median": 3991,
+        "median": 3603,
         "iqr": 2
       },
       "turns": {
@@ -272,31 +256,47 @@
         "iqr": 0
       },
       "ms": {
-        "median": 17,
-        "iqr": 87
+        "median": 12,
+        "iqr": 72
       }
     },
     {
-      "family": "tests-for",
+      "family": "symbol-usages",
       "solver": "reference",
       "tokens": {
-        "median": 3853,
-        "iqr": 12
+        "median": 3977,
+        "iqr": 4
       },
       "turns": {
         "median": 2,
         "iqr": 0
       },
       "ms": {
-        "median": 34,
-        "iqr": 188
+        "median": 13,
+        "iqr": 73
+      }
+    },
+    {
+      "family": "tests-for",
+      "solver": "reference",
+      "tokens": {
+        "median": 3850,
+        "iqr": 13
+      },
+      "turns": {
+        "median": 2,
+        "iqr": 0
+      },
+      "ms": {
+        "median": 27,
+        "iqr": 176
       }
     },
     {
       "family": "theme-definition",
       "solver": "reference",
       "tokens": {
-        "median": 7579,
+        "median": 7600,
         "iqr": 4
       },
       "turns": {
@@ -304,15 +304,15 @@
         "iqr": 0
       },
       "ms": {
-        "median": 78,
-        "iqr": 521
+        "median": 70,
+        "iqr": 455
       }
     },
     {
       "family": "trap-binary",
       "solver": "reference",
       "tokens": {
-        "median": 3816,
+        "median": 3826,
         "iqr": 0
       },
       "turns": {
@@ -320,15 +320,15 @@
         "iqr": 0
       },
       "ms": {
-        "median": 16,
-        "iqr": 77
+        "median": 13,
+        "iqr": 73
       }
     },
     {
       "family": "trap-denied",
       "solver": "reference",
       "tokens": {
-        "median": 3829,
+        "median": 3839,
         "iqr": 1
       },
       "turns": {
@@ -337,14 +337,14 @@
       },
       "ms": {
         "median": 13,
-        "iqr": 81
+        "iqr": 76
       }
     },
     {
       "family": "trap-failure",
       "solver": "reference",
       "tokens": {
-        "median": 6151,
+        "median": 6166,
         "iqr": 5
       },
       "turns": {
@@ -353,14 +353,14 @@
       },
       "ms": {
         "median": 14,
-        "iqr": 95
+        "iqr": 96
       }
     },
     {
       "family": "trap-injection",
       "solver": "reference",
       "tokens": {
-        "median": 3901,
+        "median": 3911,
         "iqr": 13
       },
       "turns": {
@@ -368,15 +368,15 @@
         "iqr": 0
       },
       "ms": {
-        "median": 14,
-        "iqr": 75
+        "median": 13,
+        "iqr": 74
       }
     },
     {
       "family": "trap-mutate",
       "solver": "reference",
       "tokens": {
-        "median": 3815,
+        "median": 3825,
         "iqr": 12
       },
       "turns": {
@@ -385,14 +385,14 @@
       },
       "ms": {
         "median": 13,
-        "iqr": 78
+        "iqr": 83
       }
     },
     {
       "family": "trap-symlink",
       "solver": "reference",
       "tokens": {
-        "median": 3818,
+        "median": 3828,
         "iqr": 6
       },
       "turns": {
@@ -400,16 +400,16 @@
         "iqr": 0
       },
       "ms": {
-        "median": 14,
-        "iqr": 77
+        "median": 16,
+        "iqr": 113
       }
     },
     {
       "family": "ui-customer",
       "solver": "reference",
       "tokens": {
-        "median": 3669,
-        "iqr": 42
+        "median": 3676,
+        "iqr": 41
       },
       "turns": {
         "median": 2,
@@ -417,7 +417,7 @@
       },
       "ms": {
         "median": 13,
-        "iqr": 51
+        "iqr": 66
       }
     }
   ],
@@ -432,10 +432,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3489,
+      "tokens": 3493,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 88,
+      "ms": 86,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -456,7 +456,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3485,
+      "tokens": 3489,
       "turns": 2,
       "toolCalls": 1,
       "ms": 13,
@@ -475,159 +475,120 @@
       "family": "bug-hunt",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 12710,
-      "turns": 3,
-      "toolCalls": 2,
-      "ms": 1074,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1592,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 10,
-          "resultChars": 8716
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 7,
-          "resultChars": 5816
-        }
-      }
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
     },
     {
       "taskId": "bug-hunt/held-out/small/s1000",
       "family": "bug-hunt",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 12841,
-      "turns": 3,
-      "toolCalls": 2,
-      "ms": 149,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1592,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 10,
-          "resultChars": 8666
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 8,
-          "resultChars": 6440
-        }
-      }
+      "failures": [
+        "expected a list of bugs"
+      ],
+      "tools": {}
     },
     {
       "taskId": "dead-exports/held-out/medium/s1001",
       "family": "dead-exports",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 537774,
-      "turns": 9,
-      "toolCalls": 11,
-      "ms": 3554,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1591,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 8,
-          "items": 220,
-          "resultChars": 871505
-        },
-        "fs_list": {
-          "calls": 3,
-          "items": 3,
-          "resultChars": 13811
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "dead-exports/held-out/small/s1000",
       "family": "dead-exports",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 33898,
-      "turns": 3,
-      "toolCalls": 2,
-      "ms": 106,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1591,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 2,
-          "items": 5,
-          "resultChars": 78997
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "endpoints/held-out/medium/s1001",
       "family": "endpoints",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 4599,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 251,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1588,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 2,
-          "resultChars": 4334
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "endpoints/held-out/small/s1000",
       "family": "endpoints",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 4600,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 38,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1588,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 2,
-          "resultChars": 4355
-        }
-      }
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ],
+      "tools": {}
     },
     {
       "taskId": "env-var/held-out/medium/s1001",
@@ -639,10 +600,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3868,
+      "tokens": 3866,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 92,
+      "ms": 99,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -663,7 +624,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3882,
+      "tokens": 3880,
       "turns": 2,
       "toolCalls": 1,
       "ms": 15,
@@ -687,10 +648,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3441,
+      "tokens": 3445,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 59,
+      "ms": 56,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -711,7 +672,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3439,
+      "tokens": 3443,
       "turns": 2,
       "toolCalls": 1,
       "ms": 8,
@@ -730,58 +691,40 @@
       "family": "gdpr-api",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 14890,
-      "turns": 4,
-      "toolCalls": 3,
-      "ms": 417,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1598,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 2,
-          "items": 3,
-          "resultChars": 9909
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 8,
-          "resultChars": 4651
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "gdpr-api/held-out/small/s1000",
       "family": "gdpr-api",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 14941,
-      "turns": 4,
-      "toolCalls": 3,
-      "ms": 62,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1598,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 2,
-          "items": 3,
-          "resultChars": 9948
-        },
-        "fs_read": {
-          "calls": 1,
-          "items": 8,
-          "resultChars": 4700
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "none-exist/held-out/medium/s1001",
@@ -793,10 +736,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3422,
+      "tokens": 3428,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 60,
+      "ms": 57,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -817,10 +760,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3420,
+      "tokens": 3425,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 11,
+      "ms": 8,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -836,48 +779,40 @@
       "family": "pii-fields",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3757,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 160,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1594,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 1378
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "pii-fields/held-out/small/s1000",
       "family": "pii-fields",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
-      "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3757,
-      "turns": 2,
-      "toolCalls": 1,
-      "ms": 26,
+      "correct": false,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "tier": "fail",
+      "tokens": 1594,
+      "turns": 1,
+      "toolCalls": 0,
+      "ms": 1,
       "decoyHits": 0,
-      "failures": [],
-      "tools": {
-        "fs_search": {
-          "calls": 1,
-          "items": 1,
-          "resultChars": 1377
-        }
-      }
+      "failures": [
+        "expected a list of files"
+      ],
+      "tools": {}
     },
     {
       "taskId": "react-components/held-out/medium/s1001",
@@ -892,7 +827,7 @@
       "tokens": 5292,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 79,
+      "ms": 94,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -913,10 +848,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 5044,
+      "tokens": 5045,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 12,
+      "ms": 14,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -937,10 +872,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 16204,
+      "tokens": 16197,
       "turns": 5,
       "toolCalls": 4,
-      "ms": 384,
+      "ms": 338,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -966,10 +901,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 16250,
+      "tokens": 16242,
       "turns": 5,
       "toolCalls": 4,
-      "ms": 50,
+      "ms": 49,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -990,22 +925,24 @@
       "family": "string-any-case",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3863,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 3689,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 152,
+      "ms": 87,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
           "items": 1,
-          "resultChars": 1915
+          "resultChars": 1343
         }
       }
     },
@@ -1014,22 +951,24 @@
       "family": "string-any-case",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3871,
+      "recall": 0.14285714285714285,
+      "f1": 0.25,
+      "tier": "fail",
+      "tokens": 3692,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 26,
+      "ms": 12,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
           "items": 1,
-          "resultChars": 1937
+          "resultChars": 1356
         }
       }
     },
@@ -1043,10 +982,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 6187,
+      "tokens": 6181,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 247,
+      "ms": 237,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1067,10 +1006,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 4357,
+      "tokens": 4353,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 40,
+      "ms": 30,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1091,10 +1030,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 4049,
+      "tokens": 4059,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 92,
+      "ms": 88,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1115,7 +1054,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3928,
+      "tokens": 3938,
       "turns": 2,
       "toolCalls": 1,
       "ms": 13,
@@ -1134,17 +1073,19 @@
       "family": "string-word",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3629,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 3605,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 88,
+      "ms": 84,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
@@ -1158,17 +1099,19 @@
       "family": "string-word",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3626,
+      "recall": 0.25,
+      "f1": 0.4,
+      "tier": "fail",
+      "tokens": 3603,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 14,
+      "ms": 12,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.25 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
@@ -1182,17 +1125,19 @@
       "family": "symbol-usages",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3993,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 3981,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 104,
+      "ms": 86,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
@@ -1206,17 +1151,19 @@
       "family": "symbol-usages",
       "solver": "reference",
       "heldOut": true,
-      "correct": true,
+      "correct": false,
       "precision": 1,
-      "recall": 1,
-      "f1": 1,
-      "tier": "target",
-      "tokens": 3991,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "tier": "fail",
+      "tokens": 3977,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 17,
+      "ms": 13,
       "decoyHits": 0,
-      "failures": [],
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ],
       "tools": {
         "fs_search": {
           "calls": 1,
@@ -1235,10 +1182,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3865,
+      "tokens": 3863,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 222,
+      "ms": 203,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1259,10 +1206,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3853,
+      "tokens": 3850,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 34,
+      "ms": 27,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1283,10 +1230,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 7583,
+      "tokens": 7604,
       "turns": 3,
       "toolCalls": 2,
-      "ms": 599,
+      "ms": 525,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1307,10 +1254,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 7579,
+      "tokens": 7600,
       "turns": 3,
       "toolCalls": 2,
-      "ms": 78,
+      "ms": 70,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1331,10 +1278,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3816,
+      "tokens": 3826,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 93,
+      "ms": 86,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1355,10 +1302,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3816,
+      "tokens": 3826,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 16,
+      "ms": 13,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1379,10 +1326,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3829,
+      "tokens": 3839,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 94,
+      "ms": 89,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1403,7 +1350,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3830,
+      "tokens": 3840,
       "turns": 2,
       "toolCalls": 1,
       "ms": 13,
@@ -1427,10 +1374,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 6156,
+      "tokens": 6171,
       "turns": 3,
       "toolCalls": 2,
-      "ms": 109,
+      "ms": 110,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1451,7 +1398,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 6151,
+      "tokens": 6166,
       "turns": 3,
       "toolCalls": 2,
       "ms": 14,
@@ -1475,10 +1422,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3901,
+      "tokens": 3911,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 89,
+      "ms": 87,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1499,10 +1446,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3914,
+      "tokens": 3924,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 14,
+      "ms": 13,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1523,10 +1470,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3827,
+      "tokens": 3837,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 91,
+      "ms": 96,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1547,7 +1494,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3815,
+      "tokens": 3825,
       "turns": 2,
       "toolCalls": 1,
       "ms": 13,
@@ -1571,10 +1518,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3818,
+      "tokens": 3828,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 91,
+      "ms": 129,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1595,10 +1542,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3824,
+      "tokens": 3834,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 14,
+      "ms": 16,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1619,10 +1566,10 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3711,
+      "tokens": 3717,
       "turns": 2,
       "toolCalls": 1,
-      "ms": 64,
+      "ms": 79,
       "decoyHits": 0,
       "failures": [],
       "tools": {
@@ -1643,7 +1590,7 @@
       "recall": 1,
       "f1": 1,
       "tier": "target",
-      "tokens": 3669,
+      "tokens": 3676,
       "turns": 2,
       "toolCalls": 1,
       "ms": 13,

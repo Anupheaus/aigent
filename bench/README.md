@@ -51,7 +51,8 @@ offered the Round 3 policy is 18% dearer than the reference at the median), the 
 of both the reference and the optimised policy are written for the generator's conventions (`ApiRequest`,
 `createTheme(`, `*Tokens`, the personal-data field list, `analytics`, `createRouter()`), so the numbers show what the
 tools make possible on such code, not how the strategies generalise. The held-out set is run once, at the end
-(`results/held-out.md`). Each round is tagged locally (`bench-round-N`, the first recordings). `budgets.json` holds the
+(`results/held-out.md`): on the new held-out wording the scripted prompt reader misread 8 of 25 tasks, so the reference
+and the optimised policy were both 68% correct (34/50); where correct, the optimised policy saved 10.3% at the median. Each round is tagged locally (`bench-round-N`, the first recordings). `budgets.json` holds the
 Round 3 budgets (each spec's best run plus 15%, turns and tool calls only by whole steps; median tokens and p90 turns
 likewise) and CI fails when the scripted tier regresses against them, when a budgeted spec did not run or when a spec
 has no budget (`--gate`, `src/gate.ts`; `--gate` and `--write-budgets` refuse `--seed`, `--tasks`, `--fresh-seeds` and

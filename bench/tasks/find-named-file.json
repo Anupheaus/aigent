@@ -3,7 +3,7 @@
     "id": "find-named-file/held-out/medium/s1001",
     "family": "find-named-file",
     "variant": "held-out",
-    "prompt": "I cannot remember where `lichenCinderMatrix.ts` lives. Can you find that file for me?",
+    "prompt": "Could you track down `lichenCinderMatrix.ts` for me? I need to know where it sits in the repo.",
     "scope": [
       "."
     ],
@@ -59,19 +59,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 13764,
+        "maxTokens": 13780,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5162,
+        "maxTokens": 5168,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 2752,
+        "maxTokens": 2756,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -87,7 +87,7 @@
         }
       ],
       "measured": {
-        "tokens": 3441,
+        "tokens": 3445,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -98,7 +98,7 @@
     "id": "find-named-file/held-out/small/s1000",
     "family": "find-named-file",
     "variant": "held-out",
-    "prompt": "I cannot remember where `pineIndigoSnapshot.ts` lives. Can you find that file for me?",
+    "prompt": "Could you track down `pineIndigoSnapshot.ts` for me? I need to know where it sits in the repo.",
     "scope": [
       "."
     ],
@@ -154,19 +154,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 13756,
+        "maxTokens": 13772,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5159,
+        "maxTokens": 5165,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 2751,
+        "maxTokens": 2754,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -182,7 +182,7 @@
         }
       ],
       "measured": {
-        "tokens": 3439,
+        "tokens": 3443,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

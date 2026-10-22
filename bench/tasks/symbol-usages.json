@@ -3,7 +3,7 @@
     "id": "symbol-usages/held-out/medium/s1001",
     "family": "symbol-usages",
     "variant": "held-out",
-    "prompt": "Show me where `computeMossfieldTotals` is declared and everywhere it is used.",
+    "prompt": "Where does `computeMossfieldTotals` come from, and which files use it?",
     "scope": [
       "."
     ],
@@ -55,19 +55,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15972,
+        "maxTokens": 15924,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5990,
+        "maxTokens": 5972,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3194,
+        "maxTokens": 3184,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -83,18 +83,21 @@
         }
       ],
       "measured": {
-        "tokens": 3993,
+        "tokens": 3981,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {
     "id": "symbol-usages/held-out/small/s1000",
     "family": "symbol-usages",
     "variant": "held-out",
-    "prompt": "Show me where `computeCedarwickTotals` is declared and everywhere it is used.",
+    "prompt": "Where does `computeCedarwickTotals` come from, and which files use it?",
     "scope": [
       "."
     ],
@@ -146,19 +149,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15964,
+        "maxTokens": 15908,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5987,
+        "maxTokens": 5966,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3192,
+        "maxTokens": 3181,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -174,11 +177,14 @@
         }
       ],
       "measured": {
-        "tokens": 3991,
+        "tokens": 3977,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "recall 0.80 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {

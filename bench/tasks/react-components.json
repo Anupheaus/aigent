@@ -3,7 +3,7 @@
     "id": "react-components/held-out/medium/s1001",
     "family": "react-components",
     "variant": "held-out",
-    "prompt": "Give me every React component file we have.",
+    "prompt": "Which source files contain React components?",
     "scope": [
       "."
     ],
@@ -113,7 +113,7 @@
     "id": "react-components/held-out/small/s1000",
     "family": "react-components",
     "variant": "held-out",
-    "prompt": "Give me every React component file we have.",
+    "prompt": "Which source files contain React components?",
     "scope": [
       "."
     ],
@@ -181,19 +181,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 20176,
+        "maxTokens": 20180,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 7566,
+        "maxTokens": 7568,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 4035,
+        "maxTokens": 4036,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -209,7 +209,7 @@
         }
       ],
       "measured": {
-        "tokens": 5044,
+        "tokens": 5045,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

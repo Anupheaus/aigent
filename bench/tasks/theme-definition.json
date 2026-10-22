@@ -3,7 +3,7 @@
     "id": "theme-definition/held-out/medium/s1001",
     "family": "theme-definition",
     "variant": "held-out",
-    "prompt": "What files hold the definition of the live app theme?",
+    "prompt": "Point me at the files that actually define the theme the shipped app renders with.",
     "scope": [
       "."
     ],
@@ -59,19 +59,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 30332,
+        "maxTokens": 30416,
         "maxTurns": 12,
         "maxToolCalls": 8,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 11375,
+        "maxTokens": 11406,
         "maxTurns": 5,
         "maxToolCalls": 3,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 6066,
+        "maxTokens": 6083,
         "maxTurns": 2,
         "maxToolCalls": 1,
         "maxMs": 12000
@@ -87,7 +87,7 @@
         }
       ],
       "measured": {
-        "tokens": 7583,
+        "tokens": 7604,
         "turns": 3,
         "toolCalls": 2,
         "ms": 15000
@@ -98,7 +98,7 @@
     "id": "theme-definition/held-out/small/s1000",
     "family": "theme-definition",
     "variant": "held-out",
-    "prompt": "What files hold the definition of the live app theme?",
+    "prompt": "Point me at the files that actually define the theme the shipped app renders with.",
     "scope": [
       "."
     ],
@@ -154,19 +154,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 30316,
+        "maxTokens": 30400,
         "maxTurns": 12,
         "maxToolCalls": 8,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 11369,
+        "maxTokens": 11400,
         "maxTurns": 5,
         "maxToolCalls": 3,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 6063,
+        "maxTokens": 6080,
         "maxTurns": 2,
         "maxToolCalls": 1,
         "maxMs": 4000
@@ -182,7 +182,7 @@
         }
       ],
       "measured": {
-        "tokens": 7579,
+        "tokens": 7600,
         "turns": 3,
         "toolCalls": 2,
         "ms": 5000

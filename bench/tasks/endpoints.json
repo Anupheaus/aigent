@@ -3,7 +3,7 @@
     "id": "endpoints/held-out/medium/s1001",
     "family": "endpoints",
     "variant": "held-out",
-    "prompt": "Which method and path pairs does the running API answer?",
+    "prompt": "What routes does our HTTP server expose? Give method and path for each.",
     "scope": [
       "."
     ],
@@ -74,46 +74,43 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 18396,
-        "maxTurns": 8,
-        "maxToolCalls": 4,
+        "maxTokens": 6352,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 6899,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 2382,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3679,
-        "maxTurns": 1,
+        "maxTokens": 1270,
+        "maxTurns": 0,
         "maxToolCalls": 0,
         "maxMs": 12000
       }
     },
     "reference": {
       "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
-      "steps": [
-        {
-          "tool": "fs_search",
-          "items": 2,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 4599,
-        "turns": 2,
-        "toolCalls": 1,
+        "tokens": 1588,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {
     "id": "endpoints/held-out/small/s1000",
     "family": "endpoints",
     "variant": "held-out",
-    "prompt": "Which method and path pairs does the running API answer?",
+    "prompt": "What routes does our HTTP server expose? Give method and path for each.",
     "scope": [
       "."
     ],
@@ -184,39 +181,36 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 18400,
-        "maxTurns": 8,
-        "maxToolCalls": 4,
+        "maxTokens": 6352,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 6900,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 2382,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3680,
-        "maxTurns": 1,
+        "maxTokens": 1270,
+        "maxTurns": 0,
         "maxToolCalls": 0,
         "maxMs": 4000
       }
     },
     "reference": {
       "description": "One turn searching registrations and mounts; keep live, uncommented, mounted routes.",
-      "steps": [
-        {
-          "tool": "fs_search",
-          "items": 2,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 4600,
-        "turns": 2,
-        "toolCalls": 1,
+        "tokens": 1588,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "recall 0.00 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {

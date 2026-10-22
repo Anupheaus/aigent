@@ -3,7 +3,7 @@
     "id": "ambiguous/held-out/medium/s1001",
     "family": "ambiguous",
     "variant": "held-out",
-    "prompt": "I cannot remember where `cinderburyCoralburySnapshot.ts` lives. Can you find that file for me?",
+    "prompt": "Could you track down `cinderburyCoralburySnapshot.ts` for me? I need to know where it sits in the repo.",
     "scope": [
       "."
     ],
@@ -52,19 +52,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 13956,
+        "maxTokens": 13972,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5234,
+        "maxTokens": 5240,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 2791,
+        "maxTokens": 2794,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -80,7 +80,7 @@
         }
       ],
       "measured": {
-        "tokens": 3489,
+        "tokens": 3493,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -91,7 +91,7 @@
     "id": "ambiguous/held-out/small/s1000",
     "family": "ambiguous",
     "variant": "held-out",
-    "prompt": "I cannot remember where `meadowwickSagefordDigest.ts` lives. Can you find that file for me?",
+    "prompt": "Could you track down `meadowwickSagefordDigest.ts` for me? I need to know where it sits in the repo.",
     "scope": [
       "."
     ],
@@ -140,19 +140,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 13940,
+        "maxTokens": 13956,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5228,
+        "maxTokens": 5234,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 2788,
+        "maxTokens": 2791,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -168,7 +168,7 @@
         }
       ],
       "measured": {
-        "tokens": 3485,
+        "tokens": 3489,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

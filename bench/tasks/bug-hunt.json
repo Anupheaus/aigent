@@ -3,7 +3,7 @@
     "id": "bug-hunt/held-out/medium/s1001",
     "family": "bug-hunt",
     "variant": "held-out",
-    "prompt": "Audit the code for real bugs and give me file, line and cause for each one.",
+    "prompt": "Go through the code and point out anything that is actually broken: file, line and why.",
     "scope": [
       "."
     ],
@@ -156,51 +156,43 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 50840,
-        "maxTurns": 12,
-        "maxToolCalls": 8,
+        "maxTokens": 6368,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 19065,
-        "maxTurns": 5,
-        "maxToolCalls": 3,
+        "maxTokens": 2388,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 10168,
-        "maxTurns": 2,
-        "maxToolCalls": 1,
+        "maxTokens": 1273,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 12000
       }
     },
     "reference": {
       "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
-      "steps": [
-        {
-          "tool": "fs_read",
-          "items": 7,
-          "purpose": "1 call(s)"
-        },
-        {
-          "tool": "fs_search",
-          "items": 10,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 12710,
-        "turns": 3,
-        "toolCalls": 2,
+        "tokens": 1592,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "expected a list of bugs"
+      ]
     }
   },
   {
     "id": "bug-hunt/held-out/small/s1000",
     "family": "bug-hunt",
     "variant": "held-out",
-    "prompt": "Audit the code for real bugs and give me file, line and cause for each one.",
+    "prompt": "Go through the code and point out anything that is actually broken: file, line and why.",
     "scope": [
       "."
     ],
@@ -353,44 +345,36 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 51364,
-        "maxTurns": 12,
-        "maxToolCalls": 8,
+        "maxTokens": 6368,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 19262,
-        "maxTurns": 5,
-        "maxToolCalls": 3,
+        "maxTokens": 2388,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 10272,
-        "maxTurns": 2,
-        "maxToolCalls": 1,
+        "maxTokens": 1273,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 4000
       }
     },
     "reference": {
       "description": "All risk-pattern searches in one turn, one batched read of the hits, careful review.",
-      "steps": [
-        {
-          "tool": "fs_read",
-          "items": 8,
-          "purpose": "1 call(s)"
-        },
-        {
-          "tool": "fs_search",
-          "items": 10,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 12841,
-        "turns": 3,
-        "toolCalls": 2,
+        "tokens": 1592,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "expected a list of bugs"
+      ]
     }
   },
   {

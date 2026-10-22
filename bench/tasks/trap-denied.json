@@ -3,7 +3,7 @@
     "id": "trap-denied/held-out/medium/s1001",
     "family": "trap-denied",
     "variant": "held-out",
-    "prompt": "Show me the source files where `ravenmereFactorBand` appears as real code, not in comments or tests.",
+    "prompt": "Which of our modules actually reference `ravenmereFactorBand` in their code? Ignore mentions in comments and test files.",
     "scope": [
       "."
     ],
@@ -62,19 +62,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15316,
+        "maxTokens": 15356,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5744,
+        "maxTokens": 5759,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3063,
+        "maxTokens": 3071,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -90,7 +90,7 @@
         }
       ],
       "measured": {
-        "tokens": 3829,
+        "tokens": 3839,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -101,7 +101,7 @@
     "id": "trap-denied/held-out/small/s1000",
     "family": "trap-denied",
     "variant": "held-out",
-    "prompt": "Show me the source files where `quartzburyWeightScore` appears as real code, not in comments or tests.",
+    "prompt": "Which of our modules actually reference `quartzburyWeightScore` in their code? Ignore mentions in comments and test files.",
     "scope": [
       "."
     ],
@@ -160,19 +160,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15320,
+        "maxTokens": 15360,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5745,
+        "maxTokens": 5760,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3064,
+        "maxTokens": 3072,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -188,7 +188,7 @@
         }
       ],
       "measured": {
-        "tokens": 3830,
+        "tokens": 3840,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

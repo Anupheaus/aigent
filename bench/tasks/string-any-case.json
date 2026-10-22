@@ -3,7 +3,7 @@
     "id": "string-any-case/held-out/medium/s1001",
     "family": "string-any-case",
     "variant": "held-out",
-    "prompt": "Which files refer to `valeWeightScore` in any spelling (snake, kebab, Pascal or camel)?",
+    "prompt": "Search for `valeWeightScore` regardless of how it is written (snake_case, kebab-case, camelCase or PascalCase) and list the files.",
     "scope": [
       "."
     ],
@@ -49,19 +49,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15452,
+        "maxTokens": 14756,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5795,
+        "maxTokens": 5534,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3090,
+        "maxTokens": 2951,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -77,18 +77,21 @@
         }
       ],
       "measured": {
-        "tokens": 3863,
+        "tokens": 3689,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {
     "id": "string-any-case/held-out/small/s1000",
     "family": "string-any-case",
     "variant": "held-out",
-    "prompt": "Which files refer to `thistleTierLevel` in any spelling (snake, kebab, Pascal or camel)?",
+    "prompt": "Search for `thistleTierLevel` regardless of how it is written (snake_case, kebab-case, camelCase or PascalCase) and list the files.",
     "scope": [
       "."
     ],
@@ -134,19 +137,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15484,
+        "maxTokens": 14768,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5807,
+        "maxTokens": 5538,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3096,
+        "maxTokens": 2953,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -162,11 +165,14 @@
         }
       ],
       "measured": {
-        "tokens": 3871,
+        "tokens": 3692,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "recall 0.14 (min 1), precision 1.00 (min 1)"
+      ]
     }
   },
   {

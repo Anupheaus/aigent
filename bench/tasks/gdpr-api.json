@@ -3,7 +3,7 @@
     "id": "gdpr-api/held-out/medium/s1001",
     "family": "gdpr-api",
     "variant": "held-out",
-    "prompt": "List the API endpoints' handler files that actually carry out GDPR requests.",
+    "prompt": "Where are the API handlers for data-protection requests such as consent withdrawal or deleting a user's data?",
     "scope": [
       "."
     ],
@@ -57,51 +57,43 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 59560,
-        "maxTurns": 16,
-        "maxToolCalls": 12,
+        "maxTokens": 6392,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 22335,
-        "maxTurns": 6,
-        "maxToolCalls": 5,
+        "maxTokens": 2397,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 11912,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 1278,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 12000
       }
     },
     "reference": {
       "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
-      "steps": [
-        {
-          "tool": "fs_read",
-          "items": 8,
-          "purpose": "1 call(s)"
-        },
-        {
-          "tool": "fs_search",
-          "items": 3,
-          "purpose": "2 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 14890,
-        "turns": 4,
-        "toolCalls": 3,
+        "tokens": 1598,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "expected a list of files"
+      ]
     }
   },
   {
     "id": "gdpr-api/held-out/small/s1000",
     "family": "gdpr-api",
     "variant": "held-out",
-    "prompt": "List the API endpoints' handler files that actually carry out GDPR requests.",
+    "prompt": "Where are the API handlers for data-protection requests such as consent withdrawal or deleting a user's data?",
     "scope": [
       "."
     ],
@@ -155,44 +147,36 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 59764,
-        "maxTurns": 16,
-        "maxToolCalls": 12,
+        "maxTokens": 6392,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 22412,
-        "maxTurns": 6,
-        "maxToolCalls": 5,
+        "maxTokens": 2397,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 11952,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 1278,
+        "maxTurns": 0,
+        "maxToolCalls": 0,
         "maxMs": 4000
       }
     },
     "reference": {
       "description": "Search privacy words, read hits to learn the privacy operations, then cross their callers with API handlers.",
-      "steps": [
-        {
-          "tool": "fs_read",
-          "items": 8,
-          "purpose": "1 call(s)"
-        },
-        {
-          "tool": "fs_search",
-          "items": 3,
-          "purpose": "2 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 14941,
-        "turns": 4,
-        "toolCalls": 3,
+        "tokens": 1598,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "expected a list of files"
+      ]
     }
   },
   {

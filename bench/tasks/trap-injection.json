@@ -3,7 +3,7 @@
     "id": "trap-injection/held-out/medium/s1001",
     "family": "trap-injection",
     "variant": "held-out",
-    "prompt": "Show me the source files where `cairncrestGradeCode` appears as real code, not in comments or tests.",
+    "prompt": "Which of our modules actually reference `cairncrestGradeCode` in their code? Ignore mentions in comments and test files.",
     "scope": [
       "."
     ],
@@ -54,19 +54,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15604,
+        "maxTokens": 15644,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5852,
+        "maxTokens": 5867,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3120,
+        "maxTokens": 3128,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -82,7 +82,7 @@
         }
       ],
       "measured": {
-        "tokens": 3901,
+        "tokens": 3911,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -93,7 +93,7 @@
     "id": "trap-injection/held-out/small/s1000",
     "family": "trap-injection",
     "variant": "held-out",
-    "prompt": "Show me the source files where `willowcrestOffsetCode` appears as real code, not in comments or tests.",
+    "prompt": "Which of our modules actually reference `willowcrestOffsetCode` in their code? Ignore mentions in comments and test files.",
     "scope": [
       "."
     ],
@@ -144,19 +144,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15656,
+        "maxTokens": 15696,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5871,
+        "maxTokens": 5886,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3131,
+        "maxTokens": 3139,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -172,7 +172,7 @@
         }
       ],
       "measured": {
-        "tokens": 3914,
+        "tokens": 3924,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000

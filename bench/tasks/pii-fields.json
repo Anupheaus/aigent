@@ -3,7 +3,7 @@
     "id": "pii-fields/held-out/medium/s1001",
     "family": "pii-fields",
     "variant": "held-out",
-    "prompt": "Which typed declarations hold personal-data fields such as email or birth date?",
+    "prompt": "Which data shapes include personal information fields like names, emails or dates of birth?",
     "scope": [
       "."
     ],
@@ -51,46 +51,43 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15028,
-        "maxTurns": 8,
-        "maxToolCalls": 4,
+        "maxTokens": 6372,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5636,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 2390,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3005,
-        "maxTurns": 1,
+        "maxTokens": 1274,
+        "maxTurns": 0,
         "maxToolCalls": 0,
         "maxMs": 12000
       }
     },
     "reference": {
       "description": "One regex search for typed personal-data declarations.",
-      "steps": [
-        {
-          "tool": "fs_search",
-          "items": 1,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 3757,
-        "turns": 2,
-        "toolCalls": 1,
+        "tokens": 1593,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 15000
-      }
+      },
+      "failures": [
+        "expected a list of files"
+      ]
     }
   },
   {
     "id": "pii-fields/held-out/small/s1000",
     "family": "pii-fields",
     "variant": "held-out",
-    "prompt": "Which typed declarations hold personal-data fields such as email or birth date?",
+    "prompt": "Which data shapes include personal information fields like names, emails or dates of birth?",
     "scope": [
       "."
     ],
@@ -138,39 +135,36 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15028,
-        "maxTurns": 8,
-        "maxToolCalls": 4,
+        "maxTokens": 6372,
+        "maxTurns": 4,
+        "maxToolCalls": 0,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5636,
-        "maxTurns": 3,
-        "maxToolCalls": 2,
+        "maxTokens": 2390,
+        "maxTurns": 2,
+        "maxToolCalls": 0,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3005,
-        "maxTurns": 1,
+        "maxTokens": 1274,
+        "maxTurns": 0,
         "maxToolCalls": 0,
         "maxMs": 4000
       }
     },
     "reference": {
       "description": "One regex search for typed personal-data declarations.",
-      "steps": [
-        {
-          "tool": "fs_search",
-          "items": 1,
-          "purpose": "1 call(s)"
-        }
-      ],
+      "steps": [],
       "measured": {
-        "tokens": 3757,
-        "turns": 2,
-        "toolCalls": 1,
+        "tokens": 1593,
+        "turns": 1,
+        "toolCalls": 0,
         "ms": 5000
-      }
+      },
+      "failures": [
+        "expected a list of files"
+      ]
     }
   },
   {
