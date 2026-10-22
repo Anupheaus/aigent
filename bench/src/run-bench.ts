@@ -9,7 +9,7 @@ import { runSuite } from './harness/suite.js';
 import { toolSet } from './harness/tool-sets.js';
 import { modelSolverFromEnv } from './model-solver.js';
 import { scriptedSolver } from './solvers/registry.js';
-import { buildSpec, buildSpecs, catalogueEntries } from './tasks/build-specs.js';
+import { buildSpec, buildSpecs, catalogueEntries, replaceSpecs } from './tasks/build-specs.js';
 import { readSpecs, writeSpecs } from './tasks/spec-files.js';
 import type { TaskSpec } from './task-spec.js';
 
@@ -28,8 +28,10 @@ export async function selectSpecs(args: BenchArgs): Promise<TaskSpec[]> {
 export async function runBench(params: { args: BenchArgs; log: (line: string) => void }): Promise<SuiteReport | undefined> {
   const { args, log } = params;
   if (args.buildSpecs) {
-    const specs = await buildSpecs({ heldOut: true, ...(args.tasks == null ? {} : { tasks: args.tasks }) });
-    log(`wrote ${(await writeSpecs({ specs })).length} spec files (${specs.length} specs)`);
+    // Held-out specs are rebuilt (their reference measured) only with --held-out, as part of the one held-out run.
+    const rebuilt = await buildSpecs({ heldOut: args.heldOut, ...(args.tasks == null ? {} : { tasks: args.tasks }) });
+    const specs = replaceSpecs({ committed: await readSpecs(), rebuilt });
+    log(`wrote ${(await writeSpecs({ specs })).length} spec files (${rebuilt.length} ${args.heldOut ? 'held-out' : 'tuning'} specs rebuilt, ${specs.length} in all)`);
     return undefined;
   }
   const specs = await selectSpecs(args);

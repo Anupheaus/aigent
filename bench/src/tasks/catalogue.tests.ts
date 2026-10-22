@@ -3,10 +3,10 @@ import { budgetsFrom } from '../check/tiers.js';
 import { benchRepo } from '../harness/repo-cache.js';
 import { lintAgentTexts, lintTask } from '../lint/hint-linter.js';
 import { MODEL_PERSONA, MODEL_SKILLSET } from '../model-solver.js';
-import { readPrompt } from '../solvers/read-prompt.js';
+import { PROMPT_CUES, readPrompt } from '../solvers/read-prompt.js';
 import type { TaskSpec } from '../task-spec.js';
 import { CATALOGUE } from './catalogue.js';
-import { draftSpec } from './build-specs.js';
+import { draftSpec, entriesToBuild, replaceSpecs } from './build-specs.js';
 import { readSpecs } from './spec-files.js';
 import { HELD_OUT_VARIANT, PHRASINGS, VARIANT_IDS } from './variants.js';
 import type { VariantId } from './variants.js';
@@ -41,14 +41,34 @@ describe('task catalogue', () => {
     for (const seed of [1, 2, 3]) expect(lintAgentTexts({ texts: { persona: MODEL_PERSONA, skillset: MODEL_SKILLSET }, manifest: (await benchRepo({ seed, size: 'small' })).manifest })).toEqual([]);
   });
 
-  it('phrases every task in four styles plus a held-out one, each read as the intended question', () => {
+  // The held-out wording is never checked against the reader: a test that forces the reader to understand it would
+  // fit the reader to the held-out set. How the reader does on it is measured once, by the held-out run.
+  it('phrases every task in four tuning styles plus a held-out one, the tuning ones read as the intended question', () => {
     for (const task of CATALOGUE) {
-      for (const variant of [...VARIANT_IDS, HELD_OUT_VARIANT] as VariantId[]) {
+      expect(PHRASINGS[task.id]?.[HELD_OUT_VARIANT], `${task.id}/${HELD_OUT_VARIANT}`).toBeTypeOf('string');
+      for (const variant of VARIANT_IDS as readonly VariantId[]) {
         const prompt = PHRASINGS[task.id]?.[variant]?.replace('{term}', task.termKey == null ? '' : 'probeTerm') ?? '';
         if (task.termKey == null) expect(readPrompt(prompt)?.kind, `${task.id}/${variant}`).toBe(intentOf(task.query));
       }
     }
-    for (const spec of specs) expect(readPrompt(spec.prompt)?.kind, spec.id).toBe(intentOf(spec.query));
+    for (const spec of specs.filter(({ heldOut }) => !heldOut)) expect(readPrompt(spec.prompt)?.kind, spec.id).toBe(intentOf(spec.query));
+  });
+
+  it('uses no reader cue that only a held-out wording contains', () => {
+    const tuning = CATALOGUE.flatMap(task => VARIANT_IDS.map(variant => PHRASINGS[task.id]?.[variant] ?? ''));
+    const unused = Object.entries(PROMPT_CUES).flatMap(([intent, cues]) => cues.filter(cue => !tuning.some(prompt => cue.test(prompt))).map(cue => `${intent}: ${cue.source}`));
+    expect(unused).toEqual([]);
+  });
+
+  it('rebuilds tuning specs without ever measuring a held-out one, and keeps the other kind as committed', () => {
+    expect(entriesToBuild({ heldOut: false }).some(({ variant }) => variant === HELD_OUT_VARIANT)).toBe(false);
+    expect(entriesToBuild({ heldOut: true }).every(({ variant }) => variant === HELD_OUT_VARIANT)).toBe(true);
+    const tuning = specs.filter(({ heldOut, family }) => !heldOut && family === 'endpoints');
+    const rebuilt = tuning.map(spec => ({ ...spec, prompt: `${spec.prompt} (rebuilt)` }));
+    const merged = replaceSpecs({ committed: specs, rebuilt });
+    expect(merged).toHaveLength(specs.length);
+    expect(merged.filter(({ prompt }) => prompt.endsWith('(rebuilt)'))).toHaveLength(tuning.length);
+    expect(merged.filter(({ heldOut }) => heldOut)).toEqual(specs.filter(({ heldOut }) => heldOut));
   });
 
   it('derives budgets from the measured reference only (target 1.5x, pass 4x, stretch 0.8x)', () => {

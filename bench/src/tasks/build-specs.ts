@@ -48,23 +48,39 @@ export async function draftSpec(params: { task: CatalogueTask; variant: VariantI
 
 /**
  * A full spec: the draft, plus the reference solution measured by running the reference policy on the generated
- * repository, and budgets derived from it (target 1.5x, pass 4x, stretch 0.8x). Refuses when the reference is wrong.
+ * repository, and budgets derived from it (target 1.5x, pass 4x, stretch 0.8x). Refuses when the reference is wrong on
+ * a tuning spec; on a held-out spec a wrong reference is a finding of the held-out run, so it is recorded instead.
  */
 export async function buildSpec(params: { task: CatalogueTask; variant: VariantId; seed: number; size: RepoSize }): Promise<TaskSpec> {
   const draft = await draftSpec(params);
   const provisional: TaskSpec = { ...draft, budgets: budgetsFrom({ tokens: 1, turns: 1, toolCalls: 1, ms: 1 }), reference: { description: params.task.reference, steps: [], measured: { tokens: 0, turns: 0, toolCalls: 0, ms: 0 } } };
   const row = await runTask({ spec: provisional, solver: REFERENCE_SOLVER });
-  if (!row.correct) throw benchError(`buildSpecs: the reference solution is wrong on '${draft.id}': ${row.failures.join('; ')}`, { id: draft.id });
+  if (!row.correct && !draft.heldOut) throw benchError(`buildSpecs: the reference solution is wrong on '${draft.id}': ${row.failures.join('; ')}`, { id: draft.id });
   const measured = { tokens: row.tokens, turns: row.turns, toolCalls: row.toolCalls, ms: DECLARED_MS[params.size] };
   const steps = Object.entries(row.tools).sort(([first], [second]) => first.localeCompare(second)).map(([tool, { calls, items }]) => ({ tool, items, purpose: `${calls} call(s)` }));
-  return { ...draft, budgets: budgetsFrom(measured), reference: { description: params.task.reference, steps, measured } };
+  return { ...draft, budgets: budgetsFrom(measured), reference: { description: params.task.reference, steps, measured, ...(row.correct ? {} : { failures: row.failures }) } };
 }
 
-/** Every spec, in id order (deterministic: same code and seeds give byte-identical JSON). */
-export async function buildSpecs(params: { heldOut: boolean; tasks?: string[] }): Promise<TaskSpec[]> {
+/** The catalogue entries `buildSpecs` builds: the tuning specs, or (only when asked) the held-out ones, never both. */
+export function entriesToBuild(params: { heldOut: boolean; tasks?: string[] }): ReturnType<typeof catalogueEntries> {
   const { heldOut, tasks } = params;
-  const entries = catalogueEntries({ heldOut }).filter(({ task }) => tasks == null || tasks.includes(task.id));
+  return catalogueEntries({ heldOut: true }).filter(({ task, variant }) => (variant === HELD_OUT_VARIANT) === heldOut && (tasks == null || tasks.includes(task.id)));
+}
+
+/** The tuning specs, or the held-out ones, in id order (deterministic: same code and seeds give byte-identical JSON). */
+export async function buildSpecs(params: { heldOut: boolean; tasks?: string[] }): Promise<TaskSpec[]> {
   const specs: TaskSpec[] = [];
-  for (const entry of entries) specs.push(await buildSpec(entry));
+  for (const entry of entriesToBuild(params)) specs.push(await buildSpec(entry));
   return specs.sort((first, second) => first.id.localeCompare(second.id));
+}
+
+/**
+ * The committed specs with the rebuilt ones in their place: a rebuilt family's committed specs of the rebuilt kind
+ * (tuning or held-out) are all replaced, since a wording or grid change may rename them; everything else is kept.
+ */
+export function replaceSpecs(params: { committed: TaskSpec[]; rebuilt: TaskSpec[] }): TaskSpec[] {
+  const { committed, rebuilt } = params;
+  const replaced = new Set(rebuilt.map(({ family, heldOut }) => `${family}\u0000${heldOut}`));
+  const kept = committed.filter(({ family, heldOut }) => !replaced.has(`${family}\u0000${heldOut}`));
+  return [...kept, ...rebuilt].sort((first, second) => first.id.localeCompare(second.id));
 }

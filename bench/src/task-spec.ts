@@ -45,6 +45,8 @@ export interface ReferenceSolution {
   description: string;
   steps: ReferenceStep[];
   measured: { tokens: number; turns: number; toolCalls: number; ms: number };
+  /** Held-out specs only: why the reference answer was wrong (a tuning spec with a wrong reference is never built). */
+  failures?: string[];
 }
 
 /** Hostile conditions the harness sets up for a trap task (never shown to solvers). */
