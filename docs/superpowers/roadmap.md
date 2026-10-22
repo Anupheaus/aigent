@@ -20,7 +20,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 12 | Shell pack, git pack | done |
 | 13 | Database pack, knowledge/RAG pack | done |
 | 14 | Plugins (`definePlugin`), MCP plugin, Claude Code plugin package (unpublished) | done |
-| 15 | Benchmark suite and optimisation rounds (scripted tiers only) | todo |
+| 15 | Benchmark suite and optimisation rounds (scripted tiers only) | done |
 | 16 | Memory (Phase 2) | todo |
 | 17 | Efficiency: routing and caching (Phase 3) | todo |
 | 18 | Strategy learning (Phase 4), skill learning (Phase 5) | todo |
