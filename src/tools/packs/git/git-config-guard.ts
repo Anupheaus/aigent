@@ -4,10 +4,10 @@ import { join } from 'node:path';
 
 /**
  * Config keys whose value is a program git may run (or that sends output through one): filters, diff drivers, merge
- * drivers, pagers, editors, credential helpers, signing programs, ssh and proxy commands, fsmonitor, hooks, remote
- * helpers. A repository's own config can set any of them, so each one found is overridden with an empty value.
+ * drivers, pagers, editors, credential helpers, signing programs and key commands, ssh and proxy commands, fsmonitor,
+ * hooks, remote helpers, tool and trailer commands (`*.cmd`), the interactive diff filter and the sendmail command. A repository's own config can set any of them, so each one found is overridden with an empty value.
  */
-const EXECUTING_KEY = /\.(clean|smudge|process|textconv|command|driver|program|helper|editor|pager|sshcommand|gitproxy|askpass|fsmonitor|hookspath|alternaterefscommand|receivepack|uploadpack|packobjectshook|external)$/i;
+const EXECUTING_KEY = /\.(clean|smudge|process|textconv|command|driver|program|helper|editor|pager|sshcommand|gitproxy|askpass|fsmonitor|hookspath|alternaterefscommand|receivepack|uploadpack|packobjectshook|external|cmd|defaultkeycommand|difffilter|sendmailcmd)$/i;
 const PAGER_SECTION = /^pager\./i;
 
 /** Every key the repository's effective config sets that could run a program. */
