@@ -56,6 +56,12 @@ describe('http_fetch', () => {
     expect(access.requests.map(({ url }) => url)).toEqual(['https://example.com/to-metadata']);
   });
 
+  it('marks a name that did not resolve as retryable (DNS failures are often transient), other refusals not', async () => {
+    const { deps } = fakeWeb({ routes: {} });
+    const entries = entriesOf(await call({ tool: createHttpFetch(deps), items: [{ url: 'https://unknown.example.com/' }, { url: 'https://evil.net/' }] }));
+    expect(entries.map(({ error }) => [error?.category, error?.code, error?.retryable])).toEqual([['denied', 'dns_failed', true], ['denied', 'domain_not_allowed', false]]);
+  });
+
   it('accepts only the allowlisted request headers', async () => {
     const { deps } = fakeWeb({ routes: {} });
     const executed = await call({ tool: createHttpFetch(deps), items: [{ url: 'https://example.com/', headers: { authorization: 'Bearer x' } }] });

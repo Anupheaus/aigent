@@ -57,7 +57,8 @@ export async function fetchChecked(params: { deps: WebDeps; url: string; method:
   }
   if (!result.ok) {
     const { code, message, suggestion, hop, url: refused } = result;
-    throw toolFailure({ category: 'denied', code, message, retryable: false, details: { url, hop, refused }, ...(suggestion == null ? {} : { suggestion }) });
+    // A name that did not resolve may resolve on a retry; every other refusal is final.
+    throw toolFailure({ category: 'denied', code, message, retryable: code === 'dns_failed', details: { url, hop, refused }, ...(suggestion == null ? {} : { suggestion }) });
   }
   return result;
 }

@@ -169,7 +169,8 @@ async function executeCached(params: ValidatedCallParams & { cache: ToolCache })
     // The cache stores the full original; only the copy the model sees is shaped.
     const executed = succeededCall({ call, tool, result: outcome.result, durationMs: elapsed(), shape });
     const { durationMs, size: { resultBytes, resultTokens } } = executed;
-    await cache.store({ lookup, value: outcome.result, durationMs, bytes: resultBytes, resultTokens });
+    // A retryable item failure (a 503, a timeout) would be replayed to the retry the model was told to make.
+    if (!executed.nested.some(({ retryable }) => retryable)) await cache.store({ lookup, value: outcome.result, durationMs, bytes: resultBytes, resultTokens });
     return { ...executed, cacheHit: false };
   } finally {
     // A no-op once `store` ran. Otherwise the call failed, or shaping, summarising or storing threw: identical calls
