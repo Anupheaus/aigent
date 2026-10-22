@@ -49,11 +49,48 @@ export function declarationKind(params: { node: TsNode; kinds: SyntaxKinds }): s
   return Object.entries(DECLARATION_KINDS).find(([name]) => kinds[name] === node.kind)?.[1];
 }
 
+/** Statement lists whose names an export list or `export default <name>` can export. */
+const MODULE_SCOPES = ['SourceFile', 'ModuleBlock'];
+/** Export-list names per scope node, so outlining a file reads its statements once rather than once per declaration. */
+const exportListCache = new WeakMap<TsNode, Set<string>>();
+
+/**
+ * The local names a module scope exports by name: `export { a, b as c }` (without `from`), `export default a` and
+ * `export = a`. These refer to the scope's own declarations, so a declaration with such a name is exported.
+ */
+function namesExportedByList(params: { scope: TsNode; kinds: SyntaxKinds }): Set<string> {
+  const { scope, kinds } = params;
+  const known = exportListCache.get(scope);
+  if (known != null) return known;
+  const names = new Set<string>();
+  exportListCache.set(scope, names);
+  for (const statement of field<readonly TsNode[]>(scope, 'statements') ?? []) {
+    if (isKind({ node: statement, kinds, name: 'ExportAssignment' })) {
+      const expression = field<TsNode>(statement, 'expression');
+      if (isKind({ node: expression, kinds, name: 'Identifier' })) names.add(field<string>(expression, 'text') ?? '');
+      continue;
+    }
+    if (!isKind({ node: statement, kinds, name: 'ExportDeclaration' }) || field<TsNode>(statement, 'moduleSpecifier') != null) continue;
+    for (const specifier of field<readonly TsNode[]>(field<TsNode>(statement, 'exportClause'), 'elements') ?? []) {
+      // `export { local as exported }`: the local name is `propertyName` when renamed.
+      const local = field<TsNode>(specifier, 'propertyName') ?? field<TsNode>(specifier, 'name');
+      names.add(field<string>(local, 'text') ?? '');
+    }
+  }
+  names.delete('');
+  return names;
+}
+
 function isExported(params: { node: TsNode; kinds: SyntaxKinds }): boolean {
   const { node, kinds } = params;
+  if (isKind({ node, kinds, name: 'ExportAssignment' }) || isKind({ node, kinds, name: 'ExportDeclaration' })) return true;
   const target = isKind({ node, kinds, name: 'VariableDeclaration' }) ? node.parent?.parent : node;
   const modifiers = field<readonly TsNode[]>(target, 'modifiers') ?? [];
-  return modifiers.some(modifier => isKind({ node: modifier, kinds, name: 'ExportKeyword' })) || isKind({ node, kinds, name: 'ExportAssignment' });
+  if (modifiers.some(modifier => isKind({ node: modifier, kinds, name: 'ExportKeyword' }))) return true;
+  const scope = target?.parent;
+  if (scope == null || !MODULE_SCOPES.some(name => isKind({ node: scope, kinds, name }))) return false;
+  const name = field<string>(field<TsNode>(node, 'name'), 'text');
+  return name != null && namesExportedByList({ scope, kinds }).has(name);
 }
 
 function nameOf(params: { node: TsNode; kinds: SyntaxKinds; kind: string }): string {

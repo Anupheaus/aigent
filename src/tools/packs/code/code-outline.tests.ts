@@ -57,6 +57,17 @@ describe('code_outline', () => {
     await own.cleanup();
   });
 
+  it('marks names exported through an export list or `export default <name>` as exported', async () => {
+    const own = await codeFixture({ files: { 'list.ts': 'function foo() {}\nconst bar = 2;\nlet kept = 3;\nexport { foo, bar as baz };\nexport default bar;\n', 'assign.ts': 'function only() {}\nexport = only;\n' } });
+    const ownDeps = resolveCodeDeps({ options: own.options });
+    const entries = entriesOf(await call({ tool: createCodeOutline(ownDeps), items: [{ path: own.at('list.ts') }, { path: own.at('assign.ts') }] }));
+    expect((entries[0]?.result as { symbols: Outline[] }).symbols.map(({ name, kind, exported }) => [name, kind, exported])).toEqual([
+      ['foo', 'function', true], ['bar', 'const', true], ['kept', 'variable', false], ['foo, baz', 're-export', true], ['default', 'export-default', true],
+    ]);
+    expect((entries[1]?.result as { symbols: Outline[] }).symbols.map(({ name, exported }) => [name, exported])).toEqual([['only', true], ['default', true]]);
+    await own.cleanup();
+  });
+
   it('says clearly when the TypeScript peer is missing', async () => {
     const missing = resolveCodeDeps({ options: fixture.options, loadTypeScript: async () => { throw new Error("Cannot find package 'typescript'"); } });
     const [entry] = entriesOf(await call({ tool: createCodeOutline(missing), items: [{ path: fixture.at('src/util.ts') }] }));

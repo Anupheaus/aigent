@@ -55,6 +55,14 @@ describe('code_find_symbol', () => {
     expect((await find({ name: 'describe' })).definitions.map(({ path, line, kind, exported }) => [path, line, kind, exported])).toEqual([[fixture.at('src/shapes.ts'), 17, 'function', true]]);
   });
 
+  it('keeps names exported through an export list or `export default <name>` with exportedOnly', async () => {
+    const own = await codeFixture({ files: { 'list.ts': 'function foo() {}\nconst bar = 2;\nexport { foo };\nexport default bar;\n' } });
+    const ownDeps = resolveCodeDeps({ options: own.options });
+    const entries = entriesOf(await call({ tool: createCodeFindSymbol(ownDeps), items: [{ name: 'foo', exportedOnly: true }, { name: 'bar', exportedOnly: true }] }));
+    expect(entries.map(entry => (entry.result as unknown as Found).definitions.map(({ line, exported }) => [line, exported]))).toEqual([[[1, true]], [[2, true]]]);
+    await own.cleanup();
+  });
+
   it('never invents a result for a name that is not declared', async () => {
     expect(await find({ name: 'doesNotExist' })).toEqual({ name: 'doesNotExist', total: 0, truncated: false, definitions: [] });
     expect((await find({ name: 'Math' })).total).toBe(0);
