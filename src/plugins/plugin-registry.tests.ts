@@ -121,4 +121,34 @@ describe('createPluginRegistry', () => {
     expect(closeA).toHaveBeenCalledTimes(1);
     expect(closeB).toHaveBeenCalledTimes(1);
   });
+  it('refuses ready() and add() after close, so nothing is started or registered that close would never release', async () => {
+    const registry = createPluginRegistry({ providers: [] });
+    const setup = vi.fn(async () => ({ tools: [] }));
+    registry.add(definePlugin({ name: 'late-setup', version: '1.0.0', setup }));
+    await registry.close();
+    await expect(registry.ready()).rejects.toMatchObject({ code: 'invalid_input', message: 'ai.ready(): the runtime is closed; create a new one with createAigent()' });
+    expect(setup).not.toHaveBeenCalled();
+    expect(thrown(() => registry.add(definePlugin({ name: 'after-close', version: '1.0.0' })))).toMatchObject({
+      code: 'invalid_input', message: "ai.use('after-close'): the runtime is closed; create a new one with createAigent()",
+    });
+    expect(registry.hooks()).toEqual([]);
+  });
+
+  it('closes a plugin only after its in-flight setup settled, so close releases what setup started', async () => {
+    const registry = createPluginRegistry({ providers: [] });
+    const order: string[] = [];
+    let finishSetup: () => void = () => undefined;
+    registry.add(definePlugin({
+      name: 'slow-setup', version: '1.0.0',
+      setup: () => new Promise<void>(resolve => { finishSetup = () => { order.push('setup done'); resolve(); }; }),
+      close: async () => { order.push('close'); },
+    }));
+    const ready = registry.ready();
+    const closed = registry.close();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(order).toEqual([]);
+    finishSetup();
+    await Promise.all([ready, closed]);
+    expect(order).toEqual(['setup done', 'close']);
+  });
 });

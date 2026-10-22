@@ -21,7 +21,7 @@ export interface CreatePluginRegistryParams {
 export interface PluginRegistry {
   /** Every provider by id (direct ones first); live, so plugins added later resolve too. */
   readonly providers: ReadonlyMap<string, Provider>;
-  /** Validates and registers a plugin; throws `invalid_definition` (and registers nothing) on any conflict. */
+  /** Validates and registers a plugin; throws `invalid_definition` (and registers nothing) on any conflict, `invalid_input` after close. */
   add(plugin: Plugin): void;
   /** A plugin store by id; throws `invalid_definition` for an unknown id. */
   store(id: string): Store;
@@ -29,9 +29,9 @@ export interface PluginRegistry {
   expandTools(entries: (Tool | PluginToolsRef)[]): Tool[];
   /** Plugins with hooks, in registration order. */
   hooks(): RegisteredHooks[];
-  /** Runs every plugin's `setup` once (added plugins too); rejects with the first failure. */
+  /** Runs every plugin's `setup` once (added plugins too); rejects with the first failure, or `invalid_input` after close. */
   ready(): Promise<void>;
-  /** Calls every plugin's `close` once, all of them even when one fails; rejects with the first failure. */
+  /** Waits for setups in flight, then calls every plugin's `close` once, all of them even when one fails; rejects with the first failure. */
   close(): Promise<void>;
 }
 
@@ -44,6 +44,11 @@ interface PluginEntry {
 
 function invalid(message: string, details: Record<string, unknown>): Error {
   return createAigentError({ code: 'invalid_definition', message, details });
+}
+
+/** What `ai.use`/`ai.ready` answer once the runtime is closed: nothing started then would ever be released. */
+function closedError(action: string): Error {
+  return createAigentError({ code: 'invalid_input', message: `${action}: the runtime is closed; create a new one with createAigent()`, details: { action } });
 }
 
 function sourceLabel(source: string | undefined): string {
@@ -83,6 +88,7 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
   }
 
   function add(raw: Plugin): void {
+    if (closing != null) throw closedError(`ai.use('${raw.name}')`);
     const plugin = definePlugin(raw);
     checkConflicts(plugin);
     const { name, providers: pluginProviders = [], stores: pluginStores = [], tools = [] } = plugin;
@@ -124,6 +130,7 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
   }
 
   async function ready(): Promise<void> {
+    if (closing != null) throw closedError('ai.ready()');
     await Promise.all([...entries.values()].map(setUp));
   }
 
@@ -131,6 +138,8 @@ export function createPluginRegistry(params: CreatePluginRegistryParams): Plugin
     // Only the first call reports a failure; later calls wait for the same work, so plugins are closed once.
     if (closing != null) return closing.catch(() => undefined);
     closing = (async () => {
+      // A setup still running would otherwise finish after close and leave what it started (e.g. a server process) behind.
+      await Promise.allSettled([...entries.values()].map(({ setup }) => setup));
       const closed = await Promise.allSettled([...entries.values()].map(async ({ plugin }) => plugin.close?.()));
       const failed = closed.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
       if (failed != null) throw failed.reason;

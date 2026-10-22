@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,13 +22,25 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 });
 `;
 
+/** Writes its pid to the file named by its first argument, then waits on stdin forever. */
+const PID_SERVER_SOURCE = `
+require('node:fs').writeFileSync(process.argv[2], String(process.pid));
+process.stdin.resume();
+`;
+/** How long the pid-writing server may take to start before the test treats it as never started. */
+const PID_FILE_WAIT_MS = 5_000;
+const POLL_MS = 25;
+
 let directory: string;
 let script: string;
+let pidScript: string;
 
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), 'aigent-mcp-'));
   script = join(directory, 'server.cjs');
   await writeFile(script, SERVER_SOURCE);
+  pidScript = join(directory, 'pid-server.cjs');
+  await writeFile(pidScript, PID_SERVER_SOURCE);
 });
 
 afterAll(async () => {
@@ -43,6 +55,25 @@ function isAlive(pid: number): boolean {
     // ESRCH: gone.
     return false;
   }
+}
+
+async function waitForPid(file: string): Promise<number | undefined> {
+  const deadline = Date.now() + PID_FILE_WAIT_MS;
+  while (Date.now() < deadline) {
+    const text = await readFile(file, 'utf8').catch(() => '');
+    if (text !== '') return Number(text);
+    await new Promise(resolve => setTimeout(resolve, POLL_MS));
+  }
+  return undefined;
+}
+
+async function waitUntilGone(pid: number): Promise<boolean> {
+  const deadline = Date.now() + PID_FILE_WAIT_MS;
+  while (Date.now() < deadline) {
+    if (!isAlive(pid)) return true;
+    await new Promise(resolve => setTimeout(resolve, POLL_MS));
+  }
+  return false;
 }
 
 function connect(env?: Record<string, string>) {
@@ -91,5 +122,16 @@ describe('stdio transport with a real node subprocess', () => {
   it('fails to start a command that does not exist', async () => {
     const client = createMcpClient({ transport: createStdioTransport({ type: 'stdio', command: join(directory, 'missing-program') }), serverName: 'missing', warn: () => undefined });
     await expect(client.connect()).rejects.toThrow("could not start '");
+  });
+  it('kills a server whose spawn finishes after close() was called, and rejects the start', async () => {
+    const pidFile = join(directory, 'late.pid');
+    const transport = createStdioTransport({ type: 'stdio', command: process.execPath, args: [pidScript, pidFile] });
+    const started = transport.start({ onMessage: () => undefined, onWarning: () => undefined, onClose: () => undefined });
+    const closed = transport.close();
+    await expect(started).rejects.toThrow('the transport was closed while the server was starting');
+    await closed;
+    const pid = await waitForPid(pidFile);
+    // A server killed before it wrote its pid never ran long enough to matter; one that did must be gone.
+    if (pid != null) expect(await waitUntilGone(pid)).toBe(true);
   });
 });

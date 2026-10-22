@@ -28,6 +28,8 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
   let child: ChildProcessWithoutNullStreams | undefined;
   let exited: Promise<void> | undefined;
   let isClosing = false;
+  /** The spawn in flight, so `close()` called meanwhile resolves only once that process is gone too. */
+  let starting: Promise<void> | undefined;
 
   function attach(params: { process: ChildProcessWithoutNullStreams; handlers: McpTransportHandlers }): void {
     const { process: running, handlers } = params;
@@ -58,7 +60,16 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
     });
   }
 
-  async function start(handlers: McpTransportHandlers): Promise<void> {
+  async function stop(running: ChildProcessWithoutNullStreams): Promise<void> {
+    if (running.pid == null) return;
+    running.stdin.end();
+    await killProcessTree({ pid: running.pid });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([exited, new Promise<void>(resolve => { timer = setTimeout(resolve, EXIT_WAIT_MS); })]);
+    clearTimeout(timer);
+  }
+
+  async function spawnServer(handlers: McpTransportHandlers): Promise<void> {
     const childEnv = scrubEnv({ parent: process.env, spec: { allow: DEFAULT_ENV_ALLOW, set: env }, platform: IS_WINDOWS ? 'win32' : 'posix' });
     const running = spawn(command, args, { cwd, env: childEnv, shell: false, windowsHide: true, detached: !IS_WINDOWS, stdio: ['pipe', 'pipe', 'pipe'] });
     await new Promise<void>((resolve, reject) => {
@@ -67,6 +78,15 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
     });
     child = running;
     attach({ process: running, handlers });
+    if (!isClosing) return;
+    // close() ran while the process was starting and found nothing to kill: this process must not outlive it.
+    await stop(running);
+    throw new Error(`the transport was closed while the server was starting ('${command}')`);
+  }
+
+  function start(handlers: McpTransportHandlers): Promise<void> {
+    starting = spawnServer(handlers);
+    return starting;
   }
 
   function send(message: Parameters<McpTransport['send']>[0]): Promise<void> {
@@ -81,12 +101,13 @@ export function createStdioTransport(config: McpStdioTransportConfig): McpTransp
     if (isClosing) { await exited; return; }
     isClosing = true;
     const running = child;
-    if (running?.pid == null || running.exitCode != null || running.signalCode != null) return;
-    running.stdin.end();
-    await killProcessTree({ pid: running.pid });
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([exited, new Promise<void>(resolve => { timer = setTimeout(resolve, EXIT_WAIT_MS); })]);
-    clearTimeout(timer);
+    if (running == null) {
+      // A start in flight kills its own process once it sees the close; its rejection belongs to start's caller.
+      await starting?.catch(() => undefined);
+      return;
+    }
+    if (running.pid == null || running.exitCode != null || running.signalCode != null) return;
+    await stop(running);
   }
 
   return { start, send, close };
