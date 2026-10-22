@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { ProcessResult } from '../../../security/process-runner.js';
 import type { CommandDecision } from '../../../security/shell-policy-types.js';
 import { defineBatchTool } from '../../define-batch-tool.js';
-import { toolFailure } from '../../tool-failure.js';
+import { isToolFailure, toolFailure } from '../../tool-failure.js';
 import type { Tool, ToolContext } from '../../tool-types.js';
 import { commandTitle, withProcessSlot } from './shell-shared.js';
 import type { ShellDeps } from './shell-shared.js';
@@ -53,10 +53,12 @@ async function runOne(params: { deps: ShellDeps; item: RunItem; context: ToolCon
   let result: ProcessResult;
   try {
     result = await withProcessSlot({
-      policy,
+      policy, signal: context.signal,
       work: () => runner.run({ file: decision.file, args: decision.args, cwd: decision.cwd, env: policy.environment(), signal: context.signal, timeoutMs, maxOutputBytes: policy.limits.maxOutputBytes, ...(item.stdin == null ? {} : { stdin: item.stdin }) }),
     });
   } catch (error) {
+    // A stop while waiting for a slot is already a failure the model can read.
+    if (isToolFailure(error)) throw error;
     throw toolFailure({ code: 'spawn_failed', message: `'${item.command}' could not be started: ${error instanceof Error ? error.message : String(error)}`, retryable: false });
   }
   return outcomeOf({ item, result });
