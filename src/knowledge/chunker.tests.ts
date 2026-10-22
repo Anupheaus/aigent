@@ -77,6 +77,20 @@ describe('createChunker', () => {
     expect(pieces[0]).toMatchObject({ startLine: 1, metadata: { section: 'Guide', kind: 'markdown' } });
   });
 
+  it('finds headings in CRLF markdown as in LF markdown (review I4)', () => {
+    const text = `# Guide\n\nIntro text.\n\n## Install\n\n${'Run the installer and wait. '.repeat(10)}\n\n## Usage\n\n${'Call the function with options. '.repeat(10)}`;
+    const sections = (source: string): unknown[] => chunk({ text: source, uri: 'guide.md' }).map(({ metadata }) => metadata?.section);
+    const crlf = sections(text.replace(/\n/g, '\r\n'));
+    expect(crlf).toContain('Guide > Install');
+    expect(crlf).toEqual(sections(text));
+  });
+
+  it('ignores heading-like lines inside fenced blocks (review M1)', () => {
+    const text = `# Guide\n\nIntro text.\n\n\`\`\`sh\n# install the tool\nnpm install\n\`\`\`\n\n${'More words after the fence. '.repeat(12)}`;
+    const sections = chunk({ text, uri: 'guide.md' }).map(({ metadata }) => metadata?.section);
+    expect(sections.every(section => section === 'Guide')).toBe(true);
+  });
+
   it('splits code at top-level declarations', () => {
     const fn = (name: string) => `export function ${name}(input: string): string {\n  const trimmed = input.trim();\n  return trimmed.toUpperCase() + '${name}';\n}\n`;
     const text = ['alpha', 'beta', 'gamma', 'delta'].map(fn).join('\n');

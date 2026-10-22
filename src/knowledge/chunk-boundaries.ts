@@ -44,14 +44,25 @@ interface Line {
   text: string;
 }
 
+/** Lines without their terminator: a CRLF line's `\r` is dropped too, so `$` in the line patterns matches. */
 function linesOf(text: string): Line[] {
   const lines: Line[] = [];
   let start = 0;
-  for (const lineText of text.split('\n')) {
-    lines.push({ start, text: lineText });
-    start += lineText.length + 1;
+  for (const rawText of text.split('\n')) {
+    lines.push({ start, text: rawText.endsWith('\r') ? rawText.slice(0, -1) : rawText });
+    start += rawText.length + 1;
   }
   return lines;
+}
+
+/** The fence a line opens or closes, given the one open before it (CommonMark: a closer uses the same character, at least as long). */
+function nextFence(params: { line: Line; open?: string }): { open?: string; closed: boolean } {
+  const { line, open } = params;
+  const marker = FENCE.exec(line.text)?.[1];
+  if (marker == null) return { ...(open == null ? {} : { open }), closed: false };
+  if (open == null) return { open: marker, closed: false };
+  if (marker[0] !== open[0] || marker.length < open.length) return { open, closed: false };
+  return { closed: true };
 }
 
 function raise(params: { strength: Int8Array; at: number; value: number }): void {
@@ -75,13 +86,12 @@ function blockFences(params: { lines: Line[]; strength: Int8Array; maxFence: num
   const { lines, strength, maxFence } = params;
   let open: { at: number; marker: string } | undefined;
   for (const line of lines) {
-    const marker = FENCE.exec(line.text)?.[1];
-    if (marker == null) continue;
-    if (open == null) {
-      open = { at: line.start, marker };
+    const fence = nextFence({ line, ...(open == null ? {} : { open: open.marker }) });
+    if (!fence.closed) {
+      if (open == null && fence.open != null) open = { at: line.start, marker: fence.open };
       continue;
     }
-    if (marker[0] !== open.marker[0] || marker.length < open.marker.length) continue;
+    if (open == null) continue;
     const end = line.start + line.text.length;
     if (end - open.at <= maxFence) strength.fill(NO_BREAK, open.at + 1, end);
     open = undefined;
@@ -96,10 +106,17 @@ export function findBoundaries(params: { text: string; kind: TextKind; maxFence:
   const lines = linesOf(text);
   const headings: Heading[] = [];
   let previousBlank = false;
+  let openFence: string | undefined;
   for (const line of lines) {
     const isBlank = line.text.trim() === '';
     raise({ strength, at: line.start, value: previousBlank ? PARAGRAPH : LINE });
+    // A `#` line inside a fenced block is code (a shell comment, say), not a heading.
+    const wasInFence = openFence != null;
     if (kind === 'markdown') {
+      const fence = nextFence({ line, ...(openFence == null ? {} : { open: openFence }) });
+      openFence = fence.open;
+    }
+    if (kind === 'markdown' && !wasInFence) {
       const heading = HEADING.exec(line.text);
       if (heading != null) {
         headings.push({ at: line.start, level: heading[1]?.length ?? 1, title: heading[2] ?? '' });
