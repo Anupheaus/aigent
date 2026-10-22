@@ -12,6 +12,7 @@ import * as gitPack from './tools/packs/git/index.js';
 import * as dbPack from './tools/packs/db/index.js';
 import * as knowledgePack from './tools/packs/knowledge/index.js';
 import * as mcp from './mcp/index.js';
+import * as indexPack from './tools/packs/index/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -56,6 +57,10 @@ describe('public API', () => {
 
   it('exports the knowledge pack from its own entry', () => {
     expect(Object.keys(knowledgePack).sort()).toEqual(['createChunker', 'createFileVectorIndex', 'createKnowledgeBase', 'createMemoryVectorIndex', 'evalRetrieval', 'hashEmbedder', 'knowledgeTools', 'openAiEmbedder', 'scanSources']);
+  });
+
+  it('exports the repository index pack from its own entry', () => {
+    expect(Object.keys(indexPack).sort()).toEqual(['FILE_TAGS', 'REPO_INDEX_COLLECTION', 'createRepoIndex', 'indexTools']);
   });
 
   it('exports the MCP plugin from its own entry', () => {

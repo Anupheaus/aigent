@@ -92,6 +92,31 @@ describe('fs_search', () => {
   });
 });
 
+describe('fs_search layers and ranking', () => {
+  const files = {
+    '/ws/src/use.ts': 'total(1);\ntotal(2);\ntotal(3);\n',
+    '/ws/src/def.ts': 'export function total(value: number) {\n  return value;\n}\n',
+    '/ws/src/other.ts': 'const subtotal = 1;\n',
+  };
+
+  it('returns only files and counts in the files layer, and only totals in the counts layer, never cut by maxMatches', async () => {
+    const tool = createFsSearch(memoryDeps({ files }));
+    const [byFile] = entriesOf(await call({ tool, items: [{ path: '/ws', pattern: 'total', kind: 'content', wholeWord: true, layer: 'files', maxMatches: 1 }] }));
+    expect(byFile?.result).toMatchObject({ totalMatches: 4, filesWithMatches: 2, truncated: false, files: [{ path: 'src/def.ts', count: 1, defines: true }, { path: 'src/use.ts', count: 3 }] });
+    expect(JSON.stringify(byFile?.result)).not.toContain('"matches"');
+    const [counts] = entriesOf(await call({ tool, items: [{ path: '/ws', pattern: 'total', kind: 'content', layer: 'counts' }] }));
+    expect(counts?.result).toMatchObject({ totalMatches: 5, filesWithMatches: 3 });
+    expect(counts?.result?.['files']).toBeUndefined();
+  });
+
+  it('orders by relevance (definitions first, then match count) and summarises what was not shown', async () => {
+    const tool = createFsSearch(memoryDeps({ files }));
+    const [ranked] = entriesOf(await call({ tool, items: [{ path: '/ws', pattern: 'total', kind: 'content', order: 'relevance', maxMatches: 2 }] }));
+    expect((ranked?.result?.['files'] as SearchFile[]).map(({ path }) => path)).toEqual(['src/def.ts', 'src/use.ts', 'src/other.ts']);
+    expect(ranked?.result).toMatchObject({ truncated: true, more: { matches: 3, files: 1 } });
+  });
+});
+
 describe('fs_search bounds and skips', () => {
   it('runs regex searches in a worker: a slow pattern stops at the budget with this thread responsive', async () => {
     const deps = memoryDeps({ files: { '/ws/slow.txt': `${'a'.repeat(3_000)}\n`, '/ws/later.txt': 'a!\n' } });

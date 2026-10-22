@@ -69,6 +69,10 @@
       "types": "./dist/tools/packs/knowledge/index.d.ts",
       "import": "./dist/tools/packs/knowledge/index.js"
     },
+    "./tools/index": {
+      "types": "./dist/tools/packs/index/index.d.ts",
+      "import": "./dist/tools/packs/index/index.js"
+    },
     "./mcp": {
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js"

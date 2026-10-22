@@ -6,6 +6,8 @@ import { ignoreMatcherFor } from './fs-list.js';
 import { searchFile } from './fs-search-content.js';
 import type { ContentMatch } from './fs-search-content.js';
 import { createTextMatcher, SEARCH_REGEX_BUDGET_MS } from './fs-search-matcher.js';
+import { filesForLayer, rankFiles } from './fs-search-rank.js';
+import type { SearchLayer } from './fs-search-rank.js';
 import type { TextMatcher } from './fs-search-matcher.js';
 import { allowPath, baseName, FS_RESULT_HELPERS, MAX_FS_ITEMS, onDisk } from './fs-shared.js';
 import type { FsDeps } from './fs-shared.js';
@@ -30,10 +32,19 @@ const searchItem = z.object({
   contextLines: z.number().int().min(0).max(MAX_CONTEXT_LINES).optional().describe('Lines shown before and after each match (default 0)'),
   maxMatches: z.number().int().min(1).max(MAX_MATCHES).optional().describe(`Most matches returned in full (default ${DEFAULT_MATCHES}); all are counted`),
   includeIgnored: z.boolean().optional().describe('Also search dependency, build, VCS, lock and minified files (default false)'),
+  layer: z.enum(['matches', 'files', 'counts']).optional().describe('Default matches; files or counts when lines are not needed'),
+  order: z.enum(['path', 'relevance']).optional().describe('Default path; relevance: definitions first'),
 }).strict();
 
 type SearchItem = z.infer<typeof searchItem>;
 type Found = { path: string; count: number; matches?: ContentMatch[] };
+
+/** Skip samples a smaller layer keeps: only the ones a caller must act on (unreadable files can be retried). */
+function samplesForLayer(params: { samples: Partial<Record<string, string[]>>; layer: SearchLayer }): Partial<Record<string, string[]>> {
+  const { samples, layer } = params;
+  if (layer === 'matches') return samples;
+  return samples['unreadable'] == null ? {} : { unreadable: samples['unreadable'] };
+}
 
 /** The files to search under the allowed path, and the walk's skips (the path itself when it is a file). */
 async function candidates(params: { deps: FsDeps; item: SearchItem; allowed: { path: string; root: string } }) {
@@ -98,13 +109,19 @@ export function createFsSearch(deps: FsDeps): Tool {
           shown += searched.matches.length;
           found.push({ path: file.relative, count: searched.count, matches: searched.matches });
         }
-        const isTruncated = isWalkTruncated || shown < totalMatches || stoppedBy != null;
+        const layer = item.layer ?? 'matches';
+        const isMatchesCut = layer === 'matches' && shown < totalMatches;
+        const isTruncated = isWalkTruncated || isMatchesCut || stoppedBy != null;
         const hint = stoppedBy != null ? `The regular expression ran out of its ${SEARCH_REGEX_BUDGET_MS} ms budget, so later files were not searched; use a simpler pattern or a narrower path`
           : isWalkTruncated ? `The search stopped after ${policy.limits.maxFiles} entries; search a narrower path or glob`
-            : `${totalMatches - shown} more matches are counted but not shown; narrow the path or glob, or raise maxMatches`;
+            : `${totalMatches - shown} more matches are counted but not shown; narrow the path or glob, raise maxMatches, or ask for layer: files`;
+        // The default result is unchanged; definitions are marked only when a layer or relevance order was asked for.
+        const ranked = rankFiles({ files: found, pattern: item.pattern, regex: item.regex ?? false, order: item.order ?? 'path', markDefinitions: layer !== 'matches' || item.order === 'relevance' });
+        const shownFiles = filesForLayer({ files: ranked, layer });
         return {
-          path: allowed.path, totalMatches, filesWithMatches: found.length, shownMatches: shown, files: found,
-          skipped: { counts: skipped.counts, samples: skipped.samples }, truncated: isTruncated,
+          path: allowed.path, totalMatches, filesWithMatches: found.length, ...(layer === 'matches' ? { shownMatches: shown } : {}), ...(shownFiles == null ? {} : { files: shownFiles }),
+          skipped: { counts: skipped.counts, samples: samplesForLayer({ samples: skipped.samples, layer }) }, truncated: isTruncated,
+          ...(isMatchesCut ? { more: { matches: totalMatches - shown, files: found.filter(({ count, matches = [] }) => matches.length < count).length } } : {}),
           ...(stoppedBy == null ? {} : { stoppedBy: stoppedBy === 'timed-out' ? 'time budget' : 'aborted' }),
           ...(isTruncated ? { hint } : {}),
         };

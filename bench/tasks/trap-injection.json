@@ -54,19 +54,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15012,
+        "maxTokens": 15604,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5630,
+        "maxTokens": 5852,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 3002,
+        "maxTokens": 3120,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -82,7 +82,7 @@
         }
       ],
       "measured": {
-        "tokens": 3753,
+        "tokens": 3901,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
@@ -144,19 +144,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15064,
+        "maxTokens": 15656,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5649,
+        "maxTokens": 5871,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3012,
+        "maxTokens": 3131,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -172,7 +172,7 @@
         }
       ],
       "measured": {
-        "tokens": 3766,
+        "tokens": 3914,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
@@ -234,19 +234,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15020,
+        "maxTokens": 15612,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5633,
+        "maxTokens": 5855,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3004,
+        "maxTokens": 3122,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -262,7 +262,7 @@
         }
       ],
       "measured": {
-        "tokens": 3755,
+        "tokens": 3903,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
@@ -324,19 +324,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 15044,
+        "maxTokens": 15636,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5642,
+        "maxTokens": 5864,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 3008,
+        "maxTokens": 3127,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -352,7 +352,7 @@
         }
       ],
       "measured": {
-        "tokens": 3761,
+        "tokens": 3909,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
@@ -414,19 +414,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14896,
+        "maxTokens": 15488,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 20000
       },
       "target": {
-        "maxTokens": 5586,
+        "maxTokens": 5808,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 7500
       },
       "stretch": {
-        "maxTokens": 2979,
+        "maxTokens": 3097,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 4000
@@ -442,7 +442,7 @@
         }
       ],
       "measured": {
-        "tokens": 3724,
+        "tokens": 3872,
         "turns": 2,
         "toolCalls": 1,
         "ms": 5000
@@ -504,19 +504,19 @@
     },
     "budgets": {
       "pass": {
-        "maxTokens": 14984,
+        "maxTokens": 15576,
         "maxTurns": 8,
         "maxToolCalls": 4,
         "maxMs": 60000
       },
       "target": {
-        "maxTokens": 5619,
+        "maxTokens": 5841,
         "maxTurns": 3,
         "maxToolCalls": 2,
         "maxMs": 22500
       },
       "stretch": {
-        "maxTokens": 2996,
+        "maxTokens": 3115,
         "maxTurns": 1,
         "maxToolCalls": 0,
         "maxMs": 12000
@@ -532,7 +532,7 @@
         }
       ],
       "measured": {
-        "tokens": 3746,
+        "tokens": 3894,
         "turns": 2,
         "toolCalls": 1,
         "ms": 15000
