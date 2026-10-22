@@ -60,7 +60,9 @@ export function parseArgs(argv: string[]): BenchArgs {
       default: throw benchError(`unknown option '${flag}'`, { flag });
     }
   }
-  // The gate judges the whole committed suite: a subset could hide a regression, fresh seeds have no budgets.
-  if (args.gate && (args.seeds != null || args.tasks != null || args.freshSeeds != null || args.heldOut)) throw benchError('--gate runs the whole committed suite: drop --seed, --tasks, --fresh-seeds and --held-out', { gate: true });
+  // The gate judges the whole committed suite (a subset could hide a regression), and budgets are written for exactly
+  // that suite (a budget for a fresh-seed spec would fail every CI run, which never builds it).
+  const isWholeSuite = args.seeds == null && args.tasks == null && args.freshSeeds == null && !args.heldOut;
+  if ((args.gate || args.writeBudgets != null) && !isWholeSuite) throw benchError(`${args.gate ? '--gate' : '--write-budgets'} runs the whole committed suite: drop --seed, --tasks, --fresh-seeds and --held-out`, { gate: args.gate, writeBudgets: args.writeBudgets ?? null });
   return args;
 }

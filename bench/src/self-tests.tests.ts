@@ -7,7 +7,7 @@ const specs = await selfTestSpecs(0);
 const results = new Map<string, SelfTestRows>();
 
 describe('self-tests (first half of the catalogue)', () => {
-  it.each(specs.map(spec => [spec.id, spec] as const))('%s: reference at target, decoy-falling and lazy fail', async (_id, spec) => {
+  it.each(specs.map(spec => [spec.id, spec] as const))('%s: reference reproduces its measurement within the declared time, decoy-falling and lazy fail', async (_id, spec) => {
     const rows = await selfTest(spec);
     results.set(spec.id, rows);
     expect(selfTestFindings({ spec, rows })).toEqual([]);

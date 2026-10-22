@@ -24,7 +24,12 @@ export async function selfTest(spec: TaskSpec): Promise<SelfTestRows> {
   return { reference, naive, decoy, lazy };
 }
 
-/** What is wrong with a spec's self-test: the reference must reach target and match its committed measurement; decoy and lazy must fail. */
+/**
+ * What is wrong with a spec's self-test: the reference must reproduce its committed measurement (tokens, turns, tool
+ * calls) and be correct, and decoy and lazy must fail. Because the budgets derive from that same measurement, "the
+ * reference reaches target" cannot fail on tokens, turns or calls; it checks correctness, determinism and the wall
+ * time against the declared per-size time, the only budget not derived from the reference run.
+ */
 export function selfTestFindings(params: { spec: TaskSpec; rows: SelfTestRows }): string[] {
   const { spec, rows: { reference, decoy, lazy } } = params;
   const { measured } = spec.reference;
