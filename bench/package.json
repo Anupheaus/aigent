@@ -1,0 +1,16 @@
+{
+  "name": "@anupheaus/aigent-bench",
+  "version": "0.0.0",
+  "description": "Benchmark suite for @anupheaus/aigent: generated repositories, ground truth, scripted solvers and optimisation rounds. Not published.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "bench": "tsc -p tsconfig.build.json && node dist/bench/src/cli.js"
+  }
+}

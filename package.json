@@ -84,7 +84,7 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "build": "npm run clean && tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p bench",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build"

@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 const coreEntry = (path: string): string => fileURLToPath(new URL(`./src/${path}`, import.meta.url));
 
 export default defineConfig({
-  test: { include: ['src/**/*.tests.ts', 'packages/*/src/**/*.tests.ts'] },
+  test: { include: ['src/**/*.tests.ts', 'packages/*/src/**/*.tests.ts', 'bench/src/**/*.tests.ts'] },
   resolve: {
     alias: [
       { find: /^@anupheaus\/aigent$/, replacement: coreEntry('index.ts') },
