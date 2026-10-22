@@ -16,8 +16,8 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 8 | Resumable instances: checkpoints, leases, exactly-once; approvals | done |
 | 9 | Guardrails, dry-run and undo | done |
 | 10 | Filesystem pack + FsPolicy, data/format pack, agent/meta pack (delegate) | done |
-| 11 | HTTP/web pack, code-intelligence pack | built (review findings not yet fixed) |
-| 12 | Shell pack, git pack | built (not yet reviewed) |
+| 11 | HTTP/web pack, code-intelligence pack | done |
+| 12 | Shell pack, git pack | done |
 | 13 | Database pack, knowledge/RAG pack | todo |
 | 14 | Plugins (`definePlugin`), MCP plugin, Claude Code plugin package (unpublished) | todo |
 | 15 | Benchmark suite and optimisation rounds (scripted tiers only) | todo |
