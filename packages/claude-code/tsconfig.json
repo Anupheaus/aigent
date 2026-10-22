@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@anupheaus/aigent": ["../../src/index.ts"],
+      "@anupheaus/aigent/testing": ["../../src/testing/index.ts"],
+      "@anupheaus/aigent/testing/contract": ["../../src/testing/contract/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

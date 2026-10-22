@@ -9,6 +9,7 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import { createAigentError } from './aigent-error.js';
 import type { AigentEvent } from './aigent-events.js';
 import { dispatchToolCall } from './dispatch-tool-call.js';
+import { runDelegatedCall } from './delegated-call.js';
 import type { RunFeedback } from './link-previous.js';
 import { openTurnStream } from './open-turn-stream.js';
 import type { ResilienceCounters, TurnRouting } from './open-turn-stream.js';
@@ -59,6 +60,8 @@ export interface PartialTurn {
   /** The text as the model wrote it (directive lines removed); kept in memory only, to settle the final answer. */
   raw: string;
   calls: ToolCall[];
+  /** Delegated mode: ids of the calls the provider's own loop ran through `toolExecutor` (already answered in the stream). */
+  delegatedCallIds: string[];
   thinkingBlocks: ThinkingBlock[];
 }
 
@@ -126,6 +129,8 @@ export interface TurnStreamResult {
   calls: ToolCall[];
   /** Completed thinking blocks in order; replayed verbatim on the turn's assistant message. */
   thinkingBlocks: ThinkingBlock[];
+  /** Delegated mode: the calls (of `calls`) the provider ran itself and answered within this turn. */
+  delegatedCallIds: string[];
   finishReason?: FinishReason;
 }
 
@@ -169,7 +174,10 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
     context, tools: registry.specs(), volatile, clock, target: routing.targets[0], usableBudget, progress: { turn: totals.turns, toolCalls: totals.toolCalls, maxToolCalls },
   });
   let reportedTokens: number | undefined;
-  const iterator = openTurnStream({ routing, request, signal, counters: totals, emit })[Symbol.asyncIterator]();
+  // Delegated mode: a provider that owns the loop calls back into the core for each tool call.
+  const isDelegating = routing.targets.some(({ provider }) => provider.capabilities.ownsLoop === true);
+  const toolExecutor = isDelegating ? (call: ToolCall) => runDelegatedCall({ call, turn: params }) : undefined;
+  const iterator = openTurnStream({ routing, request: { ...request, ...(toolExecutor == null ? {} : { toolExecutor }) }, signal, counters: totals, emit })[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
     for (;;) {
@@ -204,5 +212,5 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   const held = guard.endText();
   partial.visible += held;
   if (held !== '') emit({ type: 'text-delta', text: held });
-  return { visible: partial.visible, raw: partial.raw, calls, thinkingBlocks, finishReason };
+  return { visible: partial.visible, raw: partial.raw, calls, thinkingBlocks, delegatedCallIds: partial.delegatedCallIds, finishReason };
 }

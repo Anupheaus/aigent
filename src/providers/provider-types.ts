@@ -58,6 +58,15 @@ export interface ProviderSettings extends Omit<ModelSettings, 'contextSize' | 's
   providerOptions?: Record<string, unknown>;
 }
 
+/** What a provider that owns the loop gets back after the core ran one call (see `ProviderRequest.toolExecutor`). */
+export interface DelegatedToolResult {
+  callId: string;
+  /** The result envelope as the model should see it (JSON text, the same as a tool message's text). */
+  text: string;
+  /** The call failed (the envelope is `ok: false`). */
+  isError: boolean;
+}
+
 export interface ProviderRequest {
   model: string;
   messages: ProviderMessage[];
@@ -73,6 +82,12 @@ export interface ProviderRequest {
    * (Anthropic) honour as many as they allow; others ignore them.
    */
   cacheBreakpoints?: number[];
+  /**
+   * Present only for providers declaring `capabilities.ownsLoop`: runs one tool call in the core (guardrails, approvals,
+   * the cache, dry runs, the ledger, telemetry) and resolves with its result, so the provider's own loop can continue
+   * within the same stream. Calls run this way must not also be emitted as `tool-call` events.
+   */
+  toolExecutor?(call: ToolCall): Promise<DelegatedToolResult>;
 }
 
 export interface Usage {
@@ -105,6 +120,12 @@ export interface ProviderCapabilities {
    * suite then runs its `thinking-round-trip` scenario. Absent means false.
    */
   thinkingBlocks?: boolean;
+  /**
+   * The provider runs its own agent loop (e.g. the Claude Agent SDK): the core sends the whole conversation once per
+   * turn with `toolExecutor`, the provider calls back for each tool call and streams the final answer ("delegated mode").
+   * Features that need loop ownership between tool rounds (steering, compaction, directives) apply only between turns.
+   */
+  ownsLoop?: boolean;
   /** Settings this provider can map; the run warns about and leaves out any other setting before calling it. */
   supportedSettings: (keyof ProviderSettings)[];
 }

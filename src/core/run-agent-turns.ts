@@ -31,7 +31,7 @@ import { runTurn } from './run-turn.js';
 import type { RunTelemetry, RunTotals, TurnStreamResult } from './run-turn.js';
 import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
-import { turnMessages } from './turn-messages.js';
+import { delegatedTurnMessages, turnMessages } from './turn-messages.js';
 import { abortedStatus, buildTurnsResult } from './turns-result.js';
 import { collectCitations, resolveCitations } from './citations.js';
 import type { Citation } from './citations.js';
@@ -95,6 +95,11 @@ export interface RunAgentTurnsParams {
   /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
   delegation?: RunDelegation;
   emit(event: AigentEvent): void;
+}
+
+/** Said once per run whose provider runs its own tool loop. */
+function delegatedModeWarning(providerId: string): string {
+  return `Provider '${providerId}' runs its own tool loop (ownsLoop): each turn is one provider call whose tool calls run through this runtime, so steering, compaction, plan and todo directives and checkpoints apply only between turns, and maxTurns counts provider calls rather than tool rounds`;
 }
 
 /** `signal.reason` when the run aborts its own tools because the provider failed. */
@@ -177,6 +182,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     totals.turns = round.turn;
   }
   isReady = await checkpoint({ boundary: restore == null ? 'start' : 'turn-complete' });
+  const delegating = routing.targets.find(({ provider }) => provider.capabilities.ownsLoop === true);
+  if (delegating != null) emit({ type: 'warning', message: delegatedModeWarning(delegating.provider.id) });
   if (params.inputBlocked != null) {
     status = 'failed';
     failure = params.inputBlocked;
@@ -240,11 +247,14 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
 
     // The response is in: a resume completes this round from here rather than asking the model again.
     const inFlight = { turn: totals.turns, assistant: { role: 'assistant' as const, text: turn.visible, ...(turn.calls.length > 0 ? { toolCalls: turn.calls } : {}), ...(turn.thinkingBlocks.length > 0 ? { thinkingBlocks: turn.thinkingBlocks } : {}) } };
-    if (turn.calls.length > 0) inFlightRound = inFlight;
-    const isRecorded = turn.calls.length === 0 || await checkpoint({ boundary: 'message', inFlight });
+    // Delegated mode: the provider ran every call inside the stream and answered, so the round is complete as it is.
+    const isDelegated = turn.calls.length > 0 && turn.delegatedCallIds.length === turn.calls.length;
+    const isAnswer = turn.calls.length === 0 || isDelegated;
+    if (!isAnswer) inFlightRound = inFlight;
+    const isRecorded = isAnswer || await checkpoint({ boundary: 'message', inFlight });
     const drained = await drainWork({ work, signal, emit });
     const executed = await compressCommitted({ executed: drained, originals, clock, signal, emit, ...(params.compression == null ? {} : { compression: params.compression }) });
-    commit(turnMessages({ turn, executed, registry }));
+    commit((isDelegated ? delegatedTurnMessages : turnMessages)({ turn, executed, registry }));
     inFlightRound = undefined;
     errors.push(...failedDetails(executed));
     collectCitations({ executed, registry, into: citable });
@@ -253,7 +263,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     // The round's effects are in the log before the checkpoint commits it; a crash before then replays them from the ledger.
     await effects?.flush();
     if (!isRecorded || (!signal.aborted && !await checkpoint({ boundary: 'turn-complete' }))) break;
-    if (turn.calls.length === 0) {
+    if (isAnswer) {
       const settled = await settleAnswer({ text: turn.raw.trim(), streamed: turn.visible, ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: Math.min(outputRetries, limits.maxTurns - totals.turns), emit });
       // The answer did not match the task's output schema: the model is told why and answers again.
       if (settled.kind === 'retry') { outputRetries -= 1; commit([{ kind: 'user', message: { role: 'user', text: settled.feedback } }]); continue; }

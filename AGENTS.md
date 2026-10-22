@@ -7,7 +7,7 @@
 ## Commands
 
 - `npm run typecheck` - type-check everything, including tests.
-- `npm test` - run the vitest suite (`src/**/*.tests.ts`).
+- `npm test` - run the vitest suite (`src/**/*.tests.ts` and `packages/*/src/**/*.tests.ts`).
 - `npm run build` - clean `dist/` (`scripts/clean.mjs`), then compile to it (tests excluded).
 
 ## Structure
@@ -42,6 +42,8 @@
 - `streaming` - chunk-safe `::aigent` directive parser and schemas
 - `testing` - `FakeProvider` helpers and the fake compressors, public as `@anupheaus/aigent/testing`. It must never load vitest (`testing-entry.tests.ts` checks its import graph).
 - `testing/contract` - the vitest-based `describeProviderContract` suite every provider must pass, public as `@anupheaus/aigent/testing/contract` (vitest is an optional peer dependency)
+
+`packages/claude-code` - the separate, **private, never published** `@anupheaus/aigent-claude-code` package (personal use; policy position in its README). It imports the core only through its public names (`@anupheaus/aigent`, resolved by `paths` in its tsconfig and by aliases in `vitest.config.ts`): `claude-code-provider.ts` (`claudeCode`, `ownsLoop: true`), `claude-code-plugin.ts`, `sdk-boundary.ts` (`ClaudeAgentRunner` and the SDK runner, the optional peer imported only on first run), `tool-bridge.ts` (our tools as in-process MCP tools, built-ins disallowed, calls through `toolExecutor`), `stream-mapper.ts`, `prompt.ts`, `env.ts` (strips the API key variables only with `useSubscriptionAuth`), `fake-runner.test-support.ts`. Its tests run with `npm test`; `npx tsc -p packages/claude-code` type-checks it, `tsconfig.build.json` builds it after the core. It must never read credential files or tokens (`package.tests.ts` scans its source). The core side of delegated mode: `ProviderCapabilities.ownsLoop` / `ProviderRequest.toolExecutor` in `providers/provider-types.ts`, `core/delegated-call.ts` (one call through `dispatchToolCall`), `core/run-turn.ts` (the executor), `core/run-agent-turns.ts` (a delegated round is an answer; one warning per run) and `delegatedTurnMessages` in `core/turn-messages.ts`
 
 Test-only helpers shared between test files are named `*.test-support.ts` (excluded from the build, never exported), e.g. the fake `fetch` and the OpenAI and Anthropic SSE fixtures in `providers`.
 

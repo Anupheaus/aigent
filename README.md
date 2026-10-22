@@ -102,6 +102,10 @@ All adapters stream over `fetch` (Node 20+), with no vendor SDK. Their shared be
 - **Empty assistant turns:** an assistant turn with no text and no tool calls is left out of the request, because both APIs reject it. Adjacent messages from the same role are then merged so roles keep alternating.
 - **`fetch` option:** inject your own for proxies or tests.
 
+### Claude Code (unpublished, personal use)
+
+`packages/claude-code` holds `@anupheaus/aigent-claude-code`, a separate, **private and unpublished** package with a `claude-code` provider that runs Claude through the Claude Agent SDK on your own machine. It is not part of this package and core never imports it. It uses the core's **delegated mode**: a provider that declares `capabilities.ownsLoop: true` gets the whole conversation once per turn plus `ProviderRequest.toolExecutor`, calls back into the core for each tool call (so validation, guardrails, approvals, the cache, dry runs, the ledger and telemetry all apply) and streams the final answer. Steering, compaction, directives and checkpoints then apply only between turns, which the run states in one warning. Read its [README](packages/claude-code/README.md) for the policy position before using it.
+
 ### Testing a provider you write
 
 A custom provider implements the `Provider` interface. `@anupheaus/aigent/testing/contract` holds the vitest suite the built-in adapters pass. It needs `vitest` (an optional peer dependency), so import it only from test files:
@@ -1014,6 +1018,7 @@ Phase 1 foundation core, implemented in this slice:
 - Guardrails (secrets, PII, injection, scope, loop and output-schema built-ins plus custom ones), dry runs with planned effects, and the effect log with `agent.undo`
 - `agent.chat()`: the UI-ready conversation model (snapshot, gapless patches, `reduceConversation`, `createConversationStore`), persistence by session id, `ask_user`, queue/steer/interrupt delivery, threads, branches, forks, attachments, pins, reactions and auto titles
 - Plugins (`definePlugin`, `createAigent({ plugins })`, `ai.use`, `pluginTools`, plugin stores and read-only hooks), with the built-in providers available as plugins
+- Delegated-loop mode for providers that own the tool loop (`capabilities.ownsLoop`, `ProviderRequest.toolExecutor`), and the separate, unpublished `@anupheaus/aigent-claude-code` package (`packages/claude-code`)
 - The MCP consuming plugin (`@anupheaus/aigent/mcp`): stdio and streamable-HTTP transports, strict schema conversion with a report, sanitised descriptions, envelope-wrapped results
 - Built-in tool packs: filesystem, data/formats, agents and delegation, web (SSRF-safe `http_fetch`, `page_extract`, `web_search`) and code intelligence (`code_outline`, `code_find_symbol`, `code_references`)
 

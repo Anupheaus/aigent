@@ -20,4 +20,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The unpublished Claude Code package is built separately, against the core just built.
+      - run: npx tsc -p packages/claude-code
+      - run: npx tsc -p packages/claude-code/tsconfig.build.json
       - run: npm pack --dry-run

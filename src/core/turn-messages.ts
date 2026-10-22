@@ -36,3 +36,13 @@ export function turnMessages(params: TurnMessagesParams): NewContextMessage[] {
   }));
   return [assistant, ...toolResults];
 }
+
+/**
+ * Delegated mode: the provider ran the round's calls inside its own loop and then answered, all in one stream. Stored
+ * as the calls with their results, then the turn's text as the answer, so the history stays provider-valid.
+ */
+export function delegatedTurnMessages(params: TurnMessagesParams): NewContextMessage[] {
+  const { turn } = params;
+  const answer: NewContextMessage[] = turn.visible === '' ? [] : [{ kind: 'assistant', message: { role: 'assistant', text: turn.visible } }];
+  return [...turnMessages({ ...params, turn: { ...turn, visible: '' } }), ...answer];
+}

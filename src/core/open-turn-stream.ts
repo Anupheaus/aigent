@@ -1,4 +1,4 @@
-import type { Provider, ProviderEvent, ProviderMessage, ProviderSettings, ProviderToolSpec } from '../providers/provider-types.js';
+import type { Provider, ProviderEvent, ProviderMessage, ProviderRequest, ProviderSettings, ProviderToolSpec } from '../providers/provider-types.js';
 import type { LanePriority, Scheduler } from '../scheduler/scheduler-types.js';
 import type { AigentEvent } from './aigent-events.js';
 import { leasedStream } from './leased-stream.js';
@@ -49,6 +49,8 @@ export interface TurnRequest {
   tools: ProviderToolSpec[];
   /** Indices into `messages` after which a prompt-cache breakpoint belongs (see `ProviderRequest.cacheBreakpoints`). */
   cacheBreakpoints?: number[];
+  /** Given only to targets whose provider owns the loop (`capabilities.ownsLoop`). */
+  toolExecutor?: ProviderRequest['toolExecutor'];
 }
 
 export interface OpenTurnStreamParams {
@@ -88,13 +90,14 @@ function emitTargetWarnings(params: { target: ProviderTarget; routing: TurnRouti
 /** One target as a resilient attempt: each open waits for a scheduler lease, then applies the first-event timeout. */
 function targetAttempt(params: TargetAttemptParams): ProviderAttempt {
   const { target: { label, provider, model, settings }, request, routing: { scheduler, priority, agentName, policy, sleep }, emit } = params;
-  const { messages, tools, cacheBreakpoints } = request;
+  const { messages, tools, cacheBreakpoints, toolExecutor } = request;
+  const executor = provider.capabilities.ownsLoop === true && toolExecutor != null ? { toolExecutor } : {};
   const lease = { key: label, estimatedTokens: estimateTokens({ request, settings }), priority, agentName };
   return {
     label,
     open: signal => leasedStream({
       scheduler, lease, signal, sleep, firstEventTimeoutMs: policy.firstEventTimeoutMs, maxRateLimitPauseMs: policy.maxDelayMs,
-      open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }), ...(cacheBreakpoints == null ? {} : { cacheBreakpoints }) }, streamSignal),
+      open: streamSignal => provider.stream({ model, messages, tools, ...(settings == null ? {} : { settings }), ...(cacheBreakpoints == null ? {} : { cacheBreakpoints }), ...executor }, streamSignal),
       onQueued: ({ position, reason, waitMs }) => emit({ type: 'queued', position, reason, ...(waitMs == null ? {} : { waitMs }) }),
     }),
   };
