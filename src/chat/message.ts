@@ -1,5 +1,6 @@
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { FinishReason, ProviderMessage } from '../providers/provider-types.js';
+import type { Citation } from '../core/citations.js';
 
 /** Any value that survives `JSON.stringify` / `JSON.parse` unchanged. */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -105,6 +106,8 @@ export interface MessageMeta {
   userRating?: 'up' | 'down';
   truncated?: boolean;
   error?: string;
+  /** On an agent reply: the passages it cites (see `TaskResult.citations`). */
+  citations?: Citation[];
   /** Exactly what the model saw for this message (agent replies: the whole turn group, tool rounds included). */
   history?: ProviderMessage[];
 }

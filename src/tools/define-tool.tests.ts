@@ -54,6 +54,12 @@ describe('defineTool', () => {
     expect(defineTool(BASE).definitionId).not.toBe(defineTool(BASE).definitionId);
   });
 
+  it('carries a promptAddendum and rejects an empty one', () => {
+    expect(defineTool({ ...BASE, promptAddendum: 'Cite sources.' }).promptAddendum).toBe('Cite sources.');
+    expect('promptAddendum' in defineTool(BASE)).toBe(false);
+    expect(() => defineTool({ ...BASE, promptAddendum: '  ' })).toThrow(/promptAddendum/);
+  });
+
   it('leaves alias expansion off unless acceptsAliases is true, and rejects a non-boolean', () => {
     expect(defineTool(BASE).acceptsAliases).toBeUndefined();
     expect(defineTool({ ...BASE, acceptsAliases: true }).acceptsAliases).toBe(true);

@@ -68,7 +68,8 @@ export function resolveAgent(params: { definition: AgentDefinition; context: Age
     ...(compactionTarget == null ? {} : { compactionModel: compactionTarget.reference }),
     ...(compression == null ? {} : { compression: compressionVersionInput(compression) }),
   });
-  const prompt = { persona, skillset, context, enableFeedback };
+  const toolAddenda = tools.flatMap(({ promptAddendum }) => (promptAddendum == null ? [] : [promptAddendum]));
+  const prompt = { persona, skillset, context, enableFeedback, ...(toolAddenda.length === 0 ? {} : { toolAddenda }) };
   const staticPrompt = memoiseStaticPrompt({ prompt, context: { cache: compressionCache, now: () => clock.now(), ...(compression == null ? {} : { compression }) } });
   return { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt, staticPrompt, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
     ...(feedbackCollector == null ? {} : { feedbackCollector }),

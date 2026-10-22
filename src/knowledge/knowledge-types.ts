@@ -1,4 +1,5 @@
 import type { FsAccess } from '../security/fs-access.js';
+import type { Citation } from '../core/citations.js';
 import type { FsPolicy } from '../security/fs-policy-types.js';
 
 /** Turns texts into vectors. `id` names the model and settings: vectors of different ids are never compared. */
@@ -89,13 +90,8 @@ export interface IndexReport {
   embedded: number;
 }
 
-/** A search hit's provenance, for citing it. */
-export interface Citation {
-  sourceId: string;
-  chunkId: string;
-  uri: string;
-  span: ChunkSpan;
-}
+/** A search hit's provenance, for citing it (the same type `TaskResult.citations` holds). */
+export type { Citation } from '../core/citations.js';
 
 export type SearchMode = 'hybrid' | 'vector' | 'keyword';
 

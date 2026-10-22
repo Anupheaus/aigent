@@ -7,6 +7,7 @@ import type { DelegationContext } from '../core/delegation-types.js';
 import type { ToolErrorDetail } from './tool-error-detail.js';
 import type { DryRunOutput, PlannedEffect } from '../effects/planned-effects.js';
 import type { CapturedEffect, UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-types.js';
+import type { Citation } from '../core/citations.js';
 
 export interface ToolContext {
   agentName: string;
@@ -176,4 +177,11 @@ export interface Tool {
    * it once per distinct function for the tools of every agent of the runtime; the tool still works afterwards.
    */
   dispose?(): Promise<void>;
+  /**
+   * Text added once to the agent's system prompt when it has this tool (identical addenda of several tools appear once,
+   * sorted), e.g. how to cite the knowledge pack's results. Part of the agent version.
+   */
+  promptAddendum?: string;
+  /** The passages a (model-visible) result offers for citing: the answer's `[[cite:<chunkId>]]` markers resolve to these. */
+  citations?(result: unknown): Citation[];
 }

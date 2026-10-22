@@ -6,6 +6,8 @@ export interface PromptPersona {
   context?: string;
   /** Adds the feedback addendum (the `previous` field, `aigent_feedback` and directives). Default false. */
   enableFeedback?: boolean;
+  /** `promptAddendum` texts of the agent's tools (e.g. the knowledge pack's citation rule); each appears once, sorted. */
+  toolAddenda?: string[];
 }
 
 const LIBRARY_RULES = [
@@ -18,8 +20,10 @@ const LIBRARY_RULES = [
 
 /** Library rules (and the feedback addendum) first, then general-to-specific agent text, so the stable prefix stays cache-friendly. */
 export function buildSystemPrompt(definition: PromptPersona): string {
-  const { persona, skillset, context, enableFeedback = false } = definition;
+  const { persona, skillset, context, enableFeedback = false, toolAddenda = [] } = definition;
   const sections = enableFeedback ? [LIBRARY_RULES, FEEDBACK_PROMPT_ADDENDUM] : [LIBRARY_RULES];
+  // Sorted and unique, so the stable prefix does not depend on tool order.
+  sections.push(...[...new Set(toolAddenda)].sort());
   if (persona != null && persona !== '') sections.push(`# Persona\n${persona}`);
   if (skillset != null && skillset !== '') sections.push(`# Skillset\n${skillset}`);
   if (context != null && context !== '') sections.push(`# Environment\n${context}`);

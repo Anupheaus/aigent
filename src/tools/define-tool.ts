@@ -67,6 +67,8 @@ export interface ToolBaseInput {
   requiresApproval?: RequiresApproval;
   /** Shown with approval requests. */
   risk?: ApprovalRisk;
+  /** Text added once to the system prompt of agents with this tool (identical addenda appear once). */
+  promptAddendum?: string;
 }
 
 export interface ToolInput<TSchema extends z.ZodType> extends ToolBaseInput {
@@ -136,7 +138,8 @@ function validateBase(input: ToolBaseInput & CacheFieldsInput & { describeActivi
 }
 
 function validateContextFields(input: ToolBaseInput): void {
-  const { name, compactable, compressible } = input;
+  const { name, compactable, compressible, promptAddendum } = input;
+  if (promptAddendum !== undefined && (typeof promptAddendum !== 'string' || promptAddendum.trim() === '')) invalid(name, 'promptAddendum must be non-empty text');
   if (compactable !== undefined && typeof compactable !== 'boolean') invalid(name, `compactable must be a boolean, got ${String(compactable)}`);
   if (compressible !== undefined && typeof compressible !== 'boolean' && compressible !== 'allow-code') invalid(name, `compressible must be true, false or 'allow-code', got ${String(compressible)}`);
 }
@@ -147,7 +150,7 @@ export function isPositiveInteger(value: unknown): boolean {
 
 export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>): Tool {
   validateBase(input);
-  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk, dryRun, undo, applyUndo } = input;
+  const { name, description, args, deterministic, cache, cacheTtlMs, version, cacheNamespace, sharedCache, cacheKey, validity, contentKind, fidelity, hasSideEffects = false, acceptsAliases, compactable, compressible, timeoutMs = DEFAULT_TOOL_TIMEOUT_MS, maxResultTokens, strictSchema = true, describeActivity, run, resume, verify, requiresApproval, risk, dryRun, undo, applyUndo, promptAddendum } = input;
   const jsonSchema = strictSchema ? toStrictJsonSchema(args) : toLooseJsonSchema(args);
   return {
     name,
@@ -174,6 +177,7 @@ export function defineTool<TSchema extends z.ZodType>(input: ToolInput<TSchema>)
     ...(resume == null ? {} : { resume }),
     ...(requiresApproval == null || requiresApproval === false ? {} : { requiresApproval }),
     ...(risk == null ? {} : { risk }),
+    ...(promptAddendum == null ? {} : { promptAddendum }),
     ...(verify == null ? {} : { verify: (verifyArgs: unknown, context: ToolContext) => verify(verifyArgs as z.infer<TSchema>, context) }),
     ...(dryRun == null ? {} : { dryRun: (dryArgs: unknown, context: ToolContext) => dryRun(dryArgs as z.infer<TSchema>, context) }),
     ...(undo == null ? {} : { undo: (undoArgs: unknown, result: unknown, context: ToolContext) => undo(undoArgs as z.infer<TSchema>, result, context) }),

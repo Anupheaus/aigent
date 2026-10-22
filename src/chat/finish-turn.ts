@@ -28,7 +28,7 @@ function messageState(status: TaskResult['status']): MessageState {
 
 /** Message meta from the run's own figures, so a UI shows what the run record and `ai.report()` hold. */
 function replyMeta(params: FinishTurnParams): MessageMeta {
-  const { result: { runId, responseId, usage, status, failure }, summary, history, agentName, instanceId } = params;
+  const { result: { runId, responseId, usage, status, failure, citations }, summary, history, agentName, instanceId } = params;
   const [provider, ...modelParts] = (summary?.model ?? '').split(':');
   const timing = summary?.timings;
   return {
@@ -41,6 +41,7 @@ function replyMeta(params: FinishTurnParams): MessageMeta {
     ...(status === 'completed' ? { finishReason: 'stop' as const } : {}),
     ...(status === 'incomplete' ? { finishReason: 'length' as const, truncated: true } : {}),
     ...(failure == null ? {} : { error: failure }),
+    ...(citations == null ? {} : { citations }),
     history,
   };
 }

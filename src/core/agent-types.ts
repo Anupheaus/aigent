@@ -1,4 +1,5 @@
 import type { UserFeedback } from '../feedback/feedback-records.js';
+import type { Citation } from './citations.js';
 import type { Usage } from '../providers/provider-types.js';
 import type { PlanItemState, TodoItem } from '../planning/plan-schema.js';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
@@ -131,6 +132,11 @@ export interface TaskResult {
   guardrails?: GuardrailDecisionRecord[];
   /** Dry runs only: what the mutating calls would have done, in order (empty when nothing would change). */
   plannedEffects?: PlannedEffect[];
+  /**
+   * The passages the answer cites with `[[cite:<chunkId>]]` markers (stripped from `answer`), resolved against what the
+   * run's tools returned (the knowledge pack), in order of first citation. Absent when the answer cites nothing.
+   */
+  citations?: Citation[];
   /** Shortcut for `ai.feedback({ responseId, ...feedback })`. Not enumerable, so the result stays plain data. */
   feedback(feedback: Omit<UserFeedback, 'responseId'>): Promise<void>;
 }

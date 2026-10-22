@@ -10,6 +10,14 @@ describe('buildSystemPrompt', () => {
     expect(buildSystemPrompt({})).not.toMatch(/Persona|Skillset|Environment/);
   });
 
+  it('adds tool addenda after the library rules and before the persona, each once and sorted', () => {
+    const prompt = buildSystemPrompt({ persona: 'P', toolAddenda: ['Zeta rule.', 'Alpha rule.', 'Zeta rule.'] });
+    expect(prompt.match(/Zeta rule\./g)).toHaveLength(1);
+    expect(prompt.indexOf('Alpha rule.')).toBeLessThan(prompt.indexOf('Zeta rule.'));
+    expect(prompt.indexOf('Zeta rule.')).toBeLessThan(prompt.indexOf('# Persona'));
+    expect(buildSystemPrompt({ persona: 'P', toolAddenda: [] })).toBe(buildSystemPrompt({ persona: 'P' }));
+  });
+
   it('is byte-stable for the same input', () => {
     expect(buildSystemPrompt({ persona: 'P' })).toBe(buildSystemPrompt({ persona: 'P' }));
   });

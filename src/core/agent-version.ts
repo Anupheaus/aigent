@@ -10,7 +10,7 @@ import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskLimits } from './task-input.js';
 
 /** The tool fields that change how an agent behaves; code (`run`, renderers) is not hashable and is left out. */
-export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity' | 'acceptsAliases' | 'cacheNamespace' | 'sharedCache' | 'compactable' | 'compressible'>;
+export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity' | 'acceptsAliases' | 'cacheNamespace' | 'sharedCache' | 'compactable' | 'compressible' | 'promptAddendum'>;
 
 /** A fallback model and the settings it would be sent. */
 export interface AgentVersionFallback {
@@ -55,9 +55,9 @@ export interface AgentVersionInput {
 const HASH_ALGORITHM = 'sha256';
 
 function versionTool(tool: AgentVersionTool): AgentVersionTool {
-  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible } = tool;
+  const { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible, promptAddendum } = tool;
   // The newer fields are undefined unless set, and undefined fields are not hashed, so earlier versions are unchanged.
-  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible };
+  return { name, description, jsonSchema, strict, deterministic, cache, cacheTtlMs, hasSideEffects, timeoutMs, maxResultTokens, version, contentKind, fidelity, acceptsAliases, cacheNamespace, sharedCache, compactable, compressible, promptAddendum };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

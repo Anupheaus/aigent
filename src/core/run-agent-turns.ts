@@ -33,6 +33,8 @@ import type { RunVolatile } from './run-volatile.js';
 import type { Clock } from './runtime-services.js';
 import { turnMessages } from './turn-messages.js';
 import { abortedStatus, buildTurnsResult } from './turns-result.js';
+import { collectCitations, resolveCitations } from './citations.js';
+import type { Citation } from './citations.js';
 import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
 import type { RunGuardrails } from './run-guardrails.js';
 import { settleAnswer } from './settle-answer.js';
@@ -133,6 +135,9 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   const callIds = createRunCallIds({ context, ...(restore == null ? {} : { reserved: restore.ledger.map(({ callId }) => callId) }) });
   const compactor = createRunCompaction({ settings: params.compaction, context, originals, volatile, clock, totals, signal, emit });
   const errors: ToolErrorDetail[] = [];
+  /** What the run's tools offered for citing, by chunk id (the answer's markers resolve against it). */
+  const citable = new Map<string, Citation>();
+  let citations: Citation[] = [];
   let answer = '';
   let output: unknown;
   let status: TaskStatus = 'completed';
@@ -242,6 +247,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     commit(turnMessages({ turn, executed, registry }));
     inFlightRound = undefined;
     errors.push(...failedDetails(executed));
+    collectCitations({ executed, registry, into: citable });
     // A round cut short by a stop is not checkpointed: its response (the 'message' checkpoint) stays the latest, so a
     // suspended ask_user turn can be continued with real answers instead of its aborted results.
     // The round's effects are in the log before the checkpoint commits it; a crash before then replays them from the ledger.
@@ -251,7 +257,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
       const settled = await settleAnswer({ text: turn.raw.trim(), streamed: turn.visible, ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }), structured: params.guardrails?.answer ?? {}, retriesLeft: Math.min(outputRetries, limits.maxTurns - totals.turns), emit });
       // The answer did not match the task's output schema: the model is told why and answers again.
       if (settled.kind === 'retry') { outputRetries -= 1; commit([{ kind: 'user', message: { role: 'user', text: settled.feedback } }]); continue; }
-      answer = settled.answer;
+      ({ answer, citations } = resolveCitations({ answer: settled.answer, known: citable, emit }));
       if (settled.kind === 'failed') { status = 'failed'; failure = settled.failure; emit({ type: 'error', message: failure }); break; }
       output = settled.output;
       if (turn.finishReason === 'length') status = 'incomplete';
@@ -262,7 +268,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   lease.dispose();
   if (params.checkpoints != null && !lease.isLost()) await checkpointer.close(status).catch((error: unknown) => emit({ type: 'warning', message: `The run's final checkpoint was not written: ${describeError(error)}` }));
   return buildTurnsResult({
-    ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, ...(failure == null ? {} : { failure }), ...(output === undefined ? {} : { output }) },
+    ids: { runId, responseId, agentName, instanceId }, outcome: { status, answer, errors, citations, ...(failure == null ? {} : { failure }), ...(output === undefined ? {} : { output }) },
     totals, context, compactor, planning, durationMs: clock.now() - startedAt,
   });
 }

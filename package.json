@@ -64,6 +64,10 @@
     "./tools/db": {
       "types": "./dist/tools/packs/db/index.d.ts",
       "import": "./dist/tools/packs/db/index.js"
+    },
+    "./tools/knowledge": {
+      "types": "./dist/tools/packs/knowledge/index.d.ts",
+      "import": "./dist/tools/packs/knowledge/index.js"
     }
   },
   "files": [

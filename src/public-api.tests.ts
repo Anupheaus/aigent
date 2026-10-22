@@ -10,6 +10,7 @@ import * as codePack from './tools/packs/code/index.js';
 import * as shellPack from './tools/packs/shell/index.js';
 import * as gitPack from './tools/packs/git/index.js';
 import * as dbPack from './tools/packs/db/index.js';
+import * as knowledgePack from './tools/packs/knowledge/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -50,6 +51,10 @@ describe('public API', () => {
 
   it('exports the database pack from its own entry', () => {
     expect(Object.keys(dbPack).sort()).toEqual(['createDbPolicy', 'createMemoryDbAccess', 'createMongoDbAccess', 'dbTools', 'toTaggedJson', 'validateQuery']);
+  });
+
+  it('exports the knowledge pack from its own entry', () => {
+    expect(Object.keys(knowledgePack).sort()).toEqual(['createChunker', 'createFileVectorIndex', 'createKnowledgeBase', 'createMemoryVectorIndex', 'evalRetrieval', 'hashEmbedder', 'knowledgeTools', 'openAiEmbedder', 'scanSources']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {
