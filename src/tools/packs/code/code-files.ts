@@ -19,6 +19,15 @@ export interface CodeFileList {
   truncated: boolean;
   /** Counted skips (with samples): ignored, hidden, denied, too large, unreadable. */
   skipped: ReturnType<typeof createSkipReport>;
+  /** Code files left out of the program because the policy denies them, they are too large, or they could not be read. */
+  codeSkips: CodeSkips;
+}
+
+/** Code files missing from a program, by reason: usages in them can never be found. */
+export interface CodeSkips {
+  denied: number;
+  tooLarge: number;
+  unreadable: number;
 }
 
 /**
@@ -27,7 +36,10 @@ export interface CodeFileList {
  */
 export async function listCodeFiles(params: { policy: FsPolicy; access: FsAccess; root: string; maxFiles: number }): Promise<CodeFileList> {
   const { policy, access, root, maxFiles } = params;
-  const skipped = createSkipReport();
+  const report = createSkipReport();
+  const codeSkips: CodeSkips = { denied: 0, tooLarge: 0, unreadable: 0 };
+  // The walk reports every denied entry; only code files among them can hide usages.
+  const skipped: typeof report = { ...report, add: (reason, path) => { report.add(reason, path); if (reason === 'denied' && CODE_FILE.test(path)) codeSkips.denied += 1; } };
   const ignore = createIgnoreMatcher({ rules: DEFAULT_SEARCH_IGNORES.flatMap(parseIgnoreFile), caseSensitive: policy.caseSensitive(access) });
   const walked = await walk({
     deps: { policy, access, approvals: 'none', clock: { now: () => 0 } }, start: root, root, maxDepth: MAX_WALK_DEPTH, includeHidden: false, ignore,
@@ -36,8 +48,9 @@ export async function listCodeFiles(params: { policy: FsPolicy; access: FsAccess
   const code = walked.entries.filter(({ type, path }) => type === 'file' && CODE_FILE.test(path));
   const tooLarge = code.filter(({ size }) => size > policy.limits.maxReadBytes);
   for (const { relative } of tooLarge) skipped.add('tooLarge', relative);
+  codeSkips.tooLarge = tooLarge.length;
   const readable = code.filter(({ size }) => size <= policy.limits.maxReadBytes);
   const entries = readable.slice(0, maxFiles);
   const version = createHash('sha256').update(entries.map(({ path, mtimeMs, size }) => `${path}\u0000${mtimeMs}\u0000${size}`).join('\n')).digest('hex');
-  return { entries, version, truncated: walked.truncated || readable.length > maxFiles, skipped };
+  return { entries, version, truncated: walked.truncated || readable.length > maxFiles, skipped, codeSkips };
 }

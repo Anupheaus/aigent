@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { BATCH_RESULT_HELPERS_WITH_REASONS } from '../../batch-entries.js';
 import { defineBatchTool } from '../../define-batch-tool.js';
 import type { Tool } from '../../tool-types.js';
+import type { CodeSkips } from './code-files.js';
 import { CODE_CACHE_TTL_MS, CODE_TOOL_TIMEOUT_MS, lineOf, lineText, MAX_CODE_ITEMS, sourceFor } from './code-shared.js';
 import type { CodeDeps } from './code-shared.js';
 import { codeValidity, pathsTitle } from './code-validity.js';
@@ -28,6 +29,12 @@ interface Usage {
   character: number;
   text: string;
   kind: UsageKind;
+}
+
+/** The code files the program left out, by reason (only reasons that occurred), when there are any. */
+function filesSkippedOf(codeSkips: CodeSkips): { filesSkipped?: Partial<CodeSkips> } {
+  const counted = Object.fromEntries(Object.entries(codeSkips).filter(([, count]) => count > 0));
+  return Object.keys(counted).length === 0 ? {} : { filesSkipped: counted };
 }
 
 /** `code_references`: every usage of a symbol across the project, as the compiler resolves it, grouped by file. */
@@ -67,6 +74,7 @@ export function createCodeReferences(deps: CodeDeps): Tool {
         return {
           path: canonical, symbol: field<string>(name, 'text') ?? '', total: usages.length, skipped, truncated: usages.length > maxResults,
           files: [...files.entries()].map(([filePath, fileUsages]) => ({ path: filePath, usages: fileUsages })), ...(program.truncated ? { incompleteIndex: true } : {}),
+          ...filesSkippedOf(program.files.codeSkips),
         };
       }),
     }),

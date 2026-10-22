@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { call, entriesOf } from '../fs/fs-tools.test-support.js';
+import { createCodeFindSymbol } from './code-find-symbol.js';
 import { createCodeOutline } from './code-outline.js';
 import { resolveCodeDeps } from './code-shared.js';
 import type { CodeDeps } from './code-shared.js';
@@ -65,6 +66,18 @@ describe('code_outline', () => {
       ['foo', 'function', true], ['bar', 'const', true], ['kept', 'variable', false], ['foo, baz', 're-export', true], ['default', 'export-default', true],
     ]);
     expect((entries[1]?.result as { symbols: Outline[] }).symbols.map(({ name, exported }) => [name, exported])).toEqual([['only', true], ['default', true]]);
+    await own.cleanup();
+  });
+
+  it('lists each name a destructuring declaration binds (review M9)', async () => {
+    const own = await codeFixture({ files: { 'bind.ts': 'const source = { d1: 1, d2: 2, nested: { deep: 3 } };\nexport const { d1, d2: renamed, nested: { deep } } = source;\nexport const [first, , third] = [1, 2, 3];\nconst { hidden } = { hidden: 4 };\n' } });
+    const ownDeps = resolveCodeDeps({ options: own.options });
+    const [entry] = entriesOf(await call({ tool: createCodeOutline(ownDeps), items: [{ path: own.at('bind.ts') }] }));
+    expect((entry?.result as { symbols: Outline[] }).symbols.map(({ name, kind, line, exported }) => [name, kind, line, exported])).toEqual([
+      ['source', 'const', 1, false], ['d1', 'const', 2, true], ['renamed', 'const', 2, true], ['deep', 'const', 2, true], ['first', 'const', 3, true], ['third', 'const', 3, true], ['hidden', 'const', 4, false],
+    ]);
+    const [found] = entriesOf(await call({ tool: createCodeFindSymbol(ownDeps), items: [{ name: 'd1' }] }));
+    expect(found?.result).toMatchObject({ total: 1, definitions: [{ name: 'd1', line: 2, exported: true }] });
     await own.cleanup();
   });
 

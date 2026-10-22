@@ -97,7 +97,7 @@ export function createProgramCache(params: ProgramCacheParams): ProgramCache {
     const decoder = new TextDecoder('utf-8');
     for (const { path } of files.entries) {
       const text = await access.readFile(path).then(bytes => decoder.decode(bytes), () => undefined);
-      if (text == null) { files.skipped.add('unreadable', path); continue; }
+      if (text == null) { files.skipped.add('unreadable', path); files.codeSkips.unreadable += 1; continue; }
       texts.set(key(path), text);
       own.set(key(path), path);
     }

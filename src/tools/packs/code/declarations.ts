@@ -81,16 +81,40 @@ function namesExportedByList(params: { scope: TsNode; kinds: SyntaxKinds }): Set
   return names;
 }
 
-function isExported(params: { node: TsNode; kinds: SyntaxKinds }): boolean {
-  const { node, kinds } = params;
+function isExported(params: { node: TsNode; kinds: SyntaxKinds; boundName?: string }): boolean {
+  const { node, kinds, boundName } = params;
   if (isKind({ node, kinds, name: 'ExportAssignment' }) || isKind({ node, kinds, name: 'ExportDeclaration' })) return true;
   const target = isKind({ node, kinds, name: 'VariableDeclaration' }) ? node.parent?.parent : node;
   const modifiers = field<readonly TsNode[]>(target, 'modifiers') ?? [];
   if (modifiers.some(modifier => isKind({ node: modifier, kinds, name: 'ExportKeyword' }))) return true;
   const scope = target?.parent;
   if (scope == null || !MODULE_SCOPES.some(name => isKind({ node: scope, kinds, name }))) return false;
-  const name = field<string>(field<TsNode>(node, 'name'), 'text');
+  const name = boundName ?? field<string>(field<TsNode>(node, 'name'), 'text');
   return name != null && namesExportedByList({ scope, kinds }).has(name);
+}
+
+/** Binding patterns: `const { a, b: c } = ...` and `const [a, , b] = ...`. */
+const BINDING_PATTERNS = ['ObjectBindingPattern', 'ArrayBindingPattern'];
+
+/** The names a binding pattern binds, nested patterns included, in source order. */
+function boundNames(params: { pattern: TsNode; kinds: SyntaxKinds }): string[] {
+  const { pattern, kinds } = params;
+  return (field<readonly TsNode[]>(pattern, 'elements') ?? []).flatMap(element => {
+    const name = field<TsNode>(element, 'name');
+    if (BINDING_PATTERNS.some(kind => isKind({ node: name, kinds, name: kind }))) return boundNames({ pattern: name as TsNode, kinds });
+    const text = field<string>(name, 'text');
+    // Holes in an array pattern (`[a, , b]`) bind nothing.
+    return text == null ? [] : [text];
+  });
+}
+
+/** A variable declaration's outline entries: one, or one per name a destructuring pattern binds. */
+function variableSymbols(params: { declaration: TsNode; kinds: SyntaxKinds }): OutlineSymbol[] {
+  const { declaration, kinds } = params;
+  const kind = declarationKind({ node: declaration, kinds }) ?? 'variable';
+  const pattern = field<TsNode>(declaration, 'name');
+  if (!BINDING_PATTERNS.some(name => isKind({ node: pattern, kinds, name }))) return [describeDeclaration({ node: declaration, kinds, kind })];
+  return boundNames({ pattern: pattern as TsNode, kinds }).map(name => describeDeclaration({ node: declaration, kinds, kind, name }));
 }
 
 function nameOf(params: { node: TsNode; kinds: SyntaxKinds; kind: string }): string {
@@ -115,14 +139,17 @@ function signatureOf(params: { node: TsNode; kind: string; source: TsSourceFile 
   return oneLine(source.text.slice(start, end).replace(/[;,]\s*$/, ''));
 }
 
-/** One declaration node as the outline and the symbol search show it (children not included). */
-export function describeDeclaration(params: { node: TsNode; kinds: SyntaxKinds; kind: string }): OutlineSymbol {
-  const { node, kinds, kind } = params;
+/**
+ * One declaration node as the outline and the symbol search show it (children not included); `name` names one binding
+ * of a destructuring declaration.
+ */
+export function describeDeclaration(params: { node: TsNode; kinds: SyntaxKinds; kind: string; name?: string }): OutlineSymbol {
+  const { node, kinds, kind, name } = params;
   const source = node.getSourceFile();
   const target = kind === 'const' || kind === 'variable' ? node.parent?.parent ?? node : node;
   return {
-    name: nameOf({ node, kinds, kind }), kind, line: lineOf({ source, position: node.getStart() }), endLine: lineOf({ source, position: Math.max(node.getStart(), node.end - 1) }),
-    exported: isExported({ node, kinds }), signature: kind === 'const' || kind === 'variable' ? signatureOf({ node: target, kind, source }) : signatureOf({ node, kind, source }), children: [],
+    name: name ?? nameOf({ node, kinds, kind }), kind, line: lineOf({ source, position: node.getStart() }), endLine: lineOf({ source, position: Math.max(node.getStart(), node.end - 1) }),
+    exported: isExported({ node, kinds, ...(name == null ? {} : { boundName: name }) }), signature: kind === 'const' || kind === 'variable' ? signatureOf({ node: target, kind, source }) : signatureOf({ node, kind, source }), children: [],
   };
 }
 
@@ -133,7 +160,7 @@ export function outlineOf(params: { node: TsNode; kinds: SyntaxKinds }): Outline
   node.forEachChild(child => {
     if (isKind({ node: child, kinds, name: 'VariableStatement' })) {
       const declarations = field<readonly TsNode[]>(field<TsNode>(child, 'declarationList'), 'declarations') ?? [];
-      for (const declaration of declarations) symbols.push(describeDeclaration({ node: declaration, kinds, kind: declarationKind({ node: declaration, kinds }) ?? 'variable' }));
+      for (const declaration of declarations) symbols.push(...variableSymbols({ declaration, kinds }));
       return undefined;
     }
     if (isKind({ node: child, kinds, name: 'ModuleBlock' })) { symbols.push(...outlineOf({ node: child, kinds })); return undefined; }

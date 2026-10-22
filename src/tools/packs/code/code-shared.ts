@@ -1,3 +1,4 @@
+import { dirname, isAbsolute, join } from 'node:path';
 import type { FsAccess } from '../../../security/fs-access.js';
 import { createNodeFsAccess } from '../../../security/fs-access-node.js';
 import type { FsPolicy } from '../../../security/fs-policy-types.js';
@@ -54,13 +55,35 @@ async function readCompilerOptions(params: { policy: FsPolicy; access: FsAccess;
   const decision = await policy.check({ path: tsconfigPath, permission: 'read', access });
   if (!decision.allowed) throw toolFailure({ category: 'denied', code: decision.code, message: `tsconfigPath: ${decision.message}`, retryable: false });
   const parsed = parseJsonc(new TextDecoder().decode(await access.readFile(decision.canonicalPath))) as { compilerOptions?: Record<string, unknown> };
-  return parsed.compilerOptions ?? {};
+  return anchorPaths({ options: parsed.compilerOptions ?? {}, configDirectory: dirname(decision.canonicalPath) });
+}
+
+/**
+ * `baseUrl` and `paths` as absolute paths: the compiler resolves them against the tsconfig's directory, but the
+ * programs use a generated tsconfig at the root, which may be elsewhere.
+ */
+function anchorPaths(params: { options: Record<string, unknown>; configDirectory: string }): Record<string, unknown> {
+  const { options, configDirectory } = params;
+  const absolute = (path: string): string => (isAbsolute(path) ? path : join(configDirectory, path)).replace(/\\/g, '/');
+  const { baseUrl, paths } = options;
+  const anchored: Record<string, unknown> = { ...options };
+  if (typeof baseUrl === 'string') anchored.baseUrl = absolute(baseUrl);
+  // Without baseUrl, `paths` entries are relative to the tsconfig; with it, to baseUrl (already made absolute).
+  const pathsBase = typeof baseUrl === 'string' ? absolute(baseUrl) : configDirectory;
+  if (paths != null && typeof paths === 'object') {
+    anchored.paths = Object.fromEntries(Object.entries(paths as Record<string, unknown>).map(([pattern, targets]) => [
+      pattern, Array.isArray(targets) ? targets.map(target => (typeof target === 'string' && !isAbsolute(target) ? join(pathsBase, target).replace(/\\/g, '/') : target)) : targets,
+    ]));
+  }
+  return anchored;
 }
 
 export function resolveCodeDeps(params: { options: CodeToolsOptions; loadTypeScript?: () => Promise<TsModules> }): CodeDeps {
   const { options: { policy, access = createNodeFsAccess(), tsconfigPath, maxFiles = DEFAULT_MAX_CODE_FILES, idleCloseMs = DEFAULT_IDLE_CLOSE_MS }, loadTypeScript = loadInstalledTypeScript } = params;
   let options: Promise<Record<string, unknown>> | undefined;
-  const compilerOptions = (): Promise<Record<string, unknown>> => (options ??= readCompilerOptions({ policy, access, ...(tsconfigPath == null ? {} : { tsconfigPath }) }));
+  // A failed read is not kept: the next build reads the tsconfig again (it may have been missing or mid-edit).
+  const compilerOptions = (): Promise<Record<string, unknown>> => (options ??= readCompilerOptions({ policy, access, ...(tsconfigPath == null ? {} : { tsconfigPath }) })
+    .catch((error: unknown) => { options = undefined; throw error; }));
   // Whatever the loader throws, the model is told what is missing and how to install it.
   const load = (): Promise<TsModules> => loadTypeScript().catch((error: unknown) => { throw isToolFailure(error) ? error : typescriptUnavailable(error); });
   return { policy, access, programs: createProgramCache({ policy, access, maxFiles, idleCloseMs, compilerOptions, loadTypeScript: load }) };

@@ -88,4 +88,30 @@ describe('code_references', () => {
     expect(entry).toMatchObject({ ok: false, error: { code: 'no_symbol_at_position' } });
     await own.cleanup();
   });
+
+  it('resolves tsconfig paths against the tsconfig\'s own directory, and retries a tsconfig that failed to load (review M12)', async () => {
+    const own = await codeFixture({ files: { 'src/lib/thing.ts': 'export function thing(): number { return 1; }\n', 'src/app.ts': "import { thing } from '@lib/thing';\nthing();\n" } });
+    const tsconfigPath = own.at('config/tsconfig.json');
+    const ownDeps = resolveCodeDeps({ options: { ...own.options, tsconfigPath } });
+    const [missing] = entriesOf(await call({ tool: createCodeReferences(ownDeps), items: [{ path: own.at('src/lib/thing.ts'), symbol: 'thing' }] }));
+    expect(missing).toMatchObject({ ok: false });
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    await mkdir(own.at('config'), { recursive: true });
+    await writeFile(tsconfigPath, JSON.stringify({ compilerOptions: { paths: { '@lib/*': ['../src/lib/*'] } } }));
+    const result = await references({ path: own.at('src/lib/thing.ts'), symbol: 'thing' }, ownDeps);
+    expect(result.files.map(({ path }) => path)).toEqual([own.at('src/app.ts'), own.at('src/lib/thing.ts')]);
+    await ownDeps.programs.dispose();
+    await own.cleanup();
+  });
+
+  it('says how many files the index left out, since usages in them cannot be listed (review M10)', async () => {
+    const large = `import { shared } from './lib';\nexport const big = shared();\n${'// padding\n'.repeat(40)}`;
+    const own = await codeFixture({ files: { 'lib.ts': 'export function shared(): number { return 1; }\n', 'secret.ts': "import { shared } from './lib';\nshared();\n", 'large.ts': large }, policy: { denyGlobs: ['secret.ts'], maxReadBytes: 200 } });
+    const ownDeps = resolveCodeDeps({ options: own.options });
+    const result = await references({ path: own.at('lib.ts'), symbol: 'shared' }, ownDeps);
+    expect(result).toMatchObject({ filesSkipped: { denied: 1, tooLarge: 1 } });
+    const clean = await references({ path: fixture.at('src/shapes.ts'), symbol: 'scale' });
+    expect(clean).not.toHaveProperty('filesSkipped');
+    await own.cleanup();
+  });
 });
