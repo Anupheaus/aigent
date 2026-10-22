@@ -54,10 +54,17 @@ export function fieldAccess(rules: FieldRules, path: string): FieldAccess {
   return 'ok';
 }
 
+/**
+ * The key sets of the tagged values `toTaggedJson` produces (sorted, comma-joined). Only these are whole values; any
+ * other subdocument is walked, even when every key starts with `$`, so it cannot carry fields past `allowFields`.
+ */
+const TAGGED_SHAPES: ReadonlySet<string> = new Set([
+  '$oid', '$date', '$numberDecimal', '$numberLong', '$numberDouble', '$binary', '$options,$regex', '$truncated', '$bsontype,value',
+]);
+
 /** Tagged values (`{ $oid }`, `{ $date }`...) are whole values, never walked into. */
 function isTaggedValue(value: Record<string, unknown>): boolean {
-  const keys = Object.keys(value);
-  return keys.length > 0 && keys.every(key => key.startsWith('$'));
+  return TAGGED_SHAPES.has(Object.keys(value).sort().join(','));
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

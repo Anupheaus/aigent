@@ -16,6 +16,7 @@ const DEFAULT_MAX_ARRAY_LENGTH = 1_000;
 const MAX_SORT_KEYS = 8;
 const MAX_SKIP = 1_000_000;
 const ID_FIELD = '_id';
+const ARRAY_INDEX_SEGMENT = /^\d+$/;
 
 function invalidDefinition(message: string, details: Record<string, unknown>): never {
   throw createAigentError({ code: 'invalid_definition', message: `createDbPolicy: ${message}`, details });
@@ -35,6 +36,11 @@ function checkFieldList(params: { fields: unknown; label: string }): string[] | 
   for (const field of fields) {
     const problem = typeof field === 'string' ? pathSyntaxError(field) ?? (forbiddenSegment(field) == null ? undefined : 'a prototype key') : 'not text';
     if (problem != null) invalidDefinition(`${label} entry ${JSON.stringify(field)} is not a valid field path (${problem})`, { option: label });
+    // A rule names a field, which covers every array element; an index would guard (or allow) one spelling only.
+    const segments = (field as string).split('.');
+    if (segments.some(segment => ARRAY_INDEX_SEGMENT.test(segment))) {
+      invalidDefinition(`${label} entry '${String(field)}' holds an array index; name the field without it ('${segments.filter(segment => !ARRAY_INDEX_SEGMENT.test(segment)).join('.')}'), which covers every element`, { option: label });
+    }
   }
   return [...fields] as string[];
 }

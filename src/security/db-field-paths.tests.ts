@@ -51,6 +51,12 @@ describe('pruneDocument', () => {
     expect(doc.customer).toEqual({ email: 'e' });
   });
 
+  it('walks into a subdocument whose keys only look tagged, so it cannot carry fields past allowFields (review M4)', () => {
+    const doc = { meta: { $secret: 's' }, info: { $secret: 's', $other: 't' }, when: { $date: '2020-01-01T00:00:00.000Z' }, re: { $regex: 'a', $options: 'i' } };
+    const pruned = pruneDocument({ allowFields: ['meta.public', 'info.public', 'when', 're'], denyFields: [] }, doc);
+    expect(pruned).toEqual({ when: { $date: '2020-01-01T00:00:00.000Z' }, re: { $regex: 'a', $options: 'i' } });
+  });
+
   it('treats tagged values as leaves and drops prototype keys', () => {
     const doc = JSON.parse('{"__proto__":{"polluted":true},"when":{"$date":"2020-01-01T00:00:00.000Z"}}') as Record<string, unknown>;
     const pruned = pruneDocument({ denyFields: [] }, doc);

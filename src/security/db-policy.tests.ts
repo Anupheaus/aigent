@@ -179,6 +179,9 @@ describe('createDbPolicy', () => {
     expect(definitionError({ collections: { users: { permissions: ['read'], maxLimit: 0 } } })).toMatch(/maxLimit/);
     expect(definitionError({ collections: { users: { permissions: ['read'], maxTimeMs: -5 } } })).toMatch(/maxTimeMs/);
     expect(definitionError({ collections: { users: { permissions: ['read'], denyFields: ['$x'] } } })).toMatch(/denyFields/);
+    // Review M3: an array index in a rule would only guard that one spelling; rules name fields, which cover every element.
+    expect(definitionError({ collections: { users: { permissions: ['read'], denyFields: ['cards.0.number'] } } })).toMatch(/denyFields.*array index.*cards\.number/);
+    expect(definitionError({ collections: { users: { permissions: ['read'], allowFields: ['items.1'] } } })).toMatch(/allowFields.*array index/);
     expect(definitionError({ collections: {}, maxDepth: 0 })).toMatch(/maxDepth/);
   });
 
