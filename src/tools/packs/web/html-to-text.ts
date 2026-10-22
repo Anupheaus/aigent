@@ -24,8 +24,13 @@ export const DEFAULT_MAX_CHARS = 20_000;
 export const MAX_LINKS = 50;
 /** Deepest element nesting tracked; deeper elements are read as text of their parent. */
 const MAX_DEPTH = 256;
-/** Elements whose content is never page text: code, page chrome and controls. */
-const DROPPED: ReadonlySet<string> = new Set(['script', 'style', 'noscript', 'template', 'svg', 'nav', 'footer', 'aside', 'form', 'head', 'iframe', 'object', 'canvas', 'button', 'select', 'textarea']);
+/**
+ * Elements whose content is never page text: code, page chrome and form controls. A `form` itself is not dropped:
+ * whole pages (ASP.NET WebForms) sit inside one.
+ */
+const DROPPED: ReadonlySet<string> = new Set(['script', 'style', 'noscript', 'template', 'svg', 'nav', 'footer', 'aside', 'head', 'iframe', 'object', 'canvas', 'button', 'select', 'textarea', 'label']);
+/** Elements that may stay inside `head`; any other start tag ends it, as an HTML5 parser does when `</head>` is omitted. */
+const HEAD_CONTENT: ReadonlySet<string> = new Set(['title', 'meta', 'link', 'style', 'script', 'base', 'noscript', 'template']);
 const BLOCKS: ReadonlySet<string> = new Set(['p', 'div', 'br', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'tr', 'table', 'section', 'article', 'main', 'header', 'blockquote', 'pre', 'hr', 'dd', 'dt', 'dl', 'figure', 'figcaption', 'address', 'body']);
 const VOID: ReadonlySet<string> = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 const MAIN: ReadonlySet<string> = new Set(['main', 'article']);
@@ -48,7 +53,7 @@ function absoluteUrl(params: { href: string; base: string }): string | undefined
 
 /**
  * Readable text from HTML without running or fetching anything: scripts, styles, navigation, footers, asides and
- * forms are dropped, blocks become lines, entities are decoded. Linear in the input, so huge or malformed pages are safe.
+ * form controls are dropped, blocks become lines, entities are decoded. Linear in the input, so huge or malformed pages are safe.
  */
 export function htmlToText(params: HtmlToTextParams): ExtractedPage {
   const { html, maxChars = DEFAULT_MAX_CHARS } = params;
@@ -106,6 +111,8 @@ export function htmlToText(params: HtmlToTextParams): ExtractedPage {
       if (index !== -1) while (stack.length > index) pop();
       continue;
     }
+    const openHead = stack.lastIndexOf('head');
+    if (openHead !== -1 && !HEAD_CONTENT.has(name)) while (stack.length > openHead) pop();
     if (name === 'base' && token.attributes.href != null) base = absoluteUrl({ href: token.attributes.href, base: params.baseUrl }) ?? base;
     if (BLOCKS.has(name) && dropped === 0) write('\n');
     if (VOID.has(name) || token.selfClosing || stack.length >= MAX_DEPTH) continue;

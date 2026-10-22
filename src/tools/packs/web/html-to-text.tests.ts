@@ -32,6 +32,18 @@ describe('htmlToText', () => {
     expect(page.links).toEqual([{ text: 'Nav link', url: 'https://example.com/n' }]);
   });
 
+  it('reads a page whose </head> is omitted (valid HTML5): the body closes the head (review I4)', () => {
+    const page = htmlToText({ html: '<html><head><title>T</title><meta charset="utf-8"><style>p{}</style><body><h1>Hello</h1><p>World</p></body></html>', baseUrl: BASE });
+    expect(page).toMatchObject({ title: 'T', text: 'Hello\nWorld', headings: [{ level: 1, text: 'Hello' }] });
+    expect(htmlToText({ html: '<head><title>T</title><div>Content without a body tag</div>', baseUrl: BASE }).text).toBe('Content without a body tag');
+  });
+
+  it('reads a page wrapped in one <form> (ASP.NET WebForms), still dropping the controls (review I4)', () => {
+    const webForms = '<html><body><form method="post" action="./"><input type="hidden" name="__VIEWSTATE" value="abc"><div><h1>Orders</h1><p>All orders ship in two days.</p></div><label>Qty</label><select><option>1</option></select><textarea>notes</textarea><button>Buy now</button></form></body></html>';
+    const page = htmlToText({ html: webForms, baseUrl: BASE });
+    expect(page.text).toBe('Orders\nAll orders ship in two days.');
+  });
+
   it('copes with malformed HTML: unclosed tags, stray brackets, unterminated comments and attributes', () => {
     const page = htmlToText({ html: '<p>one <b>two <i>three</p><p>4 < 5 > 3<div class="x>y">five</div><!-- never closed <p>hidden', baseUrl: BASE });
     expect(page.text).toBe('one two three\n4 < 5 > 3\nfive');
