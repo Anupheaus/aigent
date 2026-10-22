@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { canonicalJson } from '../core/canonical-json.js';
 import type { IndexedChunk, MetadataFilter } from './knowledge-types.js';
 
 export type { VectorIndex } from './knowledge-types.js';
@@ -27,7 +28,10 @@ export function byPlace(left: IndexedChunk, right: IndexedChunk): number {
   return left.chunkId < right.chunkId ? -1 : 1;
 }
 
-/** A hash of every chunk's id and content hash: equal sets of chunks give equal versions. */
+/**
+ * A hash of every chunk's id, content hash, uri and metadata: equal sets of chunks give equal versions, and a chunk
+ * moved to another uri or tagged differently (which changes search results and citations) gives a new one.
+ */
 export function versionOf(chunks: Iterable<IndexedChunk>): string {
-  return sha256([...chunks].map(({ chunkId, contentHash }) => `${chunkId}:${contentHash}`).sort().join('\n'));
+  return sha256([...chunks].map(({ chunkId, contentHash, uri, metadata }) => canonicalJson([chunkId, contentHash, uri, metadata])).sort().join('\n'));
 }

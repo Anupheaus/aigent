@@ -12,6 +12,8 @@ const MIN_CHUNK_SHARE = 0.25;
 /** Fenced blocks up to this many targets stay whole. */
 const FENCE_TARGETS = 2;
 const NON_WHITESPACE = /\S/;
+/** `Chunker.id` prefix of the chunkers `createChunker` makes (the settings follow). */
+const CHUNKER_ID = 'aigent-chunker';
 
 /** `createChunker(options)`. */
 export interface ChunkerOptions {
@@ -92,7 +94,7 @@ export function createChunker(options: ChunkerOptions = {}): Chunker {
   const { targetChars = DEFAULT_TARGET_CHARS, overlapChars = DEFAULT_OVERLAP_CHARS } = options;
   if (!Number.isSafeInteger(targetChars) || targetChars < 2) throw createAigentError({ code: 'invalid_definition', message: `createChunker: targetChars must be an integer of at least 2, got ${String(targetChars)}` });
   if (!Number.isSafeInteger(overlapChars) || overlapChars < 0 || overlapChars >= targetChars) throw createAigentError({ code: 'invalid_definition', message: `createChunker: overlapChars must be an integer from 0 to below targetChars (${targetChars}), got ${String(overlapChars)}` });
-  return ({ text, uri }) => {
+  const chunk = ({ text, uri }: { text: string; uri: string }): ChunkPiece[] => {
     const kind = kindOf(uri);
     const boundaries = findBoundaries({ text, kind, maxFence: targetChars * FENCE_TARGETS });
     const lineStarts = lineStartsOf(text);
@@ -108,4 +110,6 @@ export function createChunker(options: ChunkerOptions = {}): Chunker {
     }
     return pieces;
   };
+  // The id names the settings, so an index built with other settings is re-chunked.
+  return Object.assign(chunk, { id: `${CHUNKER_ID}:${targetChars}:${overlapChars}` });
 }

@@ -43,6 +43,19 @@ function behavesAsAnIndex(make: () => VectorIndex): void {
     await index.upsert(CHUNKS);
     expect(await index.version()).toBe(full);
   });
+
+  it('versions uri and metadata too: the same text moved to another tenant or uri is a change (review I2)', async () => {
+    const index = make();
+    await index.upsert(CHUNKS);
+    const before = await index.version();
+    const [first] = CHUNKS;
+    if (first == null) throw new Error('fixture has chunks');
+    await index.upsert([{ ...first, metadata: { lang: 'de' } }]);
+    const retagged = await index.version();
+    expect(retagged).not.toBe(before);
+    await index.upsert([{ ...first, metadata: { lang: 'de' }, uri: 'mem://moved' }]);
+    expect(await index.version()).not.toBe(retagged);
+  });
 }
 
 describe('createMemoryVectorIndex', () => {

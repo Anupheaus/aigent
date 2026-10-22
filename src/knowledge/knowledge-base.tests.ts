@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createMemoryFsAccess } from '../security/fs-access-memory.js';
 import type { FsAccess } from '../security/fs-access.js';
 import { createFsPolicy } from '../security/fs-policy.js';
+import { createChunker } from './chunker.js';
 import { hashEmbedder } from './embedder.js';
 import { fixtureSources, JUDGMENTS } from './fixtures.test-support.js';
 import { createKnowledgeBase } from './knowledge-base.js';
@@ -111,6 +112,40 @@ describe('freshness', () => {
     expect(pruned).toMatchObject({ indexed: ['renamed'], removed: ['a'] });
     expect(pruned.embedded).toBe(0);
     expect((await base.search({ query: 'paragraph', k: 20 })).every(({ sourceId }) => sourceId === 'renamed')).toBe(true);
+  });
+
+  it('re-indexes unchanged text whose uri or metadata changed, without re-embedding (review I2)', async () => {
+    const embedder = countingEmbedder();
+    const base = createKnowledgeBase({ embedder, index: createMemoryVectorIndex() });
+    await base.index({ sources: [{ id: 'a', uri: 'tenant-a/a.txt', text: long('a'), metadata: { tenant: 'a' } }] });
+    const before = await base.version();
+    const calls = embedder.calls.length;
+    const moved = await base.index({ sources: [{ id: 'a', uri: 'tenant-b/a.txt', text: long('a'), metadata: { tenant: 'b' } }] });
+    expect(moved).toMatchObject({ indexed: ['a'], skipped: [], embedded: 0 });
+    expect(embedder.calls).toHaveLength(calls);
+    expect(await base.version()).not.toBe(before);
+    expect(await base.search({ query: 'paragraph detail', filter: { tenant: 'a' } })).toEqual([]);
+    const forB = await base.search({ query: 'paragraph detail', filter: { tenant: 'b' } });
+    expect(forB.length).toBeGreaterThan(0);
+    expect(forB.every(({ uri }) => uri === 'tenant-b/a.txt')).toBe(true);
+  });
+
+  it('re-indexes a source when the chunker settings change (review I2)', async () => {
+    const index = createMemoryVectorIndex();
+    const source = { id: 'a', uri: 'a.txt', text: long('a') };
+    await createKnowledgeBase({ embedder: hashEmbedder(), index }).index({ sources: [source] });
+    const report = await createKnowledgeBase({ embedder: hashEmbedder(), index, chunker: createChunker({ targetChars: 300, overlapChars: 0 }) }).index({ sources: [source] });
+    expect(report).toMatchObject({ indexed: ['a'], skipped: [] });
+  });
+
+  it('re-indexes a path source with an unchanged mtime when its metadata changed (review I2)', async () => {
+    const access = createMemoryFsAccess({ platform: 'posix', files: { '/kb/guide.md': '# Guide\n\nThe guide text.' } });
+    const policy = createFsPolicy({ roots: [{ path: '/kb', permissions: ['read'] }] });
+    const base = createKnowledgeBase({ embedder: hashEmbedder(), index: createMemoryVectorIndex(), fs: { access, policy } });
+    await base.index({ sources: [{ id: 'guide', uri: 'guide.md', path: '/kb/guide.md', metadata: { tenant: 'a' } }] });
+    const report = await base.index({ sources: [{ id: 'guide', uri: 'guide.md', path: '/kb/guide.md', metadata: { tenant: 'b' } }] });
+    expect(report).toMatchObject({ indexed: ['guide'], skipped: [] });
+    expect(await base.search({ query: 'guide', filter: { tenant: 'b' } })).not.toEqual([]);
   });
 
   it('keeps chunk ids stable across runs for unchanged text', async () => {

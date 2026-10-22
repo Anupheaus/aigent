@@ -1,3 +1,4 @@
+import { canonicalJson } from '../core/canonical-json.js';
 import type { FsAccess } from '../security/fs-access.js';
 import type { FsPolicy } from '../security/fs-policy-types.js';
 import type { Chunker, Embedder, IndexedChunk, IndexReport, KnowledgeSource, VectorIndex } from './knowledge-types.js';
@@ -29,30 +30,42 @@ type SourceOutcome =
   | { kind: 'failed'; code: string; message: string; removed?: number }
   | { kind: 'indexed'; written: number; removed: number; embedded: number };
 
-/** The source's text (with mtime for path sources), `skipped` when its mtime is unchanged, or why it failed. */
-async function textOf(params: { deps: IndexDeps; source: KnowledgeSource; existing: IndexedChunk[] }): Promise<{ text: string; mtimeMs?: number } | SourceOutcome> {
-  const { deps: { fs, embedder }, source: { text, path }, existing } = params;
+/** The hash `IndexedChunk.settingsHash` holds: what besides the text decides the source's chunks. */
+function settingsHashOf(params: { deps: IndexDeps; source: KnowledgeSource }): string {
+  const { deps: { chunker }, source: { uri, metadata = {} } } = params;
+  return sha256(canonicalJson({ uri, metadata, chunker: chunker.id ?? null }));
+}
+
+/** Whether the stored chunks were made with these settings by this embedder (the text is checked separately). */
+function isSameSettings(params: { existing: IndexedChunk[]; settingsHash: string; embedderId: string }): boolean {
+  const { existing, settingsHash, embedderId } = params;
+  return existing.length > 0 && existing.every(chunk => chunk.settingsHash === settingsHash && chunk.embedderId === embedderId);
+}
+
+/** The source's text (with mtime for path sources), `skipped` when its mtime and settings are unchanged, or why it failed. */
+async function textOf(params: { deps: IndexDeps; source: KnowledgeSource; existing: IndexedChunk[]; settingsHash: string }): Promise<{ text: string; mtimeMs?: number } | SourceOutcome> {
+  const { deps: { fs, embedder }, source: { text, path }, existing, settingsHash } = params;
   if (typeof text === 'string' && path == null) return { text };
   if (typeof path !== 'string' || text != null) return { kind: 'failed', code: 'invalid_source', message: 'a source needs exactly one of text or path' };
   if (fs == null) return { kind: 'failed', code: 'no_fs', message: `path source '${path}' needs createKnowledgeBase({ fs: { access, policy } })` };
   const stat = await statSource({ fs, path });
   if (!stat.ok) return { kind: 'failed', code: stat.code, message: stat.message };
   const [first] = existing;
-  if (first != null && first.sourceMtimeMs === stat.mtimeMs && existing.every(chunk => chunk.embedderId === embedder.id)) return { kind: 'skipped' };
+  if (first != null && first.sourceMtimeMs === stat.mtimeMs && isSameSettings({ existing, settingsHash, embedderId: embedder.id })) return { kind: 'skipped' };
   const read = await readSource({ fs, path });
   return read.ok ? { text: read.text, mtimeMs: read.mtimeMs } : { kind: 'failed', code: read.code, message: read.message };
 }
 
 /** The source's new chunks, without vectors. */
-function chunksOf(params: { deps: IndexDeps; source: KnowledgeSource; text: string; sourceHash: string; mtimeMs?: number }): IndexedChunk[] {
-  const { deps: { chunker, embedder }, source: { id, uri, metadata = {} }, text, sourceHash, mtimeMs } = params;
+function chunksOf(params: { deps: IndexDeps; source: KnowledgeSource; text: string; hashes: { sourceHash: string; settingsHash: string }; mtimeMs?: number }): IndexedChunk[] {
+  const { deps: { chunker, embedder }, source: { id, uri, metadata = {} }, text, hashes: { sourceHash, settingsHash }, mtimeMs } = params;
   return chunker({ text, uri }).map(({ start, end, startLine, endLine, metadata: pieceMetadata = {} }) => {
     const chunkText = text.slice(start, end);
     return {
       chunkId: sha256(`${id}\n${start}:${end}\n${chunkText}`), sourceId: id, uri,
       span: { start, end, ...(startLine == null ? {} : { startLine }), ...(endLine == null ? {} : { endLine }) },
       text: chunkText, metadata: { ...metadata, ...pieceMetadata }, contentHash: sha256(chunkText), sourceHash,
-      ...(mtimeMs == null ? {} : { sourceMtimeMs: mtimeMs }), embedderId: embedder.id,
+      ...(mtimeMs == null ? {} : { sourceMtimeMs: mtimeMs }), embedderId: embedder.id, settingsHash,
     };
   });
 }
@@ -62,7 +75,8 @@ async function indexOne(params: { deps: IndexDeps; source: KnowledgeSource; sign
   const { index, embedder } = deps;
   if (typeof source?.id !== 'string' || source.id === '' || typeof source.uri !== 'string' || source.uri === '') return { kind: 'failed', code: 'invalid_source', message: 'a source needs a non-empty id and uri' };
   const existing = await index.list(source.id);
-  const read = await textOf({ deps, source, existing });
+  const settingsHash = settingsHashOf({ deps, source });
+  const read = await textOf({ deps, source, existing, settingsHash });
   if ('kind' in read && read.kind === 'failed' && existing.length > 0) {
     // A source that can no longer be read must not keep serving its old chunks.
     await index.remove({ sourceId: source.id });
@@ -70,9 +84,9 @@ async function indexOne(params: { deps: IndexDeps; source: KnowledgeSource; sign
   }
   if ('kind' in read) return read;
   const sourceHash = sha256(read.text);
-  const isCurrent = existing.length > 0 && existing.every(chunk => chunk.sourceHash === sourceHash && chunk.embedderId === embedder.id);
+  const isCurrent = isSameSettings({ existing, settingsHash, embedderId: embedder.id }) && existing.every(chunk => chunk.sourceHash === sourceHash);
   if (isCurrent) return { kind: 'skipped' };
-  const chunks = chunksOf({ deps, source, text: read.text, sourceHash, ...(read.mtimeMs == null ? {} : { mtimeMs: read.mtimeMs }) });
+  const chunks = chunksOf({ deps, source, text: read.text, hashes: { sourceHash, settingsHash }, ...(read.mtimeMs == null ? {} : { mtimeMs: read.mtimeMs }) });
   // Text already embedded anywhere in the index (matched by content hash) keeps its vector: only new text is embedded.
   const known = await cache.load();
   const missing = [...new Map(chunks.filter(chunk => !known.has(chunk.contentHash)).map(chunk => [chunk.contentHash, chunk.text]))];

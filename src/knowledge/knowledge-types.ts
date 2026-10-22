@@ -42,6 +42,11 @@ export interface IndexedChunk {
   sourceMtimeMs?: number;
   /** The `Embedder.id` that made `vector`: vectors are reused only by the same embedder. */
   embedderId?: string;
+  /**
+   * sha-256 of the source's uri, metadata and chunker id when indexed: a change to any of them re-indexes the source
+   * even when its text (or mtime) is unchanged.
+   */
+  settingsHash?: string;
 }
 
 /** Stores chunks with their vectors and finds the nearest ones. */
@@ -63,7 +68,14 @@ export interface ChunkPiece extends ChunkSpan {
 }
 
 /** Splits a source's text into spans. */
-export type Chunker = (params: { text: string; uri: string }) => ChunkPiece[];
+export interface Chunker {
+  (params: { text: string; uri: string }): ChunkPiece[];
+  /**
+   * Names the chunker and its settings (`createChunker` sets one). A source indexed under another id is re-chunked
+   * even when its text and mtime are unchanged; a chunker without one is only noticed through changed text.
+   */
+  id?: string;
+}
 
 /** Something to index: inline text, or a file read through the knowledge base's `FsPolicy`. */
 export interface KnowledgeSource {
@@ -151,6 +163,6 @@ export interface KnowledgeBase {
   remove(params: { sourceIds: string[] }): Promise<void>;
   search(request: SearchRequest): Promise<SearchResult[]>;
   read(target: string | { sourceId: string; span: ChunkSpan }): Promise<ReadResult | undefined>;
-  /** A hash of every chunk id and content hash, and the embedder id: it changes whenever results could. */
+  /** A hash of every chunk id, content hash, uri and metadata, and the embedder id: it changes whenever results could. */
   version(): Promise<string>;
 }
