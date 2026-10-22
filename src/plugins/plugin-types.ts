@@ -52,7 +52,8 @@ export interface RunErrorInfo {
  * Lifecycle observers. Each receives a deep-frozen copy (never the live object), so a hook cannot change a run; hooks
  * run one at a time in plugin order, each bounded by a 1000 ms timeout, and a throwing or slow hook only produces a
  * `warning` event. A plugin whose hook timed out is skipped for the rest of the run, and the run's end waits at most
- * 1500 ms in all for queued hooks.
+ * 1500 ms in all for queued hooks. Hooks see tool arguments and result envelopes as the event stream does: `redact` and
+ * `captureContent: false` apply to stored records only, not to what hooks receive.
  */
 export interface PluginHooks {
   onRunStart?(info: RunStartInfo): void | Promise<void>;
