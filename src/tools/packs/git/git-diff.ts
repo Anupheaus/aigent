@@ -45,7 +45,7 @@ export function createGitDiff(deps: GitDeps): Tool {
       const opened = await openRepo({ deps, ...(repo == null ? {} : { repo }) });
       const refs = [...(from == null ? [] : [validRef({ field: 'from', value: from })]), ...(to == null ? [] : [validRef({ field: 'to', value: to })])];
       const relative = await Promise.all(paths.map(path => validRepoPath({ deps, repo: opened.path, path })));
-      const base = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', ...(staged ? ['--cached'] : []), ...refs];
+      const base = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', ...(staged ? ['--cached'] : []), ...refs];
       const tail = ['--', ...relative];
       const [{ stdout: text }, { stdout: numstat }] = [
         await runGit({ deps, repo: opened, signal, args: [...base, `-U${contextLines}`, ...tail] }),

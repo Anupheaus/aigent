@@ -55,7 +55,7 @@ export function createGitCommit(deps: GitDeps): Tool {
     },
     dryRun: async (args, { signal }) => {
       const { repo, paths } = await prepare({ deps, args });
-      const { stdout } = await runGit({ deps, repo, signal, args: ['status', '--porcelain=v2', '-z', '--untracked-files=all', '--', ...paths] });
+      const { stdout } = await runGit({ deps, repo, signal, args: ['status', '--porcelain=v2', '-z', '--untracked-files=all', '--ignore-submodules=all', '--', ...paths] });
       const { entries } = parseStatus(stdout);
       const parent = await headOf({ deps, repo, signal });
       return { result: { repo: repo.path, wouldCommit: entries }, effects: [{ kind: 'git.commit', target: repo.path, summary: `commit ${entries.length} changed path(s): ${args.message.split('\n')[0] ?? ''}`, reversible: parent != null }] };
@@ -63,7 +63,7 @@ export function createGitCommit(deps: GitDeps): Tool {
     verify: async (args, { signal }) => {
       const { repo, paths } = await prepare({ deps, args });
       const { stdout } = await runGit({ deps, repo, signal, args: ['log', '-1', '--format=%B'], okExitCodes: [0, NO_HEAD_EXIT] });
-      const isSame = await runGit({ deps, repo, signal, args: ['diff', '--quiet', '--no-ext-diff', '--no-textconv', 'HEAD', '--', ...paths], okExitCodes: [0, 1, NO_HEAD_EXIT] });
+      const isSame = await runGit({ deps, repo, signal, args: ['diff', '--quiet', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', 'HEAD', '--', ...paths], okExitCodes: [0, 1, NO_HEAD_EXIT] });
       return { done: stdout.trim() === args.message.trim() && isSame.exitCode === 0 };
     },
     undo: async (_args, result) => {

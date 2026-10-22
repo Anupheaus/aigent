@@ -21,7 +21,7 @@ export function createGitStatus(deps: GitDeps): Tool {
     describeActivity: ({ items }) => ({ title: repoTitle({ verb: 'Checking git status', items }) }),
     runItem: async ({ repo }, { signal }) => {
       const opened = await openRepo({ deps, ...(repo == null ? {} : { repo }) });
-      const { stdout } = await runGit({ deps, repo: opened, signal, args: ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all'] });
+      const { stdout } = await runGit({ deps, repo: opened, signal, args: ['status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', '--ignore-submodules=all'] });
       return { repo: opened.path, ...parseStatus(stdout) };
     },
   });
