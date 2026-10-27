@@ -1,5 +1,7 @@
 export { chunkBytes } from './chunk-bytes.js';
 export { describeProviderContract } from './provider-contract.js';
+export { describeStoreContract } from './store-contract.js';
+export type { StoreContractInstance, StoreContractSubject } from './store-contract.js';
 export type {
   ContractObservation, ContractScenario, ContractScenarioKind, ContractSubject, HttpErrorContractScenario, LengthContractScenario,
   MalformedToolArgsContractScenario, NetworkErrorContractScenario, SlowTextContractScenario, TextContractScenario, ThinkingContractScenario, ThinkingRoundTripContractScenario,
