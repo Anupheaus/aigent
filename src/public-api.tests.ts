@@ -9,6 +9,7 @@ import * as webPack from './tools/packs/web/index.js';
 import * as codePack from './tools/packs/code/index.js';
 import * as shellPack from './tools/packs/shell/index.js';
 import * as gitPack from './tools/packs/git/index.js';
+import * as mongoStores from './stores/mongo/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
@@ -45,6 +46,10 @@ describe('public API', () => {
 
   it('exports the git pack from its own entry', () => {
     expect(Object.keys(gitPack).sort()).toEqual(['gitTools']);
+  });
+
+  it('exports the MongoDB store from its own entry', () => {
+    expect(Object.keys(mongoStores).sort()).toEqual(['connectMongoStore', 'createMongoStore']);
   });
 
   it('exports the vitest-based provider contract suite from its own entry', () => {

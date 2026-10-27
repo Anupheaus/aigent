@@ -179,6 +179,10 @@ export function describeStoreContract(subject: StoreContractSubject): void {
         expect(await store.list('traces')).toEqual([]);
         expect(await store.purge({ agentName: 'nobody' })).toBe(0);
         expect(await store.list('other')).toHaveLength(1);
+        // No criteria: every record whose value is an object goes, a bare string stays.
+        expect(await store.purge({})).toBe(1);
+        expect(await store.list('runs')).toEqual([]);
+        expect(await store.list('other')).toHaveLength(1);
       });
     });
   });

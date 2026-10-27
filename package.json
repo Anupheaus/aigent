@@ -60,6 +60,10 @@
     "./tools/git": {
       "types": "./dist/tools/packs/git/index.d.ts",
       "import": "./dist/tools/packs/git/index.js"
+    },
+    "./stores/mongo": {
+      "types": "./dist/stores/mongo/index.d.ts",
+      "import": "./dist/stores/mongo/index.js"
     }
   },
   "files": [
@@ -92,10 +96,14 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
+    "mongodb": ">=6.0.0",
     "typescript": ">=7.0.0 <8",
     "vitest": ">=3.0.0 <5"
   },
   "peerDependenciesMeta": {
+    "mongodb": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     },
