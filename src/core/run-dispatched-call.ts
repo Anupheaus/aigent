@@ -31,6 +31,8 @@ export interface DispatchedCall {
   isLedgered: boolean;
   /** Takes the call from the run's budget once its guardrails allowed it; false refuses it (inner calls only). */
   reserve?(): boolean;
+  /** Called once a runnable call passed its guardrails, budget, approval and ledger entry, just before it runs. */
+  onAdmitted?(): void;
 }
 
 function budgetError(params: { call: ToolCall; parentCallId?: string }): ToolErrorDetail {
@@ -43,10 +45,14 @@ function budgetError(params: { call: ToolCall; parentCallId?: string }): ToolErr
  * Runs the call, recorded in the ledger first when there is one: the `started` entry is stored before the tool runs,
  * so a resumed run never runs a finished call again. A call whose start cannot be recorded is not run.
  */
-async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; ledgerId: string; parentCallId?: string; turn: RunTurnParams; gate?(): Promise<GateOutcome>; guard?(executed: ExecutedToolCall): Promise<ExecutedToolCall> }): Promise<ExecutedToolCall> {
-  const { execute, ledger, ledgerId, parentCallId, turn, gate, guard } = params;
+async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: CallLedger; ledgerId: string; parentCallId?: string; turn: RunTurnParams; gate?(): Promise<GateOutcome>; guard?(executed: ExecutedToolCall): Promise<ExecutedToolCall>; onAdmitted?(): void }): Promise<ExecutedToolCall> {
+  const { execute, ledger, ledgerId, parentCallId, turn, gate, guard, onAdmitted } = params;
   // The toolResult checks run before the ledger keeps the result, so nothing unguarded is stored or restored later.
-  const run = async (): Promise<ExecutedToolCall> => { const executed = await executeToolCall(execute); return guard == null ? executed : guard(executed); };
+  const run = async (): Promise<ExecutedToolCall> => {
+    onAdmitted?.();
+    const executed = await executeToolCall(execute);
+    return guard == null ? executed : guard(executed);
+  };
   const { call } = execute;
   // Approval comes first: a refused call never starts, so it is never in the ledger.
   const approval = await gate?.();
@@ -74,7 +80,7 @@ async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: Ca
  * approval gate, the ledger, the tool (cache, dry run), then `toolResult` guardrails. Never rejects.
  */
 export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolCall> {
-  const { call, turn, context, ledgerId, parentCallId, isCommentary, isLedgered, reserve } = params;
+  const { call, turn, context, ledgerId, parentCallId, isCommentary, isLedgered, reserve, onAdmitted } = params;
   const { registry, clock, cache, shaping, guardrails, effects, approve } = turn;
   const tool = registry.get(call.name);
   const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, call.args);
@@ -104,6 +110,8 @@ export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolC
         ...(shaping == null || parentCallId != null ? {} : { shape: shapeWith(shaping) }),
       },
       ledgerId, turn, ...(parentCallId == null ? {} : { parentCallId }), ...(ledger == null ? {} : { ledger }), ...(guard == null ? {} : { guard }),
+      // An unknown tool or invalid arguments are refused by executeToolCall: such a call is never admitted.
+      ...(onAdmitted == null || !isRunnable ? {} : { onAdmitted }),
     });
   };
   const verdict: CallVerdict | Promise<CallVerdict> = isGuarded ? guardrails.checkToolCall(call) : { call };

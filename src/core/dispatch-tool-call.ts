@@ -14,6 +14,7 @@ import { idempotencyKeyOf, innerLedgerId } from '../resume/call-ledger.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { runDispatchedCall } from './run-dispatched-call.js';
+import type { TakenMemory } from './run-memory.js';
 import { delegationFor, toolCallsCommitted } from './delegation-context.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
 
@@ -39,17 +40,24 @@ interface DispatchParams {
   turn: RunTurnParams;
 }
 
+/** Notes held for a call without `memory`, or with memory off: nothing to save or drop. */
+function nothingHeld(call: ToolCall): TakenMemory {
+  return { call, admit: () => undefined, settle: () => undefined };
+}
+
 /**
- * The call as the tool sees it: with memory on, `memory` is taken out and saved; with feedback on, `previous` is taken out (and linked to the prior step) first, and
- * out of `aigent_multi` inner calls too, where it is ignored.
+ * The call as the tool sees it: with memory on, `memory` is taken out (its notes held until the call is admitted);
+ * with feedback on, `previous` is taken out (and linked to the prior step) next, and out of `aigent_multi` inner calls
+ * too, where it is ignored.
  */
-function withoutPrevious(params: DispatchParams): ToolCall {
+function withoutPrevious(params: DispatchParams): TakenMemory {
   const { turn: { totals, telemetry: { recorder, feedback, memory }, emit } } = params;
-  // Memory notes are taken out (and queued for saving) before anything else sees the arguments.
-  const call = memory == null || COMMENTARY_TOOLS.has(params.call.name) ? params.call : memory.take(params.call);
-  if (!feedback.isEnabled || COMMENTARY_TOOLS.has(call.name)) return call;
+  // Memory notes are taken out before anything else sees the arguments.
+  const taken = memory == null || COMMENTARY_TOOLS.has(params.call.name) ? nothingHeld(params.call) : memory.take(params.call);
+  const { call } = taken;
+  if (!feedback.isEnabled || COMMENTARY_TOOLS.has(call.name)) return taken;
   const topLevel = { ...call, args: linkPrevious({ call, turn: totals.turns, recorder, feedback, emit }) };
-  return call.name === MULTI_TOOL_NAME ? { ...topLevel, args: stripMultiPrevious({ call: topLevel, emit }) } : topLevel;
+  return { ...taken, call: call.name === MULTI_TOOL_NAME ? { ...topLevel, args: stripMultiPrevious({ call: topLevel, emit }) } : topLevel };
 }
 
 /** Takes one call from the run's `maxToolCalls` budget; false once it is spent. */
@@ -89,7 +97,7 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
 export function dispatchToolCall(params: DispatchParams): void {
   const { turn } = params;
   const { runId, agentName, instanceId, registry, maxToolCalls, signal, totals, work, telemetry, emit, shaping } = turn;
-  const stripped = withoutPrevious(params);
+  const { call: stripped, admit, settle } = withoutPrevious(params);
   // Aliases are expanded (for tools that accept them) before anything sees the arguments, so keys, validation and traces use the full text.
   const call = shaping == null ? stripped : expandCallAliases({ call: stripped, registry, aliases: shaping.state.aliases });
   const { id: callId, name, args } = call;
@@ -97,6 +105,8 @@ export function dispatchToolCall(params: DispatchParams): void {
   const finishStep: FinishStep = telemetry.recorder.begin({ turn: totals.turns, callId, tool: name, args });
   const { guardrails, effects } = turn;
   const reportResult = (executed: ExecutedToolCall): ExecutedToolCall => {
+    // An admitted call's notes are already queued; a refused call's are dropped here.
+    settle();
     const decisions = guardrails?.decisions.filter(decision => decision.callId === callId) ?? [];
     finishStep(decisions.length === 0 ? executed : { ...executed, guardrails: decisions });
     effects?.record(executed);
@@ -142,7 +152,7 @@ export function dispatchToolCall(params: DispatchParams): void {
   const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, args);
   // Bookkeeping tools only change run state, which the checkpoint holds; ask_user is ledgered so a suspended turn can resume.
   const isLedgered = !isCommentary || name === ASK_USER_TOOL_NAME;
-  const execution = runDispatchedCall({ call, turn, context, ledgerId: callId, isCommentary, isLedgered });
+  const execution = runDispatchedCall({ call, turn, context, ledgerId: callId, isCommentary, isLedgered, onAdmitted: admit });
 
   if (tool == null || parsed == null || !parsed.ok) {
     // Unknown tool or invalid arguments: executeToolCall refuses it without running anything.

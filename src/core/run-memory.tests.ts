@@ -28,7 +28,8 @@ function setup(overrides: Partial<CreateRunMemoryParams> = {}) {
 describe('createRunMemory', () => {
   it('takes memory out of the call and saves it with the call as its source', async () => {
     const { memory, noted, entries, warnings } = setup();
-    const call = memory.take({ id: 'call_1', name: 'read', args: { path: 'a', memory: [{ kind: 'fact', text: 'Docs are in docs/', tags: null, pinned: null }] } });
+    const { call, admit } = memory.take({ id: 'call_1', name: 'read', args: { path: 'a', memory: [{ kind: 'fact', text: 'Docs are in docs/', tags: null, pinned: null }] } });
+    admit();
     expect(call).toEqual({ id: 'call_1', name: 'read', args: { path: 'a' } });
     expect(await memory.flush()).toEqual({ saved: 1, evicted: 0 });
     expect(noted).toEqual([{ callId: 'call_1', saved: 1, rejected: 0 }]);
@@ -38,7 +39,7 @@ describe('createRunMemory', () => {
 
   it('warns about rejected notes, naming the call and tool, and still saves the valid ones', async () => {
     const { memory, noted, warnings } = setup();
-    memory.take({ id: 'call_2', name: 'read', args: { memory: [{ kind: 'guess', text: 'x' }, { kind: 'fact', text: 'kept' }, { kind: 'fact', text: 'over the limit' }] } });
+    memory.take({ id: 'call_2', name: 'read', args: { memory: [{ kind: 'guess', text: 'x' }, { kind: 'fact', text: 'kept' }, { kind: 'fact', text: 'over the limit' }] } }).admit();
     expect(await memory.flush()).toEqual({ saved: 1, evicted: 0 });
     expect(noted).toEqual([{ callId: 'call_2', saved: 1, rejected: 2 }]);
     expect(warnings).toHaveLength(2);
@@ -48,7 +49,7 @@ describe('createRunMemory', () => {
 
   it('notes nothing for a null field', async () => {
     const { memory, noted, warnings } = setup();
-    expect(memory.take({ id: 'c', name: 'read', args: { path: 'a', memory: null } }).args).toEqual({ path: 'a' });
+    expect(memory.take({ id: 'c', name: 'read', args: { path: 'a', memory: null } }).call.args).toEqual({ path: 'a' });
     expect(await memory.flush()).toEqual({ saved: 0, evicted: 0 });
     expect(noted).toEqual([]);
     expect(warnings).toEqual([]);
@@ -56,7 +57,8 @@ describe('createRunMemory', () => {
 
   it('saves the top level of aigent_multi and drops memory on inner calls with a warning', async () => {
     const { memory, warnings, entries } = setup();
-    const call = memory.take({ id: 'm1', name: 'aigent_multi', args: { memory: [{ kind: 'fact', text: 'top' }], calls: [{ id: 'one', tool: 'read', args: { path: 'a', memory: [{ kind: 'fact', text: 'inner' }] } }] } });
+    const { call, admit } = memory.take({ id: 'm1', name: 'aigent_multi', args: { memory: [{ kind: 'fact', text: 'top' }], calls: [{ id: 'one', tool: 'read', args: { path: 'a', memory: [{ kind: 'fact', text: 'inner' }] } }] } });
+    admit();
     expect(call.args).toEqual({ calls: [{ id: 'one', tool: 'read', args: { path: 'a' } }] });
     await memory.flush();
     expect((await entries()).map(({ text }) => text)).toEqual(['top']);
@@ -65,19 +67,36 @@ describe('createRunMemory', () => {
 
   it('saves nothing when the run may not write, saying why once per run', async () => {
     const { memory, warnings, noted, entries } = setup({ skipReason: 'this is a dry run' });
-    memory.take({ id: 'a', name: 'read', args: { memory: [{ kind: 'fact', text: 'one' }] } });
-    memory.take({ id: 'b', name: 'read', args: { memory: [{ kind: 'fact', text: 'two' }] } });
+    memory.take({ id: 'a', name: 'read', args: { memory: [{ kind: 'fact', text: 'one' }] } }).admit();
+    memory.take({ id: 'b', name: 'read', args: { memory: [{ kind: 'fact', text: 'two' }] } }).admit();
     expect(await memory.flush()).toEqual({ saved: 0, evicted: 0 });
     expect(await entries()).toEqual([]);
     expect(noted).toEqual([{ callId: 'a', saved: 0, rejected: 1 }, { callId: 'b', saved: 0, rejected: 1 }]);
     expect(warnings).toEqual(['Memory notes are not saved: this is a dry run']);
   });
 
+  it('saves nothing until the call is admitted, and drops the notes of a call settled without it', async () => {
+    const { memory, warnings, noted, entries } = setup();
+    const refused = memory.take({ id: 'r', name: 'read', args: { memory: [{ kind: 'fact', text: 'refused' }] } });
+    const quiet = memory.take({ id: 'q', name: 'read', args: { memory: [{ kind: 'fact', text: 'quiet' }] } });
+    const admitted = memory.take({ id: 'a', name: 'read', args: { memory: [{ kind: 'fact', text: 'admitted' }] } });
+    refused.settle();
+    quiet.settle({ quietly: true });
+    admitted.admit();
+    // Once decided, the other outcome changes nothing.
+    admitted.settle();
+    refused.admit();
+    expect(await memory.flush()).toEqual({ saved: 1, evicted: 0 });
+    expect((await entries()).map(({ text }) => text)).toEqual(['admitted']);
+    expect(warnings).toEqual(["Memory on call 'r' to 'read' was not saved: the call was not run"]);
+    expect(noted).toEqual([{ callId: 'r', saved: 0, rejected: 1 }, { callId: 'q', saved: 0, rejected: 1 }, { callId: 'a', saved: 1, rejected: 0 }]);
+  });
+
   it('reports store problems as warnings and counts the note as rejected', async () => {
     const store = createInMemoryStore();
     const failing = { ...store, compareAndSet: async () => { throw new Error('disk full'); } };
     const { memory, warnings, noted } = setup({ store: createMemoryStore({ store: failing, writeQueue: createWriteQueue(), now: () => 1 }) });
-    memory.take({ id: 'c', name: 'read', args: { memory: [{ kind: 'fact', text: 'x' }] } });
+    memory.take({ id: 'c', name: 'read', args: { memory: [{ kind: 'fact', text: 'x' }] } }).admit();
     expect(await memory.flush()).toEqual({ saved: 0, evicted: 0 });
     expect(warnings).toEqual(["Memory on call 'c' to 'read': memory note 1 was not saved: disk full"]);
     expect(noted).toEqual([{ callId: 'c', saved: 0, rejected: 1 }]);

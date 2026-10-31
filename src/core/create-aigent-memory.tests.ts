@@ -102,6 +102,46 @@ describe('memory enabled', () => {
     expect((await store.get<TraceRecord>('traces', result.runId))?.value.steps[0]?.memory).toEqual({ saved: 2, rejected: 1 });
   });
 
+  it('saves no notes of a call a toolCall guardrail blocked, and says why', async () => {
+    const { agent, store, seen } = setup({ turns: [memoryCall([NOTE]), textTurn('done')], options: { memory: true, guardrails: { builtins: { scope: { denyTools: ['lookup'] } } } } });
+    const run = agent.task({ task: 't' });
+    const warnings: string[] = [];
+    for await (const event of run) if (event.type === 'warning') warnings.push(event.message);
+    const result = await run;
+    expect(seen).toEqual([]);
+    expect(await storedMemories(store)).toEqual([]);
+    expect(warnings).toContain("Memory on call 'c1' to 'lookup' was not saved: the call was not run");
+    expect((await store.get<TraceRecord>('traces', result.runId))?.value.steps[0]?.memory).toEqual({ saved: 0, rejected: 1 });
+    expect((await store.get<RunRecord>('runs', result.runId))?.value).toMatchObject({ memorySaved: 0 });
+  });
+
+  it('saves no notes of a call to an unknown tool, with invalid arguments or past the call limit', async () => {
+    const { agent, store } = setup({
+      turns: [toolTurn([
+        { id: 'c1', name: 'no_such_tool', args: { memory: [{ ...NOTE, text: 'from an unknown tool' }] } },
+        { id: 'c2', name: 'lookup', args: { wrong: 1, memory: [{ ...NOTE, text: 'from invalid arguments' }] } },
+        { id: 'c3', name: 'lookup', args: { key: 'k', memory: [{ ...NOTE, text: 'from an admitted call' }] } },
+        { id: 'c4', name: 'lookup', args: { key: 'j', memory: [{ ...NOTE, text: 'from a call past the limit' }] } },
+      ]), textTurn('done')],
+      options: { memory: true },
+      agent: { limits: { maxToolCalls: 3 } },
+    });
+    await agent.task({ task: 't' });
+    expect((await storedMemories(store)).map(({ text }) => text)).toEqual(['from an admitted call']);
+  });
+
+  it('saves no notes of a call whose approval was denied', async () => {
+    const seen: unknown[] = [];
+    const approved = defineTool({
+      name: 'lookup', description: 'Look a key up', args: z.object({ key: z.string() }).strict(), requiresApproval: true,
+      deterministic: false, cache: false, describeActivity: args => ({ title: `Look up ${args.key}` }), run: async args => { seen.push(args); return 'value'; },
+    });
+    const { agent, store } = setup({ turns: [memoryCall([NOTE]), textTurn('done')], options: { memory: true }, agent: { tools: [approved] } });
+    await agent.task({ task: 't', unattended: true });
+    expect(seen).toEqual([]);
+    expect(await storedMemories(store)).toEqual([]);
+  });
+
   it('passes memory writes through the runtime redact', async () => {
     const secret = ['hun', 'ter2'].join('');
     const { agent, store } = setup({
