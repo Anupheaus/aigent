@@ -29,6 +29,8 @@ export const taskInputSchema = z.object({
   disableTelemetry: z.boolean().optional(),
   label: z.string().optional(),
   scope: z.record(z.string(), z.string()).optional(),
+  /** With memory scope `interface`: the consumer's opaque key of the interface the task comes from (else `scope.interface`). */
+  memoryScopeKey: z.string().min(1).max(200).optional(),
   limits: limitsSchema.optional(),
   /** Task-level model settings; they win over the agent's, field by field. */
   modelSettings: modelSettingsSchema.optional(),

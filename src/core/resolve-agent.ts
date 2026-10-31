@@ -5,6 +5,8 @@ import { parseCompactionPolicy } from '../context/compaction-policy.js';
 import { createFeedbackCollector } from '../feedback/feedback-collector.js';
 import { resolveEnableFeedback } from '../feedback/resolve-enable-feedback.js';
 import { parseAgentShapers } from '../shapers/shapers-setting.js';
+import type { MemoryOptions } from '../memory/memory-types.js';
+import { resolveAgentMemory } from '../memory/resolve-agent-memory.js';
 import { createAigentError } from './aigent-error.js';
 import type { AgentDefinition } from './agent-types.js';
 import { computeAgentVersion } from './agent-version.js';
@@ -32,6 +34,8 @@ export interface AgentResolutionContext {
   ids: IdGenerator;
   toolCache?: ToolCache;
   compressionCache: CompressionCache;
+  /** `createAigent({ memory })` and what memory needs from the runtime. */
+  memory: { defaults?: MemoryOptions | boolean; hasStore: boolean; captureContent: boolean };
 }
 
 /** A definition whose `pluginTools` references were replaced by the plugins' tools. */
@@ -58,9 +62,15 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
   const compression = parseCompressionOptions({ agentName: name, options: definition.compression });
   const instanceId = definition.instanceId ?? ids.next('agent');
   const feedbackCollector = enableFeedback ? createFeedbackCollector() : undefined;
+  const { memory: memoryContext } = params.context;
+  const memory = resolveAgentMemory({
+    agentName: name, hasStore: memoryContext.hasStore, captureContent: memoryContext.captureContent,
+    ...(definition.memory == null ? {} : { agent: definition.memory }), ...(memoryContext.defaults == null ? {} : { runtime: memoryContext.defaults }),
+  });
   const registry = buildAgentRegistry({
     agentName: name, tools, now: () => clock.now(),
     ...(feedbackCollector == null ? {} : { feedbackCollector }),
+    ...(memory == null ? {} : { memory: { maxPerCall: memory.maxPerCall } }),
     ...(toolCache == null ? {} : { cache: toolCache }),
   });
   const effectiveSettings = resolveModelSettings({ agent: agentSettings, runtime: runtimeSettings, provider: target.providerSettings });
@@ -73,9 +83,10 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     ...(definition.compaction == null ? {} : { compaction }),
     ...(compactionTarget == null ? {} : { compactionModel: compactionTarget.reference }),
     ...(compression == null ? {} : { compression: compressionVersionInput(compression) }),
+    ...(memory == null ? {} : { memory }),
   });
   const toolAddenda = tools.flatMap(({ promptAddendum }) => (promptAddendum == null ? [] : [promptAddendum]));
-  const prompt = { persona, skillset, context, enableFeedback, ...(toolAddenda.length === 0 ? {} : { toolAddenda }) };
+  const prompt = { persona, skillset, context, enableFeedback, ...(memory == null ? {} : { enableMemory: true }), ...(toolAddenda.length === 0 ? {} : { toolAddenda }) };
   const staticPrompt = memoiseStaticPrompt({ prompt, context: { cache: compressionCache, now: () => clock.now(), ...(compression == null ? {} : { compression }) } });
   return { name, instanceId, targets: [target, ...fallbackTargets], resilience: policy, prompt, staticPrompt, registry, limits, agentSettings, runtimeSettings, agentVersion, version,
     ...(feedbackCollector == null ? {} : { feedbackCollector }),
@@ -84,5 +95,6 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     compaction,
     ...(compactionTarget == null ? {} : { compactionTarget }),
     ...(compression == null ? {} : { compression }),
+    ...(memory == null ? {} : { memory }),
   };
 }

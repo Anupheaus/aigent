@@ -43,7 +43,7 @@ export interface TraceRecorder {
   attachOutcome(params: AttachOutcomeParams): void;
   /** The step a report from `turn` would attach to, if any. */
   outcomeTarget(turn: number): OutcomeTarget | undefined;
-  /** Records what a call's memory notes came to; saves finish after the call starts, so it may come before or after . */
+  /** Records what a call's memory notes came to; saves finish after the call starts, so it may come before or after `begin`. */
   noteMemory(params: NoteMemoryParams): void;
   /** Every step so far in start order; a step still running is reported as aborted. */
   steps(): TraceStep[];

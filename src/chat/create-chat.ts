@@ -48,10 +48,10 @@ interface Loaded {
 }
 
 function chatSettings(options: ResolvedChatOptions): ChatSettings {
-  const { context, constraints, unattended, dryRun, modelSettings, signal } = options;
+  const { context, constraints, unattended, dryRun, modelSettings, signal, memoryScopeKey } = options;
   return {
     ...(context == null ? {} : { context }), ...(constraints == null ? {} : { constraints }), ...(unattended == null ? {} : { unattended }), ...(dryRun == null ? {} : { dryRun }),
-    ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
+    ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }), ...(memoryScopeKey == null ? {} : { memoryScopeKey }),
   };
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseMemoryNotes, resolveMemoryOptions } from './memory-schema.js';
+import type { MemoryOptions } from './memory-types.js';
 
 const DEFAULTS = { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
 
@@ -21,7 +22,8 @@ describe('resolveMemoryOptions', () => {
     [{ scope: 'tenant' }, 'scope'],
     [{ recall: 3 }, 'recall'],
   ])('refuses %j naming the field and the owner', (options, field) => {
-    expect(() => resolveMemoryOptions({ owner: "Agent 'helper'", options })).toThrow(expect.objectContaining({
+    // Consumers may call from plain JavaScript, so invalid shapes are passed through a cast on purpose.
+    expect(() => resolveMemoryOptions({ owner: "Agent 'helper'", options: options as MemoryOptions })).toThrow(expect.objectContaining({
       code: 'invalid_definition', message: expect.stringMatching(new RegExp(`Agent 'helper'.*${field}`)),
     }));
   });

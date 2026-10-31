@@ -38,6 +38,8 @@ export interface BuildRunRecordsParams {
   mode?: RunMode;
   /** Every compression the run used, when the agent compresses. */
   compression?: CompressionRecord[];
+  /** With memory on: the run's saved and evicted counts. */
+  memory?: { saved: number; evicted: number };
   result: TaskResultData;
   agent: RunRecordAgent;
   targets: RunRecordTargets;
@@ -83,7 +85,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression } = params;
+  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression, memory } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -109,6 +111,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(compression == null || compression.length === 0 ? {} : { compression }),
     ...(guardrails.length === 0 ? {} : { guardrails: storedDecisions({ decisions: guardrails, captureContent }) }),
     ...(dryRun === true ? { dryRun, plannedEffects: storedEffects({ effects: plannedEffects ?? [], captureContent }) } : {}),
+    ...(memory == null ? {} : { memorySaved: memory.saved, memoryEvicted: memory.evicted }),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

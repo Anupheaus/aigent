@@ -31,6 +31,7 @@ import { createTurnStreamGuard, flushThinking } from './turn-stream-guard.js';
 import type { TurnStreamGuard } from './turn-stream-guard.js';
 import type { DelegatedUsage, RunDelegation } from './delegation-types.js';
 import type { RunCallIds } from './run-call-ids.js';
+import type { RunMemory } from './run-memory.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
@@ -51,6 +52,8 @@ export interface RunTelemetry {
   recorder: TraceRecorder;
   timer: RunTimer;
   feedback: RunFeedback;
+  /** With memory on: takes the `memory` field out of each call and saves it (traced on the call's step). */
+  memory?: RunMemory;
 }
 
 /** What a turn has streamed so far; kept by the caller so a cut-short turn can still be recorded. */

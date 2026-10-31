@@ -34,6 +34,7 @@ import { createRunGuardrails } from './run-guardrails.js';
 import { createRunEffects } from './run-effects.js';
 import { DRY_RUN_SECTION } from '../effects/dry-run.js';
 import { createRunTelemetry } from './run-telemetry.js';
+import { setUpRunMemory } from './run-memory.js';
 import { createRunPluginHooks } from './run-plugin-hooks.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
@@ -103,6 +104,11 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   });
   /** Every run event, also shown to the plugins' hooks (which only observe, off the run's path). */
   const emit = (event: AigentEvent): void => { emitter.emit(event); pluginHooks.observe(event); };
+  const memory = setUpRunMemory({
+    agent, ...(services.memory == null ? {} : { store: services.memory }), input, runId, recorder: telemetry.recorder, emit,
+    ...(conversation?.sessionId == null ? {} : { sessionId: conversation.sessionId }),
+  });
+  if (memory != null) telemetry.memory = memory;
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs: limits.timeoutMs });
   const planned = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
   const { planning } = planned;
@@ -165,13 +171,15 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     if (guardrails.decisions.length > 0) resultData.guardrails = [...guardrails.decisions];
     if (isDryRun) resultData.plannedEffects = [...effects.planned];
     await effects.flush();
+    // The run completes only once its memory is written, like its other records.
+    const memoryTotals = await memory?.flush();
     emitter.endThinking();
     const undelivered = taskInbox.drain().length;
     if (undelivered > 0) emit({ type: 'warning', message: `${undelivered} steering message(s) arrived after the run's last model request and were not delivered` });
     activity.enter('finishing');
     const result = await finishAgentRun({
       agent, services, input, telemetry, result: resultData, targets: { primary, fallbacks: fallbacks.filter(({ label }) => routing.usedLabels.has(label)), runtimeSettings: settings }, emit,
-      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price,
+      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(memoryTotals == null ? {} : { memory: memoryTotals }),
       ...(onFinished == null ? {} : { onFinished }),
     });
     // The wait is bounded overall (1.5 hook timeouts), so slow observers never delay done once per event.

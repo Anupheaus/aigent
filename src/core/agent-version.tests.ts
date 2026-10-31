@@ -128,4 +128,11 @@ describe('computeAgentVersion', () => {
   it.each(changes)('changes when %s changes', (_field, changed) => {
     expect(computeAgentVersion(changed)).not.toBe(computeAgentVersion(BASE));
   });
+
+  it('changes when memory is turned on or its options change, and is unchanged without it', () => {
+    const memory = { scope: 'agent' as const, maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
+    expect(computeAgentVersion({ ...BASE, memory: undefined })).toBe(computeAgentVersion(BASE));
+    expect(computeAgentVersion({ ...BASE, memory })).not.toBe(computeAgentVersion(BASE));
+    expect(computeAgentVersion({ ...BASE, memory: { ...memory, maxPerCall: 2 } })).not.toBe(computeAgentVersion({ ...BASE, memory }));
+  });
 });

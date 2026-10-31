@@ -12,8 +12,11 @@ export type { DelegatedUsage, RunParent } from './core/delegation-types.js';
 export type { ModelSettings } from './core/model-settings.js';
 export { RUN_RECORD_SCHEMA_VERSION } from './telemetry/run-record.js';
 export type {
-  OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, ToolUse, TraceRecord, TraceStep,
+  MemoryStepRecord, OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, ToolUse, TraceRecord, TraceStep,
 } from './telemetry/run-record.js';
+export type {
+  MemoryEntry, MemoryKind, MemoryNote, MemoryOptions, MemoryOrigin, MemoryRemoval, MemoryScope, MemorySource,
+} from './memory/memory-types.js';
 export type {
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, StoredAgentFeedbackEntry, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
 } from './feedback/feedback-records.js';

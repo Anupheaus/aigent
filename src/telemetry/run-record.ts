@@ -65,7 +65,7 @@ export interface ShapedStepRecord {
   tokensAfter: number;
 }
 
-/** What a call's  notes came to (their text is in the  collection, never in the trace). */
+/** What a call's `memory` notes came to (their text is in the `memory` collection, never in the trace). */
 export interface MemoryStepRecord {
   saved: number;
   /** Invalid, over the per-call limit, or not written. */
@@ -118,6 +118,8 @@ export interface TraceStep {
   guardrails?: GuardrailDecisionRecord[];
   /** The call changed something that `agent.undo` can reverse (its undo data is in the effect log). */
   undoable?: boolean;
+  /** The call carried memory notes (top-level calls only). */
+  memory?: MemoryStepRecord;
 }
 
 /** Where a run's time went, in milliseconds. */
@@ -222,6 +224,10 @@ export interface RunRecord extends RecordMeta {
   plannedEffects?: PlannedEffect[];
   /** A delegated sub-run: the run and `delegate` call it worked for. */
   parent?: RunParent;
+  /** With memory on: notes written by the run's tool calls (new entries and merges). */
+  memorySaved?: number;
+  /** With memory on: entries the cap evicted while saving them. */
+  memoryEvicted?: number;
 }
 
 /** One document in the `traces` collection, keyed by run id. */

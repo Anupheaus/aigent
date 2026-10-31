@@ -17,6 +17,7 @@ import type { UndoOptions } from '../effects/undo-types.js';
 import type { Agent, AgentDefinition } from './agent-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { Plugin } from '../plugins/plugin-types.js';
+import type { MemoryOptions } from '../memory/memory-types.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 
 export interface AigentOptions {
@@ -92,6 +93,12 @@ export interface AigentOptions {
    * the store, or in memory without one) with its tool's undo data, honoured for `retentionMs` (default: forever).
    */
   undo?: UndoOptions;
+  /**
+   * Default memory for agents that do not set `memory`: true or options turn it on (off by default). Notes ride on
+   * tool calls (never a separate model call), are saved to the `store` (collection `memory`) through `redact` and
+   * the agent's write queue, and are recalled at run start. Needs a store and `captureContent` on.
+   */
+  memory?: MemoryOptions | boolean;
 }
 
 export interface Aigent {

@@ -40,11 +40,13 @@ interface DispatchParams {
 }
 
 /**
- * The call as the tool sees it: with feedback on, `previous` is taken out (and linked to the prior step) first, and
+ * The call as the tool sees it: with memory on, `memory` is taken out and saved; with feedback on, `previous` is taken out (and linked to the prior step) first, and
  * out of `aigent_multi` inner calls too, where it is ignored.
  */
 function withoutPrevious(params: DispatchParams): ToolCall {
-  const { call, turn: { totals, telemetry: { recorder, feedback }, emit } } = params;
+  const { turn: { totals, telemetry: { recorder, feedback, memory }, emit } } = params;
+  // Memory notes are taken out (and queued for saving) before anything else sees the arguments.
+  const call = memory == null || COMMENTARY_TOOLS.has(params.call.name) ? params.call : memory.take(params.call);
   if (!feedback.isEnabled || COMMENTARY_TOOLS.has(call.name)) return call;
   const topLevel = { ...call, args: linkPrevious({ call, turn: totals.turns, recorder, feedback, emit }) };
   return call.name === MULTI_TOOL_NAME ? { ...topLevel, args: stripMultiPrevious({ call: topLevel, emit }) } : topLevel;

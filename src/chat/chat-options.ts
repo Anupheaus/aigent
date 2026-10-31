@@ -27,6 +27,7 @@ const chatOptionsSchema = z.object({
   modelSettings: modelSettingsSchema.optional(),
   autoTitle: z.boolean().optional(),
   attachments: attachmentOptionsSchema.optional(),
+  memoryScopeKey: z.string().min(1).max(200).optional(),
 }).strict();
 
 /** `ChatOptions` after validation, with `persistence` resolved against the runtime's store. */

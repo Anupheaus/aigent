@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { CompactionPolicy } from '../context/compaction-policy.js';
 import type { ShapersSetting } from '../shapers/shaper-types.js';
+import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { Tool } from '../tools/tool-types.js';
 import { DEFAULT_LIMITS } from './agent-types.js';
 import { canonicalJson } from './canonical-json.js';
@@ -50,6 +51,8 @@ export interface AgentVersionInput {
   compactionModel?: string;
   /** The resolved compression settings (compressor by id and version), when the agent compresses. */
   compression?: Record<string, unknown>;
+  /** The resolved memory options, only when memory is on (it adds a prompt addendum and a field to every tool). */
+  memory?: ResolvedMemoryOptions;
 }
 
 const HASH_ALGORITHM = 'sha256';
@@ -97,7 +100,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel, compression } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel, compression, memory } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -112,6 +115,8 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     ...(compaction == null ? {} : { compaction }),
     ...(compactionModel == null ? {} : { compactionModel }),
     ...(compression == null ? {} : { compression }),
+    // Only when on, so the versions of agents without memory are unchanged.
+    ...(memory == null ? {} : { memory }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

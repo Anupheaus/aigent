@@ -97,6 +97,8 @@ export interface ChatOptions {
   /** One cheap model call after the first exchange names the session (default false). */
   autoTitle?: boolean;
   attachments?: ChatAttachmentOptions;
+  /** With memory scope `interface`: the consumer's opaque key of the interface this chat comes from. */
+  memoryScopeKey?: string;
 }
 
 /** Messages waiting for the agent; editable until they start. */

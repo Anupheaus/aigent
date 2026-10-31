@@ -28,6 +28,8 @@ import type { EffectLog } from '../effects/effect-log.js';
 import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { StaticPrompt } from './static-prompt.js';
+import type { MemoryStore } from '../memory/memory-store.js';
+import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
@@ -73,6 +75,8 @@ export interface ResolvedAgent {
   staticPrompt: StaticPrompt;
   /** The instance's approvals (pending requests, decisions, audit). */
   approvals?: ApprovalCenter;
+  /** The agent's memory options, when memory is on for it. */
+  memory?: ResolvedMemoryOptions;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -114,6 +118,8 @@ export interface RuntimeServices {
   startSubRun?: StartSubRun;
   /** The runtime's plugins with hooks (read per event, so `ai.use` plugins take part); absent: no hooks. */
   pluginHooks?(): RegisteredHooks[];
+  /** Memory over the runtime's store; present whenever the runtime has a store (used only by agents with memory on). */
+  memory?: MemoryStore;
 }
 
 export interface StartTaskRunParams {

@@ -53,6 +53,9 @@ import { createRuntimeEffectLog } from '../effects/runtime-effect-log.js';
 import { parseUndoTarget, undoEffects } from '../effects/undo.js';
 import type { ActivityOptions } from './activity.js';
 import { createPluginRegistry } from '../plugins/plugin-registry.js';
+import { createMemoryStore } from '../memory/memory-store.js';
+import { resolveMemoryOptions } from '../memory/memory-schema.js';
+import { memoryScopeKey } from '../memory/scope-key.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
@@ -102,6 +105,7 @@ export function createAigent(options: AigentOptions): Aigent {
     effects: effectLog,
     startSubRun: request => startSubRun(request),
     pluginHooks: () => pluginRegistry.hooks(),
+    ...(store == null ? {} : { memory: createMemoryStore({ store, writeQueue, ...(redact == null ? {} : { redact }), now: () => clock.now() }) }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -145,8 +149,11 @@ export function createAigent(options: AigentOptions): Aigent {
     if (failed != null) throw failed.reason;
   }
 
+  // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
+  resolveMemoryOptions({ owner: 'createAigent', options: options.memory });
   const agentContext: AgentResolutionContext = {
     resolveTarget, clock, ids, compressionCache,
+    memory: { hasStore: store != null, captureContent, ...(options.memory == null ? {} : { defaults: options.memory }) },
     ...(runtimeSettings == null ? {} : { runtimeSettings }), ...(options.enableFeedback == null ? {} : { enableFeedback: options.enableFeedback }), ...(toolCache == null ? {} : { toolCache }),
   };
 
@@ -200,11 +207,16 @@ export function createAigent(options: AigentOptions): Aigent {
         await resume?.release(instanceId);
       },
       preview: async rawInput => previewPrompt({ agent: resolved, services, ...(rawInput == null ? {} : { input: parseTaskInput(rawInput) }) }),
-      chat: rawOptions => createChat({
-        runtime: { agent: resolved, services }, options: parseChatOptions({ options: rawOptions, hasStore: store != null }), track: trackSettled, openSessions,
-        registerCloser: closeChat => { chatClosers.add(closeChat); return () => { chatClosers.delete(closeChat); }; },
-        ...(store == null || writer == null ? {} : { persistence: { store, writer } }),
-      }),
+      chat: rawOptions => {
+        const chatOptions = parseChatOptions({ options: rawOptions, hasStore: store != null });
+        // Interface scope needs its key before the first turn, so a missing one fails here rather than in a turn.
+        if (resolved.memory?.scope === 'interface') memoryScopeKey({ scope: 'interface', runId: 'chat', ...(chatOptions.memoryScopeKey == null ? {} : { interfaceKey: chatOptions.memoryScopeKey }) });
+        return createChat({
+          runtime: { agent: resolved, services }, options: chatOptions, track: trackSettled, openSessions,
+          registerCloser: closeChat => { chatClosers.add(closeChat); return () => { chatClosers.delete(closeChat); }; },
+          ...(store == null || writer == null ? {} : { persistence: { store, writer } }),
+        });
+      },
     };
     agentsByName.set(name, { agent: created, model: resolved.targets[0].reference });
     return created;

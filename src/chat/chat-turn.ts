@@ -31,6 +31,8 @@ export interface ChatSettings {
   dryRun?: boolean;
   modelSettings?: ModelSettings;
   signal?: AbortSignal;
+  /** `ChatOptions.memoryScopeKey`, passed to every turn. */
+  memoryScopeKey?: string;
 }
 
 export interface StartChatTurnParams {
@@ -71,9 +73,10 @@ export function startChatTurn(params: StartChatTurnParams): TurnRunControl {
   const { runtime: { agent, services }, log, settings, messageId, replyTo, branchId, threadId, history, taskText, steer, tools, interruptedBy, restore, onApproval } = params;
   const { clock, ids } = services;
   const now = (): number => clock.now();
-  const { context, constraints, unattended, dryRun, modelSettings, signal } = settings;
+  const { context, constraints, unattended, dryRun, modelSettings, signal, memoryScopeKey } = settings;
   const input = parseTaskInput({
     task: taskText === '' ? EMPTY_TASK_TEXT : taskText, ...(unattended == null ? {} : { unattended }), ...(dryRun == null ? {} : { dryRun }), ...(modelSettings == null ? {} : { modelSettings }), ...(signal == null ? {} : { signal }),
+    ...(memoryScopeKey == null ? {} : { memoryScopeKey }),
   });
   log.append({ type: 'message-added', message: agentMessage({ id: messageId, branchId, createdAt: now(), agentName: agent.name, instanceId: agent.instanceId, replyTo, ...(threadId == null ? {} : { threadId }) }) });
   const committed: ProviderMessage[] = [];

@@ -18,6 +18,7 @@ import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { StreamRun } from './event-stream.js';
 import type { RunCallbacks } from './run-callbacks.js';
 import type { Chat, ChatOptions } from '../chat/chat-types.js';
+import type { MemoryOptions } from '../memory/memory-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
@@ -69,6 +70,11 @@ export interface AgentDefinition {
    * and cached; `compressible` tool results as they are committed. Part of the agent version.
    */
   compression?: CompressionOptions;
+  /**
+   * Memory written only alongside tool calls (the `memory` field) and recalled into the volatile block. Replaces
+   * `createAigent({ memory })` whole; false turns it off for this agent. Off by default; needs a store.
+   */
+  memory?: MemoryOptions | boolean;
 }
 
 export interface TaskUsage extends Usage {

@@ -665,6 +665,22 @@ await result.feedback({ rating: 'correct' });   // the same, with the responseId
 
 When off, requests contain none of these (no tool, no field, no directive instructions), so it adds zero tokens. The resolved flag is part of `agentVersion`. Without outcomes (the production default), scoring and request analysis fall back to timings, tokens, errors and user feedback.
 
+## Memory
+
+Memory is opt-in: `createAigent({ memory: true | MemoryOptions })` sets the default, and `ai.agent({ memory })` replaces it whole (`false` turns it off for one agent). It needs a `store` and `captureContent` on (every memory is content); otherwise `ai.agent` throws `invalid_definition`. Memory is **never written by a separate model call**: notes ride on tool calls the agent already makes.
+
+```ts
+const ai = createAigent({ providers, store, memory: { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 } });
+```
+
+- **The `memory` field:** every work tool (and `aigent_multi`, at its top level only) gets a nullable `memory` field: up to `maxPerCall` notes `{ kind: 'fact' | 'preference' | 'lesson' | 'procedure', text (1 to 300 characters), tags (up to 5, each up to 24 characters, or null), pinned (or null) }`. It costs about 113 estimated tokens per tool schema (asserted at most 120). The loop takes it out before the arguments are validated, run, cached, recorded or shown in the `tool-call` event, so the tool, its cache key and the trace's `args` never see it. Invalid notes and notes over `maxPerCall` are skipped with a precise `warning` naming the call; the tool still runs. A tool may not declare its own `memory` argument while memory is on (`invalid_definition`). A short fixed addendum in the system prompt explains the field.
+- **Saving:** notes are saved behind the agent's other writes in its keyed write queue (the run never waits for them on the hot path, and its result resolves only after they are written), each through `redact` and a compare-and-set. An entry's id is the sha-256 of agent name, scope key, kind and normalised text (Unicode NFC, whitespace collapsed, lower case), so a repeat merges into the stored entry: the more confident text and source win (ties: the longer text, then the stored one), confidence moves 0.1 towards 1 (new notes start at 0.6), tags are unioned, pinned sticks and the earliest `createdAt` stays. Entries live in collection `memory`, keyed by id, and carry `agentName` and `recordedAt`, so `ai.purge` reaches them.
+- **Cap and decay:** each agent and scope keeps at most `maxEntries` live entries. Past the cap the lowest `confidence × 0.5^(age / halfLifeDays) × (1 + 0.5·ln(1 + uses))` unpinned entries are evicted (deleted, or tombstoned on a store without `delete`); age counts from the last use, else the last update. Pinned entries are never evicted: when they alone keep a scope over its cap, the run warns.
+- **Records:** each step records `memory: { saved, rejected }` (never the text), and the run record `memorySaved` and `memoryEvicted`.
+- **Scopes:** `agent` (default) shares memory between every run and chat of every agent with the same name; `session` keys it on the chat session (a task is its own session); `interface` keys it on `memoryScopeKey` (on the task or chat options, else `task.scope.interface`), and a task or chat without one is refused with `invalid_input`. Message history and tool results are never shared, only memory.
+- **Not written:** dry runs and `disableTelemetry` runs write no memory (one warning per run says why). A `persistence: 'memory'` chat still reads and writes learned memory, which belongs to the agent, not the session.
+- **Off:** requests are byte-identical to an agent without memory (no field, no addendum), and `agentVersion` is unchanged; with memory on the resolved options are part of it.
+
 ## Scoring and `ai.report()`
 
 `ai.report(filter?)` turns the stored runs into scores and findings, with no model calls:

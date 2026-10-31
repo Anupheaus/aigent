@@ -9,6 +9,7 @@ import type { TaskResult, TaskResultData } from './agent-types.js';
 import type { RunCompression } from './run-compression.js';
 import { persistRunTelemetry } from './run-telemetry.js';
 import type { RunTelemetry } from './run-turn.js';
+import type { RunMemoryTotals } from './run-memory.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 
@@ -52,6 +53,8 @@ export interface FinishAgentRunParams {
   price(usage: Usage): number;
   emit(event: AigentEvent): void;
   onFinished?(summary: RunSummary): void;
+  /** With memory on: what the run's saves came to. */
+  memory?: RunMemoryTotals;
 }
 
 /** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
@@ -75,7 +78,7 @@ function summarise(params: FinishAgentRunParams): RunSummary {
 
 /** Takes the run's agent feedback, writes its records (unless telemetry is off) and returns the consumer's result. */
 export async function finishAgentRun(params: FinishAgentRunParams): Promise<TaskResult> {
-  const { agent: { feedbackCollector, agentVersion, version }, services, input, telemetry, result, targets, mode, compression, emit, onFinished } = params;
+  const { agent: { feedbackCollector, agentVersion, version }, services, input, telemetry, result, targets, mode, compression, emit, onFinished, memory } = params;
   // Taken even when nothing is stored, so a disabled run's entries are not kept in memory.
   const feedback = feedbackCollector?.take(result.runId) ?? [];
   onFinished?.(summarise(params));
@@ -86,6 +89,7 @@ export async function finishAgentRun(params: FinishAgentRunParams): Promise<Task
       run: {
         input, mode, result, agent: { agentVersion, version }, targets,
         ...(compression == null || compression.log.length === 0 ? {} : { compression: compression.log }),
+        ...(memory == null ? {} : { memory }),
       },
     });
     if (warning != null) emit({ type: 'warning', message: warning });
