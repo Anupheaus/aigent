@@ -35,6 +35,11 @@ export interface SettleMemoryOptions {
   quietly?: boolean;
 }
 
+/** A call that holds no notes (none sent, memory off, or a bookkeeping tool): admitting or settling it does nothing. */
+export function nothingHeld(call: ToolCall): TakenMemory {
+  return { call, admit: () => undefined, settle: () => undefined };
+}
+
 /** One run's side of memory: the `memory` field taken out of calls and saved behind the agent's other writes. */
 export interface RunMemory {
   /** The run's scope key (see `memoryScopeKey`). */
@@ -94,8 +99,7 @@ export function createRunMemory(params: CreateRunMemoryParams): RunMemory {
     const { id: callId, name } = call;
     const { args, value, isPresent } = splitMemory(call.args);
     const stripped = stripInner({ ...call, args });
-    const nothingHeld: TakenMemory = { call: stripped, admit: () => undefined, settle: () => undefined };
-    if (!isPresent) return nothingHeld;
+    if (!isPresent) return nothingHeld(stripped);
     const { notes, problems } = parseMemoryNotes({ value, maxPerCall: options.maxPerCall });
     for (const problem of problems) warn(`Memory on call '${callId}' to '${name}': ${problem}`);
     const invalid = (Array.isArray(value) ? value.length : 1) - notes.length;
@@ -103,11 +107,11 @@ export function createRunMemory(params: CreateRunMemoryParams): RunMemory {
       if (!hasWarnedSkip) warn(`Memory notes are not saved: ${skipReason}`);
       hasWarnedSkip = true;
       recorder.noteMemory({ callId, saved: 0, rejected: invalid + notes.length });
-      return nothingHeld;
+      return nothingHeld(stripped);
     }
     if (notes.length === 0) {
       recorder.noteMemory({ callId, saved: 0, rejected: invalid });
-      return nothingHeld;
+      return nothingHeld(stripped);
     }
     let isDecided = false;
     return {

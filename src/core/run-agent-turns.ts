@@ -7,6 +7,8 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResultData } from './agent-types.js';
 import { describeError } from './describe-value.js';
+import { COMMENTARY_TOOLS } from './dispatch-tool-call.js';
+import { nothingHeld } from './run-memory.js';
 import { createTurnWork, drainWork, failedDetails } from './drain-work.js';
 import type { TurnRouting } from './open-turn-stream.js';
 import { syncPinned } from './run-planning-setup.js';
@@ -172,7 +174,10 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   let isReady = true;
   const { effects, guardrails } = params;
   if (restore != null) {
+    const { memory } = telemetry;
     const round = await reconcileInterruptedRound({
+      // Bookkeeping tools carry no memory field, as in a live dispatch.
+      ...(memory == null ? {} : { takeMemory: (call: ToolCall) => (COMMENTARY_TOOLS.has(call.name) ? nothingHeld(call) : memory.take(call)) }),
       restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
       ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }), ...(guardrails == null ? {} : { guard: guardSettledCall(guardrails.checks) }),
       ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),

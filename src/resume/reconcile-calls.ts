@@ -8,6 +8,7 @@ import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { GateOutcome } from '../approvals/approval-gate.js';
+import type { TakenMemory } from '../core/run-memory.js';
 import type { CallLedger, LedgerEntry } from './call-ledger.js';
 import type { RunState } from './checkpoint-types.js';
 import { reconcileCall } from './reconcile-call.js';
@@ -51,6 +52,11 @@ export interface ReconcileParams {
   guard?(executed: ExecutedToolCall): Promise<ExecutedToolCall>;
   /** Takes what each settled call did or would have done (the run's effect log and planned effects). */
   record?(executed: ExecutedToolCall): void;
+  /**
+   * With memory on: takes `memory` out of an interrupted call (a checkpointed response holds the calls as the model
+   * sent them), so its tool, ledger entry and verify see the arguments a live call would.
+   */
+  takeMemory?(call: ToolCall): TakenMemory;
 }
 
 /**
@@ -82,13 +88,20 @@ function thinkingOf(params: { restored: RestoredRun; ids: ReadonlySet<string> })
  * their tool's `resume` policy, and an `aigent_multi` call is settled call by call. Empty when the round was committed.
  */
 export async function reconcileInterruptedRound(params: ReconcileParams): Promise<ReconciledRound> {
-  const { restored, registry, emit, record } = params;
+  const { restored, registry, emit, record, takeMemory, ...rest } = params;
   const { state: { inFlight, totals }, ledger } = restored;
   const calls = interruptedCalls(restored);
   if (calls.length === 0) return { messages: [], turn: totals.turns };
   const executed: ExecutedToolCall[] = [];
-  for (const call of calls) {
-    const result = call.name === MULTI_TOOL_NAME ? await reconcileMulti({ ...params, call }) : await reconcileCall({ ...params, call, ledgerId: call.id });
+  for (const sentCall of calls) {
+    const taken = takeMemory?.(sentCall);
+    const call = taken?.call ?? sentCall;
+    // A call in the ledger was admitted by the interrupted process, which queued its notes then: they are not saved
+    // twice (a second save would count as a repeat and raise the note's confidence).
+    const wasAdmitted = ledger.some(({ callId }) => callId === call.id);
+    const settleParams = { ...rest, restored, registry, emit, call, ...(taken == null || wasAdmitted ? {} : { onAdmitted: taken.admit }) };
+    const result = call.name === MULTI_TOOL_NAME ? await reconcileMulti(settleParams) : await reconcileCall({ ...settleParams, ledgerId: call.id });
+    taken?.settle({ quietly: wasAdmitted });
     record?.(result);
     emit({ type: 'tool-result', callId: call.id, envelope: result.envelope });
     executed.push(result);

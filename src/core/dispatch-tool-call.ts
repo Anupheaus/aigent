@@ -14,6 +14,7 @@ import { idempotencyKeyOf, innerLedgerId } from '../resume/call-ledger.js';
 import { expandCallAliases } from './expand-call-aliases.js';
 import { linkPrevious, stripMultiPrevious } from './link-previous.js';
 import { runDispatchedCall } from './run-dispatched-call.js';
+import { nothingHeld } from './run-memory.js';
 import type { TakenMemory } from './run-memory.js';
 import { delegationFor, toolCallsCommitted } from './delegation-context.js';
 import type { RunTotals, RunTurnParams } from './run-turn.js';
@@ -38,11 +39,6 @@ interface ReserveToolCallParams {
 interface DispatchParams {
   call: ToolCall;
   turn: RunTurnParams;
-}
-
-/** Notes held for a call without `memory`, or with memory off: nothing to save or drop. */
-function nothingHeld(call: ToolCall): TakenMemory {
-  return { call, admit: () => undefined, settle: () => undefined };
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describeError } from '../core/describe-value.js';
 import type { ToolCall } from '../providers/provider-types.js';
 import { executeToolCall } from '../tools/execute-tool-call.js';
+import { parseToolArgs } from '../tools/parse-tool-args.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
@@ -16,6 +17,8 @@ export interface ReconcileCallParams extends ReconcileParams {
   /** Its id in the ledger, idempotency key and approval request. */
   ledgerId: string;
   parentCallId?: string;
+  /** Called once the call is about to run here (again): its approval allowed it and its start is recorded. */
+  onAdmitted?(): void;
 }
 
 /** Why an interrupted call with side effects needs approval before it runs again. */
@@ -63,13 +66,15 @@ function guarded(params: ReconcileCallParams, executed: ExecutedToolCall): Promi
 
 /** Runs a call (again), recorded in the ledger first like any call. */
 async function execute(params: ReconcileCallParams & { tool?: Tool }): Promise<ExecutedToolCall> {
-  const { call, ledgerId, parentCallId, registry, ledger, now, emit, restored } = params;
+  const { call, ledgerId, parentCallId, registry, ledger, now, emit, restored, tool, onAdmitted } = params;
   if (parentCallId == null) emit({ type: 'tool-call', callId: call.id, name: call.name, args: call.args });
   try {
     await ledger?.begin({ callId: ledgerId, tool: call.name, args: call.args, argsHash: hashArgs(call.args), turn: restored.state.totals.turns, ...(parentCallId == null ? {} : { parentCallId }) });
   } catch (error) {
     return unavailable({ call, what: 'recording its start', error });
   }
+  // As in a live run: a call executeToolCall refuses (unknown tool, invalid arguments) is never admitted.
+  if (tool != null && parseToolArgs(tool.argsSchema, call.args).ok) onAdmitted?.();
   const executed = await guarded(params, await executeToolCall({ registry, call, context: contextOf(params), now }));
   await ledger?.complete(ledgerId, { envelope: executed.envelope, ...(executed.effects == null ? {} : { effects: executed.effects }) }).catch(() => undefined);
   return executed;
