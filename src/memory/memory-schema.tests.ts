@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { parseMemoryNotes, resolveMemoryOptions, retrieverOf } from './memory-schema.js';
 import type { MemoryOptions } from './memory-types.js';
 
-const DEFAULTS = { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
+// Session by default: sharing memory across sessions (and so across users) is opted into with scope 'agent'.
+const DEFAULTS = { scope: 'session', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
 
 describe('resolveMemoryOptions', () => {
   it('is off unless memory is asked for', () => {
@@ -12,7 +13,7 @@ describe('resolveMemoryOptions', () => {
 
   it('fills every default for true or partial options', () => {
     expect(resolveMemoryOptions({ owner: 'createAigent', options: true })).toEqual(DEFAULTS);
-    expect(resolveMemoryOptions({ owner: 'createAigent', options: { scope: 'session', maxPerCall: 2 } })).toEqual({ ...DEFAULTS, scope: 'session', maxPerCall: 2 });
+    expect(resolveMemoryOptions({ owner: 'createAigent', options: { scope: 'agent', maxPerCall: 2 } })).toEqual({ ...DEFAULTS, scope: 'agent', maxPerCall: 2 });
   });
 
   it.each([

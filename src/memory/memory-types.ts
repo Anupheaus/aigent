@@ -76,7 +76,11 @@ export interface MemoryNote {
 
 /** `createAigent({ memory })` / `AgentDefinition.memory`: memory written only alongside tool calls. */
 export interface MemoryOptions {
-  /** Who shares the memories (default `agent`: every agent with the same name). */
+  /**
+   * Who shares the memories. Default `session`: one chat session (a task is its own session), so nothing one user
+   * says reaches another. `agent` shares them with every run and chat of every agent with the same name (usually
+   * every user of it); `interface` with every run given the same `memoryScopeKey` (e.g. one per user).
+   */
   scope?: MemoryScope;
   /** Live entries kept per agent and scope (default 200), pinned ones included; the lowest-scoring unpinned ones are evicted first. */
   maxEntries?: number;

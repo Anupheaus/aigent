@@ -65,7 +65,7 @@ describe('memory disabled', () => {
 
 describe('memory enabled', () => {
   it('adds the addendum and the field, strips it before the tool runs and the trace records, and saves it', async () => {
-    const { agent, provider, store, seen } = setup({ turns: [memoryCall([NOTE]), textTurn('done')], options: { memory: true } });
+    const { agent, provider, store, seen } = setup({ turns: [memoryCall([NOTE]), textTurn('done')], options: { memory: { scope: 'agent' } } });
     const result = await agent.task({ task: 'look k up' });
     expect(provider.requests[0]?.messages[0]?.text).toContain(MEMORY_PROMPT_ADDENDUM);
     expect(provider.requests[0]?.tools.find(({ name }) => name === 'lookup')?.parameters).toMatchObject({ properties: { memory: { type: ['array', 'null'] } } });
@@ -82,7 +82,7 @@ describe('memory enabled', () => {
   });
 
   it('keeps the cache key: the same call without memory is served from the cache', async () => {
-    const { agent, store, seen } = setup({ turns: [memoryCall([NOTE]), textTurn('one'), toolTurn([{ id: 'c2', name: 'lookup', args: { key: 'k', memory: null } }]), textTurn('two')], options: { memory: true } });
+    const { agent, store, seen } = setup({ turns: [memoryCall([NOTE]), textTurn('one'), toolTurn([{ id: 'c2', name: 'lookup', args: { key: 'k', memory: null } }]), textTurn('two')], options: { memory: { scope: 'agent' } } });
     await agent.task({ task: 'first' });
     const second = await agent.task({ task: 'second' });
     expect(seen).toHaveLength(1);
@@ -195,10 +195,10 @@ describe('memory enabled', () => {
       const own = { kind: 'lesson', text: `own note ${runNumber}`, tags: null, pinned: null };
       return callEvents([{ id: 'c1', name: 'lookup', args: { key: `k${runNumber}`, memory: [shared, own] } }]);
     });
-    const ai = createAigent({ providers: [provider], store, enableFeedback: false, memory: true });
+    const ai = createAigent({ providers: [provider], store, enableFeedback: false, memory: { scope: 'agent' } });
     const tools = [lookupTool([])];
     const uncapped = ai.agent({ name: 'helper', model: 'fake:m', tools });
-    const capped = ai.agent({ name: 'capped', model: 'fake:m', tools, memory: { maxEntries: CAP } });
+    const capped = ai.agent({ name: 'capped', model: 'fake:m', tools, memory: { scope: 'agent', maxEntries: CAP } });
     const runAll = (agent: typeof uncapped) => Promise.all(Array.from({ length: PARALLEL_RUNS }, (_unused, runNumber) => agent.task({ task: `run number ${runNumber}` })));
     const [results, cappedResults] = await Promise.all([runAll(uncapped), runAll(capped)]);
     expect([...results, ...cappedResults].every(({ status }) => status === 'completed')).toBe(true);

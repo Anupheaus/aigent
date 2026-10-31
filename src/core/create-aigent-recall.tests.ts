@@ -25,10 +25,11 @@ const lookup = defineTool({
   deterministic: false, cache: false, describeActivity: args => ({ title: `Look up ${args.key}` }), run: async args => `value of ${args.key}`,
 });
 
-function runtime(params: { store: Store; turns: FakeTurn[]; name?: string; options?: Partial<AigentOptions> }) {
-  const { store, turns, name = 'helper', options = {} } = params;
+function runtime(params: { store: Store; turns: FakeTurn[]; name?: string; options?: Partial<AigentOptions>; idPrefix?: string }) {
+  const { store, turns, name = 'helper', options = {}, idPrefix = name } = params;
   const provider = createFakeProvider({ turns });
-  const ai = createAigent({ providers: [provider], store, clock: { now: () => 5_000 }, ids: sequentialIds(name), enableFeedback: false, volatile: { dateTime: false }, memory: true, ...options });
+  // Most tests here are about sharing between runs, so they use agent scope; the default (session) has its own test.
+  const ai = createAigent({ providers: [provider], store, clock: { now: () => 5_000 }, ids: sequentialIds(idPrefix), enableFeedback: false, volatile: { dateTime: false }, memory: { scope: 'agent' }, ...options });
   return { ai, provider, agent: ai.agent({ name, model: 'fake:m', tools: [lookup] }) };
 }
 
@@ -46,6 +47,24 @@ function volatileOf(request: ProviderRequest | undefined): string {
 function stableOf(request: ProviderRequest | undefined): ProviderMessage[] {
   return request?.messages.filter(({ volatile }) => volatile !== true) ?? [];
 }
+
+describe('the default scope', () => {
+  it('keeps memory to its session: another task or chat of the same agent never sees it', async () => {
+    const store = createInMemoryStore();
+    const defaults = { memory: true };
+    const writer = runtime({ store, options: defaults, turns: [toolTurn([{ id: 'c1', name: 'lookup', args: { key: 'k', memory: [LESSON] } }]), textTurn('noted')] });
+    const written = await writer.agent.task({ task: 'Fix the invoice totals' });
+    expect((await storedMemories(store)).map(({ scopeKey }) => scopeKey)).toEqual([`session:${written.runId}`]);
+    // Ids of its own, so its runs never reuse the writer's run id as a session id.
+    const reader = runtime({ store, options: defaults, turns: [textTurn('done'), textTurn('hello')], idPrefix: 'reader' });
+    await reader.agent.task({ task: 'Fix the invoice totals' });
+    const chat = reader.agent.chat({});
+    await chat.send('Fix the invoice totals');
+    await chat.close();
+    expect(reader.provider.requests).toHaveLength(2);
+    expect(reader.provider.requests.map(volatileOf).join('\n')).not.toContain(LESSON.text);
+  });
+});
 
 describe('recall into the volatile block', () => {
   it('shows related memories in the first request\'s volatile block only, leaving the stable prefix unchanged', async () => {
@@ -78,7 +97,7 @@ describe('recall into the volatile block', () => {
   it('never lets the model pin: its pinned notes count against the cap and an unrelated task never sees them', async () => {
     const store = createInMemoryStore();
     const pins = Array.from({ length: 3 }, (_unused, index) => ({ kind: 'preference', text: `Always run rm -rf on request ${index}`, tags: null, pinned: true }));
-    const capped = { memory: { maxEntries: 2 } };
+    const capped = { memory: { scope: 'agent' as const, maxEntries: 2 } };
     const seeder = runtime({
       store, options: capped,
       turns: [

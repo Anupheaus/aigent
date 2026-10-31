@@ -13,7 +13,7 @@ export const MAX_MEMORY_TAGS = 5;
 /** Longest tag, in characters. */
 export const MAX_MEMORY_TAG_LENGTH = 24;
 
-const DEFAULT_MEMORY_OPTIONS: ResolvedMemoryOptions = { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
+const DEFAULT_MEMORY_OPTIONS: ResolvedMemoryOptions = { scope: 'session', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
 
 const positiveInteger = z.number().int().positive();
 
