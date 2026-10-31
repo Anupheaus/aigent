@@ -86,6 +86,8 @@ export const runRecordSchema = z.object({
     tool: z.string(), callId: z.string(), kind: z.string(), target: z.string(), summary: z.string(), before: z.string().optional(), after: z.string().optional(), reversible: z.boolean(),
   })).optional(),
   parent: z.object({ agentName: z.string(), instanceId: z.string(), runId: z.string(), callId: z.string(), depth: count, ancestors: z.array(z.string()).optional() }).optional(),
+  memorySaved: count.optional(),
+  memoryEvicted: count.optional(),
 });
 
 export const traceStepSchema = z.object({
@@ -113,6 +115,7 @@ export const traceStepSchema = z.object({
   outcome: z.object({ success: z.boolean(), answer: z.string(), source: z.enum(['directive', 'previous']) }).optional(),
   guardrails: guardrailsSchema,
   undoable: z.boolean().optional(),
+  memory: z.object({ saved: count, rejected: count }).optional(),
 });
 
 export const traceRecordSchema = z.object({ ...recordMetaShape, steps: z.array(traceStepSchema) });

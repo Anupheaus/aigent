@@ -1,4 +1,5 @@
 import { FEEDBACK_PROMPT_ADDENDUM } from '../feedback/feedback-prompt.js';
+import { MEMORY_PROMPT_ADDENDUM } from '../memory/memory-prompt.js';
 
 export interface PromptPersona {
   persona?: string;
@@ -6,6 +7,8 @@ export interface PromptPersona {
   context?: string;
   /** Adds the feedback addendum (the `previous` field, `aigent_feedback` and directives). Default false. */
   enableFeedback?: boolean;
+  /** Adds the memory addendum (the `memory` field on tool calls). Default false. */
+  enableMemory?: boolean;
   /** `promptAddendum` texts of the agent's tools (e.g. the knowledge pack's citation rule); each appears once, sorted. */
   toolAddenda?: string[];
 }
@@ -20,8 +23,9 @@ const LIBRARY_RULES = [
 
 /** Library rules (and the feedback addendum) first, then general-to-specific agent text, so the stable prefix stays cache-friendly. */
 export function buildSystemPrompt(definition: PromptPersona): string {
-  const { persona, skillset, context, enableFeedback = false, toolAddenda = [] } = definition;
+  const { persona, skillset, context, enableFeedback = false, enableMemory = false, toolAddenda = [] } = definition;
   const sections = enableFeedback ? [LIBRARY_RULES, FEEDBACK_PROMPT_ADDENDUM] : [LIBRARY_RULES];
+  if (enableMemory) sections.push(MEMORY_PROMPT_ADDENDUM);
   // Sorted and unique, so the stable prefix does not depend on tool order.
   sections.push(...[...new Set(toolAddenda)].sort());
   if (persona != null && persona !== '') sections.push(`# Persona\n${persona}`);

@@ -65,6 +65,13 @@ export interface ShapedStepRecord {
   tokensAfter: number;
 }
 
+/** What a call's  notes came to (their text is in the  collection, never in the trace). */
+export interface MemoryStepRecord {
+  saved: number;
+  /** Invalid, over the per-call limit, or not written. */
+  rejected: number;
+}
+
 /** One tool call of a run, in start order. Inner `aigent_multi` calls are steps too, linked by `parentCallId`. */
 export interface TraceStep {
   /** 0-based position in start order. */

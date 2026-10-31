@@ -195,4 +195,18 @@ describe('createTraceRecorder outcomes', () => {
     recorder.attachOutcome({ outcome: { success: true, answer: 'x' }, source: 'directive', turn: 2 });
     expect(recorder.outcomeTarget(2)).toEqual({ index: 0, turn: 1, hasOutcome: true });
   });
+
+  it('notes each call\'s memory saves on its top-level step, whenever they finish', () => {
+    const recorder = createTraceRecorder({ now: () => 0, captureContent: true, argsDigestKey: 'run_1' });
+    recorder.noteMemory({ callId: 'a', saved: 2, rejected: 1 });
+    recorder.begin({ turn: 1, callId: 'a', tool: 'read', args: {} })(succeeded('a'));
+    recorder.begin({ turn: 1, callId: 'a', parentCallId: 'm', tool: 'read', args: {} })(succeeded('a'));
+    recorder.begin({ turn: 1, callId: 'b', tool: 'read', args: {} })(succeeded('b'));
+    recorder.noteMemory({ callId: 'b', saved: 1, rejected: 0 });
+    expect(recorder.steps().map(({ callId, parentCallId, memory }) => ({ callId, parentCallId, memory }))).toEqual([
+      { callId: 'a', parentCallId: undefined, memory: { saved: 2, rejected: 1 } },
+      { callId: 'a', parentCallId: 'm', memory: undefined },
+      { callId: 'b', parentCallId: undefined, memory: { saved: 1, rejected: 0 } },
+    ]);
+  });
 });

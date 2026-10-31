@@ -1,0 +1,129 @@
+import { describe, expect, it } from 'vitest';
+import { createInMemoryStore } from '../store/in-memory-store.js';
+import type { Store } from '../store/store-types.js';
+import type { Redact } from '../telemetry/redact.js';
+import { memoryId } from './dedupe.js';
+import { saveMemory } from './save-memory.js';
+import { MEMORY_COLLECTION } from './memory-types.js';
+import type { MemoryEntry, MemoryNote, ResolvedMemoryOptions } from './memory-types.js';
+
+const DAY_MS = 86_400_000;
+const NOW = 50 * DAY_MS;
+const OPTIONS: ResolvedMemoryOptions = { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
+const SOURCE = { runId: 'run_1', callId: 'call_1', origin: 'tool-call' as const };
+
+interface SaveParams {
+  store: Store;
+  notes: MemoryNote[];
+  options?: Partial<ResolvedMemoryOptions>;
+  redact?: Redact;
+  scopeKey?: string;
+  agentName?: string;
+  now?: number;
+}
+
+function save(params: SaveParams) {
+  const { store, notes, options = {}, redact, scopeKey = 'agent', agentName = 'helper', now = NOW } = params;
+  return saveMemory({ store, ...(redact == null ? {} : { redact }), options: { ...OPTIONS, ...options }, now, request: { agentName, scopeKey, notes, source: SOURCE } });
+}
+
+async function stored(store: Store): Promise<MemoryEntry[]> {
+  return (await store.list<MemoryEntry>(MEMORY_COLLECTION)).map(({ value }) => value);
+}
+
+/** A store without the optional `delete`, so eviction must leave tombstones. */
+function storeWithoutDelete(): Store {
+  const { get, compareAndSet, list } = createInMemoryStore();
+  return { get, compareAndSet, list };
+}
+
+describe('saveMemory', () => {
+  it('writes a new note with the defaults', async () => {
+    const store = createInMemoryStore();
+    const result = await save({ store, notes: [{ kind: 'fact', text: 'Tests live in src', tags: ['tests', 'tests'] }] });
+    expect(result).toEqual({ saved: 1, evicted: 0, problems: [] });
+    const id = memoryId({ agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Tests live in src' });
+    expect(await stored(store)).toEqual([{
+      id, agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Tests live in src', tags: ['tests'], source: SOURCE,
+      confidence: 0.6, pinned: false, uses: 0, createdAt: NOW, updatedAt: NOW, recordedAt: NOW,
+    }]);
+  });
+
+  it('merges a repeat into the same entry instead of adding one', async () => {
+    const store = createInMemoryStore();
+    await save({ store, notes: [{ kind: 'fact', text: 'Tests live in src' }] });
+    await save({ store, notes: [{ kind: 'fact', text: '  tests LIVE in src ' }], now: NOW + 1 });
+    const entries = await stored(store);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ confidence: 0.7, createdAt: NOW, updatedAt: NOW + 1, text: 'Tests live in src' });
+  });
+
+  it('keeps one scope and one agent apart', async () => {
+    const store = createInMemoryStore();
+    const note: MemoryNote = { kind: 'fact', text: 'Tests live in src' };
+    await save({ store, notes: [note] });
+    await save({ store, notes: [note], scopeKey: 'session:s1' });
+    await save({ store, notes: [note], agentName: 'other' });
+    expect((await stored(store)).map(({ agentName, scopeKey, confidence }) => `${agentName}/${scopeKey}/${confidence}`).sort()).toEqual(['helper/agent/0.6', 'helper/session:s1/0.6', 'other/agent/0.6']);
+  });
+
+  it('evicts the lowest-scoring entry of the same agent and scope past the cap', async () => {
+    const store = createInMemoryStore();
+    await save({ store, notes: [{ kind: 'fact', text: 'old and unused' }], now: NOW - 90 * DAY_MS });
+    await save({ store, notes: [{ kind: 'fact', text: 'recent' }], now: NOW - DAY_MS });
+    await save({ store, notes: [{ kind: 'fact', text: 'other scope' }], scopeKey: 'session:s1', now: NOW - 300 * DAY_MS });
+    const result = await save({ store, notes: [{ kind: 'fact', text: 'new' }], options: { maxEntries: 2 } });
+    expect(result).toEqual({ saved: 1, evicted: 1, problems: [] });
+    expect((await stored(store)).map(({ text }) => text).sort()).toEqual(['new', 'other scope', 'recent']);
+  });
+
+  it('never evicts pinned entries and says the cap could not be kept', async () => {
+    const store = createInMemoryStore();
+    await save({ store, notes: [{ kind: 'fact', text: 'pinned one', pinned: true }, { kind: 'fact', text: 'pinned two', pinned: true }], now: NOW - 300 * DAY_MS });
+    const result = await save({ store, notes: [{ kind: 'fact', text: 'new' }], options: { maxEntries: 1 } });
+    expect(result.evicted).toBe(1);
+    expect(result.problems).toEqual(["Memory of agent 'helper' (scope 'agent') keeps 2 entries, over its cap of 1, because pinned entries are never evicted"]);
+    expect((await stored(store)).map(({ text }) => text).sort()).toEqual(['pinned one', 'pinned two']);
+  });
+
+  it('leaves tombstones on a store without delete, and they no longer count against the cap', async () => {
+    const store = storeWithoutDelete();
+    await save({ store, notes: [{ kind: 'fact', text: 'oldest' }], now: NOW - 200 * DAY_MS });
+    await save({ store, notes: [{ kind: 'fact', text: 'middle' }], now: NOW - 100 * DAY_MS, options: { maxEntries: 1 } });
+    const result = await save({ store, notes: [{ kind: 'fact', text: 'newest' }], options: { maxEntries: 1 } });
+    expect(result.evicted).toBe(1);
+    const entries = await stored(store);
+    expect(entries.filter(({ removed }) => removed == null).map(({ text }) => text)).toEqual(['newest']);
+    expect(entries.filter(({ removed }) => removed != null).map(({ text, removed }) => `${text}:${removed?.reason}`).sort()).toEqual(['middle:evicted', 'oldest:evicted']);
+  });
+
+  it('stores what redact returns, keeping the identity fields its own', async () => {
+    const store = createInMemoryStore();
+    const redact: Redact = record => {
+      const value = record.value as MemoryEntry;
+      return { ...record, value: { ...value, text: value.text.replace('hunter2', '[secret]'), agentName: 'tampered' } };
+    };
+    await save({ store, notes: [{ kind: 'fact', text: 'The password is hunter2' }], redact });
+    const [entry] = await stored(store);
+    expect(entry).toMatchObject({ text: 'The password is [secret]', agentName: 'helper', scopeKey: 'agent' });
+  });
+
+  it('skips a note whose redact throws, saving the others', async () => {
+    const store = createInMemoryStore();
+    const redact: Redact = record => {
+      if ((record.value as MemoryEntry).text.includes('boom')) throw new Error('cannot redact');
+      return record;
+    };
+    const result = await save({ store, notes: [{ kind: 'fact', text: 'boom' }, { kind: 'fact', text: 'fine' }], redact });
+    expect(result.saved).toBe(1);
+    expect(result.problems).toEqual(['memory note 1 was not saved: cannot redact']);
+    expect((await stored(store)).map(({ text }) => text)).toEqual(['fine']);
+  });
+
+  it('reports a failed store write for the note it concerns', async () => {
+    const base = createInMemoryStore();
+    const failing: Store = { ...base, compareAndSet: async () => { throw new Error('disk full'); } };
+    const result = await save({ store: failing, notes: [{ kind: 'fact', text: 'x' }] });
+    expect(result).toEqual({ saved: 0, evicted: 0, problems: ['memory note 1 was not saved: disk full'] });
+  });
+});

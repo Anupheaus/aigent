@@ -1,5 +1,5 @@
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
-import type { OutcomeSource, StepOutcome, TraceStep } from './run-record.js';
+import type { MemoryStepRecord, OutcomeSource, StepOutcome, TraceStep } from './run-record.js';
 import { digestArgs } from './digest-args.js';
 import { summariseArgs } from './summarise-args.js';
 import { storedDecisions } from '../guardrails/stored-decisions.js';
@@ -43,8 +43,18 @@ export interface TraceRecorder {
   attachOutcome(params: AttachOutcomeParams): void;
   /** The step a report from `turn` would attach to, if any. */
   outcomeTarget(turn: number): OutcomeTarget | undefined;
+  /** Records what a call's memory notes came to; saves finish after the call starts, so it may come before or after . */
+  noteMemory(params: NoteMemoryParams): void;
   /** Every step so far in start order; a step still running is reported as aborted. */
   steps(): TraceStep[];
+}
+
+export interface NoteMemoryParams {
+  /** The top-level call that carried the notes. */
+  callId: string;
+  saved: number;
+  /** Notes that were invalid, over the per-call limit or failed to write. */
+  rejected: number;
 }
 
 export interface CreateTraceRecorderParams {
@@ -81,6 +91,7 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
   const recorded: TraceStep[] = [];
   const finished = new Set<number>();
   const skipped = new Set(nonOutcomeTools);
+  const memoryByCall = new Map<string, MemoryStepRecord>();
 
   /** Inner aigent_multi calls are part of their parent step, which is what the model reports on. */
   function findTarget(turn: number): TraceStep | undefined {
@@ -124,11 +135,21 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
     };
   }
 
+  function noteMemory(noteParams: NoteMemoryParams): void {
+    const { callId, saved, rejected } = noteParams;
+    memoryByCall.set(callId, { saved, rejected });
+  }
+
+  function withMemory(step: TraceStep): TraceStep {
+    const memory = step.parentCallId == null ? memoryByCall.get(step.callId) : undefined;
+    return memory == null ? step : { ...step, memory: { ...memory } };
+  }
+
   function steps(): TraceStep[] {
-    return recorded.map(step => (finished.has(step.index)
+    return recorded.map(step => withMemory(finished.has(step.index)
       ? structuredClone(step)
       : { ...structuredClone(step), ok: false, errorCategory: 'aborted', errorCode: UNFINISHED_ERROR_CODE, durationMs: now() - step.startedAtMs }));
   }
 
-  return { begin, attachOutcome, outcomeTarget, steps };
+  return { begin, attachOutcome, outcomeTarget, noteMemory, steps };
 }

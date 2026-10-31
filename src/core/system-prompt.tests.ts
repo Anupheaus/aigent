@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FEEDBACK_PROMPT_ADDENDUM } from '../feedback/feedback-prompt.js';
+import { MEMORY_PROMPT_ADDENDUM } from '../memory/memory-prompt.js';
 import { buildSystemPrompt } from './system-prompt.js';
 
 describe('buildSystemPrompt', () => {
@@ -41,5 +42,15 @@ describe('buildSystemPrompt', () => {
     // Library rules and the addendum come before the agent's own text, so the cached prefix is shared across agents.
     expect(withFeedback.indexOf(FEEDBACK_PROMPT_ADDENDUM)).toBeLessThan(withFeedback.indexOf('# Persona'));
     expect(buildSystemPrompt({ persona: 'P', enableFeedback: true })).toBe(withFeedback);
+  });
+
+  it('adds the memory addendum after the feedback one, only when memory is enabled', () => {
+    const plain = buildSystemPrompt({ persona: 'P' });
+    expect(buildSystemPrompt({ persona: 'P', enableMemory: false })).toBe(plain);
+    expect(plain).not.toContain('memory');
+    const withMemory = buildSystemPrompt({ persona: 'P', enableFeedback: true, enableMemory: true });
+    expect(withMemory).toContain(MEMORY_PROMPT_ADDENDUM);
+    expect(withMemory.indexOf(FEEDBACK_PROMPT_ADDENDUM)).toBeLessThan(withMemory.indexOf(MEMORY_PROMPT_ADDENDUM));
+    expect(withMemory.indexOf(MEMORY_PROMPT_ADDENDUM)).toBeLessThan(withMemory.indexOf('# Persona'));
   });
 });
