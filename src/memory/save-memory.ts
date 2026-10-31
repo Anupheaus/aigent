@@ -48,12 +48,12 @@ function redacted(params: { entry: MemoryEntry; redact?: Redact }): MemoryEntry 
   return { ...value as MemoryEntry, id, agentName, scopeKey };
 }
 
-async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number; problems: string[] }> {
+async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number }> {
   const { store, options: { maxEntries, halfLifeDays }, now, request: { agentName, scopeKey } } = params;
   const live = (await store.list<MemoryEntry>(MEMORY_COLLECTION))
     .map(({ value }) => value)
     .filter(entry => entry.agentName === agentName && entry.scopeKey === scopeKey && entry.removed == null);
-  const { evict, pinnedOverflow } = pickEvictions({ entries: live, maxEntries, now, halfLifeDays });
+  const { evict } = pickEvictions({ entries: live, maxEntries, now, halfLifeDays });
   for (const { id } of evict) {
     if (store.delete != null) {
       await store.delete(MEMORY_COLLECTION, id);
@@ -62,8 +62,7 @@ async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number
     // Without delete, a tombstone keeps the key but drops the entry from recall and from the cap.
     await updateRecord<MemoryEntry>({ store, collection: MEMORY_COLLECTION, key: id, update: current => ({ ...current as MemoryEntry, removed: { at: now, reason: 'evicted' } }) });
   }
-  const problems = pinnedOverflow === 0 ? [] : [`Memory of agent '${agentName}' (scope '${scopeKey}') keeps ${live.length - evict.length} entries, over its cap of ${maxEntries}, because pinned entries are never evicted`];
-  return { evicted: evict.length, problems };
+  return { evicted: evict.length };
 }
 
 /**
@@ -86,8 +85,8 @@ export async function saveMemory(params: SaveMemoryParams): Promise<SaveMemoryRe
   }
   if (saved === 0) return { saved, evicted: 0, problems };
   try {
-    const cap = await evictPastCap(params);
-    return { saved, evicted: cap.evicted, problems: [...problems, ...cap.problems] };
+    const { evicted } = await evictPastCap(params);
+    return { saved, evicted, problems };
   } catch (error) {
     return { saved, evicted: 0, problems: [...problems, `Memory cap of agent '${request.agentName}' was not enforced: ${describeError(error)}`] };
   }

@@ -46,10 +46,18 @@ describe('parseMemoryNotes', () => {
   });
 
   it('keeps valid notes and treats null tags and pinned as absent', () => {
-    const value = [{ kind: 'fact', text: 'The API lives in apps/api', tags: ['api'], pinned: null }, { kind: 'lesson', text: 'Run the linter first', tags: null, pinned: true }];
+    const value = [{ kind: 'fact', text: 'The API lives in apps/api', tags: ['api'], pinned: null }, { kind: 'lesson', text: 'Run the linter first', tags: null }];
     expect(parseMemoryNotes({ value, maxPerCall: 3 })).toEqual({
-      notes: [{ kind: 'fact', text: 'The API lives in apps/api', tags: ['api'] }, { kind: 'lesson', text: 'Run the linter first', pinned: true }],
+      notes: [{ kind: 'fact', text: 'The API lives in apps/api', tags: ['api'] }, { kind: 'lesson', text: 'Run the linter first' }],
       problems: [],
+    });
+  });
+
+  it('never lets the model pin: a pinned note is kept unpinned, saying so', () => {
+    const value = [{ kind: 'lesson', text: 'Run the linter first', tags: null, pinned: true }];
+    expect(parseMemoryNotes({ value, maxPerCall: 3 })).toEqual({
+      notes: [{ kind: 'lesson', text: 'Run the linter first' }],
+      problems: ['memory note 1 was saved unpinned: only the application can pin a memory'],
     });
   });
 

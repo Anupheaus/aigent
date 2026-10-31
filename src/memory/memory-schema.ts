@@ -27,7 +27,10 @@ const memoryOptionsSchema = z.object({
   retriever: z.custom<MemoryRetriever>(value => typeof (value as Partial<MemoryRetriever> | null)?.rank === 'function', 'retriever must have a rank(query, entries) function').optional(),
 }).strict();
 
-/** One note as the model sends it: strict decoding sends absent optionals as null. */
+/**
+ * One note as the model sends it: strict decoding sends absent optionals as null. `pinned` is not in the schema the
+ * model sees; it is still accepted (and ignored) so a model that sends it anyway loses only the pin, not the note.
+ */
 const memoryNoteSchema = z.object({
   kind: z.enum(MEMORY_KINDS),
   text: z.string().trim().min(1).max(MAX_MEMORY_TEXT_LENGTH),
@@ -94,7 +97,9 @@ export function parseMemoryNotes(params: ParseMemoryNotesParams): ParsedMemoryNo
       return;
     }
     const { kind, text, tags, pinned } = parsed.data;
-    notes.push({ kind, text, ...(tags == null ? {} : { tags }), ...(pinned == null ? {} : { pinned }) });
+    // A pinned note never fades and outlives every unpinned one: a privilege of the application, never of the model.
+    if (pinned === true) problems.push(`memory note ${position + 1} was saved unpinned: only the application can pin a memory`);
+    notes.push({ kind, text, ...(tags == null ? {} : { tags }) });
   });
   return { notes, problems };
 }

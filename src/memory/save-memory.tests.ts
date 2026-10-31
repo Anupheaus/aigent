@@ -77,13 +77,14 @@ describe('saveMemory', () => {
     expect((await stored(store)).map(({ text }) => text).sort()).toEqual(['new', 'other scope', 'recent']);
   });
 
-  it('never evicts pinned entries and says the cap could not be kept', async () => {
+  it('keeps the cap even when pinned entries fill it: unpinned entries go first, then the weakest pinned', async () => {
     const store = createInMemoryStore();
     await save({ store, notes: [{ kind: 'fact', text: 'pinned one', pinned: true }, { kind: 'fact', text: 'pinned two', pinned: true }], now: NOW - 300 * DAY_MS });
     const result = await save({ store, notes: [{ kind: 'fact', text: 'new' }], options: { maxEntries: 1 } });
-    expect(result.evicted).toBe(1);
-    expect(result.problems).toEqual(["Memory of agent 'helper' (scope 'agent') keeps 2 entries, over its cap of 1, because pinned entries are never evicted"]);
-    expect((await stored(store)).map(({ text }) => text).sort()).toEqual(['pinned one', 'pinned two']);
+    expect(result).toEqual({ saved: 1, evicted: 2, problems: [] });
+    const entries = await stored(store);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.pinned).toBe(true);
   });
 
   it('leaves tombstones on a store without delete, and they no longer count against the cap', async () => {

@@ -11,8 +11,6 @@ const DEFAULT_MIN_CONFIDENCE = 0.2;
 const USE_BOOST = 0.05;
 /** Added to confidence, so a doubtful memory is ranked down rather than out. */
 const CONFIDENCE_BASE = 0.5;
-/** A pinned memory unrelated to the task still shows, after every related one. */
-const PINNED_RELEVANCE_FLOOR = 0.01;
 
 export interface RecallParams {
   store: Store;
@@ -40,7 +38,7 @@ function isEligible(params: { entry: MemoryEntry; now: number; halfLifeDays: num
 /**
  * The memories of one agent and scope worth showing for `query`, best first: relevance × (0.5 + confidence) × recency
  * (halving every `halfLifeDays` since the last use or update) × (1 + 0.05·ln(1 + uses)). Unrelated memories are left
- * out (pinned ones stay, after the related), as are tombstones, expired and faded ones. Ties: later update, then id.
+ * out (pinned ones too), as are tombstones, expired and faded ones (pinned ones never fade). Ties: later update, then id.
  * Read-only: marking the memories used is the caller's (queued) write.
  */
 export async function recallMemories(params: RecallParams): Promise<RecalledMemory[]> {
@@ -52,7 +50,8 @@ export async function recallMemories(params: RecallParams): Promise<RecalledMemo
   return entries
     .map(entry => {
       const related = relevance.get(entry.id) ?? 0;
-      const score = (entry.pinned ? Math.max(related, PINNED_RELEVANCE_FLOOR) : related)
+      // Pinned or not, a memory must be related to the task: one note is never shown to every run.
+      const score = related
         * (CONFIDENCE_BASE + entry.confidence)
         * decayFactor({ ageMs: entryAgeMs({ entry, now }), halfLifeDays })
         * (1 + USE_BOOST * Math.log1p(entry.uses));

@@ -44,21 +44,22 @@ export interface PickEvictionsParams {
 }
 
 export interface Evictions {
-  /** Lowest score first. */
+  /** Every unpinned entry before any pinned one; within each, lowest score first. */
   evict: MemoryEntry[];
-  /** Entries still over the cap because only pinned ones are left (pinned entries are never evicted). */
-  pinnedOverflow: number;
 }
 
-/** The unpinned entries to evict to bring the set within `maxEntries`: lowest score, then oldest update, then id. */
+/**
+ * The entries to evict to bring the set within `maxEntries`. Pinned entries count against the cap like any other
+ * (so the cap always holds), but go only after every unpinned one. Within each group: lowest score, then oldest
+ * update, then id.
+ */
 export function pickEvictions(params: PickEvictionsParams): Evictions {
   const { entries, maxEntries, now, halfLifeDays } = params;
   const excess = entries.length - maxEntries;
-  if (excess <= 0) return { evict: [], pinnedOverflow: 0 };
+  if (excess <= 0) return { evict: [] };
   const ranked = entries
-    .filter(({ pinned }) => !pinned)
     .map(entry => ({ entry, score: retentionScore({ entry, now, halfLifeDays }) }))
-    .sort((left, right) => left.score - right.score || left.entry.updatedAt - right.entry.updatedAt || (left.entry.id < right.entry.id ? -1 : 1));
-  const evict = ranked.slice(0, excess).map(({ entry }) => entry);
-  return { evict, pinnedOverflow: excess - evict.length };
+    .sort((left, right) => Number(left.entry.pinned) - Number(right.entry.pinned)
+      || left.score - right.score || left.entry.updatedAt - right.entry.updatedAt || (left.entry.id < right.entry.id ? -1 : 1));
+  return { evict: ranked.slice(0, excess).map(({ entry }) => entry) };
 }

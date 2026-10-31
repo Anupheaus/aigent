@@ -44,7 +44,10 @@ export interface MemoryEntry {
   source: MemorySource;
   /** 0 to 1; a note starts at 0.6 and each repeat moves it 0.1 closer to 1. */
   confidence: number;
-  /** Pinned entries are never evicted by the cap and never fade out of recall. */
+  /**
+   * Set only by the application, never by the model's notes. A pinned entry never fades (decay and `minConfidence` do
+   * not hide it) and the cap evicts it only after every unpinned one; it is still recalled only when related.
+   */
   pinned: boolean;
   /** How often recall has shown it. */
   uses: number;
@@ -62,11 +65,12 @@ export interface MemoryEntry {
   removed?: MemoryRemoval;
 }
 
-/** One note the agent attaches to a tool call through the `memory` field. */
+/** One note to save: from the `memory` field of a tool call, or written by the runtime (user corrections). */
 export interface MemoryNote {
   kind: MemoryKind;
   text: string;
   tags?: string[];
+  /** Only the application pins; notes parsed from the model's `memory` field never carry it. */
   pinned?: boolean;
 }
 
@@ -74,7 +78,7 @@ export interface MemoryNote {
 export interface MemoryOptions {
   /** Who shares the memories (default `agent`: every agent with the same name). */
   scope?: MemoryScope;
-  /** Live entries kept per agent and scope (default 200); the lowest-scoring unpinned ones are evicted. */
+  /** Live entries kept per agent and scope (default 200), pinned ones included; the lowest-scoring unpinned ones are evicted first. */
   maxEntries?: number;
   /** Notes accepted on one tool call (default 3). */
   maxPerCall?: number;
@@ -128,6 +132,6 @@ export interface SaveMemoryResult {
   saved: number;
   /** Entries the cap evicted to make room. */
   evicted: number;
-  /** Why notes were not written, or why the cap could not be honoured; one line each. */
+  /** Why notes were not written; one line each. */
   problems: string[];
 }

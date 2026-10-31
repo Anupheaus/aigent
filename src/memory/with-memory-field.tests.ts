@@ -18,12 +18,12 @@ const MEMORY_SCHEMA = {
   items: {
     type: 'object',
     additionalProperties: false,
-    required: ['kind', 'text', 'tags', 'pinned'],
+    // No `pinned`: only the application may pin a memory, never the model.
+    required: ['kind', 'text', 'tags'],
     properties: {
       kind: { type: 'string', enum: ['fact', 'preference', 'lesson', 'procedure'] },
       text: { type: 'string', maxLength: 300 },
       tags: { type: ['array', 'null'], items: { type: 'string' } },
-      pinned: { type: ['boolean', 'null'] },
     },
   },
 };

@@ -61,7 +61,7 @@ describe('recallMemories', () => {
     expect((await recall({ store, query: 'lint' })).map(({ id }) => id)).toEqual(first);
   });
 
-  it('never recalls forgotten, evicted, expired or faded memories, but keeps pinned ones', async () => {
+  it('never recalls forgotten, evicted, expired or faded memories; pinned ones never fade but must still be related', async () => {
     const store = await storeWith([
       fixtureEntry({ id: 'forgotten', text: 'lint rule', removed: { at: 1, reason: 'forgotten' } }),
       fixtureEntry({ id: 'evicted', text: 'lint rule', removed: { at: 1, reason: 'evicted' } }),
@@ -72,7 +72,7 @@ describe('recallMemories', () => {
       fixtureEntry({ id: 'pinned-unrelated', text: 'always answer in French', pinned: true }),
       fixtureEntry({ id: 'live', text: 'lint rule' }),
     ]);
-    expect((await recall({ store, query: 'lint' })).map(({ id }) => id)).toEqual(['live', 'pinned-stale', 'pinned-unrelated']);
+    expect((await recall({ store, query: 'lint' })).map(({ id }) => id)).toEqual(['live', 'pinned-stale']);
   });
 
   it('keeps agents and scopes apart', async () => {

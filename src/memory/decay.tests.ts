@@ -41,7 +41,7 @@ describe('retentionScore', () => {
 describe('pickEvictions', () => {
   it('evicts nothing within the cap', () => {
     const entries = [entry({ id: 'a' }), entry({ id: 'b' })];
-    expect(pickEvictions({ entries, maxEntries: 2, now: NOW, halfLifeDays: HALF_LIFE_DAYS })).toEqual({ evict: [], pinnedOverflow: 0 });
+    expect(pickEvictions({ entries, maxEntries: 2, now: NOW, halfLifeDays: HALF_LIFE_DAYS })).toEqual({ evict: [] });
   });
 
   it('evicts the stale unused entries before the useful ones', () => {
@@ -55,9 +55,10 @@ describe('pickEvictions', () => {
     expect(evict.map(({ id }) => id)).toEqual(['stale', 'doubtful']);
   });
 
-  it('never evicts pinned entries and reports how far over the cap they leave it', () => {
-    const entries = [entry({ id: 'p1', pinned: true, confidence: 0.1 }), entry({ id: 'p2', pinned: true, confidence: 0.1 }), entry({ id: 'u', confidence: 0.9 })];
-    expect(pickEvictions({ entries, maxEntries: 1, now: NOW, halfLifeDays: HALF_LIFE_DAYS })).toEqual({ evict: [entries[2]], pinnedOverflow: 1 });
+  it('counts pinned entries against the cap, evicting them only after every unpinned one', () => {
+    const entries = [entry({ id: 'p1', pinned: true, confidence: 0.1 }), entry({ id: 'p2', pinned: true, confidence: 0.2 }), entry({ id: 'u', confidence: 0.9 })];
+    expect(pickEvictions({ entries, maxEntries: 2, now: NOW, halfLifeDays: HALF_LIFE_DAYS })).toEqual({ evict: [entries[2]] });
+    expect(pickEvictions({ entries, maxEntries: 1, now: NOW, halfLifeDays: HALF_LIFE_DAYS })).toEqual({ evict: [entries[2], entries[0]] });
   });
 
   it('breaks score ties by the older update, then by id', () => {

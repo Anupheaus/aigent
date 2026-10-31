@@ -5,7 +5,7 @@ import { MAX_MEMORY_TEXT_LENGTH, MEMORY_FIELD } from './memory-schema.js';
 import { MEMORY_KINDS } from './memory-types.js';
 
 /**
- * Kept short on purpose: it is repeated in every tool's schema (about 113 estimated tokens), so the tag limits are
+ * Kept short on purpose: it is repeated in every tool's schema (about 100 estimated tokens), so the tag limits are
  * left to validation and the system prompt. Nullable lists and optionals, because strict decoding requires every key.
  */
 function memoryFieldSchema(maxPerCall: number): JsonSchema {
@@ -16,12 +16,12 @@ function memoryFieldSchema(maxPerCall: number): JsonSchema {
     items: {
       type: 'object',
       additionalProperties: false,
-      required: ['kind', 'text', 'tags', 'pinned'],
+      // No `pinned`: only the application may pin a memory.
+      required: ['kind', 'text', 'tags'],
       properties: {
         kind: { type: 'string', enum: [...MEMORY_KINDS] },
         text: { type: 'string', maxLength: MAX_MEMORY_TEXT_LENGTH },
         tags: { type: ['array', 'null'], items: { type: 'string' } },
-        pinned: { type: ['boolean', 'null'] },
       },
     },
   };
