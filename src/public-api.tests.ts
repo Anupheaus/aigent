@@ -13,11 +13,12 @@ import * as dbPack from './tools/packs/db/index.js';
 import * as knowledgePack from './tools/packs/knowledge/index.js';
 import * as mcp from './mcp/index.js';
 import * as indexPack from './tools/packs/index/index.js';
+import * as mongoStores from './stores/mongo/index.js';
 
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
     expect(Object.keys(api).sort()).toEqual([
-      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'EFFECTS_COLLECTION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'anthropicPlugin', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'deepseekPlugin', 'defineBatchTool', 'defineGuardrail', 'definePlugin', 'defineTool',
+      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'EFFECTS_COLLECTION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'anthropicPlugin', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createFileStore', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'deepseekPlugin', 'defineBatchTool', 'defineGuardrail', 'definePlugin', 'defineTool',
       'isAigentError', 'ollama', 'ollamaPlugin', 'openAiCompatible', 'openAiCompatiblePlugin', 'openai', 'openaiPlugin', 'pluginTools', 'reduceConversation', 'toolFailure', 'updateRecord',
     ]);
   });
@@ -67,7 +68,11 @@ describe('public API', () => {
     expect(Object.keys(mcp).sort()).toEqual(['MCP_PROTOCOL_VERSION', 'createHttpTransport', 'createStdioTransport', 'mcpPlugin']);
   });
 
+  it('exports the MongoDB store from its own entry', () => {
+    expect(Object.keys(mongoStores).sort()).toEqual(['connectMongoStore', 'createMongoStore']);
+  });
+
   it('exports the vitest-based provider contract suite from its own entry', () => {
-    expect(Object.keys(contract).sort()).toEqual(['chunkBytes', 'describeProviderContract']);
+    expect(Object.keys(contract).sort()).toEqual(['chunkBytes', 'describeProviderContract', 'describeStoreContract']);
   });
 });

@@ -58,6 +58,8 @@ export type {
   UsageReport,
 } from './scheduler/scheduler-types.js';
 export { createInMemoryStore } from './store/in-memory-store.js';
+export { createFileStore } from './store/file-store.js';
+export type { FileStore, FileStoreOptions } from './store/file-store.js';
 export { createWriteQueue } from './store/write-queue.js';
 export { updateRecord } from './store/update-record.js';
 export type { UpdateRecordParams } from './store/update-record.js';

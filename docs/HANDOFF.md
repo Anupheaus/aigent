@@ -113,3 +113,38 @@ These were made while the owner was away; revisit if any is wrong:
 3. Review slice 12 (4b), fix it.
 4. Continue with slice 13 and onward using the loop in section 5.
 5. Before any PR to `main`: finish slice 20 (docs/examples/API report), regenerate the final report, and ask the owner about publishing and the Claude Code plugin policy position.
+
+
+---
+
+## 9. Addendum 2026-10-27: offline work on branch `slices-18-20-offline`
+
+Written by a second session that only had the GitHub copy of this repo (the owner's other PC, which the owner believes is further ahead, roughly slice 17, was switched off). **Everything here is on the separate branch `slices-18-20-offline`, cut from `phase-1-foundation` at `b89bcbc`. `phase-1-foundation` itself was not touched.** Nothing is merged to `main`, nothing is published.
+
+### What was built (slice 19, the parts that need nothing from slices 13-17)
+- `describeStoreContract` (`@anupheaus/aigent/testing/contract`): CAS exclusivity (100 writers, N rounds), copy semantics, awkward keys and collection names (`../x`, `CON`, case-only differences, 300-char keys, unicode), 5 MB values, delete, purge (including `purge({})` = every object record). Runs against in-memory, file and Mongo (fake) stores.
+- `createFileStore` (exported from the main entry): `<dir>/<collection>/<key>.json`, per-record `.lock` file, temp file + fsync + rename, stale-lock takeover (age-based, also for empty lock files), `delete`, `purge`, `close`. Values must be JSON-serialisable. Test hook `beforeCommit` simulates a crash.
+- `createMongoStore` / `connectMongoStore` (`@anupheaus/aigent/stores/mongo`, `mongodb` is an optional peer): documents `{ _id, version, value }`, conditional `updateOne`, duplicate key (11000) maps to a failed CAS, driver errors map to `store_failed` with `retryable`, index created once per collection, `close`. Built and tested against `mongo-fake.test-support.ts` only. **It has never run against a real MongoDB** (the live test from the plan was not written).
+- `key-encoding.ts` (injective, case-safe, Windows-device-safe names), `purge-match.ts` (shared purge rule).
+- Test helper `tempRoot` now retries removal (Windows delete-pending files); this may also be the cause of the `EBUSY` git test failures below, but those were not re-checked individually.
+- New dev dependency: `esbuild` (the multi-process test bundles the store for child processes).
+
+### Verified here (Windows 11, Node 24.22.1, TypeScript 7)
+`npm run typecheck` clean, `npm run build` clean, `npm test`: everything passes **except git integration tests that already failed on the untouched branch** (3 or 4 of them per run: `git-read.integration` "never runs repository hooks...", `git-write.integration` x3; 5 s timeouts and `EBUSY`). They belong to slice 12 (still unreviewed) and are Windows timing/locking problems; look at them in the slice 12 review. One full run also failed `scoring/report-performance.tests.ts` (3 s budget) under load; it passes alone in about 1.5 s, so treat it as flaky on a busy machine.
+
+### Known limits of the file store (review these)
+- Stale-lock takeover has a small race window if two processes find the same stale lock at the same instant (mitigated by renaming and token checks, not eliminated). Only relevant after a crash.
+- On Windows a just-released lock can report `EPERM`/`EACCES` on create; the lock treats that as "busy, retry" on win32 only.
+- The 100-writer contention test takes real file locks one by one: 5 rounds for the file store (20 for in-memory) and a 100 s lock timeout in that test only. The default lock timeout is 10 s.
+- `list` on a very large collection reads every file; there is no index.
+
+### NOT done, and why
+- **Slice 19 remainder**: the store-backed vector index and embedding recall need the knowledge pack (slice 13) and memory (slice 16).
+- **Slice 18** (strategy variants, skill distillation): buildable in principle, but the plan shares files with slice 17 (`create-aigent.ts`, `agent-version.ts`) and "lessons" needs memory (16). The owner believes slice 17 exists on the other PC, so building 18 here would conflict heavily. Do it after merging the other PC's work.
+- **Slice 20** (packaging, docs, examples): needs every entry point and feature to exist; do it last.
+
+### How to merge
+1. On the other PC: `git status -sb`, commit and push anything unpushed (to `phase-1-foundation` or its own branch).
+2. Merge or cherry-pick `slices-18-20-offline` (2 code commits + the doc commit). Expected conflicts: `src/index.ts` (one export block), `src/testing/contract/index.ts`, `src/public-api.tests.ts` (export lists), `package.json` (`exports`, `peerDependencies`, `devDependencies`), `package-lock.json`, `AGENTS.md` and this file.
+3. Run typecheck, tests and build; then continue with slices 13-17 on the merged line, and finish slice 19's vector index/embedding recall after 13 and 16 exist.
+4. Git identity was not configured on this PC; commits on the branch are authored as `Tony Hales <jolopearce@gmail.com>` via repo-local config.
