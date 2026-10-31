@@ -17,6 +17,14 @@ export interface RecordUserFeedbackParams {
   captureContent: boolean;
   /** Validated here: it comes straight from the consumer. */
   feedback: unknown;
+  /** Called once the rating is stored, with the rated run (e.g. to turn a correction into a memory lesson). */
+  onRated?(params: RatedRun): Promise<void>;
+}
+
+/** A stored rating and the run it is about. */
+export interface RatedRun {
+  run: RunRecord;
+  feedback: UserFeedback;
 }
 
 /** The new content of one rating: the only part of the feedback record that passes through redact. */
@@ -79,7 +87,7 @@ async function latestRating(params: { store: Store; responseId: string; fallback
  * latest stored rating onto the run record as `userVerdict`. Works on any runtime sharing the store, long after the run.
  */
 export async function recordUserFeedback(params: RecordUserFeedbackParams): Promise<void> {
-  const { store, writer, now, captureContent } = params;
+  const { store, writer, now, captureContent, onRated } = params;
   const feedback = parseUserFeedback(params.feedback);
   const { responseId, rating } = feedback;
   if (store == null || writer == null) throw invalid(`Cannot record feedback on '${responseId}': createAigent was given no store, so no response was stored`, { responseId });
@@ -93,7 +101,7 @@ export async function recordUserFeedback(params: RecordUserFeedbackParams): Prom
   });
   // A purged run keeps no record to mark; the feedback itself is still stored.
   if (await store.get(RUNS_COLLECTION, runId) == null) return;
-  await writer.update<RunRecord, RunVerdictPatch>({
+  const run = await writer.update<RunRecord, RunVerdictPatch>({
     queueKey: agentName, collection: RUNS_COLLECTION, key: runId,
     patch: async current => {
       if (current == null) throw invalid(`Run '${runId}' of response '${responseId}' was removed while its feedback was being recorded`, { runId, responseId });
@@ -101,4 +109,5 @@ export async function recordUserFeedback(params: RecordUserFeedbackParams): Prom
     },
     merge: ({ current, patch: redacted }) => ({ ...current as RunRecord, ...redacted }),
   });
+  await onRated?.({ run, feedback });
 }

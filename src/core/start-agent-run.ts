@@ -34,7 +34,8 @@ import { createRunGuardrails } from './run-guardrails.js';
 import { createRunEffects } from './run-effects.js';
 import { DRY_RUN_SECTION } from '../effects/dry-run.js';
 import { createRunTelemetry } from './run-telemetry.js';
-import { setUpRunMemory } from './run-memory.js';
+import { setUpRunMemory } from './run-memory-setup.js';
+import { recallQueryOf } from './run-recall.js';
 import { createRunPluginHooks } from './run-plugin-hooks.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
@@ -104,15 +105,17 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   });
   /** Every run event, also shown to the plugins' hooks (which only observe, off the run's path). */
   const emit = (event: AigentEvent): void => { emitter.emit(event); pluginHooks.observe(event); };
-  const memory = setUpRunMemory({
+  const memorySetup = setUpRunMemory({
     agent, ...(services.memory == null ? {} : { store: services.memory }), input, runId, recorder: telemetry.recorder, emit,
     ...(conversation?.sessionId == null ? {} : { sessionId: conversation.sessionId }),
   });
+  const memory = memorySetup?.memory;
   if (memory != null) telemetry.memory = memory;
+  const runTools = [...tools, ...memorySetup?.tools ?? []];
   const { control, stop, dispose } = createRunControl({ signal: input.signal, timeoutMs: limits.timeoutMs });
   const planned = setUpRunPlanning({ registry: shapingRegistry, input, isTodoEnabled: agent.isTodoEnabled, emit });
   const { planning } = planned;
-  const registry = tools.length === 0 ? planned.registry : createToolRegistry([...planned.registry.list(), ...tools]);
+  const registry = runTools.length === 0 ? planned.registry : createToolRegistry([...planned.registry.list(), ...runTools]);
   // Task steering: delivered at the next safe boundary like a chat's; a chat turn brings its own inbox.
   const taskInbox = createSteerInbox<string>({ toMessage: text => ({ role: 'user', text }) });
   const steer = conversation?.steer ?? taskInbox;
@@ -151,12 +154,14 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
         const instructions = outputInstructions(answerShape);
         const brief = texts == null || instructions == null ? texts?.brief ?? '' : `${texts.brief}\n\n${instructions}`;
         const initial = texts == null ? [] : initialMessages({ system: texts.system, brief, ...(guarded.conversation == null ? {} : { conversation: guarded.conversation }) });
+        // Recalled at run start, before the first request, into the volatile block only (never stored or compacted).
+        if (guarded.blocked == null) await memorySetup?.recall.start(recallQueryOf(input));
         return await runAgentTurns({
           runId, responseId, agentName, instanceId, initial, registry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
           ...(services.cache == null ? {} : { cache: services.cache }),
           ...(shaping == null ? {} : { shaping }),
-          volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras()] },
+          volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras(), ...memorySetup?.recall.extras() ?? []] },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
           steer, isUnattended: input.unattended === true, ...(agent.approvals == null ? {} : { approvals: agent.approvals }),
           delegation: { depth: input.parent?.depth ?? 0, ancestors: [...input.parent?.ancestors ?? (input.parent == null ? [] : [input.parent.agentName]), agentName], inFlight: 0, ...(services.startSubRun == null ? {} : { startSubRun: services.startSubRun }), isUnattended: input.unattended === true, priority },
@@ -179,7 +184,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     activity.enter('finishing');
     const result = await finishAgentRun({
       agent, services, input, telemetry, result: resultData, targets: { primary, fallbacks: fallbacks.filter(({ label }) => routing.usedLabels.has(label)), runtimeSettings: settings }, emit,
-      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(memoryTotals == null ? {} : { memory: memoryTotals }),
+      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(memoryTotals == null || memory == null ? {} : { memory: { ...memoryTotals, scopeKey: memory.scopeKey } }),
       ...(onFinished == null ? {} : { onFinished }),
     });
     // The wait is bounded overall (1.5 hook timeouts), so slow observers never delay done once per event.

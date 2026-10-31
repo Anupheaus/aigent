@@ -84,9 +84,11 @@ export interface MemoryOptions {
   minConfidence?: number;
   /** Memories shown at the start of a run (default 6). */
   recallLimit?: number;
+  /** Replaces BM25 relevance in recall (e.g. an embedding retriever); a failing retriever falls back to BM25. */
+  retriever?: MemoryRetriever;
 }
 
-/** `MemoryOptions` with every default filled in. */
+/** `MemoryOptions` with every default filled in (the retriever stays out: it is code, not configuration). */
 export interface ResolvedMemoryOptions {
   scope: MemoryScope;
   maxEntries: number;
@@ -94,6 +96,30 @@ export interface ResolvedMemoryOptions {
   halfLifeDays: number;
   minConfidence: number;
   recallLimit: number;
+}
+
+/** Pluggable relevance for recall (e.g. embeddings); without one, recall ranks by BM25 over text and tags. */
+export interface MemoryRetriever {
+  /** A relevance score (higher is better, 0 for none) for the entries it can judge; missing entries score 0. */
+  rank(query: string, entries: MemoryEntry[]): Promise<MemoryRank[]>;
+}
+
+/** One entry's relevance to a query. */
+export interface MemoryRank {
+  id: string;
+  score: number;
+}
+
+/** A memory chosen by recall, best first. */
+export interface RecalledMemory {
+  id: string;
+  kind: MemoryKind;
+  /** As stored: untrusted data, rendered defused. */
+  text: string;
+  tags: string[];
+  pinned: boolean;
+  /** relevance × (0.5 + confidence) × recency × use boost. */
+  score: number;
 }
 
 /** What one save did. */

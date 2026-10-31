@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createAigentError } from '../core/aigent-error.js';
 import { describeIssues } from '../core/describe-issues.js';
 import { MEMORY_KINDS, MEMORY_SCOPES } from './memory-types.js';
-import type { MemoryNote, MemoryOptions, ResolvedMemoryOptions } from './memory-types.js';
+import type { MemoryNote, MemoryOptions, MemoryRetriever, ResolvedMemoryOptions } from './memory-types.js';
 
 /** The argument key that carries memory notes on a tool call. */
 export const MEMORY_FIELD = 'memory';
@@ -24,6 +24,7 @@ const memoryOptionsSchema = z.object({
   halfLifeDays: z.number().positive().optional(),
   minConfidence: z.number().min(0).max(1).optional(),
   recallLimit: positiveInteger.optional(),
+  retriever: z.custom<MemoryRetriever>(value => typeof (value as Partial<MemoryRetriever> | null)?.rank === 'function', 'retriever must have a rank(query, entries) function').optional(),
 }).strict();
 
 /** One note as the model sends it: strict decoding sends absent optionals as null. */
@@ -48,8 +49,14 @@ export function resolveMemoryOptions(params: ResolveMemoryOptionsParams): Resolv
   if (!result.success) {
     throw createAigentError({ code: 'invalid_definition', message: `${owner} has invalid memory options: ${describeIssues(result.error)}`, details: { issues: result.error.issues.length } });
   }
-  const defined = Object.fromEntries(Object.entries(result.data).filter(([, value]) => value !== undefined));
+  const { retriever: _retriever, ...settings } = result.data;
+  const defined = Object.fromEntries(Object.entries(settings).filter(([, value]) => value !== undefined));
   return { ...DEFAULT_MEMORY_OPTIONS, ...defined };
+}
+
+/** The consumer's retriever, when the options give one (validated by `resolveMemoryOptions`). */
+export function retrieverOf(options: MemoryOptions | boolean | undefined): MemoryRetriever | undefined {
+  return typeof options === 'object' ? options.retriever : undefined;
 }
 
 export interface ParseMemoryNotesParams {

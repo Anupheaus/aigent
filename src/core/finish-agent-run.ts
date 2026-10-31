@@ -53,8 +53,8 @@ export interface FinishAgentRunParams {
   price(usage: Usage): number;
   emit(event: AigentEvent): void;
   onFinished?(summary: RunSummary): void;
-  /** With memory on: what the run's saves came to. */
-  memory?: RunMemoryTotals;
+  /** With memory on: what the run's saves came to, and its scope key. */
+  memory?: RunMemoryTotals & { scopeKey: string };
 }
 
 /** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMemoryNotes, resolveMemoryOptions } from './memory-schema.js';
+import { parseMemoryNotes, resolveMemoryOptions, retrieverOf } from './memory-schema.js';
 import type { MemoryOptions } from './memory-types.js';
 
 const DEFAULTS = { scope: 'agent', maxEntries: 200, maxPerCall: 3, halfLifeDays: 30, minConfidence: 0.2, recallLimit: 6 };
@@ -26,6 +26,16 @@ describe('resolveMemoryOptions', () => {
     expect(() => resolveMemoryOptions({ owner: "Agent 'helper'", options: options as MemoryOptions })).toThrow(expect.objectContaining({
       code: 'invalid_definition', message: expect.stringMatching(new RegExp(`Agent 'helper'.*${field}`)),
     }));
+  });
+});
+
+describe('retrieverOf', () => {
+  it('accepts a retriever with rank, keeps it out of the resolved settings, and refuses one without', () => {
+    const retriever = { rank: async () => [] };
+    expect(resolveMemoryOptions({ owner: 'createAigent', options: { retriever } })).toEqual(DEFAULTS);
+    expect(retrieverOf({ retriever })).toBe(retriever);
+    expect(retrieverOf(true)).toBeUndefined();
+    expect(() => resolveMemoryOptions({ owner: 'createAigent', options: { retriever: {} } as unknown as MemoryOptions })).toThrow(expect.objectContaining({ message: expect.stringContaining('retriever') }));
   });
 });
 

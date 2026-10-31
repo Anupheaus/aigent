@@ -99,6 +99,11 @@ export interface PromptPreview {
   /** The pinned plan message a `plan` input adds after the brief; absent without a plan. */
   pinned?: string;
   fields: PromptPreviewField[];
+  /**
+   * With memory on and an input: the `## Remembered from earlier` section the run would start with in its volatile
+   * block (recalled without counting a use); absent when nothing would be recalled.
+   */
+  memory?: string;
   /** Estimated tokens of the system prompt, brief, pinned plan message and tool specs (not the per-turn volatile block). */
   totalTokens: number;
 }

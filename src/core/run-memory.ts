@@ -7,9 +7,6 @@ import type { TraceRecorder } from '../telemetry/trace-recorder.js';
 import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { AigentEvent } from './aigent-events.js';
 import { describeError } from './describe-value.js';
-import { interfaceKeyOf, memoryScopeKey } from '../memory/scope-key.js';
-import type { ResolvedAgent } from './start-task-run.js';
-import type { TaskInput } from './task-input.js';
 
 /** What a run's saves came to, as its run record stores them. */
 export interface RunMemoryTotals {
@@ -24,6 +21,8 @@ export interface RunMemory {
   options: ResolvedMemoryOptions;
   /** The call without `memory` (also taken out of `aigent_multi` inner calls); its notes are queued, never awaited. */
   take(call: ToolCall): ToolCall;
+  /** Holds other queued memory work (recall's use counters) for lush; it must never reject. */
+  track(work: Promise<void>): void;
   /** Waits for every queued save (it never rejects): the run's result resolves only after its memory is written. */
   flush(): Promise<RunMemoryTotals>;
 }
@@ -92,30 +91,5 @@ export function createRunMemory(params: CreateRunMemoryParams): RunMemory {
     return { ...totals };
   }
 
-  return { scopeKey, options, take, flush };
-}
-
-export interface SetUpRunMemoryParams {
-  agent: Pick<ResolvedAgent, 'name' | 'memory'>;
-  store?: MemoryStore;
-  input: TaskInput;
-  runId: string;
-  /** The chat session, for a chat turn. */
-  sessionId?: string;
-  recorder: Pick<TraceRecorder, 'noteMemory'>;
-  emit(event: AigentEvent): void;
-}
-
-/**
- * The run's memory, or undefined when the agent has none. Throws `invalid_input` (synchronously, from `agent.task`)
- * for interface scope without a key. Dry runs and `disableTelemetry` runs (evals, tests) still read memory but write none.
- */
-export function setUpRunMemory(params: SetUpRunMemoryParams): RunMemory | undefined {
-  const { agent: { name: agentName, memory: options }, store, input, runId, sessionId, recorder, emit } = params;
-  if (options == null || store == null) return undefined;
-  const interfaceKey = interfaceKeyOf(input);
-  const scopeKey = memoryScopeKey({ scope: options.scope, runId, ...(sessionId == null ? {} : { sessionId }), ...(interfaceKey == null ? {} : { interfaceKey }) });
-  const skipReason = input.dryRun === true ? 'this run is a dry run, which changes nothing'
-    : input.disableTelemetry === true ? 'this run has disableTelemetry, which writes nothing to the store' : undefined;
-  return createRunMemory({ store, options, agentName, runId, scopeKey, recorder, emit, ...(skipReason == null ? {} : { skipReason }) });
+  return { scopeKey, options, take, track: work => { pending.push(work); }, flush };
 }

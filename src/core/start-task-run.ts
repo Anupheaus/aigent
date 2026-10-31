@@ -29,7 +29,7 @@ import type { TelemetrySettings } from './run-telemetry.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { StaticPrompt } from './static-prompt.js';
 import type { MemoryStore } from '../memory/memory-store.js';
-import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
+import type { MemoryRetriever, ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
@@ -77,6 +77,8 @@ export interface ResolvedAgent {
   approvals?: ApprovalCenter;
   /** The agent's memory options, when memory is on for it. */
   memory?: ResolvedMemoryOptions;
+  /** `MemoryOptions.retriever`, when the agent's memory options give one. */
+  memoryRetriever?: MemoryRetriever;
 }
 
 /** Shared, per-`createAigent` services. */

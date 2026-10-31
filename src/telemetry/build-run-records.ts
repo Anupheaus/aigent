@@ -38,8 +38,8 @@ export interface BuildRunRecordsParams {
   mode?: RunMode;
   /** Every compression the run used, when the agent compresses. */
   compression?: CompressionRecord[];
-  /** With memory on: the run's saved and evicted counts. */
-  memory?: { saved: number; evicted: number };
+  /** With memory on: the run's saved and evicted counts, and its scope key. */
+  memory?: { saved: number; evicted: number; scopeKey: string };
   result: TaskResultData;
   agent: RunRecordAgent;
   targets: RunRecordTargets;
@@ -111,7 +111,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(compression == null || compression.length === 0 ? {} : { compression }),
     ...(guardrails.length === 0 ? {} : { guardrails: storedDecisions({ decisions: guardrails, captureContent }) }),
     ...(dryRun === true ? { dryRun, plannedEffects: storedEffects({ effects: plannedEffects ?? [], captureContent }) } : {}),
-    ...(memory == null ? {} : { memorySaved: memory.saved, memoryEvicted: memory.evicted }),
+    ...(memory == null ? {} : { memorySaved: memory.saved, memoryEvicted: memory.evicted, memoryScopeKey: memory.scopeKey }),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

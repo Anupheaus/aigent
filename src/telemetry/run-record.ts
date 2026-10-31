@@ -228,6 +228,8 @@ export interface RunRecord extends RecordMeta {
   memorySaved?: number;
   /** With memory on: entries the cap evicted while saving them. */
   memoryEvicted?: number;
+  /** With memory on: the scope the run read and wrote (`agent`, `session:<id>`, `interface:<key>`); user corrections land there. */
+  memoryScopeKey?: string;
 }
 
 /** One document in the `traces` collection, keyed by run id. */

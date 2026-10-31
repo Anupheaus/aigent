@@ -54,4 +54,46 @@ describe('createMemoryStore', () => {
     expect(order.filter(step => step.startsWith('a:'))).toEqual(['a:first', 'a:second', 'a:third']);
     expect(order).toContain('b:first');
   });
+
+  const RECALLS = 20;
+  const note = (text: string, scopeKey = 'agent') => ({ options: OPTIONS, request: { agentName: 'helper', scopeKey, source: { runId: 'r', origin: 'tool-call' as const }, notes: [{ kind: 'fact' as const, text }] } });
+
+  it(`counts every one of ${RECALLS} concurrent recalls as a use, with the time of the use`, async () => {
+    const store = slowStore();
+    let clock = 1_000;
+    const memory = createMemoryStore({ store, writeQueue: createWriteQueue(), now: () => clock });
+    await memory.save(note('lint before committing'));
+    clock = 2_000;
+    const recalls = await Promise.all(Array.from({ length: RECALLS }, () => memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })));
+    await Promise.all(recalls.map(({ used }) => used));
+    const [entry] = (await store.list<MemoryEntry>(MEMORY_COLLECTION)).map(({ value }) => value);
+    expect(entry).toMatchObject({ uses: RECALLS, lastUsedAt: 2_000 });
+  });
+
+  it('does not count a use when asked not to', async () => {
+    const store = createInMemoryStore();
+    const memory = createMemoryStore({ store, writeQueue: createWriteQueue(), now: () => 1_000 });
+    await memory.save(note('lint before committing'));
+    const { memories, used } = await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5, markUsed: false });
+    await used;
+    expect(memories).toHaveLength(1);
+    expect((await store.list<MemoryEntry>(MEMORY_COLLECTION))[0]?.value.uses).toBe(0);
+  });
+
+  it('forgets live entries of its own agent and scope only, never recalls them, and a later save brings one back', async () => {
+    const store = createInMemoryStore();
+    const memory = createMemoryStore({ store, writeQueue: createWriteQueue(), now: () => 1_000 });
+    await memory.save(note('lint before committing'));
+    await memory.save(note('lint in session', 'session:s1'));
+    const entries = (await store.list<MemoryEntry>(MEMORY_COLLECTION)).map(({ value }) => value);
+    const mine = entries.find(({ scopeKey }) => scopeKey === 'agent')?.id ?? '';
+    const otherScope = entries.find(({ scopeKey }) => scopeKey === 'session:s1')?.id ?? '';
+    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine, otherScope, 'unknown', mine] })).toEqual({ forgotten: [mine], notFound: [otherScope, 'unknown'] });
+    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine] })).toEqual({ forgotten: [], notFound: [mine] });
+    expect(await store.get('memory', 'unknown')).toBeUndefined();
+    expect((await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })).memories).toEqual([]);
+    expect((await memory.recall({ agentName: 'helper', scopeKey: 'session:s1', query: 'lint', limit: 5 })).memories).toHaveLength(1);
+    await memory.save(note('lint before committing'));
+    expect((await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })).memories.map(({ id }) => id)).toEqual([mine]);
+  });
 });

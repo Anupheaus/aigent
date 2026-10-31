@@ -88,6 +88,7 @@ export const runRecordSchema = z.object({
   parent: z.object({ agentName: z.string(), instanceId: z.string(), runId: z.string(), callId: z.string(), depth: count, ancestors: z.array(z.string()).optional() }).optional(),
   memorySaved: count.optional(),
   memoryEvicted: count.optional(),
+  memoryScopeKey: z.string().optional(),
 });
 
 export const traceStepSchema = z.object({

@@ -7,6 +7,7 @@ import { resolveEnableFeedback } from '../feedback/resolve-enable-feedback.js';
 import { parseAgentShapers } from '../shapers/shapers-setting.js';
 import type { MemoryOptions } from '../memory/memory-types.js';
 import { resolveAgentMemory } from '../memory/resolve-agent-memory.js';
+import { retrieverOf } from '../memory/memory-schema.js';
 import { createAigentError } from './aigent-error.js';
 import type { AgentDefinition } from './agent-types.js';
 import { computeAgentVersion } from './agent-version.js';
@@ -67,6 +68,7 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     agentName: name, hasStore: memoryContext.hasStore, captureContent: memoryContext.captureContent,
     ...(definition.memory == null ? {} : { agent: definition.memory }), ...(memoryContext.defaults == null ? {} : { runtime: memoryContext.defaults }),
   });
+  const memoryRetriever = memory == null ? undefined : retrieverOf(definition.memory ?? memoryContext.defaults);
   const registry = buildAgentRegistry({
     agentName: name, tools, now: () => clock.now(),
     ...(feedbackCollector == null ? {} : { feedbackCollector }),
@@ -96,5 +98,6 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     ...(compactionTarget == null ? {} : { compactionTarget }),
     ...(compression == null ? {} : { compression }),
     ...(memory == null ? {} : { memory }),
+    ...(memoryRetriever == null ? {} : { memoryRetriever }),
   };
 }

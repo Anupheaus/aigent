@@ -56,6 +56,9 @@ import { createPluginRegistry } from '../plugins/plugin-registry.js';
 import { createMemoryStore } from '../memory/memory-store.js';
 import { resolveMemoryOptions } from '../memory/memory-schema.js';
 import { memoryScopeKey } from '../memory/scope-key.js';
+import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
+import type { RatedRun } from '../feedback/user-feedback.js';
+import { saveCorrectionLesson } from './correction-lesson.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
@@ -92,7 +95,15 @@ export function createAigent(options: AigentOptions): Aigent {
   const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper({ unref: true }), ownerId: ids.next('owner') });
   const effectLog = createRuntimeEffectLog({ store, writeQueue, ...(redact == null ? {} : { redact }), clock, ids, options: options.undo });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
-  const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback });
+  const memoryStore = store == null ? undefined : createMemoryStore({ store, writeQueue, ...(redact == null ? {} : { redact }), now: () => clock.now() });
+  // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
+  const runtimeMemory = resolveMemoryOptions({ owner: 'createAigent', options: options.memory });
+  /** Each memory-enabled agent's options by name, for lessons from ratings of its runs. */
+  const memoryByAgent = new Map<string, ResolvedMemoryOptions>();
+  const onRated = memoryStore == null ? undefined : (rated: RatedRun): Promise<void> => saveCorrectionLesson({
+    memory: memoryStore, rated, optionsFor: agentName => memoryByAgent.get(agentName) ?? runtimeMemory,
+  });
+  const recordFeedback = (feedback: UserFeedback): Promise<void> => recordUserFeedback({ store, ...(writer == null ? {} : { writer }), now: () => clock.now(), captureContent, feedback, ...(onRated == null ? {} : { onRated }) });
   // result.feedback goes through the same tracked path as ai.feedback.
   const services: RuntimeServices = {
     clock, ids, writeQueue, telemetry, submitFeedback: userFeedback => feedback(userFeedback), sleep, random, scheduler, volatile, isPrefixMonitorEnabled, compressionCache,
@@ -105,7 +116,7 @@ export function createAigent(options: AigentOptions): Aigent {
     effects: effectLog,
     startSubRun: request => startSubRun(request),
     pluginHooks: () => pluginRegistry.hooks(),
-    ...(store == null ? {} : { memory: createMemoryStore({ store, writeQueue, ...(redact == null ? {} : { redact }), now: () => clock.now() }) }),
+    ...(memoryStore == null ? {} : { memory: memoryStore }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
   const activeWork = new Set<Promise<void>>();
@@ -149,8 +160,6 @@ export function createAigent(options: AigentOptions): Aigent {
     if (failed != null) throw failed.reason;
   }
 
-  // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
-  resolveMemoryOptions({ owner: 'createAigent', options: options.memory });
   const agentContext: AgentResolutionContext = {
     resolveTarget, clock, ids, compressionCache,
     memory: { hasStore: store != null, captureContent, ...(options.memory == null ? {} : { defaults: options.memory }) },
@@ -183,6 +192,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const { name, instanceId, agentVersion } = base;
     const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
+    if (resolved.memory == null) memoryByAgent.delete(name); else memoryByAgent.set(name, resolved.memory);
     for (const { dispose } of tools) if (dispose != null) toolDisposers.add(dispose);
     const restore = createAgentResume({ agent: resolved, services, isExplicitInstance: definition.instanceId != null });
     /** This agent object's runs, so `close()` waits for them before it lets the instance go. */

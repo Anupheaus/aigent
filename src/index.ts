@@ -15,7 +15,7 @@ export type {
   MemoryStepRecord, OutcomeSource, OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RunTimings, RunTrace, RuntimeOnlySettings, StepOutcome, ToolUse, TraceRecord, TraceStep,
 } from './telemetry/run-record.js';
 export type {
-  MemoryEntry, MemoryKind, MemoryNote, MemoryOptions, MemoryOrigin, MemoryRemoval, MemoryScope, MemorySource,
+  MemoryEntry, MemoryKind, MemoryNote, MemoryOptions, MemoryOrigin, MemoryRank, MemoryRemoval, MemoryRetriever, MemoryScope, MemorySource, RecalledMemory,
 } from './memory/memory-types.js';
 export type {
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, StoredAgentFeedbackEntry, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
