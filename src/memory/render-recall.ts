@@ -2,6 +2,7 @@ import type { VolatileSection } from '../context/volatile-block.js';
 import { neutraliseInstructions, REMOVED_DIRECTIVE } from '../guardrails/builtin/injection.js';
 import { estimateTokens } from '../telemetry/estimate-tokens.js';
 import type { RecalledMemory } from './memory-types.js';
+import { scrubMemoryText } from './scrub-memory-text.js';
 
 /** The volatile section's title. */
 export const RECALL_TITLE = 'Remembered from earlier';
@@ -13,12 +14,13 @@ const ANY_DIRECTIVE_MARKER = /::aigent\b/g;
 export const MAX_RECALL_TOKENS = 600;
 
 /**
- * Stored memory text as the model may read it: instruction-like phrases defused, every line break flattened (so it
- * can never fake a section) and every directive marker defused (saved text is already flattened, so one can sit
- * mid-line, not only at a line start).
+ * Stored memory text as the model may read it: secrets redacted (saves redact them, but an entry may predate that or
+ * come from another writer), instruction-like phrases defused, every line break flattened (so it can never fake a
+ * section) and every directive marker defused (saved text is already flattened, so one can sit mid-line, not only at a
+ * line start).
  */
 export function defuseMemoryText(text: string): string {
-  return neutraliseInstructions(text).replace(/\s+/g, ' ').trim().replace(ANY_DIRECTIVE_MARKER, REMOVED_DIRECTIVE);
+  return neutraliseInstructions(scrubMemoryText({ text })).replace(/\s+/g, ' ').trim().replace(ANY_DIRECTIVE_MARKER, REMOVED_DIRECTIVE);
 }
 
 function memoryLine(memory: RecalledMemory): string {

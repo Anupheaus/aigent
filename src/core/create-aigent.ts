@@ -49,6 +49,7 @@ import { parseChatOptions } from '../chat/chat-options.js';
 import type { VolatileOptions } from '../context/volatile-block.js';
 import { parseActivityOptions } from './activity-options.js';
 import { parseGuardrailOptions } from '../guardrails/guardrail-options.js';
+import { redactsPersonalData } from '../guardrails/builtin/pii.js';
 import { createRuntimeEffectLog } from '../effects/runtime-effect-log.js';
 import { parseUndoTarget, undoEffects } from '../effects/undo.js';
 import type { ActivityOptions } from './activity.js';
@@ -95,7 +96,10 @@ export function createAigent(options: AigentOptions): Aigent {
   const resume = options.resume == null ? undefined : createInstanceRuntime({ options: options.resume, store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), clock, sleep: createTimerSleeper({ unref: true }), ownerId: ids.next('owner') });
   const effectLog = createRuntimeEffectLog({ store, writeQueue, ...(redact == null ? {} : { redact }), clock, ids, options: options.undo });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
-  const memoryStore = store == null ? undefined : createMemoryStore({ store, writeQueue, ...(redact == null ? {} : { redact }), now: () => clock.now() });
+  const guardrails = parseGuardrailOptions(options.guardrails);
+  const memoryStore = store == null ? undefined : createMemoryStore({
+    store, writeQueue, ...(redact == null ? {} : { redact }), redactsPii: redactsPersonalData(guardrails.builtins?.pii), now: () => clock.now(),
+  });
   // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
   const runtimeMemory = resolveMemoryOptions({ owner: 'createAigent', options: options.memory });
   /** Each memory-enabled agent's options by name, for lessons from ratings of its runs. */
@@ -112,7 +116,7 @@ export function createAigent(options: AigentOptions): Aigent {
     activityTimers: createTimerSleeper(),
     ...(toolCache == null ? {} : { cache: toolCache }),
     ...(resume == null ? {} : { resume }),
-    guardrails: parseGuardrailOptions(options.guardrails),
+    guardrails,
     effects: effectLog,
     startSubRun: request => startSubRun(request),
     pluginHooks: () => pluginRegistry.hooks(),

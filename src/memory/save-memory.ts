@@ -7,6 +7,7 @@ import { pickEvictions } from './decay.js';
 import { memoryId, mergeMemory } from './dedupe.js';
 import { MEMORY_COLLECTION } from './memory-types.js';
 import type { MemoryEntry, MemoryNote, MemorySource, ResolvedMemoryOptions, SaveMemoryResult } from './memory-types.js';
+import { scrubMemoryText } from './scrub-memory-text.js';
 
 /** Where a new note starts; each repeat moves it 0.1 closer to 1. */
 export const DEFAULT_MEMORY_CONFIDENCE = 0.6;
@@ -24,28 +25,35 @@ export interface SaveMemoryRequest {
 export interface SaveMemoryParams {
   store: Store;
   redact?: Redact;
+  /** Personal data in note text is redacted too (the runtime's pii guardrail redacts). */
+  redactsPii?: boolean;
   options: ResolvedMemoryOptions;
   now: number;
   request: SaveMemoryRequest;
 }
 
-/** The entry a note becomes, before redact and before any merge with a stored one. */
-function newEntry(params: { request: SaveMemoryRequest; note: MemoryNote; now: number }): MemoryEntry {
-  const { request: { agentName, scopeKey, source, confidence = DEFAULT_MEMORY_CONFIDENCE }, note: { kind, text, tags = [], pinned = false }, now } = params;
+/** The entry a note becomes, with secrets scrubbed, before redact and before any merge with a stored one. */
+function newEntry(params: { request: SaveMemoryRequest; note: MemoryNote; now: number; redactsPii: boolean }): MemoryEntry {
+  const { request: { agentName, scopeKey, source, confidence = DEFAULT_MEMORY_CONFIDENCE }, note: { kind, text, tags = [], pinned = false }, now, redactsPii } = params;
   // Stored with its spacing tidied (not its case), so a repeat that differs only in spacing never counts as a longer text.
-  const tidied = text.replace(/\s+/g, ' ').trim();
+  const tidied = scrubMemoryText({ text, redactsPii }).replace(/\s+/g, ' ').trim();
   return {
-    id: memoryId({ agentName, scopeKey, kind, text }), agentName, scopeKey, kind, text: tidied, tags: [...new Set(tags)], source,
+    id: memoryId({ agentName, scopeKey, kind, text: tidied }), agentName, scopeKey, kind, text: tidied, tags: [...new Set(tags)], source,
     confidence, pinned, uses: 0, createdAt: now, updatedAt: now, recordedAt: now,
   };
 }
 
-/** Redacts the new content; the identity fields stay the runtime's, so a hook can mask text but never move an entry. */
+/**
+ * Redacts the new content. The identity fields stay the runtime's, so a hook can mask text but never move an entry to
+ * another agent or scope; the id is the hash of the text as stored, so it never confirms a guess of what was masked,
+ * and notes that redact alike are one entry.
+ */
 function redacted(params: { entry: MemoryEntry; redact?: Redact }): MemoryEntry {
   const { entry, redact } = params;
-  const { id, agentName, scopeKey } = entry;
+  const { id, agentName, scopeKey, kind } = entry;
   const { value } = applyRedact({ ...(redact == null ? {} : { redact }), record: { collection: MEMORY_COLLECTION, key: id, value: entry } });
-  return { ...value as MemoryEntry, id, agentName, scopeKey };
+  const masked = value as MemoryEntry;
+  return { ...masked, id: memoryId({ agentName, scopeKey, kind, text: masked.text }), agentName, scopeKey, kind };
 }
 
 async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number }> {
@@ -71,12 +79,12 @@ async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number
  * caller runs this inside the agent's write queue, so saves of one agent never interleave.
  */
 export async function saveMemory(params: SaveMemoryParams): Promise<SaveMemoryResult> {
-  const { store, redact, now, request } = params;
+  const { store, redact, redactsPii = false, now, request } = params;
   const problems: string[] = [];
   let saved = 0;
   for (const [position, note] of request.notes.entries()) {
     try {
-      const incoming = redacted({ entry: newEntry({ request, note, now }), ...(redact == null ? {} : { redact }) });
+      const incoming = redacted({ entry: newEntry({ request, note, now, redactsPii }), ...(redact == null ? {} : { redact }) });
       await updateRecord<MemoryEntry>({ store, collection: MEMORY_COLLECTION, key: incoming.id, update: current => (current == null ? incoming : mergeMemory({ current, incoming, now })) });
       saved += 1;
     } catch (error) {

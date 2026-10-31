@@ -35,6 +35,13 @@ describe('renderRecall', () => {
     expect(body).toContain(REMOVED_DIRECTIVE);
   });
 
+  it('redacts secrets in stored text before the model sees it (entries saved before memory redacted them)', () => {
+    const key = ['ghp_', 'a'.repeat(36)].join('');
+    const { body } = renderRecall([memory({ text: `Use token ${key} for the release` })]) ?? { body: '' };
+    expect(body).toContain('- [fact] Use token [REDACTED:github-token] for the release');
+    expect(body).not.toContain(key);
+  });
+
   it(`stays within ${MAX_RECALL_TOKENS} estimated tokens, dropping the lowest-ranked lines`, () => {
     const memories = Array.from({ length: 20 }, (_unused, index) => memory({ id: `m${index}`, text: `${index} ${'y'.repeat(290)}` }));
     const { body } = renderRecall(memories) ?? { body: '' };

@@ -100,6 +100,29 @@ describe('recall into the volatile block', () => {
     expect(volatileOf(later.provider.requests[0])).not.toContain('rm -rf');
   });
 
+  it('never stores or recalls a secret a note carried, in this run or another runtime on the same store', async () => {
+    const store = createInMemoryStore();
+    const key = ['sk-proj-', 'AbCdEfGhIjKlMnOpQrStUvWx0123456789'].join('');
+    await seed({ store, notes: [{ kind: 'fact', text: `Deploy key for billing is ${key}`, tags: ['billing'], pinned: null }] });
+    expect(JSON.stringify(await store.list('memory'))).not.toContain(key);
+    const other = runtime({ store, turns: [textTurn('done')], name: 'helper' });
+    await other.agent.task({ task: 'how do I deploy billing' });
+    const volatile = volatileOf(other.provider.requests[0]);
+    expect(volatile).toContain('Deploy key for billing is [REDACTED:api-key]');
+    expect(volatile).not.toContain(key);
+  });
+
+  it('redacts personal data from notes when the pii guardrail redacts', async () => {
+    const store = createInMemoryStore();
+    const email = ['jane.doe', 'example.com'].join('@');
+    const { agent } = runtime({
+      store, options: { guardrails: { builtins: { pii: { toolResult: 'redact' } } } },
+      turns: [toolTurn([{ id: 'c1', name: 'lookup', args: { key: 'k', memory: [{ kind: 'preference', text: `Send reports to ${email}`, tags: null }] } }]), textTurn('done')],
+    });
+    await agent.task({ task: 't' });
+    expect((await storedMemories(store)).map(({ text }) => text)).toEqual(['Send reports to [REDACTED:email]']);
+  });
+
   it('shares memory between agents of the same name, never with another name', async () => {
     const store = createInMemoryStore();
     await seed({ store, notes: [LESSON] });

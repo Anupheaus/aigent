@@ -109,6 +109,44 @@ describe('saveMemory', () => {
     expect(entry).toMatchObject({ text: 'The password is [secret]', agentName: 'helper', scopeKey: 'agent' });
   });
 
+  it('redacts secrets from note text before anything is stored, whatever the redact hook does', async () => {
+    const store = createInMemoryStore();
+    const key = ['sk-proj-', 'AbCdEfGhIjKlMnOpQrStUvWx0123456789'].join('');
+    const result = await save({ store, notes: [{ kind: 'fact', text: `Deploy key for billing is ${key}` }] });
+    expect(result).toEqual({ saved: 1, evicted: 0, problems: [] });
+    expect((await stored(store)).map(({ text }) => text)).toEqual(['Deploy key for billing is [REDACTED:api-key]']);
+    expect(JSON.stringify(await store.list(MEMORY_COLLECTION))).not.toContain(key);
+  });
+
+  it('redacts personal data from note text only when asked to', async () => {
+    const email = ['jane.doe', 'example.com'].join('@');
+    const kept = createInMemoryStore();
+    await save({ store: kept, notes: [{ kind: 'fact', text: `Send the report to ${email}` }] });
+    expect((await stored(kept)).map(({ text }) => text)).toEqual([`Send the report to ${email}`]);
+    const redacted = createInMemoryStore();
+    await saveMemory({ store: redacted, redactsPii: true, options: OPTIONS, now: NOW, request: { agentName: 'helper', scopeKey: 'agent', notes: [{ kind: 'fact', text: `Send the report to ${email}` }], source: SOURCE } });
+    expect((await stored(redacted)).map(({ text }) => text)).toEqual(['Send the report to [REDACTED:email]']);
+  });
+
+  it('keys an entry on the text as stored: never a hash of a secret, and notes that redact alike are one entry', async () => {
+    const store = createInMemoryStore();
+    const keys = ['AbCdEfGhIjKlMnOpQrStUvWx0123456789', 'ZyXwVuTsRqPoNmLkJiHgFeDcBa9876543210'].map(tail => ['sk-proj-', tail].join(''));
+    await save({ store, notes: [{ kind: 'fact', text: `Deploy key is ${keys[0]}` }] });
+    await save({ store, notes: [{ kind: 'fact', text: `Deploy key is ${keys[1]}` }], now: NOW + 1 });
+    const entries = await stored(store);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ confidence: 0.7, text: 'Deploy key is [REDACTED:api-key]' });
+    expect(entries[0]?.id).toBe(memoryId({ agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Deploy key is [REDACTED:api-key]' }));
+  });
+
+  it('keys an entry on the text the redact hook left', async () => {
+    const store = createInMemoryStore();
+    const redact: Redact = record => ({ ...record, value: { ...record.value as MemoryEntry, text: (record.value as MemoryEntry).text.replace(/hunter\d/, '[secret]') } });
+    await save({ store, notes: [{ kind: 'fact', text: 'The password is hunter2' }, { kind: 'fact', text: 'The password is hunter3' }], redact });
+    const entries = await stored(store);
+    expect(entries.map(({ id, text }) => ({ id, text }))).toEqual([{ id: memoryId({ agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'The password is [secret]' }), text: 'The password is [secret]' }]);
+  });
+
   it('skips a note whose redact throws, saving the others', async () => {
     const store = createInMemoryStore();
     const redact: Redact = record => {

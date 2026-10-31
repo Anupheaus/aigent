@@ -57,6 +57,17 @@ function redactPii(text: string, kinds: Set<string>): string {
   return redacted + text.slice(cursor);
 }
 
+/** `text` with each piece of personal data replaced by `[REDACTED:<kind>]`. */
+export function redactPersonalData(text: string): string {
+  return redactPii(text, new Set());
+}
+
+/** Whether the pii options redact at some stage (output or tool results): text kept for later runs is then redacted too. */
+export function redactsPersonalData(options: PiiOptions | false | undefined): boolean {
+  if (options == null || options === false) return false;
+  return options.output === 'redact' || options.toolResult === 'redact';
+}
+
 function checkFor(params: { stage: GuardrailStage; mode: PiiMode }): Guardrail['check'] {
   const { stage, mode } = params;
   return (value: GuardrailValue, { warn }): GuardrailDecision => {

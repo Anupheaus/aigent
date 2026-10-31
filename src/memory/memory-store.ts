@@ -41,7 +41,7 @@ export interface MemoryForgetResult {
   notFound: string[];
 }
 
-/** The memory domain over the runtime's store: every write is redacted and runs in the agent's write queue. */
+/** The memory domain over the runtime's store: every write is scrubbed of secrets, redacted and runs in the agent's write queue. */
 export interface MemoryStore {
   /** Queued behind the agent's earlier writes; never rejects (problems are reported in the result). */
   save(params: MemorySaveParams): Promise<SaveMemoryResult>;
@@ -56,6 +56,8 @@ export interface CreateMemoryStoreParams {
   /** The runtime's queue, keyed by agent name like every other record of the agent. */
   writeQueue: WriteQueue;
   redact?: Redact;
+  /** Personal data in note text is redacted too (the runtime's pii guardrail redacts); secrets always are. */
+  redactsPii?: boolean;
   now(): number;
 }
 
@@ -65,7 +67,7 @@ function isLive(params: { entry: MemoryEntry | undefined; agentName: string; sco
 }
 
 export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore {
-  const { store, writeQueue, redact, now } = params;
+  const { store, writeQueue, redact, redactsPii = false, now } = params;
 
   /**
    * Changes a live entry of the agent and scope; false (writing nothing) when there is none. Only bookkeeping fields
@@ -111,7 +113,7 @@ export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore 
   }
 
   return {
-    save: ({ request, options }) => writeQueue.enqueue(request.agentName, () => saveMemory({ store, ...(redact == null ? {} : { redact }), options, now: now(), request })),
+    save: ({ request, options }) => writeQueue.enqueue(request.agentName, () => saveMemory({ store, ...(redact == null ? {} : { redact }), redactsPii, options, now: now(), request })),
     recall,
     forget,
   };
