@@ -24,6 +24,20 @@ const FIRST_VERSION = 1;
 const RETRYABLE_ERROR_NAMES = /Network|Timeout|ServerSelection|PoolCleared/;
 const RETRYABLE_LABELS = ['RetryableWriteError', 'TransientTransactionError'];
 
+/** A surrogate code unit without its partner: BSON strings are UTF-8, which turns it into U+FFFD. */
+const LONE_SURROGATE = /\p{Cs}/u;
+
+/** Refuses a key the server would silently change into another one (and so mix two records up); collection names are encoded. */
+function checkWellFormed(params: { collection: string; key: string }): void {
+  const { collection, key } = params;
+  if (!LONE_SURROGATE.test(key)) return;
+  throw createAigentError({
+    code: 'invalid_input',
+    message: `MongoDB store key ${JSON.stringify(key)} in collection '${collection}' has a lone surrogate, which MongoDB would store as U+FFFD; use well-formed Unicode`,
+    details: { collection, key },
+  });
+}
+
 function isDuplicateKey(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === DUPLICATE_KEY_CODE;
 }
@@ -76,6 +90,7 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
   }
 
   async function get<T>(collection: string, key: string): Promise<StoredRecord<T> | undefined> {
+    checkWellFormed({ collection, key });
     return guarded('read', { collection, key }, async () => {
       const found = await (await collectionFor(collection)).findOne({ _id: key });
       return found == null ? undefined : { key, value: found.value as T, version: found.version };
@@ -84,6 +99,7 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
 
   async function compareAndSet<T>(params: CompareAndSetParams<T>): Promise<boolean> {
     const { collection, key, expectedVersion, value } = params;
+    checkWellFormed({ collection, key });
     return guarded('write', { collection, key }, async () => {
       const target = await collectionFor(collection);
       if (expectedVersion == null) {
@@ -108,6 +124,7 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
   }
 
   async function deleteRecord(collection: string, key: string): Promise<void> {
+    checkWellFormed({ collection, key });
     await guarded('delete', { collection, key }, async () => {
       await (await collectionFor(collection)).deleteOne({ _id: key });
     });

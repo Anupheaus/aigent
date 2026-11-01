@@ -5,6 +5,13 @@ import { encodeName } from './key-encoding.js';
 const MAX_LENGTH = 120;
 const SAFE_NAME = /^[a-z0-9_%~-]+$/;
 const WINDOWS_DEVICE = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\.|$)/i;
+const SURROGATE_FIRST = 0xd8_00;
+const SURROGATE_LAST = 0xdf_ff;
+/** One code point, or one lone surrogate: strings JavaScript allows but UTF-8 cannot hold. */
+const UNIT = fc.oneof(
+  fc.string({ unit: 'binary', minLength: 1, maxLength: 1 }),
+  fc.integer({ min: SURROGATE_FIRST, max: SURROGATE_LAST }).map(code => String.fromCharCode(code)),
+);
 
 describe('encodeName', () => {
   it('leaves plain lower-case names alone', () => {
@@ -44,6 +51,21 @@ describe('encodeName', () => {
       const encodedFirst = encodeName(first);
       expect(encodedFirst).toMatch(SAFE_NAME);
       expect(encodedFirst).not.toMatch(WINDOWS_DEVICE);
+      expect(encodedFirst.length).toBeLessThanOrEqual(MAX_LENGTH);
+      if (first !== second) expect(encodedFirst.toLowerCase()).not.toBe(encodeName(second).toLowerCase());
+    }), { numRuns: 500 });
+  });
+
+  it('keeps lone surrogates apart from each other and from the replacement character', () => {
+    const names = ['\uD800', '\uDC00', '�', 'x\uD800', 'x�', '𐀀'];
+    expect(new Set(names.map(encodeName)).size).toBe(names.length);
+    expect(encodeName('𐀀')).toBe(encodeName('\u{10000}'));
+  });
+
+  it('is injective, safe and bounded for strings with lone surrogates too', () => {
+    fc.assert(fc.property(fc.string({ unit: UNIT, maxLength: 150 }), fc.string({ unit: UNIT, maxLength: 150 }), (first, second) => {
+      const encodedFirst = encodeName(first);
+      expect(encodedFirst).toMatch(SAFE_NAME);
       expect(encodedFirst.length).toBeLessThanOrEqual(MAX_LENGTH);
       if (first !== second) expect(encodedFirst.toLowerCase()).not.toBe(encodeName(second).toLowerCase());
     }), { numRuns: 500 });

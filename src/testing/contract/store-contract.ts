@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isAigentError } from '../../core/aigent-error.js';
 import type { Store } from '../../store/store-types.js';
 
 /** A store under test, plus how to tidy up after it. */
@@ -29,6 +30,12 @@ const TEST_TIMEOUT_MS = 120_000;
 /** Keys that have broken stores before: path tricks, Windows device names, separators, case, escapes, length. */
 const AWKWARD_KEYS = ['../x', '..', '.', 'CON', 'nul', 'a/b', 'a\\b', 'ünïcode ✓', ' ', 'Key', 'key', 'KEY', 'x.', '%41', 'A', 'a', 'a.json', 'tab\tkey', 'a'.repeat(LONG_KEY_LENGTH), 'a'.repeat(LONG_KEY_LENGTH - 1) + 'b'];
 
+/**
+ * Strings with a lone surrogate, each beside what UTF-8 encoding turns it into (U+FFFD): a store must keep the two
+ * apart or refuse the ill-formed one.
+ */
+const LONE_SURROGATE_PAIRS = [['x\uD800', 'x�'], ['\uDC00y', '�y']] as const;
+
 async function withStore(subject: StoreContractSubject, body: (store: Store) => Promise<void>): Promise<void> {
   const { store, cleanup } = await subject.create();
   try {
@@ -44,7 +51,7 @@ function sortedKeys(records: { key: string }[]): string[] {
 
 /**
  * Registers the tests every `Store` must pass: compare-and-set exclusivity under contention, copy semantics, awkward
- * keys and collection names, large values, and (when the store has them) `delete` and `purge`.
+ * keys and collection names (lone surrogates kept apart from U+FFFD or refused with `invalid_input`), large values, and (when the store has them) `delete` and `purge`.
  */
 export function describeStoreContract(subject: StoreContractSubject): void {
   const writers = subject.contentionWriters ?? DEFAULT_WRITERS;
@@ -122,6 +129,24 @@ export function describeStoreContract(subject: StoreContractSubject): void {
         }
       });
     }, TEST_TIMEOUT_MS);
+
+    it('keeps keys and collections with lone surrogates apart from U+FFFD, or refuses them with invalid_input', async () => {
+      await withStore(subject, async store => {
+        for (const [ill, replaced] of LONE_SURROGATE_PAIRS) {
+          const created = await store.compareAndSet({ collection: 'surrogates', key: ill, expectedVersion: undefined, value: 'ill' }).catch((error: unknown) => error);
+          if (created !== true) {
+            expect(isAigentError(created) && created.code, `key ${JSON.stringify(ill)}`).toBe('invalid_input');
+            continue;
+          }
+          expect(await store.compareAndSet({ collection: 'surrogates', key: replaced, expectedVersion: undefined, value: 'replaced' })).toBe(true);
+          expect(await store.get('surrogates', ill)).toEqual({ key: ill, value: 'ill', version: 1 });
+          expect(await store.get('surrogates', replaced)).toEqual({ key: replaced, value: 'replaced', version: 1 });
+          expect(await store.compareAndSet({ collection: ill, key: 'k', expectedVersion: undefined, value: 'ill' })).toBe(true);
+          expect(await store.compareAndSet({ collection: replaced, key: 'k', expectedVersion: undefined, value: 'replaced' })).toBe(true);
+          expect((await store.list(ill)).map(record => record.value)).toEqual(['ill']);
+        }
+      });
+    });
 
     it('stores and returns a large value intact', async () => {
       await withStore(subject, async store => {

@@ -19,6 +19,18 @@ function duplicateKeyError(id: string): Error {
   return Object.assign(new Error(`E11000 duplicate key error: _id ${id}`), { code: DUPLICATE_KEY_CODE });
 }
 
+/**
+ * What a value becomes on its way through the driver: BSON strings are UTF-8 (a lone surrogate turns into U+FFFD)
+ * and `undefined` is stored as `null`.
+ */
+function asBson(value: unknown): unknown {
+  if (typeof value === 'string') return Buffer.from(value, 'utf8').toString('utf8');
+  if (value === undefined) return null;
+  if (Array.isArray(value)) return value.map(asBson);
+  if (typeof value === 'object' && value !== null) return Object.fromEntries(Object.entries(value).map(([field, nested]) => [asBson(field) as string, asBson(nested)]));
+  return value;
+}
+
 function valueAt(document: MongoDocument, path: string): unknown {
   let current: unknown = document;
   for (const part of path.split('.')) {
@@ -39,7 +51,7 @@ function matchesCondition(actual: unknown, condition: unknown): boolean {
 }
 
 function matches(document: MongoDocument, filter: MongoFilter): boolean {
-  return Object.entries(filter).every(([path, condition]) => matchesCondition(valueAt(document, path), condition));
+  return Object.entries(asBson(filter) as MongoFilter).every(([path, condition]) => matchesCondition(valueAt(document, path), condition));
 }
 
 /** A faithful in-memory stand-in for the subset of the MongoDB driver the store uses (duplicate-key errors, conditional updates). */
@@ -89,8 +101,9 @@ export function createMongoFake(): MongoFake {
         record('insertOne', name);
         await maybeFail('insertOne');
         const documents = documentsOf(name);
-        if (documents.has(document._id)) throw duplicateKeyError(document._id);
-        documents.set(document._id, structuredClone(document));
+        const stored = asBson(document) as MongoDocument;
+        if (documents.has(stored._id)) throw duplicateKeyError(stored._id);
+        documents.set(stored._id, stored);
         return { acknowledged: true };
       },
       async updateOne(filter, update) {
@@ -99,7 +112,7 @@ export function createMongoFake(): MongoFake {
         const found = [...documentsOf(name).values()].find(document => matches(document, filter));
         if (found == null) return { matchedCount: 0 };
         found.version = update.$set.version;
-        found.value = structuredClone(update.$set.value);
+        found.value = asBson(update.$set.value);
         return { matchedCount: 1 };
       },
       async deleteOne(filter) {
