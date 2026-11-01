@@ -42,6 +42,11 @@ export interface MemoryEntry {
   /** Up to 5, each up to 24 characters. */
   tags: string[];
   source: MemorySource;
+  /**
+   * The run of `source` (the run whose text the entry holds), so `ai.purge({ runId })` reaches it. Set on every entry
+   * this version writes; absent on older ones.
+   */
+  runId?: string;
   /** 0 to 1; a note starts at 0.6 and each repeat moves it 0.1 closer to 1. */
   confidence: number;
   /**
@@ -57,7 +62,7 @@ export interface MemoryEntry {
   updatedAt: number;
   /** Epoch ms of the last recall that showed it. */
   lastUsedAt?: number;
-  /** Epoch ms after which recall ignores it. */
+  /** Epoch ms after which recall ignores it: `recordedAt + retention.expiresInMs`, renewed by each save that merges into it. */
   expiresAt?: number;
   /** Equal to `updatedAt`: lets `ai.purge({ before })` reach memory like any other record. */
   recordedAt: number;

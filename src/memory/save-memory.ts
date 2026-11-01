@@ -27,19 +27,29 @@ export interface SaveMemoryParams {
   redact?: Redact;
   /** Personal data in note text is redacted too (the runtime's pii guardrail redacts). */
   redactsPii?: boolean;
+  /** `retention.expiresInMs`: entries get `expiresAt = recordedAt + expiresInMs`, like every other record. */
+  expiresInMs?: number;
   options: ResolvedMemoryOptions;
   now: number;
   request: SaveMemoryRequest;
 }
 
+interface NewEntryParams {
+  request: SaveMemoryRequest;
+  note: MemoryNote;
+  now: number;
+  redactsPii: boolean;
+  expiresInMs?: number;
+}
+
 /** The entry a note becomes, with secrets scrubbed, before redact and before any merge with a stored one. */
-function newEntry(params: { request: SaveMemoryRequest; note: MemoryNote; now: number; redactsPii: boolean }): MemoryEntry {
-  const { request: { agentName, scopeKey, source, confidence = DEFAULT_MEMORY_CONFIDENCE }, note: { kind, text, tags = [], pinned = false }, now, redactsPii } = params;
+function newEntry(params: NewEntryParams): MemoryEntry {
+  const { request: { agentName, scopeKey, source, confidence = DEFAULT_MEMORY_CONFIDENCE }, note: { kind, text, tags = [], pinned = false }, now, redactsPii, expiresInMs } = params;
   // Stored with its spacing tidied (not its case), so a repeat that differs only in spacing never counts as a longer text.
   const tidied = scrubMemoryText({ text, redactsPii }).replace(/\s+/g, ' ').trim();
   return {
-    id: memoryId({ agentName, scopeKey, kind, text: tidied }), agentName, scopeKey, kind, text: tidied, tags: [...new Set(tags)], source,
-    confidence, pinned, uses: 0, createdAt: now, updatedAt: now, recordedAt: now,
+    id: memoryId({ agentName, scopeKey, kind, text: tidied }), agentName, scopeKey, kind, text: tidied, tags: [...new Set(tags)], source, runId: source.runId,
+    confidence, pinned, uses: 0, createdAt: now, updatedAt: now, recordedAt: now, ...(expiresInMs == null ? {} : { expiresAt: now + expiresInMs }),
   };
 }
 
@@ -53,7 +63,7 @@ function redacted(params: { entry: MemoryEntry; redact?: Redact }): MemoryEntry 
   const { id, agentName, scopeKey, kind } = entry;
   const { value } = applyRedact({ ...(redact == null ? {} : { redact }), record: { collection: MEMORY_COLLECTION, key: id, value: entry } });
   const masked = value as MemoryEntry;
-  return { ...masked, id: memoryId({ agentName, scopeKey, kind, text: masked.text }), agentName, scopeKey, kind };
+  return { ...masked, id: memoryId({ agentName, scopeKey, kind, text: masked.text }), agentName, scopeKey, kind, ...(entry.runId == null ? {} : { runId: entry.runId }) };
 }
 
 async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number }> {
@@ -79,12 +89,13 @@ async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number
  * caller runs this inside the agent's write queue, so saves of one agent never interleave.
  */
 export async function saveMemory(params: SaveMemoryParams): Promise<SaveMemoryResult> {
-  const { store, redact, redactsPii = false, now, request } = params;
+  const { store, redact, redactsPii = false, expiresInMs, now, request } = params;
   const problems: string[] = [];
   let saved = 0;
   for (const [position, note] of request.notes.entries()) {
     try {
-      const incoming = redacted({ entry: newEntry({ request, note, now, redactsPii }), ...(redact == null ? {} : { redact }) });
+      const entry = newEntry({ request, note, now, redactsPii, ...(expiresInMs == null ? {} : { expiresInMs }) });
+      const incoming = redacted({ entry, ...(redact == null ? {} : { redact }) });
       await updateRecord<MemoryEntry>({ store, collection: MEMORY_COLLECTION, key: incoming.id, update: current => (current == null ? incoming : mergeMemory({ current, incoming, now })) });
       saved += 1;
     } catch (error) {

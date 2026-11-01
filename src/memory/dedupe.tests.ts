@@ -88,6 +88,14 @@ describe('mergeMemory', () => {
     expect(mergeMemory({ current: entry({ pinned: false }), incoming: entry({ pinned: true }), now: NOW }).pinned).toBe(true);
   });
 
+  it('carries the winning source\'s runId (so purging that run removes the text it wrote) and the renewed expiry', () => {
+    const current = entry({ runId: 'run_1', confidence: 0.6, text: 'tests live in src', expiresAt: 2_000 });
+    const incoming = entry({ runId: 'run_2', confidence: 0.8, source: { runId: 'run_2', origin: 'user-correction' }, expiresAt: NOW + 1_000 });
+    expect(mergeMemory({ current, incoming, now: NOW })).toMatchObject({ runId: 'run_2', expiresAt: NOW + 1_000 });
+    const weaker = entry({ runId: 'run_3', confidence: 0.6, source: { runId: 'run_3', callId: 'c3', origin: 'tool-call' } });
+    expect(mergeMemory({ current: entry({ runId: 'run_1', confidence: 0.9, expiresAt: 2_000 }), incoming: weaker, now: NOW })).toMatchObject({ runId: 'run_1', expiresAt: 2_000 });
+  });
+
   it('never raises confidence above 1', () => {
     expect(mergeMemory({ current: entry({ confidence: 0.95 }), incoming: entry({ confidence: 0.6 }), now: NOW }).confidence).toBe(1);
   });

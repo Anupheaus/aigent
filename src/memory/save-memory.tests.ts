@@ -44,9 +44,15 @@ describe('saveMemory', () => {
     expect(result).toEqual({ saved: 1, evicted: 0, problems: [] });
     const id = memoryId({ agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Tests live in src' });
     expect(await stored(store)).toEqual([{
-      id, agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Tests live in src', tags: ['tests'], source: SOURCE,
+      id, agentName: 'helper', scopeKey: 'agent', kind: 'fact', text: 'Tests live in src', tags: ['tests'], source: SOURCE, runId: 'run_1',
       confidence: 0.6, pinned: false, uses: 0, createdAt: NOW, updatedAt: NOW, recordedAt: NOW,
     }]);
+  });
+
+  it('stamps the source run and, with retention, an expiry', async () => {
+    const store = createInMemoryStore();
+    await saveMemory({ store, expiresInMs: 1_000, options: OPTIONS, now: NOW, request: { agentName: 'helper', scopeKey: 'agent', notes: [{ kind: 'fact', text: 'Tests live in src' }], source: SOURCE } });
+    expect((await stored(store)).map(({ runId, expiresAt }) => ({ runId, expiresAt }))).toEqual([{ runId: 'run_1', expiresAt: NOW + 1_000 }]);
   });
 
   it('merges a repeat into the same entry instead of adding one', async () => {

@@ -142,6 +142,15 @@ describe('memory enabled', () => {
     expect(await storedMemories(store)).toEqual([]);
   });
 
+  it('stamps retention on memory and lets purge({ runId }) remove what a run wrote', async () => {
+    const { ai, agent, store } = setup({ turns: [memoryCall([NOTE]), textTurn('done')], options: { memory: true, retention: { expiresInMs: 1_000 } } });
+    const result = await agent.task({ task: 't' });
+    expect((await storedMemories(store)).map(({ runId, expiresAt }) => ({ runId, expiresAt }))).toEqual([{ runId: result.runId, expiresAt: 6_000 }]);
+    await ai.purge({ runId: result.runId });
+    expect(await storedMemories(store)).toEqual([]);
+    expect(await store.get('runs', result.runId)).toBeUndefined();
+  });
+
   it('passes memory writes through the runtime redact', async () => {
     const secret = ['hun', 'ter2'].join('');
     const { agent, store } = setup({

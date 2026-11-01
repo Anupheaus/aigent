@@ -58,6 +58,8 @@ export interface CreateMemoryStoreParams {
   redact?: Redact;
   /** Personal data in note text is redacted too (the runtime's pii guardrail redacts); secrets always are. */
   redactsPii?: boolean;
+  /** `retention.expiresInMs`, stamped on every entry a save writes. */
+  expiresInMs?: number;
   now(): number;
 }
 
@@ -67,7 +69,7 @@ function isLive(params: { entry: MemoryEntry | undefined; agentName: string; sco
 }
 
 export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore {
-  const { store, writeQueue, redact, redactsPii = false, now } = params;
+  const { store, writeQueue, redact, redactsPii = false, expiresInMs, now } = params;
 
   /**
    * Changes a live entry of the agent and scope; false (writing nothing) when there is none. Only bookkeeping fields
@@ -113,7 +115,9 @@ export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore 
   }
 
   return {
-    save: ({ request, options }) => writeQueue.enqueue(request.agentName, () => saveMemory({ store, ...(redact == null ? {} : { redact }), redactsPii, options, now: now(), request })),
+    save: ({ request, options }) => writeQueue.enqueue(request.agentName, () => saveMemory({
+      store, ...(redact == null ? {} : { redact }), redactsPii, ...(expiresInMs == null ? {} : { expiresInMs }), options, now: now(), request,
+    })),
     recall,
     forget,
   };

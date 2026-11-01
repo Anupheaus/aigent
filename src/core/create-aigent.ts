@@ -98,7 +98,8 @@ export function createAigent(options: AigentOptions): Aigent {
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const guardrails = parseGuardrailOptions(options.guardrails);
   const memoryStore = store == null ? undefined : createMemoryStore({
-    store, writeQueue, ...(redact == null ? {} : { redact }), redactsPii: redactsPersonalData(guardrails.builtins?.pii), now: () => clock.now(),
+    store, writeQueue, ...(redact == null ? {} : { redact }), redactsPii: redactsPersonalData(guardrails.builtins?.pii),
+    ...(expiresInMs == null ? {} : { expiresInMs }), now: () => clock.now(),
   });
   // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
   const runtimeMemory = resolveMemoryOptions({ owner: 'createAigent', options: options.memory });

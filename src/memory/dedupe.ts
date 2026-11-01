@@ -52,6 +52,10 @@ export function mergeMemory(params: MergeMemoryParams): MemoryEntry {
     ...current,
     text: winner.text,
     source: winner.source,
+    // Purging the run whose text the entry holds removes it.
+    ...(winner.runId == null ? {} : { runId: winner.runId }),
+    // A save renews the retention window, as a rewritten record's would be.
+    ...(incoming.expiresAt == null ? {} : { expiresAt: incoming.expiresAt }),
     confidence: raisedConfidence(current.confidence, incoming.confidence),
     tags: [...new Set([...current.tags, ...incoming.tags])].slice(0, MAX_MEMORY_TAGS),
     pinned: current.pinned || incoming.pinned,
