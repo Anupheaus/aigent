@@ -144,7 +144,7 @@ The default `npm test` never touches the network. The tests in `src/providers/li
 AIGENT_LIVE=1 ANTHROPIC_API_KEY=... npx vitest run src/providers/live.tests.ts
 ```
 
-The MongoDB adapter has its own live test, `src/tools/packs/db/mongo-db-access.live.tests.ts`, skipped unless `AIGENT_LIVE_MONGO` holds a connection string and the optional `mongodb` package is installed. It writes a scratch collection in the `aigent_live_tests` database with the driver directly and drops it afterwards.
+The MongoDB adapter has its own live test, `src/tools/packs/db/mongo-db-access.live.tests.ts`, skipped unless `AIGENT_LIVE_MONGO` holds a connection string and the optional `mongodb` package is installed. It writes a scratch collection in the `aigent_live_tests` database with the driver directly and drops it afterwards. The MongoDB store has one too, `src/store/mongo-store.live.tests.ts`, gated the same way: it runs `describeStoreContract` (20 writers, 3 contention rounds) against the server, each test under its own collection prefix in `aigent_live_tests`, dropped afterwards. Neither has been run against a real server here.
 
 ## Plugins
 
