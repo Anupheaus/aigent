@@ -1,12 +1,13 @@
 import { hashSchema } from '../cache/cache-key.js';
 import type { JsonSchema } from '../providers/provider-types.js';
 import type { Tool } from '../tools/tool-types.js';
-import { MAX_MEMORY_TEXT_LENGTH, MEMORY_FIELD } from './memory-schema.js';
+import { MAX_MEMORY_TAG_LENGTH, MAX_MEMORY_TAGS, MAX_MEMORY_TEXT_LENGTH, MEMORY_FIELD } from './memory-schema.js';
 import { MEMORY_KINDS } from './memory-types.js';
 
 /**
- * Kept short on purpose: it is repeated in every tool's schema (about 100 estimated tokens), so the tag limits are
- * left to validation and the system prompt. Nullable lists and optionals, because strict decoding requires every key.
+ * Kept short on purpose: it is repeated in every tool's schema (about 108 estimated tokens). The tag limits are in it
+ * because validation refuses a whole note over one bad tag. Nullable lists and optionals, because strict decoding
+ * requires every key.
  */
 function memoryFieldSchema(maxPerCall: number): JsonSchema {
   return {
@@ -21,7 +22,7 @@ function memoryFieldSchema(maxPerCall: number): JsonSchema {
       properties: {
         kind: { type: 'string', enum: [...MEMORY_KINDS] },
         text: { type: 'string', maxLength: MAX_MEMORY_TEXT_LENGTH },
-        tags: { type: ['array', 'null'], items: { type: 'string' } },
+        tags: { type: ['array', 'null'], maxItems: MAX_MEMORY_TAGS, items: { type: 'string', maxLength: MAX_MEMORY_TAG_LENGTH } },
       },
     },
   };

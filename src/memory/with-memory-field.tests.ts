@@ -23,7 +23,8 @@ const MEMORY_SCHEMA = {
     properties: {
       kind: { type: 'string', enum: ['fact', 'preference', 'lesson', 'procedure'] },
       text: { type: 'string', maxLength: 300 },
-      tags: { type: ['array', 'null'], items: { type: 'string' } },
+      // The limits validation applies, so a strict decoder never sends a tag that would cost the whole note.
+      tags: { type: ['array', 'null'], maxItems: 5, items: { type: 'string', maxLength: 24 } },
     },
   },
 };
