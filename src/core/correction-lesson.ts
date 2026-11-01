@@ -2,6 +2,7 @@ import type { RatedRun } from '../feedback/user-feedback.js';
 import { CORRECTION_CONFIDENCE, lessonFromCorrection } from '../memory/corrections.js';
 import type { MemoryStore } from '../memory/memory-store.js';
 import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
+import { memoryScopeKey as scopeKeyOf } from '../memory/scope-key.js';
 import { createAigentError } from './aigent-error.js';
 
 export interface SaveCorrectionLessonParams {
@@ -18,7 +19,8 @@ export interface SaveCorrectionLessonParams {
  */
 export async function saveCorrectionLesson(params: SaveCorrectionLessonParams): Promise<void> {
   const { memory, optionsFor, rated: { run: { agentName, runId, responseId, task, memoryScopeKey }, feedback } } = params;
-  if (memoryScopeKey == null) return;
+  // A task in session scope is its own session: no later run reads that scope, so a lesson there would only be stored.
+  if (memoryScopeKey == null || memoryScopeKey === scopeKeyOf({ scope: 'session', runId })) return;
   const options = optionsFor(agentName);
   const note = lessonFromCorrection({ feedback, ...(task == null ? {} : { task }) });
   if (options == null || note == null) return;

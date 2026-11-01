@@ -9,6 +9,12 @@ describe('lessonFromCorrection', () => {
     expect(lessonFromCorrection({ feedback: { responseId: 'r', rating: 'incorrect' }, task: TASK })).toBeUndefined();
   });
 
+  it('treats a whitespace-only comment or expected answer as nothing to learn', () => {
+    expect(lessonFromCorrection({ feedback: { responseId: 'r', rating: 'incorrect', comment: '   ' }, task: TASK })).toBeUndefined();
+    expect(lessonFromCorrection({ feedback: { responseId: 'r', rating: 'incorrect', expectedAnswer: ' \n', comment: '\t' }, task: TASK })).toBeUndefined();
+    expect(lessonFromCorrection({ feedback: { responseId: 'r', rating: 'incorrect', expectedAnswer: 'src/a.ts', comment: '  ' }, task: TASK })?.text).toBe('For "Find the component that renders the invoice table": the right answer was src/a.ts');
+  });
+
   it('turns an expected answer and a comment into a lesson tied to the task', () => {
     expect(lessonFromCorrection({ feedback: { responseId: 'r', rating: 'incorrect', expectedAnswer: 'src/billing/InvoiceTable.tsx', comment: 'look in billing' }, task: TASK })).toEqual({
       kind: 'lesson',

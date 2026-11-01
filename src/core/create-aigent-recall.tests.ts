@@ -206,6 +206,14 @@ describe('user corrections become lessons', () => {
     expect(JSON.stringify(stableOf(request))).not.toContain('InvoiceTable.tsx');
   });
 
+  it('writes no lesson for a task run in session scope, which no later run could read', async () => {
+    const store = createInMemoryStore();
+    const first = runtime({ store, turns: [textTurn('answer')], options: { memory: { scope: 'session' } } });
+    const rated = await first.agent.task({ task: 'Find the invoice table' });
+    await first.ai.feedback({ responseId: rated.responseId, rating: 'incorrect', expectedAnswer: 'src/Invoice.tsx' });
+    expect(await storedMemories(store)).toEqual([]);
+  });
+
   it('learns nothing from a correct rating, or for a run made without memory', async () => {
     const store = createInMemoryStore();
     const { ai, agent } = runtime({ store, turns: [textTurn('a'), textTurn('b')] });

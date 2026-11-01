@@ -33,12 +33,15 @@ export interface LessonFromCorrectionParams {
  * task so it is recalled for similar tasks; undefined when there is nothing to learn.
  */
 export function lessonFromCorrection(params: LessonFromCorrectionParams): MemoryNote | undefined {
-  const { feedback: { rating, expectedAnswer, comment }, task } = params;
+  const { feedback: { rating }, task } = params;
   if (rating === 'correct') return undefined;
-  const correction = expectedAnswer != null && expectedAnswer !== ''
-    ? `the right answer was ${expectedAnswer}${comment == null || comment === '' ? '' : ` (${comment})`}`
+  // Blank text teaches nothing: a whitespace-only comment would otherwise save `For "<task>": ` as a lesson.
+  const expectedAnswer = params.feedback.expectedAnswer?.trim() ?? '';
+  const comment = params.feedback.comment?.trim() ?? '';
+  const correction = expectedAnswer !== ''
+    ? `the right answer was ${expectedAnswer}${comment === '' ? '' : ` (${comment})`}`
     : comment;
-  if (correction == null || correction === '') return undefined;
+  if (correction === '') return undefined;
   const excerpt = task == null ? '' : cut({ text: task.replace(/\s+/g, ' ').trim(), max: MAX_TASK_EXCERPT });
   const text = excerpt === '' ? correction : `For "${excerpt}": ${correction}`;
   return { kind: 'lesson', text: cut({ text, max: MAX_MEMORY_TEXT_LENGTH }), tags: task == null ? [] : taskTags(task) };
