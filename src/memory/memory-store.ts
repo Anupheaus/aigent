@@ -8,6 +8,7 @@ import type { RecallParams } from './recall.js';
 import { saveMemory } from './save-memory.js';
 import type { SaveMemoryRequest } from './save-memory.js';
 import { MEMORY_COLLECTION } from './memory-types.js';
+import { dropMemoryVectors } from './memory-vectors.js';
 import type { MemoryEntry, RecalledMemory, ResolvedMemoryOptions, SaveMemoryResult } from './memory-types.js';
 
 export interface MemorySaveParams {
@@ -121,6 +122,8 @@ export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore 
         if (!wasLive) notFound.push(id);
         else (isUserCorrection ? kept : forgotten).push(id);
       }
+      // A forgotten memory's embedding goes too: it was derived from the text and must not outlive it.
+      await dropMemoryVectors({ store, ids: forgotten });
       return { forgotten, notFound, kept };
     });
   }

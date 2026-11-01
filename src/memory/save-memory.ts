@@ -7,6 +7,7 @@ import { pickEvictions } from './decay.js';
 import { memoryId, mergeMemory } from './dedupe.js';
 import { MEMORY_COLLECTION } from './memory-types.js';
 import type { MemoryEntry, MemoryNote, MemorySource, ResolvedMemoryOptions, SaveMemoryResult } from './memory-types.js';
+import { dropMemoryVectors } from './memory-vectors.js';
 import { scrubMemoryText } from './scrub-memory-text.js';
 
 /** Where a new note starts; each repeat moves it 0.1 closer to 1. */
@@ -80,6 +81,8 @@ async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number
     // Without delete, a tombstone keeps the key but drops the entry from recall and from the cap.
     await updateRecord<MemoryEntry>({ store, collection: MEMORY_COLLECTION, key: id, update: current => ({ ...current as MemoryEntry, removed: { at: now, reason: 'evicted' } }) });
   }
+  // An evicted memory's embedding goes with it, whether the entry was deleted or tombstoned.
+  await dropMemoryVectors({ store, ids: evict.map(({ id }) => id) });
   return { evicted: evict.length };
 }
 
