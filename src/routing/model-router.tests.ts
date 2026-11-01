@@ -127,6 +127,18 @@ describe('createModelRouter', () => {
     expect(await choose({ routerOf: router({ runs: weak.runs }), priority: 'cost' })).toMatchObject({ model: 'p:big', reason: 'default' });
   });
 
+  it('counts a rated run once in the confidence bound: verdicts weigh the rate, not the sample size', async () => {
+    const built = runsBuilder();
+    built.add({ model: 'p:big', successes: outcomes({ count: 20, rate: 1 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 20, rate: 1 }) });
+    const rated = built.runs.map(run => ({ ...run, userVerdict: 'correct' as const }));
+    // 20 of 20: the Wilson lower bound is 0.839, short of the bar 0.85 x 1, rated or not.
+    const decision = await choose({ routerOf: router({ runs: rated }), priority: 'cost' });
+    expect(decision).toMatchObject({ model: 'p:big', reason: 'default' });
+    const unrated = await choose({ routerOf: router({ runs: built.runs }), priority: 'cost' });
+    expect(unrated).toMatchObject({ model: 'p:big', reason: 'default' });
+  });
+
   it('reverts a learned model that degrades, cools down, then learns again', async () => {
     const built = runsBuilder();
     built.add({ model: 'p:big', successes: outcomes({ count: 60, rate: 0.6 }) });

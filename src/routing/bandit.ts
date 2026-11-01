@@ -3,9 +3,9 @@ import { createAigentError } from '../core/aigent-error.js';
 /** One model's weighted record, as the bandit sees it. */
 export interface BanditArm {
   model: string;
-  /** Weighted successes (see `runSuccess`). */
+  /** The weighted success rate (see `runSuccess`) times `trials`. */
   successes: number;
-  /** Weighted trials; must be above 0 for every arm passed to `chooseArm`. */
+  /** Runs; must be above 0 for every arm passed to `chooseArm`. */
   trials: number;
   meanCostUsd: number;
 }

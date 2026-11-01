@@ -46,9 +46,14 @@ export function toAlternative(arm: ArmRecord): RouteAlternative {
   return { model, successRate: weightedRate(outcomes).rate, meanCostUsd: meanCost(costsUsd), n: outcomes.length };
 }
 
+/**
+ * The arm as the bandit and the confidence bounds see it: the weighted rate (user verdicts outweigh agent claims) over
+ * the run count. A verdict makes a run count for more in the rate, never makes it two samples.
+ */
 export function toBanditArm(arm: ArmRecord): BanditArm {
-  const { successes, trials } = weightedRate(arm.outcomes);
-  return { model: arm.model, successes, trials, meanCostUsd: meanCost(arm.costsUsd) };
+  const { model, outcomes, costsUsd } = arm;
+  const { rate } = weightedRate(outcomes);
+  return { model, successes: rate * outcomes.length, trials: outcomes.length, meanCostUsd: meanCost(costsUsd) };
 }
 
 export interface DegradationParams {
