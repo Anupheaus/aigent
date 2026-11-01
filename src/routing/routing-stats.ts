@@ -1,4 +1,4 @@
-import { runSuccess, weightedRate } from '../learning/run-success.js';
+import { AGENT_CLAIM_WEIGHT, runSuccess, weightedRate } from '../learning/run-success.js';
 import type { RunSuccess } from '../learning/run-success.js';
 import { oneSidedProportionPValue } from '../scoring/stats.js';
 import type { RunRecord } from '../telemetry/run-record.js';
@@ -31,10 +31,25 @@ export function routeArms(params: RouteArmsParams): ArmRecord[] {
     .sort((left, right) => left.recordedAt - right.recordedAt || (left.runId < right.runId ? -1 : 1));
   return [...new Set(models)].sort().map(model => {
     const own = inBucket.filter(run => run.model === model);
-    const outcomes = own.flatMap(run => { const success = runSuccess(run); return success == null ? [] : [success]; });
-    const costsUsd = own.flatMap(run => { const cost = price?.(run); return cost == null ? [] : [cost]; });
+    const outcomes = own.flatMap(run => { const success = routedSuccess(run); return success == null ? [] : [success]; });
+    const costsUsd = own.filter(run => !isRescued(run)).flatMap(run => { const cost = price?.(run); return cost == null ? [] : [cost]; });
     return { model, outcomes, costsUsd };
   });
+}
+
+/** A fallback model served part of the run: the chosen model gave out. */
+function isRescued(run: RunRecord): boolean {
+  return (run.fallbacks?.length ?? 0) > 0;
+}
+
+/**
+ * The run's outcome for the model it was routed to. A run a fallback rescued is a failure of that model whatever the
+ * answer was worth (the answer, and any verdict on it, came from the fallback), so a flaky model never looks reliable.
+ */
+function routedSuccess(run: RunRecord): RunSuccess | undefined {
+  const success = runSuccess(run);
+  if (success == null || !isRescued(run)) return success;
+  return { value: 0, weight: AGENT_CLAIM_WEIGHT, isUserVerdict: false };
 }
 
 function meanCost(costsUsd: number[]): number {

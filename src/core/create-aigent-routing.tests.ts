@@ -69,6 +69,22 @@ describe('createAigent model routing', () => {
     await ai.close();
   });
 
+  it('counts a run a fallback rescued against the chosen model in the routing statistics', async () => {
+    const fakes = providers({ big: 2 });
+    const hugeFails = createFakeProvider({ id: 'huge', turns: [{ events: [], failBeforeEvents: unavailable }] });
+    const store = createInMemoryStore();
+    const ai = createAigent({ providers: [hugeFails, fakes.big, fakes.small], store, ids: sequentialIds(), enableFeedback: false, sleep: async () => undefined, learning: { routing: {} } });
+    const agent = ai.agent({ name: 'helper', model: ROUTES, resilience: { maxRetries: 0 } });
+    const rescued = await agent.task({ task: 'find the readme', routingPriority: 'quality' });
+    expect(rescued).toMatchObject({ status: 'completed', answer: 'big answer 1' });
+    const next = await agent.task({ task: 'find the readme' });
+    const { alternatives } = (await storedRun({ store, runId: next.runId })).route ?? { alternatives: [] };
+    expect(alternatives.find(({ model }) => model === 'huge:m')).toMatchObject({ n: 1, successRate: 0 });
+    // The default only served it as a fallback: that was not a routed run of its own.
+    expect(alternatives.find(({ model }) => model === 'big:m')).toMatchObject({ n: 0 });
+    await ai.close();
+  });
+
   it('learns from the stored runs when learning.routing is on', async () => {
     // Twenty runs on each model in the bucket: the cheap model succeeded every time, the others never.
     const { ai, fakes, store } = setup({ turns: { small: 1 }, options: { learning: { routing: { minSamples: 2, maxExploration: 0 } } } });
