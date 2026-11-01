@@ -3,7 +3,7 @@ import type { IdGenerator } from '../core/runtime-services.js';
 import type { PatchLog } from './apply-patch.js';
 import { branchFrom, requireBranch, requireIdle } from './branches.js';
 import type { BranchReason } from './branches.js';
-import type { ChatEngine } from './chat-engine.js';
+import type { ChatEngine } from './chat-engine-types.js';
 import type { ChatThread, ChatTurn } from './chat-types.js';
 import { ROOT_BRANCH_ID } from './conversation.js';
 import { lineage } from './lineage.js';

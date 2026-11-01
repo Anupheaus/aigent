@@ -1,6 +1,6 @@
 import type { TaskResultData } from './agent-types.js';
 import { runAgentTurns } from './run-agent-turns.js';
-import type { RunAgentTurnsParams } from './run-agent-turns.js';
+import type { RunAgentTurnsParams } from './run-agent-turns-types.js';
 import type { NewContextMessage } from './run-context.js';
 
 export interface TaskPromptTexts {

@@ -5,7 +5,7 @@ import { createWriteQueue } from '../store/write-queue.js';
 import { executeToolCall } from '../tools/execute-tool-call.js';
 import type { ExecutedToolCall, ShapeResult } from '../tools/execute-tool-call.js';
 import { defineTool } from '../tools/define-tool.js';
-import type { ToolInput } from '../tools/define-tool.js';
+import type { ToolInput } from '../tools/tool-input.js';
 import { createToolRegistry } from '../tools/tool-registry.js';
 import type { Tool } from '../tools/tool-types.js';
 import { TOOL_CACHE_COLLECTION } from './cache-types.js';

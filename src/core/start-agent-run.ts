@@ -13,7 +13,7 @@ import type { TurnRouting } from './open-turn-stream.js';
 import { buildPromptTexts } from './prompt-texts.js';
 import { resolveModelSettings } from './resolve-model-settings.js';
 import { runAgentTurns } from './run-agent-turns.js';
-import type { SteerSource } from './run-agent-turns.js';
+import type { SteerSource } from './run-agent-turns-types.js';
 import { createRunCallbacks, withThinkingChannel } from './run-callbacks.js';
 import type { NewContextMessage } from './run-context.js';
 import { createRunControl } from './run-control.js';

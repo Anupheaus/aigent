@@ -1,5 +1,5 @@
 import type { IdGenerator } from '../core/runtime-services.js';
-import type { ChatEngine } from './chat-engine.js';
+import type { ChatEngine } from './chat-engine-types.js';
 import type { ChatTurn, SendInput, SendOptions } from './chat-types.js';
 import type { PatchLog } from './apply-patch.js';
 import type { DeliveryMode } from './message.js';

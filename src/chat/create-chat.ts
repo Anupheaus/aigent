@@ -7,7 +7,7 @@ import type { PatchLog } from './apply-patch.js';
 import { attachmentSaver, prepareAttachments } from './attachments.js';
 import { closedError } from './chat-closed.js';
 import { createChatEngine } from './chat-engine.js';
-import type { ChatEngine } from './chat-engine.js';
+import type { ChatEngine } from './chat-engine-types.js';
 import { rateReply, reactTo } from './chat-feedback.js';
 import { branchAndRun, forkSeed, selectBranch, setPinned, threadOf } from './chat-navigation.js';
 import type { ResolvedChatOptions } from './chat-options.js';

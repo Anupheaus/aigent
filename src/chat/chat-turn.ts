@@ -1,6 +1,6 @@
 import type { TaskResult } from '../core/agent-types.js';
 import type { RunSummary } from '../core/finish-agent-run.js';
-import type { SteerSource } from '../core/run-agent-turns.js';
+import type { SteerSource } from '../core/run-agent-turns-types.js';
 import type { NewContextMessage } from '../core/run-context.js';
 import { thinkingChannelOf } from '../core/run-callbacks.js';
 import { startAgentRun } from '../core/start-agent-run.js';

@@ -1,108 +1,31 @@
-import type { ToolCache } from '../cache/cache-types.js';
-import type { RunPlanning } from '../planning/run-planning.js';
-import type { ProviderMessage, ToolCall } from '../providers/provider-types.js';
-import type { Tool, ToolContext } from '../tools/tool-types.js';
-import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
-import type { ToolRegistry } from '../tools/tool-registry.js';
-import type { AigentEvent, TaskStatus } from './aigent-events.js';
-import type { TaskResultData } from './agent-types.js';
-import { describeError } from './describe-value.js';
-import { PREVIOUS_FIELD } from '../feedback/previous-outcome.js';
-import { COMMENTARY_TOOLS } from './dispatch-tool-call.js';
-import { nothingHeld } from './run-memory.js';
-import { createTurnWork, drainWork, failedDetails } from './drain-work.js';
-import type { TurnRouting } from './open-turn-stream.js';
-import { syncPinned } from './run-planning-setup.js';
-import { createRunCompaction } from './run-compaction.js';
-import type { RunCompactionSettings } from './run-compaction.js';
-import { compressCommitted } from './run-compression.js';
-import type { RunCompression } from './run-compression.js';
-import { reconcileInterruptedRound } from '../resume/reconcile-calls.js';
-import type { RestoredRun } from '../resume/reconcile-calls.js';
-import type { ApprovalCenter } from '../approvals/approval-gate.js';
+import type { ToolCall } from '../providers/provider-types.js';
 import type { InFlightRound } from '../resume/checkpoint-types.js';
-import type { RunCheckpoints } from '../resume/checkpoint-hooks.js';
-import { createRunCheckpointer } from './run-checkpointer.js';
-import { createRunCallIds } from './run-call-ids.js';
-import { watchRunLease } from './run-lease-watch.js';
-import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
-import type { NewContextMessage } from './run-context.js';
-import type { RunControl } from './run-control.js';
-import { createRunOriginals } from './run-originals.js';
-import type { RunShaping } from './run-shaping.js';
-import { runTurn } from './run-turn.js';
-import type { RunTelemetry, RunTotals, TurnStreamResult } from './run-turn.js';
-import type { RunVolatile } from './run-volatile.js';
-import type { Clock } from './runtime-services.js';
-import { delegatedTurnMessages, turnMessages } from './turn-messages.js';
-import { abortedStatus, buildTurnsResult } from './turns-result.js';
+import type { ToolErrorDetail } from '../tools/tool-error-detail.js';
+import type { Tool, ToolContext } from '../tools/tool-types.js';
+import type { TaskStatus } from './aigent-events.js';
+import type { TaskResultData } from './agent-types.js';
 import { collectCitations, resolveCitations } from './citations.js';
 import type { Citation } from './citations.js';
-import type { GuardrailRunContext } from '../guardrails/guardrail-types.js';
-import type { RunGuardrails } from './run-guardrails.js';
-import { settleAnswer } from './settle-answer.js';
-import { guardSettledCall } from './guard-settled-call.js';
-import type { RunEffects } from './run-effects.js';
-import type { RunDelegation } from './delegation-types.js';
+import { describeError } from './describe-value.js';
+import { createTurnWork, drainWork, failedDetails } from './drain-work.js';
+import { restoreInterruptedRound } from './restore-interrupted-round.js';
+import type { RunAgentTurnsParams } from './run-agent-turns-types.js';
+import { createRunCallIds } from './run-call-ids.js';
+import { createRunCheckpointer } from './run-checkpointer.js';
+import { createRunCompaction } from './run-compaction.js';
+import { compressCommitted } from './run-compression.js';
+import { appendContextMessages, createRunContext, restoreRunContext } from './run-context.js';
+import type { NewContextMessage } from './run-context.js';
+import { watchRunLease } from './run-lease-watch.js';
+import { createRunOriginals } from './run-originals.js';
+import { syncPinned } from './run-planning-setup.js';
 import { roundHasSideEffects } from './run-response-cache.js';
-import type { RunResponseCache } from './run-response-cache.js';
-
-/** Supplies messages that arrived while the run was busy; read at each safe boundary (before a model request). */
-export interface SteerSource {
-  take(): ProviderMessage[];
-}
-
-/** Everything one agent loop needs, whatever started it (a task or a chat turn). */
-export interface RunAgentTurnsParams {
-  runId: string;
-  /** Stable id of this run's answer, for user feedback. */
-  responseId: string;
-  agentName: string;
-  instanceId: string;
-  routing: TurnRouting;
-  /** The messages the run starts from: the system prompt, then a task brief or a conversation's history. */
-  initial: NewContextMessage[];
-  /** Present when the agent compresses; tool results are compressed as they are committed. */
-  compression?: RunCompression;
-  registry: ToolRegistry;
-  limits: { maxTurns: number; maxToolCalls: number };
-  clock: Clock;
-  control: RunControl;
-  telemetry: RunTelemetry;
-  /** The runtime's tool-result cache; absent when caching is off. */
-  cache?: ToolCache;
-  /** The run's shaping; absent when nothing can be shaped. */
-  shaping?: RunShaping;
-  /** The run's volatile block, minus the limits this function adds. */
-  volatile: Omit<RunVolatile, 'maxTurns'>;
-  planning: RunPlanning;
-  compaction: RunCompactionSettings;
-  /** Chat: record the round a stop or failure cut short (partial text, every dispatched call with its result). */
-  keepPartialRound?: boolean;
-  /** Called with each round's messages as they join the history, before compaction can change them. */
-  onCommit?(messages: ProviderMessage[]): void;
-  /** Steering messages, delivered at the next safe boundary as user messages. */
-  steer?: SteerSource;
-  /** With `resume`: the run's checkpoints and call ledger. */
-  checkpoints?: RunCheckpoints;
-  /** A resumed run's checkpoint and ledger; `initial` is then ignored. */
-  restore?: RestoredRun;
-  /** No user: interrupted calls that need approval are refused. */
-  isUnattended?: boolean;
-  /** The agent instance's approvals: calls whose tool requires approval wait here for `agent.approve`. */
-  approvals?: ApprovalCenter;
-  /** The run's guardrails; with `answer`, how the final answer is checked (the task's structured output, retries). */
-  guardrails?: { checks: RunGuardrails; answer: GuardrailRunContext; outputRetries: number };
-  /** An input guardrail blocked the run: it fails with this, before any request. */
-  inputBlocked?: string;
-  /** The run's side effects (dry-run plans). */
-  effects?: RunEffects;
-  /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
-  delegation?: RunDelegation;
-  /** `learning.responseCache`: identical reproducible requests are replayed. */
-  responseCache?: RunResponseCache;
-  emit(event: AigentEvent): void;
-}
+import { runTurn } from './run-turn.js';
+import type { RunTotals, TurnStreamResult } from './run-turn.js';
+import type { RunVolatile } from './run-volatile.js';
+import { settleAnswer } from './settle-answer.js';
+import { delegatedTurnMessages, turnMessages } from './turn-messages.js';
+import { abortedStatus, buildTurnsResult } from './turns-result.js';
 
 /** Said once per run whose provider runs its own tool loop. */
 function delegatedModeWarning(providerId: string): string {
@@ -181,15 +104,9 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   let isReady = true;
   const { effects, guardrails } = params;
   if (restore != null) {
-    const { memory } = telemetry;
-    const round = await reconcileInterruptedRound({
-      // Bookkeeping tools carry no memory field, as in a live dispatch.
-      ...(memory == null ? {} : { takeMemory: (call: ToolCall) => (COMMENTARY_TOOLS.has(call.name) ? nothingHeld(call) : memory.take(call)) }),
-      // Feedback's previous is stripped as a live dispatch strips it; the interrupted process already linked it.
-      ...(telemetry.feedback.isEnabled ? { injectedFields: (call: ToolCall) => (COMMENTARY_TOOLS.has(call.name) ? [] : [PREVIOUS_FIELD]) } : {}),
-      restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
-      ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }), ...(guardrails == null ? {} : { guard: guardSettledCall(guardrails.checks) }),
-      ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),
+    const round = await restoreInterruptedRound({
+      restore, telemetry, registry: originals.registry(), ids: { runId, agentName, instanceId, ...(ledgerRunId == null ? {} : { ledgerRunId }) }, signal, sideEffectSignal, isUnattended, clock, emit,
+      ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { effects }), ...(guardrails == null ? {} : { guardrails: guardrails.checks }), ...(gate == null ? {} : { gate }),
     });
     // Not reported through onCommit: a chat already holds this round (the cut-short reply), so its history is not repeated.
     if (round.messages.length > 0) appendContextMessages({ context, messages: round.messages, createdAt: clock.now() });

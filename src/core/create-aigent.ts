@@ -1,27 +1,17 @@
 import type { Aigent, AigentOptions } from './aigent-types.js';
-import type { Provider } from '../providers/provider-types.js';
-import { createScheduler } from '../scheduler/scheduler.js';
-import type { Scheduler, SchedulerOptions } from '../scheduler/scheduler-types.js';
-import type { PurgeFilter, Store } from '../store/store-types.js';
 import { createWriteQueue } from '../store/write-queue.js';
 import { purgeRecords } from '../telemetry/purge-records.js';
 import { readTrace } from '../telemetry/read-trace.js';
 import { createRecordWriter } from '../telemetry/record-writer.js';
-import type { Redact } from '../telemetry/redact.js';
 import { parseRetention } from '../telemetry/retention.js';
 import { parsePricing } from '../scoring/pricing.js';
 import { readReport } from '../scoring/read-report.js';
-import type { Pricing, Report, ReportFilter } from '../scoring/report-types.js';
-import type { RetentionOptions } from '../telemetry/retention.js';
-import type { RunTrace } from '../telemetry/run-record.js';
 import type { UserFeedback } from '../feedback/feedback-records.js';
 import { recordUserFeedback } from '../feedback/user-feedback.js';
 import type { Agent, AgentDefinition, TaskRun } from './agent-types.js';
 import { parseModelSettings } from './model-settings.js';
-import type { ModelSettings } from './model-settings.js';
 import { resolveToolCache } from './resolve-tool-cache.js';
 import { createMathRandom, createSystemClock, createTimerSleeper, createUuidGenerator } from './runtime-services.js';
-import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import { startTaskRun } from './start-task-run.js';
 import type { RuntimeServices } from './start-task-run.js';
 import { createTargetResolver } from './model-targets.js';
@@ -31,28 +21,24 @@ import { parseTaskInput } from './task-input.js';
 import { parseVolatileOptions } from '../context/volatile-block.js';
 import { createCompressionCache } from '../compression/compression-cache.js';
 import { evalCompression } from '../compression/eval-compression.js';
-import type { CompressionEvalReport, EvalCompressionParams } from '../compression/eval-compression.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import { previewPrompt } from './preview.js';
 import { createAgentResume } from '../resume/agent-resume.js';
 import { createApprovalCenter } from '../approvals/approval-gate.js';
 import { createAuditTrail } from '../approvals/audit-trail.js';
 import { createAllowAlwaysRules } from '../approvals/allow-always.js';
-import { costOfUsage } from '../scoring/pricing.js';
-import type { StartedSubRun } from './delegation-types.js';
-import type { TaskInput } from './task-input.js';
 import { createInstanceRuntime } from '../resume/instance-runtime.js';
 import { validateResumeOptions } from '../resume/resume-options.js';
 import { createAigentError } from './aigent-error.js';
+import { resolveScheduler } from './resolve-scheduler.js';
+import { createSubRunStarter } from './sub-run-starter.js';
 import { createChat } from '../chat/create-chat.js';
 import { parseChatOptions } from '../chat/chat-options.js';
-import type { VolatileOptions } from '../context/volatile-block.js';
 import { parseActivityOptions } from './activity-options.js';
 import { parseGuardrailOptions } from '../guardrails/guardrail-options.js';
 import { redactsPersonalData } from '../guardrails/builtin/pii.js';
 import { createRuntimeEffectLog } from '../effects/runtime-effect-log.js';
 import { parseUndoTarget, undoEffects } from '../effects/undo.js';
-import type { ActivityOptions } from './activity.js';
 import { createPluginRegistry } from '../plugins/plugin-registry.js';
 import { createMemoryStore } from '../memory/memory-store.js';
 import { resolveMemoryOptions } from '../memory/memory-schema.js';
@@ -64,16 +50,6 @@ import { createLearning } from '../learning/create-learning.js';
 import { linkSuggestionsToSkills } from '../learning/skills/link-suggestions.js';
 import { saveGroupLesson } from './group-lesson.js';
 import type { Tool } from '../tools/tool-types.js';
-
-function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
-  return typeof (value as Partial<Scheduler>).acquire === 'function';
-}
-
-/** The given scheduler, or one built from options (defaulting to this aigent's clock and sleep). */
-function resolveScheduler(params: { scheduler: Scheduler | SchedulerOptions | undefined; clock: Clock; sleep: Sleeper }): Scheduler {
-  const { scheduler = {}, clock, sleep } = params;
-  return isScheduler(scheduler) ? scheduler : createScheduler({ clock, sleep, ...scheduler });
-}
 
 export function createAigent(options: AigentOptions): Aigent {
   const { providers = [], plugins = [], clock = createSystemClock(), ids = createUuidGenerator(), sleep = createTimerSleeper(), random = createMathRandom(), redact, captureContent = true } = options;
@@ -191,16 +167,7 @@ export function createAigent(options: AigentOptions): Aigent {
   const agentsByName = new Map<string, { agent: Agent; model: string }>();
 
   /** A sub-run of the named agent (for the `delegate` tool), priced at that agent's own model. */
-  function startSubRun(request: { agentName: string; input: TaskInput }): StartedSubRun | undefined {
-    const { agentName, input } = request;
-    const entry = agentsByName.get(agentName);
-    if (entry == null) return undefined;
-    // A delegated tool-call budget may only lower the agent's own limit, never raise it.
-    const own = definitions.get(agentName)?.limits?.maxToolCalls;
-    const granted = input.limits?.maxToolCalls;
-    const limits = granted == null || own == null ? input.limits : { ...input.limits, maxToolCalls: Math.min(own, granted) };
-    return { run: entry.agent.task({ ...input, ...(limits == null ? {} : { limits }) }), price: usage => costOfUsage({ model: entry.model, usage, ...(pricing == null ? {} : { pricing }) }) ?? undefined };
-  }
+  const startSubRun = createSubRunStarter({ agents: { definitions, agentsByName }, ...(pricing == null ? {} : { pricing }) });
   /** `allow_always` decisions: per agent instance unless a decision widened them. */
   const allowAlways = createAllowAlwaysRules();
   const audit = createAuditTrail({ ...(writer == null ? {} : { records: writer }), clock });

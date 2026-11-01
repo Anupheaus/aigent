@@ -4,8 +4,9 @@ import type { UndoContext, UndoDescriptor, UndoOutcome } from '../effects/undo-t
 import { BATCH_RESULT_HELPERS } from './batch-entries.js';
 import type { BatchEntry } from './batch-entries.js';
 import { batchDryRun } from './batch-dry-run.js';
-import { defineTool, invalid, isPositiveInteger } from './define-tool.js';
-import type { ToolBaseInput } from './define-tool.js';
+import { defineTool } from './define-tool.js';
+import { invalid, isPositiveInteger } from './validate-tool-input.js';
+import type { ToolBaseInput } from './tool-input.js';
 import { describeThrown } from './tool-error-detail.js';
 import type { DescribeActivity, Tool, ToolContext, ToolVerifyResult } from './tool-types.js';
 

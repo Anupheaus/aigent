@@ -1,4 +1,4 @@
-import type { SteerSource } from '../core/run-agent-turns.js';
+import type { SteerSource } from '../core/run-agent-turns-types.js';
 import type { ProviderMessage } from '../providers/provider-types.js';
 
 export interface SteerInbox<T> extends SteerSource {
