@@ -4,7 +4,10 @@ import { describeStoreContract } from '../testing/contract/store-contract.js';
 import { createMongoFake } from './mongo-fake.test-support.js';
 import { createMongoStore } from './mongo-store.js';
 
-const ALLOWED_OPERATIONS = ['findOne', 'find', 'insertOne', 'updateOne', 'deleteOne', 'deleteMany', 'createIndex', 'listCollections'];
+/** Over MongoDB's 16 MiB document limit. */
+const OVERSIZED_BYTES = 17_000_000;
+const WRITE_CONFLICT_CODE = 112;
+const ALLOWED_OPERATIONS =['findOne', 'find', 'insertOne', 'updateOne', 'deleteOne', 'deleteMany', 'createIndex', 'listCollections'];
 
 describeStoreContract({
   name: 'mongo store (fake driver)',
@@ -51,12 +54,14 @@ describe('mongo store', () => {
   it('creates each collection index once, even for concurrent first use, and keeps to its own prefix', async () => {
     const fake = createMongoFake();
     const store = createMongoStore({ db: fake.db, collectionPrefix: 'mine_' });
-    await Promise.all([store.get('c', 'a'), store.get('c', 'b'), store.list('c')]);
-    await store.get('c', 'again');
+    // Only writes create a collection (and its index): a read of a missing collection changes nothing on the server.
+    const create = (key: string): Promise<boolean> => store.compareAndSet({ collection: 'c', key, expectedVersion: undefined, value: key });
+    await Promise.all([create('a'), create('b'), create('c')]);
+    await create('again');
     expect(fake.calls.filter(call => call.operation === 'createIndex')).toHaveLength(1);
     expect([...fake.indexes.keys()]).toEqual(['mine_c']);
     fake.db.collection('foreign');
-    await fake.db.collection('foreign').insertOne({ _id: 'x', version: 1, value: { agentName: 'a' } });
+    await fake.db.collection('foreign').insertOne({ _id: 'x', version: 1, json: '{"agentName":"a"}', store: 'foreign_', purge: { agentName: 'a' } });
     expect(await store.purge({ agentName: 'a' })).toBe(0);
   });
 
@@ -64,8 +69,59 @@ describe('mongo store', () => {
     const fake = createMongoFake();
     const store = createMongoStore({ db: fake.db });
     fake.failNext('createIndex', new Error('transient'));
-    await expect(store.get('c', 'k')).rejects.toThrow('transient');
-    expect(await store.get('c', 'k')).toBeUndefined();
+    await expect(store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value: 1 })).rejects.toThrow('transient');
+    expect(await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value: 1 })).toBe(true);
+  });
+
+  it('stores values whose field names start with $ or hold a dot, and updates them', async () => {
+    const store = createMongoStore({ db: createMongoFake().db });
+    const value = { $schema: 'https://json-schema.org/draft/2020-12/schema', 'a.b': { $ref: '#/x' }, list: [{ $id: 1 }] };
+    expect(await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value })).toBe(true);
+    expect(await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: 1, value: { ...value, more: true } })).toBe(true);
+    expect(await store.get('c', 'k')).toEqual({ key: 'k', value: { ...value, more: true }, version: 2 });
+  });
+
+  it('refuses a value too big for one MongoDB document with invalid_input, naming the limit, before sending it', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    const failure = await failureOf(store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value: 'x'.repeat(OVERSIZED_BYTES) }));
+    expect(isAigentError(failure) && failure.code).toBe('invalid_input');
+    expect((failure as Error).message).toContain('16 MiB');
+    expect(fake.calls.filter(call => call.operation === 'insertOne')).toEqual([]);
+  });
+
+  it('reads and lists without creating collections', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    await store.get('c', 'k');
+    await store.list('c');
+    expect(await fake.db.listCollections({}).toArray()).toEqual([]);
+  });
+
+  it('purges only its own records, never those of a store whose prefix starts with its own, and skips views', async () => {
+    const fake = createMongoFake();
+    const mine = createMongoStore({ db: fake.db, collectionPrefix: 'aigent_' });
+    const longer = createMongoStore({ db: fake.db, collectionPrefix: 'aigent_x_' });
+    await longer.compareAndSet({ collection: 'runs', key: 'r', expectedVersion: undefined, value: { agentName: 'a' } });
+    // Both stores name this collection 'aigent_x_runs'; only the `store` field tells their records apart.
+    await mine.compareAndSet({ collection: 'x_runs', key: 'mine', expectedVersion: undefined, value: { agentName: 'a' } });
+    fake.createView('aigent_view');
+    expect(await mine.purge({ agentName: 'a' })).toBe(1);
+    expect(await longer.get('runs', 'r')).toMatchObject({ value: { agentName: 'a' } });
+  });
+
+  it('purges by the same rule as the other stores: never through an array value', async () => {
+    const store = createMongoStore({ db: createMongoFake().db });
+    await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value: [{ agentName: 'a' }] });
+    expect(await store.purge({ agentName: 'a' })).toBe(0);
+  });
+
+  it('treats a write conflict as a lost compare-and-set', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value: 1 });
+    fake.failNext('updateOne', Object.assign(new Error('WriteConflict error: this operation conflicted with another operation'), { code: WRITE_CONFLICT_CODE }));
+    expect(await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: 1, value: 2 })).toBe(false);
   });
 
   it('closes the connection once and refuses work afterwards', async () => {

@@ -1,6 +1,7 @@
 import { createAigentError } from '../core/aigent-error.js';
 import { encodeName } from './key-encoding.js';
-import type { MongoCollectionLike, MongoDbLike, MongoFilter } from './mongo-types.js';
+import { documentFor, purgeCriteria, valueOf } from './mongo-document.js';
+import type { MongoCollectionLike, MongoDbLike } from './mongo-types.js';
 import type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store-types.js';
 
 export interface MongoStoreOptions {
@@ -19,7 +20,11 @@ export interface MongoStore extends Store {
 }
 
 const DEFAULT_PREFIX = 'aigent_';
-const DUPLICATE_KEY_CODE = 11000;
+const DUPLICATE_KEY_CODE = 11_000;
+/** The server gave up on the write because another one touched the document: the compare-and-set lost. */
+const WRITE_CONFLICT_CODE = 112;
+/** `purge` deletes from collections only (a view cannot be written to). */
+const COLLECTIONS_ONLY = { type: 'collection' };
 const FIRST_VERSION = 1;
 const RETRYABLE_ERROR_NAMES = /Network|Timeout|ServerSelection|PoolCleared/;
 const RETRYABLE_LABELS = ['RetryableWriteError', 'TransientTransactionError'];
@@ -38,8 +43,14 @@ function checkWellFormed(params: { collection: string; key: string }): void {
   });
 }
 
-function isDuplicateKey(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === DUPLICATE_KEY_CODE;
+function errorCodeOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+}
+
+/** Another writer got there first: the create found the key taken, or the update conflicted. */
+function isLostRace(error: unknown): boolean {
+  const code = errorCodeOf(error);
+  return code === DUPLICATE_KEY_CODE || code === WRITE_CONFLICT_CODE;
 }
 
 function isRetryable(error: unknown): boolean {
@@ -49,7 +60,10 @@ function isRetryable(error: unknown): boolean {
   return Array.isArray(errorLabels) && errorLabels.some(label => RETRYABLE_LABELS.includes(String(label)));
 }
 
-/** A store on MongoDB: one collection per logical collection, documents `{ _id: key, version, value }`. */
+/**
+ * A store on MongoDB: one collection per logical collection, documents `{ _id: key, version, json, store, purge }`
+ * (see `MongoDocument`). Reads never create a collection; the first write creates it with its purge index.
+ */
 export function createMongoStore(options: MongoStoreOptions): MongoStore {
   const { db, onClose } = options;
   const prefix = options.collectionPrefix ?? DEFAULT_PREFIX;
@@ -61,7 +75,8 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
   }
 
   /** Maps a driver failure to `store_failed`, saying which operation and whether trying again may help. */
-  async function guarded<R>(operation: string, details: Record<string, unknown>, action: () => Promise<R>): Promise<R> {
+  async function guarded<R>(params: { operation: string; details: Record<string, unknown>; action(): Promise<R> }): Promise<R> {
+    const { operation, details, action } = params;
     if (closed) {
       throw createAigentError({ code: 'store_failed', message: `Cannot ${operation}: the MongoDB store is closed`, details });
     }
@@ -76,13 +91,13 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
     }
   }
 
-  /** Creates the purge index once per collection per store; creating an existing index is a no-op in MongoDB. */
-  function collectionFor(collection: string): Promise<MongoCollectionLike> {
+  /** A write target: its purge index is created once per collection per store (an existing index is a no-op in MongoDB). */
+  function writableCollection(collection: string): Promise<MongoCollectionLike> {
     const name = mongoName(collection);
     const target = db.collection(name);
     let pending = indexed.get(name);
     if (pending == null) {
-      pending = target.createIndex({ 'value.recordedAt': 1 }).then(() => undefined);
+      pending = target.createIndex({ 'purge.recordedAt': 1 }).then(() => undefined);
       indexed.set(name, pending);
       pending.catch(() => indexed.delete(name));
     }
@@ -91,65 +106,72 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
 
   async function get<T>(collection: string, key: string): Promise<StoredRecord<T> | undefined> {
     checkWellFormed({ collection, key });
-    return guarded('read', { collection, key }, async () => {
-      const found = await (await collectionFor(collection)).findOne({ _id: key });
-      return found == null ? undefined : { key, value: found.value as T, version: found.version };
+    return guarded({
+      operation: 'read', details: { collection, key },
+      action: async () => {
+        const found = await db.collection(mongoName(collection)).findOne({ _id: key });
+        return found == null ? undefined : { key, value: valueOf({ document: found, collection }) as T, version: found.version };
+      },
     });
   }
 
   async function compareAndSet<T>(params: CompareAndSetParams<T>): Promise<boolean> {
     const { collection, key, expectedVersion, value } = params;
     checkWellFormed({ collection, key });
-    return guarded('write', { collection, key }, async () => {
-      const target = await collectionFor(collection);
-      if (expectedVersion == null) {
+    const document = documentFor({ key, version: (expectedVersion ?? 0) + 1, value, prefix, collection });
+    return guarded({
+      operation: 'write', details: { collection, key },
+      action: async () => {
+        const target = await writableCollection(collection);
         try {
-          await target.insertOne({ _id: key, version: FIRST_VERSION, value });
-          return true;
+          if (expectedVersion == null) {
+            await target.insertOne(document);
+            return true;
+          }
+          const { version, json, purge } = document;
+          const result = await target.updateOne({ _id: key, version: expectedVersion }, { $set: { version, json, purge } });
+          return result.matchedCount === 1;
         } catch (error) {
-          if (isDuplicateKey(error)) return false;
+          if (isLostRace(error)) return false;
           throw error;
         }
-      }
-      const result = await target.updateOne({ _id: key, version: expectedVersion }, { $set: { version: expectedVersion + 1, value } });
-      return result.matchedCount === 1;
+      },
     });
   }
 
   async function list<T>(collection: string): Promise<StoredRecord<T>[]> {
-    return guarded('list', { collection }, async () => {
-      const documents = await (await collectionFor(collection)).find({}).toArray();
-      return documents.map(document => ({ key: document._id, value: document.value as T, version: document.version }));
+    return guarded({
+      operation: 'list', details: { collection },
+      action: async () => {
+        const documents = await db.collection(mongoName(collection)).find({}).toArray();
+        return documents.map(document => ({ key: document._id, value: valueOf({ document, collection }) as T, version: document.version }));
+      },
     });
   }
 
   async function deleteRecord(collection: string, key: string): Promise<void> {
     checkWellFormed({ collection, key });
-    await guarded('delete', { collection, key }, async () => {
-      await (await collectionFor(collection)).deleteOne({ _id: key });
+    await guarded({
+      operation: 'delete', details: { collection, key },
+      action: async () => {
+        await db.collection(mongoName(collection)).deleteOne({ _id: key });
+      },
     });
   }
 
-  function purgeFilter(filter: PurgeFilter): MongoFilter {
-    const { agentName, runId, before } = filter;
-    const criteria: MongoFilter = {};
-    if (agentName != null) criteria['value.agentName'] = agentName;
-    if (runId != null) criteria['value.runId'] = runId;
-    if (before != null) criteria['value.recordedAt'] = { $lt: before };
-    return criteria;
-  }
-
   async function purge(filter: PurgeFilter): Promise<number> {
-    return guarded('purge', {}, async () => {
-      // As in the other stores, an empty filter matches every record whose value is an object (never a bare string or array).
-      const criteria = Object.keys(purgeFilter(filter)).length === 0 ? { value: { $type: 'object' } } : purgeFilter(filter);
-      const names = await db.listCollections({}).toArray();
-      let purged = 0;
-      for (const { name } of names) {
-        if (!name.startsWith(prefix)) continue;
-        purged += (await db.collection(name).deleteMany(criteria)).deletedCount;
-      }
-      return purged;
+    return guarded({
+      operation: 'purge', details: {},
+      action: async () => {
+        // `store` in the criteria: a store whose prefix starts with this one's has collection names this one could own.
+        const criteria = purgeCriteria({ filter, prefix });
+        let purged = 0;
+        for (const { name } of await db.listCollections(COLLECTIONS_ONLY).toArray()) {
+          if (!name.startsWith(prefix)) continue;
+          purged += (await db.collection(name).deleteMany(criteria)).deletedCount;
+        }
+        return purged;
+      },
     });
   }
 
