@@ -49,6 +49,23 @@ describe('createSkillTool', () => {
     expect(tool.summarise?.(result)).toEqual({ success: false, reason: 'step 2 failed' });
   });
 
+  it('stops at a failed stop step even when an earlier continue step failed first', async () => {
+    const { tools, calls } = lookupTools();
+    const skill = activeSkill(tools);
+    const mixed: Skill = {
+      ...skill,
+      steps: [
+        { tool: 'read', args: { path: { const: 'missing.ts' } }, onFailure: 'continue' },
+        { tool: 'read', args: { path: { const: 'also-missing.ts' } }, onFailure: 'stop' },
+        { tool: 'search', args: { query: { param: 'query' }, root: { const: 'src' } }, onFailure: 'stop' },
+      ],
+    };
+    const result = await createSkillTool({ skill: mixed, tools: new Map(tools.map(each => [each.name, each])) }).run({ query: 'retry policy' }, dispatcher(tools).context) as SkillResult;
+    expect(calls).toEqual(['read:missing.ts', 'read:also-missing.ts']);
+    expect(result.steps.map(envelope => (envelope.ok ? 'ok' : envelope.error.code))).toEqual(['tool_threw', 'tool_threw', 'skill_step_skipped']);
+    expect(result.outcome).toEqual({ success: false, completedSteps: 0, failedStep: 1 });
+  });
+
   it('runs the remaining steps after a failure when a step says continue, failing those whose inputs are missing', async () => {
     const { tools, calls } = lookupTools();
     const skill = activeSkill(tools);

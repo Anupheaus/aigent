@@ -68,24 +68,31 @@ export function createSkillTool(params: { skill: Skill; tools: Map<string, Tool>
       if (!hasDispatcher(context)) throw createAigentError({ code: 'invalid_input', message: `Skill '${name}' runs only inside an agent run, where each step goes through the run's checks`, details: { skill: name } });
       const executed: ExecutedToolCall[] = [];
       const envelopes: ToolEnvelope[] = [];
+      /** The first step that failed, as reported. */
       let failedStep: number | undefined;
+      /** The first failed step that says `stop`: an earlier `continue` failure must not let the rest run past it. */
+      let stoppedBy: number | undefined;
+      const fail = (stepIndex: number): void => {
+        failedStep ??= stepIndex;
+        if (steps[stepIndex]?.onFailure === 'stop') stoppedBy ??= stepIndex;
+      };
       for (const [stepIndex, step] of steps.entries()) {
         const id = `step_${stepIndex + 1}`;
-        if (failedStep != null && steps[failedStep]?.onFailure === 'stop') {
-          envelopes.push(notRun({ id, tool: step.tool, error: { category: 'denied', code: 'skill_step_skipped', retryable: false, message: `Not run: step ${failedStep + 1} failed` } }));
+        if (stoppedBy != null) {
+          envelopes.push(notRun({ id, tool: step.tool, error: { category: 'denied', code: 'skill_step_skipped', retryable: false, message: `Not run: step ${stoppedBy + 1} failed` } }));
           continue;
         }
         const bound = bindStepArgs({ args: step.args, params: args, valueAt: (fromStep, path) => { const earlier = envelopes[fromStep]; return earlier?.ok === true ? readPointer(earlier.result, path) : undefined; } });
         if (!bound.ok) {
           envelopes.push(notRun({ id, tool: step.tool, error: { category: 'validation', code: 'skill_binding', retryable: false, message: `Step ${stepIndex + 1}: ${bound.reason}` } }));
-          failedStep ??= stepIndex;
+          fail(stepIndex);
           continue;
         }
         const needsApproval = allowSideEffects && tools.get(step.tool)?.hasSideEffects === true;
         const call = await context.runInnerCall({ id, tool: step.tool, args: bound.args, ...(needsApproval ? { approvalReason: `Step ${stepIndex + 1} of learned skill '${name}' changes something` } : {}) });
         executed.push(call);
         envelopes.push(call.envelope);
-        if (!call.envelope.ok) failedStep ??= stepIndex;
+        if (!call.envelope.ok) fail(stepIndex);
       }
       const last = envelopes.at(-1);
       const result: SkillResult = {
