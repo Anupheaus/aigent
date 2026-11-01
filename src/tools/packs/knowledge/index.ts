@@ -8,6 +8,7 @@ export type { EmbeddingFetch, OpenAiEmbedderOptions } from '../../../knowledge/e
 export { createMemoryVectorIndex } from '../../../knowledge/memory-vector-index.js';
 export { createFileVectorIndex } from '../../../knowledge/file-vector-index.js';
 export type { FileVectorIndexOptions } from '../../../knowledge/file-vector-index.js';
+export { createStoreVectorIndex } from '../../../knowledge/store-vector-index.js';
 export { scanSources } from '../../../knowledge/source-scan.js';
 export type { ScanSourcesOptions } from '../../../knowledge/source-scan.js';
 export { evalRetrieval } from '../../../knowledge/eval-retrieval.js';

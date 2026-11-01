@@ -57,7 +57,7 @@ describe('public API', () => {
   });
 
   it('exports the knowledge pack from its own entry', () => {
-    expect(Object.keys(knowledgePack).sort()).toEqual(['createChunker', 'createFileVectorIndex', 'createKnowledgeBase', 'createMemoryVectorIndex', 'evalRetrieval', 'hashEmbedder', 'knowledgeTools', 'openAiEmbedder', 'scanSources']);
+    expect(Object.keys(knowledgePack).sort()).toEqual(['createChunker', 'createFileVectorIndex', 'createKnowledgeBase', 'createMemoryVectorIndex', 'createStoreVectorIndex', 'evalRetrieval', 'hashEmbedder', 'knowledgeTools', 'openAiEmbedder', 'scanSources']);
   });
 
   it('exports the repository index pack from its own entry', () => {
