@@ -16,6 +16,12 @@ import { contentTerms } from './stop-words.js';
 /** Set before the fixture was run: embedding recall must put the labelled memory first for at least 8 of 10 paraphrases. */
 const MIN_PARAPHRASE_TOP_ONE = 0.8;
 const SHORT_TIMEOUT_MS = 50;
+/** The review's slow-embedder measurement: 100 memories at 5 ms a text under a 200 ms deadline stored nothing in 5 recalls. */
+const MANY_MEMORIES = 100;
+const SLOW_MS_PER_TEXT = 5;
+const SLOW_TIMEOUT_MS = 200;
+/** 100 texts at 5 ms is 500 ms of embedding: three 200 ms recalls could do it, eight leave room for a loaded machine. */
+const SLOW_RECALLS = 8;
 
 async function storeWith(entries: MemoryEntry[]): Promise<Store> {
   const store = createInMemoryStore();
@@ -136,6 +142,24 @@ describe('embeddingRetriever', () => {
     expect(recalled[0]?.id).toBe('tests');
     expect(signalled?.aborted).toBe(true);
     expect(problems).toEqual([expect.stringContaining(`${SHORT_TIMEOUT_MS} ms`)]);
+  });
+
+  it('keeps the vectors it finished before a deadline, so a slow embedder fills the cache over a few recalls', async () => {
+    const store = await storeWith(Array.from({ length: MANY_MEMORIES }, (_unused, position) => fixtureEntry({ id: `m${position}`, text: `Memory number ${position} about deploying` })));
+    const base = conceptEmbedder();
+    const slow: Embedder = {
+      ...base,
+      // Like a real service: time grows with the texts sent, and an abort ends the request.
+      embed: (texts, signal) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { void base.embed(texts).then(resolve); }, texts.length * SLOW_MS_PER_TEXT);
+        signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('aborted')); });
+      }),
+    };
+    const retriever = embeddingRetriever({ embedder: slow, store, timeoutMs: SLOW_TIMEOUT_MS });
+    for (let recallNumber = 0; recallNumber < SLOW_RECALLS; recallNumber += 1) await recall({ store, query: 'Ship it', retriever, onProblem: () => undefined });
+    expect(await store.list(MEMORY_VECTOR_COLLECTION)).toHaveLength(MANY_MEMORIES);
+    // Each memory is embedded once or, cut off by a deadline, twice: never again and again.
+    expect(base.embedded.filter(text => text !== 'Ship it').length).toBeLessThan(2 * MANY_MEMORIES);
   });
 
   it('refuses vectors of the wrong size or count from the embedder, falling back to keywords', async () => {

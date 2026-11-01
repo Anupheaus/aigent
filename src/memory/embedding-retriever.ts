@@ -20,7 +20,10 @@ export interface EmbeddingRetrieverOptions {
   store: Store;
   /** Cosine similarity below which the embedder's opinion is "unrelated" (default 0.3). */
   minSimilarity?: number;
-  /** The whole ranking (store reads, embedding, writes) is given up after this long, and recall uses keywords (default 5000). */
+  /**
+   * The whole ranking (store reads, embedding, writes) is given up after this long, and recall uses keywords (default
+   * 5000). Batches of memories embedded before then are kept for the next recall.
+   */
   timeoutMs?: number;
   /** Told about problems that do not stop the ranking (vectors that could not be stored). */
   onWarning?(message: string): void;
@@ -37,6 +40,8 @@ const DEFAULT_TIMEOUT_MS = 5_000;
  * blur, but a lone shared word should not outrank a paraphrase.
  */
 const KEYWORD_WEIGHT = 0.5;
+/** Memories embedded per request: small enough that a deadline loses little work, large enough to batch well. */
+const EMBED_BATCH_SIZE = 16;
 
 function failure(params: { embedder: Embedder; message: string }): Error {
   const { embedder, message } = params;
@@ -75,18 +80,16 @@ function fuse(params: { semantic: Map<string, number>; keyword: Map<string, numb
 /**
  * Memory recall by meaning: each memory is embedded once (its vector stored by entry id with the embedder's id and
  * dimensions and a hash of the text, and used again only when all match), the task is embedded on every recall, and
- * memories at least `minSimilarity` alike are fused with BM25's keyword ranking. Only the stored, scrubbed text is
+ * memories at least `minSimilarity` alike are fused with BM25's keyword ranking. The query is embedded on its own and
+ * new memories 16 at a time, each batch stored as it finishes, so a deadline keeps the work done before it. Only the stored, scrubbed text is
  * embedded, and the task is scrubbed of secrets before it is sent. A failing, malformed or slow embedder makes `rank`
  * throw, and recall then falls back to keywords with a warning: it never fails or stalls a run.
  */
 export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRetriever {
   const { embedder, store, minSimilarity = DEFAULT_MIN_SIMILARITY, timeoutMs = DEFAULT_TIMEOUT_MS, onWarning } = options;
 
-  async function semanticScores(params: { query: string; embeddables: EmbeddableEntry[]; signal: AbortSignal }): Promise<Map<string, number>> {
-    const { query, embeddables, signal } = params;
-    const known = await loadVectors({ store, embeddables, embedder });
-    const missing = embeddables.filter(({ entry }) => !known.has(entry.id));
-    const texts = [scrubMemoryText({ text: query }), ...missing.map(({ text }) => text)];
+  async function embedChecked(params: { texts: string[]; signal: AbortSignal }): Promise<number[][]> {
+    const { texts, signal } = params;
     let vectors: number[][];
     try {
       vectors = await embedder.embed(texts, signal);
@@ -94,12 +97,32 @@ export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRe
       throw failure({ embedder, message: `failed: ${describeError(error)}` });
     }
     checkVectors({ embedder, vectors, count: texts.length });
-    const [queryVector = [], ...entryVectors] = vectors;
-    const embedded = missing.map((embeddable, position) => ({ embeddable, vector: entryVectors[position] ?? [] }));
-    if (signal.aborted) return new Map();
-    const problems = await storeVectors({ store, embedder, embedded });
-    if (problems.length > 0) onWarning?.(`Memory vectors were not stored (they are embedded again next time): ${problems.join('; ')}`);
-    for (const { embeddable: { entry }, vector } of embedded) known.set(entry.id, vector);
+    return vectors;
+  }
+
+  /**
+   * Embeds the missing entries a batch at a time and stores each batch as it finishes, so a deadline that cuts the
+   * work short keeps what was done and the next recall carries on from there.
+   */
+  async function embedMissing(params: { missing: EmbeddableEntry[]; known: Map<string, number[]>; signal: AbortSignal }): Promise<void> {
+    const { missing, known, signal } = params;
+    for (let start = 0; start < missing.length; start += EMBED_BATCH_SIZE) {
+      const batch = missing.slice(start, start + EMBED_BATCH_SIZE);
+      const vectors = await embedChecked({ texts: batch.map(({ text }) => text), signal });
+      // Past the deadline the recall has already fallen back: nothing more is written for it.
+      if (signal.aborted) return;
+      const embedded = batch.map((embeddable, position) => ({ embeddable, vector: vectors[position] ?? [] }));
+      const problems = await storeVectors({ store, embedder, embedded });
+      if (problems.length > 0) onWarning?.(`Memory vectors were not stored (they are embedded again next time): ${problems.join('; ')}`);
+      for (const { embeddable: { entry }, vector } of embedded) known.set(entry.id, vector);
+    }
+  }
+
+  async function semanticScores(params: { query: string; embeddables: EmbeddableEntry[]; signal: AbortSignal }): Promise<Map<string, number>> {
+    const { query, embeddables, signal } = params;
+    const known = await loadVectors({ store, embeddables, embedder });
+    const [queryVector = []] = await embedChecked({ texts: [scrubMemoryText({ text: query })], signal });
+    await embedMissing({ missing: embeddables.filter(({ entry }) => !known.has(entry.id)), known, signal });
     const scores = new Map<string, number>();
     for (const [id, vector] of known) {
       const similarity = cosine(queryVector, vector);
