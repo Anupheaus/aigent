@@ -1,7 +1,7 @@
 import { createAigentError } from '../core/aigent-error.js';
 import type { Store } from '../store/store-types.js';
 import type { IndexedChunk, VectorIndex } from './knowledge-types.js';
-import { STORE_VECTOR_COLLECTION, STORE_VECTOR_SCHEMA_VERSION, discardPages, manifestKey, newPageKey, paginate, readManifest, readPage, samePage } from './store-vector-pages.js';
+import { STORE_VECTOR_COLLECTION, STORE_VECTOR_SCHEMA_VERSION, discardPages, manifestKey, newPageKey, placePages, readManifest, readPage } from './store-vector-pages.js';
 import type { StoredVectorManifest, StoredVectorPage } from './store-vector-pages.js';
 import { byPlace, matchesMetadata, versionOf } from './vector-index.js';
 import { byScoreThenId, cosine } from './vector-math.js';
@@ -40,9 +40,10 @@ function conflict(params: { namespace: string; action: string; attempts: number 
 
 /**
  * A `VectorIndex` kept in any `Store` (collection `vector-index`), so it survives restarts and can be shared by
- * processes on the same store. Chunks are stored in place order in page records of at most 200; an index record per
+ * processes on the same store. Chunks are stored in page records of at most 200, each chunk staying on its page; an index record per
  * namespace lists the pages and changes only by compare-and-set, so concurrent writers never lose each other's
- * changes. A change writes new records for the pages that differ and then deletes the pages it replaced (empties them
+ * changes. A change writes new records only for the pages whose chunks changed (new chunks fill the last page, then
+ * new ones) and then deletes the pages it replaced (empties them
  * on a store without `delete`). Every operation re-reads the index record and only the pages it has not seen.
  * Queries are exact cosine over every chunk of the namespace, held in memory: sized for thousands of chunks, not millions.
  */
@@ -64,7 +65,11 @@ export function createStoreVectorIndex(store: Store, namespace: string): VectorI
         if (page == null) break;
         pages.push(page);
       }
-      if (pages.length !== pageKeys.length) continue;
+      if (pages.length !== pageKeys.length) {
+        // Another writer replaced a page since the index record was read; give it a moment to settle.
+        await backoff();
+        continue;
+      }
       cached = { version, pageKeys, pages, chunks: new Map(pages.flat().map(chunk => [chunk.chunkId, chunk])) };
       return cached;
     }
@@ -72,14 +77,14 @@ export function createStoreVectorIndex(store: Store, namespace: string): VectorI
   }
 
   /** Writes the pages of `next` that differ from `state`, then swaps the index record; false when another writer won. */
-  async function commit(params: { state: IndexState; next: IndexedChunk[] }): Promise<boolean> {
+  async function commit(params: { state: IndexState; next: Map<string, IndexedChunk> }): Promise<boolean> {
     const { state, next } = params;
-    const pages = paginate(next);
-    const pageKeys = pages.map((page, position) => (samePage(state.pages[position], page) ? state.pageKeys[position] : undefined));
-    if (pages.length === state.pages.length && pageKeys.every(key => key != null)) return true;
+    const planned = placePages({ previous: state.pages, next });
+    const pageKeys = planned.map(({ unchangedFrom }) => (unchangedFrom == null ? undefined : state.pageKeys[unchangedFrom]));
+    if (planned.length === state.pages.length && pageKeys.every(key => key != null)) return true;
     const written: string[] = [];
     try {
-      for (const [position, page] of pages.entries()) {
+      for (const [position, { chunks: page }] of planned.entries()) {
         if (pageKeys[position] != null) continue;
         const key = newPageKey(namespace);
         const value: StoredVectorPage = { schemaVersion: STORE_VECTOR_SCHEMA_VERSION, namespace, chunks: page };
@@ -109,7 +114,7 @@ export function createStoreVectorIndex(store: Store, namespace: string): VectorI
         const state = await load();
         const draft = new Map(state.chunks);
         apply(draft);
-        if (await commit({ state, next: [...draft.values()].sort(byPlace) })) return;
+        if (await commit({ state, next: draft })) return;
         await backoff();
       }
       throw conflict({ namespace, action: 'change', attempts: MAX_WRITE_ATTEMPTS });

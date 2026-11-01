@@ -3,6 +3,7 @@ import { canonicalJson } from '../core/canonical-json.js';
 import { createAigentError } from '../core/aigent-error.js';
 import type { Store, StoredRecord } from '../store/store-types.js';
 import type { IndexedChunk } from './knowledge-types.js';
+import { byPlace } from './vector-index.js';
 
 /** The store collection every store-backed vector index keeps its records in. */
 export const STORE_VECTOR_COLLECTION = 'vector-index';
@@ -10,10 +11,10 @@ export const STORE_VECTOR_COLLECTION = 'vector-index';
 /** Version of the stored index and page records; another version is refused rather than misread. */
 export const STORE_VECTOR_SCHEMA_VERSION = 1;
 
-/** Chunks per page record: a page of 1,536-number vectors and 800-character texts stays well under 16 MB (MongoDB's cap). */
+/** At most this many chunks per page record: a page of 1,536-number vectors and 800-character texts stays well under 16 MB (MongoDB's cap). */
 export const PAGE_SIZE = 200;
 
-/** The index record: which pages hold the namespace's chunks, in order. */
+/** The index record: which pages hold the namespace's chunks (in no particular order). */
 export interface StoredVectorManifest {
   schemaVersion: number;
   namespace: string;
@@ -66,11 +67,45 @@ export async function readPage(params: { store: Store; key: string }): Promise<I
   return record.value.chunks;
 }
 
-/** Splits chunks (already in place order) into pages of `PAGE_SIZE`. */
-export function paginate(chunks: IndexedChunk[]): IndexedChunk[][] {
-  const pages: IndexedChunk[][] = [];
-  for (let start = 0; start < chunks.length; start += PAGE_SIZE) pages.push(chunks.slice(start, start + PAGE_SIZE));
-  return pages;
+/** A page of the next state: `unchangedFrom` is the position of the identical page in the previous state, when there is one. */
+export interface PlannedPage {
+  chunks: IndexedChunk[];
+  unchangedFrom?: number;
+}
+
+/** A changed page holding fewer than this is merged into the new chunks instead of being written on its own. */
+const MIN_CHANGED_PAGE = PAGE_SIZE / 2;
+
+/**
+ * Lays the next state's chunks out on pages, keeping every chunk on the page it was on: a change rewrites only the
+ * pages whose chunks changed, plus the last page as new chunks fill it (and new pages after it). Removed chunks leave
+ * their page (an emptied page is dropped); a changed page under half full is merged into the new chunks, so pages
+ * stay at least half full but the last. Page order is not place order: readers sort.
+ */
+export function placePages(params: { previous: IndexedChunk[][]; next: Map<string, IndexedChunk> }): PlannedPage[] {
+  const { previous, next } = params;
+  const planned: PlannedPage[] = [];
+  const seen = new Set<string>();
+  const loose: IndexedChunk[] = [];
+  for (const [position, page] of previous.entries()) {
+    for (const { chunkId } of page) seen.add(chunkId);
+    const survivors = page.flatMap(({ chunkId }) => next.get(chunkId) ?? []);
+    if (survivors.length === 0) continue;
+    const isUnchanged = samePage(page, survivors);
+    if (!isUnchanged && survivors.length < MIN_CHANGED_PAGE) {
+      loose.push(...survivors);
+      continue;
+    }
+    planned.push(isUnchanged ? { chunks: survivors, unchangedFrom: position } : { chunks: survivors });
+  }
+  loose.push(...[...next.values()].filter(({ chunkId }) => !seen.has(chunkId)));
+  loose.sort(byPlace);
+  const last = planned.at(-1);
+  if (last != null && last.chunks.length < PAGE_SIZE && loose.length > 0) {
+    planned[planned.length - 1] = { chunks: [...last.chunks, ...loose.splice(0, PAGE_SIZE - last.chunks.length)] };
+  }
+  for (let start = 0; start < loose.length; start += PAGE_SIZE) planned.push({ chunks: loose.slice(start, start + PAGE_SIZE) });
+  return planned;
 }
 
 /** Whether two pages hold the same chunks, field for field. */

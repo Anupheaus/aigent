@@ -13,6 +13,10 @@ import { FIXTURE_CHUNKS, behavesAsAnIndex, fixtureChunk } from './vector-index-b
 /** The plan's page size: at most this many chunks per stored record. */
 const PAGE_SIZE = 200;
 const NAMESPACE = 'docs';
+/** The review's measurement: one chunk added at the front of 2,000 rewrote 12 records (10.8 MB). */
+const LARGE_INDEX_CHUNKS = 2_000;
+const REVERSE_SOURCES = 40;
+const CHUNKS_PER_SOURCE = 20;
 
 /** `count` chunks of one source, in span order, each with its own two-number vector. */
 function manyChunks(count: number): IndexedChunk[] {
@@ -81,6 +85,44 @@ describe('createStoreVectorIndex', () => {
     expect(writes).toHaveLength(2);
     expect((await index.get(last.chunkId))?.text).toBe('changed');
     expect(await index.list()).toHaveLength(450);
+  });
+
+  it('writes one page and the index record when a chunk that sorts first joins 2,000 others', async () => {
+    const { store, writes } = recording(createInMemoryStore());
+    const index = createStoreVectorIndex(store, NAMESPACE);
+    await index.upsert(manyChunks(LARGE_INDEX_CHUNKS));
+    writes.length = 0;
+    await index.upsert([fixtureChunk({ id: 'first', sourceId: 'aaa', start: 0, vector: [0, 1] })]);
+    expect(writes).toHaveLength(2);
+    expect((await index.list())[0]?.chunkId).toBe('first');
+  });
+
+  it('writes at most two pages per change while sources arrive in reverse order', async () => {
+    const { store, writes } = recording(createInMemoryStore());
+    const index = createStoreVectorIndex(store, NAMESPACE);
+    let mostPageWrites = 0;
+    for (let source = REVERSE_SOURCES - 1; source >= 0; source -= 1) {
+      writes.length = 0;
+      const sourceId = `s${String(source).padStart(3, '0')}`;
+      await index.upsert(Array.from({ length: CHUNKS_PER_SOURCE }, (_unused, position) => fixtureChunk({ id: `${sourceId}-${position}`, sourceId, start: position, vector: [1, position] })));
+      mostPageWrites = Math.max(mostPageWrites, writes.filter(key => key.includes(':page:')).length);
+    }
+    expect(mostPageWrites).toBeLessThanOrEqual(2);
+    const listed = await index.list();
+    expect(listed).toHaveLength(REVERSE_SOURCES * CHUNKS_PER_SOURCE);
+    expect(listed[0]?.chunkId).toBe('s000-0');
+  });
+
+  it('leaves the other pages alone when a whole page\'s source is removed', async () => {
+    const { store, writes } = recording(createInMemoryStore());
+    const index = createStoreVectorIndex(store, NAMESPACE);
+    for (const sourceId of ['a', 'b', 'c']) {
+      await index.upsert(Array.from({ length: PAGE_SIZE }, (_unused, position) => fixtureChunk({ id: `${sourceId}${position}`, sourceId, start: position, vector: [1, position] })));
+    }
+    writes.length = 0;
+    await index.remove({ sourceId: 'b' });
+    expect(writes.filter(key => key.includes(':page:'))).toEqual([]);
+    expect(await index.list()).toHaveLength(2 * PAGE_SIZE);
   });
 
   it('deletes the pages a change replaced, so no old vector stays behind', async () => {
