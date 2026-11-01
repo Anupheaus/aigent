@@ -84,7 +84,7 @@ export function createFencedStore(params: CreateFencedStoreParams): Store {
       const record = await store.get<unknown>(collection, key);
       return isTombstone(record) ? undefined : record as never;
     },
-    list: async collection => (await store.list<unknown>(collection)).filter(record => !isTombstone(record)) as never,
+    list: async (collection, options) => (await store.list<unknown>(collection, options)).filter(record => !isTombstone(record)) as never,
     compareAndSet: write => fencedWrite(write as CompareAndSetParams<FenceFields>),
   };
   if (store.delete != null) {

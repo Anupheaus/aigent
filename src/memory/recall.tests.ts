@@ -101,3 +101,13 @@ describe('recallMemories', () => {
     expect(problems).toEqual(['Memory retriever failed, recall fell back to keywords: embedder offline']);
   });
 });
+
+describe('recallMemories store reads', () => {
+  it('lists only the agent and scope it recalls for, never the whole collection', async () => {
+    const base = await storeWith(FIXTURE_MEMORIES.map(memory => fixtureEntry(memory)));
+    const seen: unknown[] = [];
+    const store: Store = { ...base, list: (collection, options) => { seen.push({ collection, options }); return base.list(collection, options); } };
+    await recall({ store, query: 'lint' });
+    expect(seen).toEqual([{ collection: MEMORY_COLLECTION, options: { where: { agentName: 'helper', scopeKey: 'agent' } } }]);
+  });
+});

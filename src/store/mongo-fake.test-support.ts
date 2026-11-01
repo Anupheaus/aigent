@@ -12,6 +12,8 @@ export interface MongoFake {
   failNext(operation: MongoOperation, error: unknown): void;
   /** Collections the fake created an index on, with the keys. */
   indexes: Map<string, Record<string, 1 | -1>[]>;
+  /** The filter of every `find`, in order. */
+  finds: MongoFilter[];
   /** Adds a view: listed with `type: 'view'`, and writes to it fail as on a server. */
   createView(name: string): void;
 }
@@ -79,15 +81,20 @@ function matchesCondition(actual: unknown, condition: unknown): boolean {
     const operators = condition as Record<string, unknown>;
     if ('$lt' in operators) return typeof actual === 'number' && typeof operators.$lt === 'number' && actual < operators.$lt;
     if ('$type' in operators) return operators.$type === 'object' && typeof actual === 'object' && actual !== null && !Array.isArray(actual);
+    if ('$exists' in operators) return (actual !== undefined) === operators.$exists;
     throw new Error(`mongo fake: unsupported operator in ${JSON.stringify(condition)}`);
   }
+  // Like the server, a null condition also matches a field that is missing.
+  if (condition === null) return actual === null || actual === undefined;
   return actual === condition;
 }
 
 function matches(document: StoredDocument, filter: MongoFilter): boolean {
-  return Object.entries(asBson(filter) as MongoFilter).every(([path, condition]) => (
-    valuesAt({ value: document, parts: path.split('.') }).some(actual => matchesCondition(actual, condition))
-  ));
+  return Object.entries(asBson(filter) as MongoFilter).every(([path, condition]) => {
+    if (path === '$or') return Array.isArray(condition) && condition.some(branch => matches(document, branch as MongoFilter));
+    if (path.startsWith('$')) throw new Error(`mongo fake: unsupported top-level operator ${path}`);
+    return valuesAt({ value: document, parts: path.split('.') }).some(actual => matchesCondition(actual, condition));
+  });
 }
 
 function copyOut(document: StoredDocument): MongoDocument {
@@ -103,6 +110,7 @@ export function createMongoFake(): MongoFake {
   const collections = new Map<string, Map<string, StoredDocument>>();
   const views = new Set<string>();
   const calls: MongoFake['calls'] = [];
+  const finds: MongoFilter[] = [];
   const indexes = new Map<string, Record<string, 1 | -1>[]>();
   const failures = new Map<MongoOperation, unknown[]>();
 
@@ -141,6 +149,7 @@ export function createMongoFake(): MongoFake {
       },
       find(filter) {
         record('find', name);
+        finds.push(structuredClone(filter));
         return {
           async toArray() {
             await maybeFail('find');
@@ -228,6 +237,7 @@ export function createMongoFake(): MongoFake {
   return {
     db,
     calls,
+    finds,
     indexes,
     failNext(operation, error) {
       failures.set(operation, [...(failures.get(operation) ?? []), error]);

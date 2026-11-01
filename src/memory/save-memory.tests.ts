@@ -172,3 +172,15 @@ describe('saveMemory', () => {
     expect(result).toEqual({ saved: 0, evicted: 0, problems: ['memory note 1 was not saved: disk full'] });
   });
 });
+
+describe('saveMemory store reads', () => {
+  it('lists only its own agent and scope when applying the cap, never the whole collection', async () => {
+    const base = createInMemoryStore();
+    const seen: unknown[] = [];
+    const store: Store = { ...base, list: (collection, options) => { seen.push({ collection, options }); return base.list(collection, options); } };
+    await save({ store: base, notes: [{ kind: 'fact', text: 'another scope' }], scopeKey: 'session:other' });
+    await save({ store, notes: [{ kind: 'fact', text: 'mine' }], options: { maxEntries: 1 } });
+    expect(seen).toEqual([{ collection: MEMORY_COLLECTION, options: { where: { agentName: 'helper', scopeKey: 'agent' } } }]);
+    expect((await stored(base)).map(({ text }) => text).sort()).toEqual(['another scope', 'mine']);
+  });
+});

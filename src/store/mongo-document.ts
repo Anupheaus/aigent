@@ -1,9 +1,16 @@
 import { createAigentError } from '../core/aigent-error.js';
 import { MAX_BSON_DOCUMENT_BYTES, bsonSize } from './bson-size.js';
-import type { MongoDocument, MongoFilter, MongoPurgeFields } from './mongo-types.js';
-import type { PurgeFilter } from './store-types.js';
+import type { MongoDocument, MongoFilter, MongoPurgeFields, MongoWhereFields } from './mongo-types.js';
+import type { ListOptions, PurgeFilter } from './store-types.js';
 
 const MEBIBYTE = 1_048_576;
+/** Longest string copied into `fields`: keeps documents small; a longer `where` string is matched on the client. */
+const MAX_WHERE_STRING_LENGTH = 256;
+/**
+ * In `/u` mode a surrogate code point matches only when unpaired. BSON would store a lone surrogate as U+FFFD, so a
+ * string holding one is never copied into `fields` and is matched on the client instead.
+ */
+const LONE_SURROGATE = /\p{Cs}/u;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -18,6 +25,33 @@ export function purgeFieldsOf(value: unknown): MongoPurgeFields | null {
     ...(typeof runId === 'string' ? { runId } : {}),
     ...(typeof recordedAt === 'number' ? { recordedAt } : {}),
   };
+}
+
+/** A field name MongoDB reads as written: no `$` prefix (an operator), no dot (a path), no NUL, not empty. */
+function isServerFieldName(name: string): boolean {
+  return name !== '' && !name.startsWith('$') && !name.includes('.') && !name.includes('\u0000');
+}
+
+/** A value the server compares exactly as `===` does: short well-formed strings, finite numbers, booleans, null. */
+function isServerFieldValue(value: unknown): value is string | number | boolean | null {
+  if (typeof value === 'string') return value.length <= MAX_WHERE_STRING_LENGTH && !LONE_SURROGATE.test(value);
+  return value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value));
+}
+
+/** The top-level fields of a value that `list({ where })` can match on the server; null when it is not a plain object. */
+export function whereFieldsOf(value: unknown): MongoWhereFields | null {
+  if (!isPlainObject(value)) return null;
+  return Object.fromEntries(Object.entries(value).filter(([name, field]) => isServerFieldName(name) && isServerFieldValue(field))) as MongoWhereFields;
+}
+
+/**
+ * The server filter for `list({ where })`: equality on `fields.*`, or any document written before `fields` existed
+ * (the caller filters those, and every result, again). `{}` when a name or value cannot be matched on the server.
+ */
+export function listCriteria(where: ListOptions['where']): MongoFilter {
+  const entries = Object.entries(where ?? {});
+  if (entries.length === 0 || !entries.every(([name, value]) => isServerFieldName(name) && isServerFieldValue(value))) return {};
+  return { $or: [Object.fromEntries(entries.map(([name, value]) => [`fields.${name}`, value])), { fields: { $exists: false } }] };
 }
 
 /** The filter `purge` sends: this store's records only; with no criteria, every record whose value is a plain object. */
@@ -37,7 +71,8 @@ export function purgeCriteria(params: { filter: PurgeFilter; prefix: string }): 
 export function documentFor(params: { key: string; version: number; value: unknown; prefix: string; collection: string }): MongoDocument {
   const { key, version, value, prefix, collection } = params;
   const json = JSON.stringify(value ?? null);
-  const document: MongoDocument = { _id: key, version, json, store: prefix, purge: purgeFieldsOf(JSON.parse(json)) };
+  const parsed: unknown = JSON.parse(json);
+  const document: MongoDocument = { _id: key, version, json, store: prefix, purge: purgeFieldsOf(parsed), fields: whereFieldsOf(parsed) };
   const size = bsonSize({ ...document });
   if (size > MAX_BSON_DOCUMENT_BYTES) {
     throw createAigentError({

@@ -1,4 +1,5 @@
 import type { Clock, IdGenerator } from '../core/runtime-services.js';
+import { listWhere } from '../store/list-where.js';
 import type { Store } from '../store/store-types.js';
 import type { RecordWriter } from '../telemetry/record-writer.js';
 import { EFFECTS_COLLECTION } from './undo-types.js';
@@ -60,8 +61,8 @@ export function createEffectLog(params: CreateEffectLogParams): EffectLog {
       const { agentName, instanceId, runId, callId, tool, effectId } = effect;
       await put({ effectId: ids.next('effect'), kind: 'undo', agentName, instanceId, runId, callId, tool, at: clock.now(), sequence, status, undoOf: effectId, ...(message == null ? {} : { message }) });
     },
-    effects: async agentName => (await store.list<EffectLogEntry>(EFFECTS_COLLECTION)).map(({ value }) => value)
-      .filter(entry => entry.kind === 'effect' && entry.agentName === agentName)
+    // Only this agent's effects are read: the collection holds every agent's, and their undo records.
+    effects: async agentName => (await listWhere<EffectLogEntry>({ store, collection: EFFECTS_COLLECTION, where: { kind: 'effect', agentName } })).map(({ value }) => value)
       .map(entry => (applied.has(entry.effectId) ? { ...entry, status: 'undone' as const } : entry)),
   };
 }

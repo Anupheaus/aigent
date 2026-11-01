@@ -4,8 +4,9 @@ import { basename, dirname, join } from 'node:path';
 import { createAigentError } from '../core/aigent-error.js';
 import { acquireFileLock } from './file-lock.js';
 import { encodeName } from './key-encoding.js';
+import { checkWhere, matchesWhere } from './list-where.js';
 import { matchesPurge } from './purge-match.js';
-import type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store-types.js';
+import type { CompareAndSetParams, ListOptions, PurgeFilter, Store, StoredRecord } from './store-types.js';
 
 export interface FileStoreOptions {
   /** Directory holding the store; created when missing. One sub-directory per collection. */
@@ -190,12 +191,15 @@ export function createFileStore(options: FileStoreOptions): FileStore {
     }
   }
 
-  async function list<T>(collection: string): Promise<StoredRecord<T>[]> {
+  /** Every record file is still read (there is no index); `where` only filters what is returned. */
+  async function list<T>(collection: string, options: ListOptions = {}): Promise<StoredRecord<T>[]> {
+    const { where } = options;
+    checkWhere(where);
     const records: StoredRecord<T>[] = [];
     for (const path of await recordFiles(collection)) {
       const record = await readRecord(path);
       // A record deleted between the directory read and this read is simply absent.
-      if (record != null) records.push({ key: record.key, value: record.value as T, version: record.version });
+      if (record != null && matchesWhere({ value: record.value, where })) records.push({ key: record.key, value: record.value as T, version: record.version });
     }
     return records;
   }

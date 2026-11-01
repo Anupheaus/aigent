@@ -18,17 +18,26 @@ export interface MongoDocument {
   store: string;
   /** Null when the value is not a plain object (no purge criterion ever matches it). */
   purge: MongoPurgeFields | null;
+  /**
+   * The value's short top-level scalars (see `whereFieldsOf`), so `list({ where })` can filter on the server; null when
+   * the value is not a plain object. Absent on documents written before the store had it.
+   */
+  fields?: MongoWhereFields | null;
 }
 
+/** Top-level fields copied out of a value for `list` filters. */
+export type MongoWhereFields = Record<string, string | number | boolean | null>;
+
 /**
- * Filters the store sends: `{ _id }`, `{ _id, version }`, `{}` or the purge criteria on `store` and `purge.*`
- * (`$lt` only on `purge.recordedAt`, `$type: 'object'` only on `purge`).
+ * Filters the store sends: `{ _id }`, `{ _id, version }`, `{}`, the purge criteria on `store` and `purge.*`
+ * (`$lt` only on `purge.recordedAt`, `$type: 'object'` only on `purge`), or a list filter: `$or` of equalities on
+ * `fields.*` and `{ fields: { $exists: false } }`.
  */
 export type MongoFilter = Record<string, unknown>;
 
 /** What a conditional update changes. */
 export interface MongoUpdate {
-  $set: Pick<MongoDocument, 'version' | 'json' | 'purge'>;
+  $set: Pick<MongoDocument, 'version' | 'json' | 'purge' | 'fields'>;
 }
 
 /** The few `mongodb` Collection methods the store uses, so a fake can stand in and the driver stays an optional peer. */

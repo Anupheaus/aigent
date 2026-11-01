@@ -19,12 +19,19 @@ export interface StoreContractSubject {
   contentionRounds?: number;
   /** Size in bytes of the large-value test. Default 5 MB; stores with a hard cap may lower it. */
   largeValueBytes?: number;
+  /**
+   * Whether the store implements `list(collection, { where })`. Default true; a store that ignores the option (its
+   * callers filter again, see `listWhere`) sets false and skips those tests.
+   */
+  listWhere?: boolean;
 }
 
 const DEFAULT_WRITERS = 100;
 const DEFAULT_ROUNDS = 20;
 const DEFAULT_LARGE_VALUE_BYTES = 5_000_000;
 const LONG_KEY_LENGTH = 300;
+/** Longer than any store is likely to index for `where` (the Mongo store indexes strings up to 256 characters). */
+const LONG_WHERE_STRING_LENGTH = 1_000;
 const TEST_TIMEOUT_MS = 120_000;
 /** Big enough that a file write is not one disk block, so a store that is not atomic shows a torn value. */
 const TORN_READ_VALUE_BYTES = 200_000;
@@ -112,6 +119,45 @@ export function describeStoreContract(subject: StoreContractSubject): void {
         expect(sortedKeys(await store.list('one'))).toEqual(['a', 'b']);
         expect(await store.list('two')).toEqual([{ key: 'a', value: 3, version: 1 }]);
         expect(await store.list('three')).toEqual([]);
+      });
+    });
+
+    it.runIf(subject.listWhere !== false)('lists only records whose value has every top-level field in where, compared exactly', async () => {
+      await withStore(subject, async store => {
+        const values: Record<string, unknown> = {
+          match: { agentName: 'a', scopeKey: 's', n: 1, ok: true, gone: null, text: 'x' },
+          otherScope: { agentName: 'a', scopeKey: 't', n: 1, ok: true, gone: null },
+          stringNumber: { agentName: 'a', scopeKey: 's', n: '1', ok: true, gone: null },
+          missingNull: { agentName: 'a', scopeKey: 's', n: 1, ok: true },
+          nested: { agentName: { name: 'a' }, scopeKey: 's', n: 1, ok: true, gone: null },
+          array: ['a', 's'],
+          scalar: 'a',
+          empty: null,
+        };
+        for (const [key, value] of Object.entries(values)) await store.compareAndSet({ collection: 'things', key, expectedVersion: undefined, value });
+        expect(sortedKeys(await store.list('things', { where: { agentName: 'a', scopeKey: 's', n: 1, ok: true, gone: null } }))).toEqual(['match']);
+        expect(sortedKeys(await store.list('things', { where: { scopeKey: 's', n: '1' } }))).toEqual(['stringNumber']);
+        expect(sortedKeys(await store.list('things', { where: { agentName: 'b' } }))).toEqual([]);
+        expect(sortedKeys(await store.list('things', { where: {} }))).toEqual(Object.keys(values).sort());
+        expect(sortedKeys(await store.list('things', {}))).toEqual(Object.keys(values).sort());
+        expect(await store.list('things', { where: { agentName: 'a', scopeKey: 's', n: 1, ok: true, gone: null } })).toEqual([{ key: 'match', value: values['match'], version: 1 }]);
+      });
+    });
+
+    it.runIf(subject.listWhere !== false)('matches long strings and field names with dots or dollars as top-level fields, and follows updates', async () => {
+      await withStore(subject, async store => {
+        const long = 'L'.repeat(LONG_WHERE_STRING_LENGTH);
+        await store.compareAndSet({ collection: 'things', key: 'long', expectedVersion: undefined, value: { text: long } });
+        await store.compareAndSet({ collection: 'things', key: 'shorter', expectedVersion: undefined, value: { text: long.slice(1) } });
+        await store.compareAndSet({ collection: 'things', key: 'dotted', expectedVersion: undefined, value: { 'a.b': 1, $kind: 'x', a: { b: 1 } } });
+        await store.compareAndSet({ collection: 'things', key: 'nestedOnly', expectedVersion: undefined, value: { a: { b: 1 } } });
+        expect(sortedKeys(await store.list('things', { where: { text: long } }))).toEqual(['long']);
+        expect(sortedKeys(await store.list('things', { where: { 'a.b': 1 } }))).toEqual(['dotted']);
+        expect(sortedKeys(await store.list('things', { where: { $kind: 'x' } }))).toEqual(['dotted']);
+        expect(await store.compareAndSet({ collection: 'things', key: 'shorter', expectedVersion: 1, value: { text: long } })).toBe(true);
+        expect(sortedKeys(await store.list('things', { where: { text: long } }))).toEqual(['long', 'shorter']);
+        expect(await store.compareAndSet({ collection: 'things', key: 'long', expectedVersion: 1, value: { text: 'moved' } })).toBe(true);
+        expect(sortedKeys(await store.list('things', { where: { text: long } }))).toEqual(['shorter']);
       });
     });
 

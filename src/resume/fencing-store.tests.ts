@@ -107,3 +107,17 @@ describe('createFencedStore under an interleaved takeover', () => {
     await expect(owner.compareAndSet({ collection: COLLECTION, key: KEY, expectedVersion: undefined, value: 'text' })).rejects.toMatchObject({ code: 'invalid_input' });
   });
 });
+
+describe('fenced store list', () => {
+  it('passes list options through to the store it wraps, still hiding tombstones', async () => {
+    const base = createInMemoryStore();
+    const seen: unknown[] = [];
+    const spying: Store = { ...base, list: (collection, options) => { seen.push(options); return base.list(collection, options); } };
+    await leaseFor(base, 1);
+    const fenced = createFencedStore({ store: spying, instanceId: INSTANCE, fence: () => 1 });
+    await fenced.compareAndSet({ collection: COLLECTION, key: 'mine', expectedVersion: undefined, value: { agentName: 'a' } });
+    await fenced.compareAndSet({ collection: COLLECTION, key: 'other', expectedVersion: undefined, value: { agentName: 'b' } });
+    expect((await fenced.list(COLLECTION, { where: { agentName: 'a' } })).map(({ key }) => key)).toEqual(['mine']);
+    expect(seen).toEqual([{ where: { agentName: 'a' } }]);
+  });
+});

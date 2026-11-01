@@ -1,5 +1,6 @@
+import { checkWhere, matchesWhere } from './list-where.js';
 import { matchesPurge } from './purge-match.js';
-import type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store-types.js';
+import type { CompareAndSetParams, ListOptions, PurgeFilter, Store, StoredRecord } from './store-types.js';
 
 export function createInMemoryStore(): Store {
   const collections = new Map<string, Map<string, StoredRecord<unknown>>>();
@@ -27,8 +28,10 @@ export function createInMemoryStore(): Store {
     return true;
   }
 
-  async function list<T>(collection: string): Promise<StoredRecord<T>[]> {
-    return [...collectionFor(collection).values()].map(record => structuredClone(record) as StoredRecord<T>);
+  async function list<T>(collection: string, options: ListOptions = {}): Promise<StoredRecord<T>[]> {
+    const { where } = options;
+    checkWhere(where);
+    return [...collectionFor(collection).values()].filter(({ value }) => matchesWhere({ value, where })).map(record => structuredClone(record) as StoredRecord<T>);
   }
 
   async function deleteRecord(collection: string, key: string): Promise<void> {

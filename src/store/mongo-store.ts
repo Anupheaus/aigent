@@ -1,8 +1,9 @@
 import { createAigentError } from '../core/aigent-error.js';
 import { encodeName } from './key-encoding.js';
-import { documentFor, purgeCriteria, valueOf } from './mongo-document.js';
+import { checkWhere, matchesWhere } from './list-where.js';
+import { documentFor, listCriteria, purgeCriteria, valueOf } from './mongo-document.js';
 import type { MongoCollectionLike, MongoDbLike } from './mongo-types.js';
-import type { CompareAndSetParams, PurgeFilter, Store, StoredRecord } from './store-types.js';
+import type { CompareAndSetParams, ListOptions, PurgeFilter, Store, StoredRecord } from './store-types.js';
 
 export interface MongoStoreOptions {
   db: MongoDbLike;
@@ -128,8 +129,8 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
             await target.insertOne(document);
             return true;
           }
-          const { version, json, purge } = document;
-          const result = await target.updateOne({ _id: key, version: expectedVersion }, { $set: { version, json, purge } });
+          const { version, json, purge, fields = null } = document;
+          const result = await target.updateOne({ _id: key, version: expectedVersion }, { $set: { version, json, purge, fields } });
           return result.matchedCount === 1;
         } catch (error) {
           if (isLostRace(error)) return false;
@@ -139,12 +140,21 @@ export function createMongoStore(options: MongoStoreOptions): MongoStore {
     });
   }
 
-  async function list<T>(collection: string): Promise<StoredRecord<T>[]> {
+  /**
+   * `where` goes to the server as a filter on each document's `fields`, so only matches travel; documents written
+   * before `fields` existed, and `where` values the server cannot match (long strings, names with `$` or `.`), are
+   * filtered here.
+   */
+  async function list<T>(collection: string, options: ListOptions = {}): Promise<StoredRecord<T>[]> {
+    const { where } = options;
+    checkWhere(where);
     return guarded({
       operation: 'list', details: { collection },
       action: async () => {
-        const documents = await db.collection(mongoName(collection)).find({}).toArray();
-        return documents.map(document => ({ key: document._id, value: valueOf({ document, collection }) as T, version: document.version }));
+        const documents = await db.collection(mongoName(collection)).find(listCriteria(where)).toArray();
+        return documents
+          .map(document => ({ key: document._id, value: valueOf({ document, collection }) as T, version: document.version }))
+          .filter(({ value }) => matchesWhere({ value, where }));
       },
     });
   }

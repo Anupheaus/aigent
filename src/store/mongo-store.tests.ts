@@ -7,6 +7,8 @@ import { createMongoStore } from './mongo-store.js';
 /** Over MongoDB's 16 MiB document limit. */
 const OVERSIZED_BYTES = 17_000_000;
 const WRITE_CONFLICT_CODE = 112;
+/** Longer than the store copies into `fields`. */
+const LONG_STRING = 300;
 const ALLOWED_OPERATIONS =['findOne', 'find', 'insertOne', 'updateOne', 'deleteOne', 'deleteMany', 'createIndex', 'listCollections'];
 
 describeStoreContract({
@@ -133,5 +135,47 @@ describe('mongo store', () => {
     const failure = await failureOf(store.get('c', 'k'));
     expect(isAigentError(failure) && failure.code).toBe('store_failed');
     expect((failure as Error).message).toContain('closed');
+  });
+});
+
+describe('mongo store list filters', () => {
+  it('copies short top-level scalars into fields, leaving out long strings, objects and names MongoDB would misread', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    const value = { agentName: 'a', n: 1, ok: false, gone: null, text: 'x'.repeat(LONG_STRING), nested: { b: 1 }, list: [1], 'a.b': 1, $kind: 'x' };
+    await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: undefined, value });
+    const [document] = await fake.db.collection('aigent_c').find({}).toArray();
+    expect((document as unknown as { fields: unknown }).fields).toEqual({ agentName: 'a', n: 1, ok: false, gone: null });
+    await store.compareAndSet({ collection: 'c', key: 'k', expectedVersion: 1, value: { agentName: 'b' } });
+    const [updated] = await fake.db.collection('aigent_c').find({}).toArray();
+    expect((updated as unknown as { fields: unknown }).fields).toEqual({ agentName: 'b' });
+    await store.compareAndSet({ collection: 'c', key: 'scalar', expectedVersion: undefined, value: 'text' });
+    expect((await fake.db.collection('aigent_c').findOne({ _id: 'scalar' }) as unknown as { fields: unknown }).fields).toBeNull();
+  });
+
+  it('sends where to the server as a filter on fields, keeping documents written before fields existed', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    await store.compareAndSet({ collection: 'c', key: 'mine', expectedVersion: undefined, value: { agentName: 'a', scopeKey: 's' } });
+    await store.compareAndSet({ collection: 'c', key: 'other', expectedVersion: undefined, value: { agentName: 'b', scopeKey: 's' } });
+    // A document from an earlier version of the store: no fields.
+    await fake.db.collection('aigent_c').insertOne({ _id: 'legacy', version: 1, json: '{"agentName":"a","scopeKey":"s"}', store: 'aigent_', purge: { agentName: 'a' } });
+    await fake.db.collection('aigent_c').insertOne({ _id: 'legacyOther', version: 1, json: '{"agentName":"b","scopeKey":"s"}', store: 'aigent_', purge: { agentName: 'b' } });
+    const before = fake.finds.length;
+    const listed = await store.list('c', { where: { agentName: 'a', scopeKey: 's' } });
+    expect(listed.map(({ key }) => key).sort()).toEqual(['legacy', 'mine']);
+    expect(fake.finds.slice(before)).toEqual([{ $or: [{ 'fields.agentName': 'a', 'fields.scopeKey': 's' }, { fields: { $exists: false } }] }]);
+  });
+
+  it('filters on the client when a where value or name cannot be matched on the server', async () => {
+    const fake = createMongoFake();
+    const store = createMongoStore({ db: fake.db });
+    const long = 'x'.repeat(LONG_STRING);
+    await store.compareAndSet({ collection: 'c', key: 'long', expectedVersion: undefined, value: { text: long } });
+    await store.compareAndSet({ collection: 'c', key: 'other', expectedVersion: undefined, value: { text: 'short' } });
+    const before = fake.finds.length;
+    expect((await store.list('c', { where: { text: long } })).map(({ key }) => key)).toEqual(['long']);
+    expect((await store.list('c', { where: { 'a.b': 1 } }))).toEqual([]);
+    expect(fake.finds.slice(before)).toEqual([{}, {}]);
   });
 });

@@ -1,4 +1,5 @@
 import { describeError } from '../core/describe-value.js';
+import { listWhere } from '../store/list-where.js';
 import type { Store } from '../store/store-types.js';
 import { updateRecord } from '../store/update-record.js';
 import { applyRedact } from '../telemetry/redact.js';
@@ -69,9 +70,10 @@ function redacted(params: { entry: MemoryEntry; redact?: Redact }): MemoryEntry 
 
 async function evictPastCap(params: SaveMemoryParams): Promise<{ evicted: number }> {
   const { store, options: { maxEntries, halfLifeDays }, now, request: { agentName, scopeKey } } = params;
-  const live = (await store.list<MemoryEntry>(MEMORY_COLLECTION))
+  // Only this agent's scope is read: the collection holds every agent's and every session's memories.
+  const live = (await listWhere<MemoryEntry>({ store, collection: MEMORY_COLLECTION, where: { agentName, scopeKey } }))
     .map(({ value }) => value)
-    .filter(entry => entry.agentName === agentName && entry.scopeKey === scopeKey && entry.removed == null);
+    .filter(entry => entry.removed == null);
   const { evict } = pickEvictions({ entries: live, maxEntries, now, halfLifeDays });
   for (const { id } of evict) {
     if (store.delete != null) {

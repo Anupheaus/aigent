@@ -51,3 +51,25 @@ describe('mongo fake', () => {
     expect(await collection.findOne({ 'value.agentName': 'a' })).not.toBeNull();
   });
 });
+
+describe('mongo fake filters used by list', () => {
+  it('matches null against a missing field, as the server does, and supports $or and $exists', async () => {
+    const fake = createMongoFake();
+    const collection = looseCollection('c', fake);
+    await collection.insertOne({ _id: 'withNull', fields: { a: null } });
+    await collection.insertOne({ _id: 'missing', fields: {} });
+    await collection.insertOne({ _id: 'set', fields: { a: 1 } });
+    await collection.insertOne({ _id: 'legacy' });
+    const ids = async (filter: MongoFilter): Promise<string[]> => (await fake.db.collection('c').find(filter).toArray()).map(({ _id }) => _id).sort();
+    expect(await ids({ 'fields.a': null })).toEqual(['legacy', 'missing', 'withNull']);
+    expect(await ids({ fields: { $exists: false } })).toEqual(['legacy']);
+    expect(await ids({ fields: { $exists: true } })).toEqual(['missing', 'set', 'withNull']);
+    expect(await ids({ $or: [{ 'fields.a': 1 }, { fields: { $exists: false } }] })).toEqual(['legacy', 'set']);
+  });
+
+  it('records the filter of every find', async () => {
+    const fake = createMongoFake();
+    await fake.db.collection('c').find({ 'fields.a': 1 }).toArray();
+    expect(fake.finds).toEqual([{ 'fields.a': 1 }]);
+  });
+});

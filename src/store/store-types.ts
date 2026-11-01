@@ -21,12 +21,29 @@ export interface PurgeFilter {
   before?: number;
 }
 
+/** A value a `list` filter compares a top-level field with (exactly, `===`). */
+export type ListFieldValue = string | number | boolean | null;
+
+/** What `list` returns: an optional filter, so a store with an index (a database) need not return a whole collection. */
+export interface ListOptions {
+  /**
+   * Only records whose value is a plain object with every one of these top-level fields equal (`===`) to the given
+   * value: a missing field never equals `null`, `'1'` never equals `1`, and a key such as `a.b` names the top-level
+   * field `a.b`. Empty or absent: every record.
+   */
+  where?: Readonly<Record<string, ListFieldValue>>;
+}
+
 /** Persistence contract. Implementations must make `compareAndSet` atomic. */
 export interface Store {
   get<T>(collection: string, key: string): Promise<StoredRecord<T> | undefined>;
   /** Returns false (and writes nothing) when the stored version differs from `expectedVersion`. */
   compareAndSet<T>(params: CompareAndSetParams<T>): Promise<boolean>;
-  list<T>(collection: string): Promise<StoredRecord<T>[]>;
+  /**
+   * The records of a collection. `options.where` is optional to honour: a store written before it existed lists every
+   * record, so callers that pass it filter the result again (see `listWhere`).
+   */
+  list<T>(collection: string, options?: ListOptions): Promise<StoredRecord<T>[]>;
   /**
    * Optional: deletes one record (a no-op when it does not exist). The tool-result cache uses it to drop evicted
    * entries; without it they stay behind as small tombstones (value dropped, statistics kept).

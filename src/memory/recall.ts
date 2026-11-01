@@ -1,3 +1,4 @@
+import { listWhere } from '../store/list-where.js';
 import type { Store } from '../store/store-types.js';
 import { decayFactor, entryAgeMs } from './decay.js';
 import { MEMORY_COLLECTION } from './memory-types.js';
@@ -43,9 +44,10 @@ function isEligible(params: { entry: MemoryEntry; now: number; halfLifeDays: num
  */
 export async function recallMemories(params: RecallParams): Promise<RecalledMemory[]> {
   const { store, agentName, scopeKey, query, limit, now, retriever, halfLifeDays = DEFAULT_HALF_LIFE_DAYS, minConfidence = DEFAULT_MIN_CONFIDENCE, onProblem } = params;
-  const entries = (await store.list<MemoryEntry>(MEMORY_COLLECTION))
+  // Only this agent's scope is read: the collection holds every agent's and every session's memories.
+  const entries = (await listWhere<MemoryEntry>({ store, collection: MEMORY_COLLECTION, where: { agentName, scopeKey } }))
     .map(({ value }) => value)
-    .filter(entry => entry.agentName === agentName && entry.scopeKey === scopeKey && isEligible({ entry, now, halfLifeDays, minConfidence }));
+    .filter(entry => isEligible({ entry, now, halfLifeDays, minConfidence }));
   const relevance = await relevanceScores({ query, entries, ...(retriever == null ? {} : { retriever }), ...(onProblem == null ? {} : { onProblem }) });
   return entries
     .map(entry => {
