@@ -78,9 +78,9 @@ async function matchNames(params: { files: WalkEntry[]; matcher: TextMatcher }):
 
 /** `fs_search`: file names or file contents, counts first, deterministic order, every skip reported by reason. */
 export function createFsSearch(deps: FsDeps): Tool {
-  const { access, policy } = deps;
+  const { access, policy, searchBudgetMs = SEARCH_REGEX_BUDGET_MS } = deps;
   async function runSearch(item: SearchItem, signal: AbortSignal): Promise<unknown> {
-    const matcher = createTextMatcher({ pattern: item.pattern, regex: item.regex ?? false, caseSensitive: item.caseSensitive ?? false, wholeWord: item.wholeWord ?? false, signal });
+    const matcher = createTextMatcher({ pattern: item.pattern, regex: item.regex ?? false, caseSensitive: item.caseSensitive ?? false, wholeWord: item.wholeWord ?? false, signal, budgetMs: searchBudgetMs });
     const allowed = await allowPath({ deps, path: item.path, permission: 'read' });
     return onDisk({
       path: item.path,
@@ -114,7 +114,7 @@ export function createFsSearch(deps: FsDeps): Tool {
         }
         const isMatchesCut = layer === 'matches' && shown < totalMatches;
         const isTruncated = isWalkTruncated || isMatchesCut || stoppedBy != null;
-        const hint = stoppedBy != null ? `The regular expression ran out of its ${SEARCH_REGEX_BUDGET_MS} ms budget, so later files were not searched; use a simpler pattern or a narrower path`
+        const hint = stoppedBy != null ? `The regular expression ran out of its ${searchBudgetMs} ms budget, so later files were not searched; use a simpler pattern or a narrower path`
           : isWalkTruncated ? `The search stopped after ${policy.limits.maxFiles} entries; search a narrower path or glob`
             : `${totalMatches - shown} more matches are counted but not shown; narrow the path or glob, raise maxMatches, or ask for layer: files`;
         // The default layer keeps its fields and order; when matches are cut it also says how many (`more`) and the

@@ -22,6 +22,8 @@ export interface RunRow {
   recall: number;
   f1: number;
   tier: Tier;
+  /** The tier on the deterministic counts alone (tokens, turns, tool calls; wall time ignored). */
+  countTier: Tier;
   tokens: number;
   turns: number;
   toolCalls: number;
@@ -57,6 +59,7 @@ export async function runTask(params: { spec: TaskSpec; solver: Solver; tools?: 
     taskId: spec.id, family: spec.family, solver: solver.id, heldOut: spec.heldOut,
     correct: check.correct, precision: check.precision, recall: check.recall, f1: check.f1,
     tier: tierOf({ spec, check, usage: { tokens, turns, toolCalls, ms } }),
+    countTier: tierOf({ spec, check, usage: { tokens, turns, toolCalls, ms: 0 } }),
     tokens, turns, toolCalls, ms, decoyHits: check.decoyHits,
     failures: [...outcome.failures, ...(check.reason == null ? [] : [check.reason])],
     tools: recorder.records(),

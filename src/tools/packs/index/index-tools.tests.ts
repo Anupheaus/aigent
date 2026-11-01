@@ -89,6 +89,16 @@ describe('index tools', () => {
     const [entry] = entriesOf(await call({ tool, items: [{ pattern: '(a+)+$', regex: true, layer: 'files' }] }));
     expect(entry).toMatchObject({ ok: false, error: { code: 'unsafe_pattern' } });
   });
+
+  it('takes its regex budget from searchBudgetMs', async () => {
+    const access = createMemoryFsAccess({ platform: 'posix', files: { ...FILES, '/ws/src/slow.ts': `// ${'a'.repeat(3_000)}\n` } });
+    const tool = indexTools({ policy: createFsPolicy({ roots: [{ path: '/ws', permissions: ['read'] }] }), access, searchBudgetMs: 200 }).find(({ name }) => name === 'search_layers');
+    if (tool == null) throw new TypeError('no search_layers');
+    const started = performance.now();
+    const [entry] = entriesOf(await call({ tool, items: [{ pattern: '.*a.*a.*a.*a.*!', regex: true, layer: 'files' }] }));
+    expect(entry).toMatchObject({ ok: false, error: { code: 'search_stopped' } });
+    expect(performance.now() - started).toBeLessThan(5_000);
+  }, 30_000);
 });
 
 /** An access whose reads of `failing` fail: always, only the first `failures` times, or after the first `succeed` reads. */

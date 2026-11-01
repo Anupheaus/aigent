@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { MemoryFsEntry } from '../../../security/fs-access-memory.js';
 import { createFsSearch } from './fs-search.js';
+import { fsTools } from './fs-tools.js';
 import { call, entriesOf, memoryDeps } from './fs-tools.test-support.js';
 
 interface SearchFile {
@@ -137,6 +138,23 @@ describe('fs_search bounds and skips', () => {
     expect(entry?.result).toMatchObject({ truncated: true, stoppedBy: 'time budget', hint: expect.stringContaining('budget') });
     expect(longestGap).toBeLessThan(500);
   }, 30_000);
+
+  it('takes its regex budget from searchBudgetMs, and names it in the hint', async () => {
+    const budgetMs = 200;
+    const deps = { ...memoryDeps({ files: { '/ws/slow.txt': `${'a'.repeat(3_000)}\n` } }), searchBudgetMs: budgetMs };
+    const started = performance.now();
+    const [entry] = entriesOf(await call({ tool: createFsSearch(deps), items: [{ path: '/ws', pattern: '.*a.*a.*a.*a.*!', kind: 'content', regex: true }] }));
+    expect(entry?.result).toMatchObject({ truncated: true, stoppedBy: 'time budget', hint: expect.stringContaining(`its ${budgetMs} ms budget`) });
+    // Well under the 10 s default: the given budget, not the default, stopped it.
+    expect(performance.now() - started).toBeLessThan(5_000);
+  }, 30_000);
+
+  it('refuses a searchBudgetMs that is not a positive integer', () => {
+    const { policy, access } = memoryDeps();
+    for (const searchBudgetMs of [0, -1, 1.5, Number.NaN]) {
+      expect(() => fsTools({ policy, access, searchBudgetMs }), String(searchBudgetMs)).toThrow(/searchBudgetMs must be a positive integer/);
+    }
+  });
 
   it('matches regex names in the worker and counts link entries as skipped', async () => {
     const deps = memoryDeps({ files: { '/ws/src/app.ts': 'x', '/ws/src/app.test.ts': 'x', '/ws/link': { symlink: '/ws/src' } } });

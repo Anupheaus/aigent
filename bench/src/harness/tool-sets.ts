@@ -1,13 +1,13 @@
 import { fsTools } from '../../../src/tools/packs/fs/index.js';
 import { indexTools } from '../../../src/tools/packs/index/index.js';
 import { benchError } from '../bench-error.js';
-import { round0Tools } from './repo-tools.js';
+import { BENCH_SEARCH_BUDGET_MS, benchFsOptions, round0Tools } from './repo-tools.js';
 import type { ToolSetBuilder } from './repo-tools.js';
 
 /** A builder offering the named filesystem tools plus the repository index tools. */
 const withIndex = (fsNames: string[]): ToolSetBuilder => ({ access, policy }) => [
-  ...fsTools({ policy, access, approvals: 'none' }).filter(({ name }) => fsNames.includes(name)),
-  ...indexTools({ policy, access }),
+  ...fsTools(benchFsOptions({ access, policy })).filter(({ name }) => fsNames.includes(name)),
+  ...indexTools({ policy, access, searchBudgetMs: BENCH_SEARCH_BUDGET_MS }),
 ];
 
 /**

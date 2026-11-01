@@ -1,3 +1,4 @@
+import { createAigentError } from '../../../core/aigent-error.js';
 import { createSystemClock } from '../../../core/runtime-services.js';
 import type { Clock } from '../../../core/runtime-services.js';
 import { fsErrorCode } from '../../../security/fs-access.js';
@@ -8,6 +9,7 @@ import { BATCH_RESULT_HELPERS_WITH_REASONS } from '../../batch-entries.js';
 import { toolFailure } from '../../tool-failure.js';
 import type { ToolFailure } from '../../tool-failure.js';
 import type { Tool } from '../../tool-types.js';
+import { SEARCH_REGEX_BUDGET_MS } from './fs-search-matcher.js';
 
 /** Which filesystem operations need a person's approval (on top of `FsPolicyOptions.approval`). */
 export type FsApprovals = 'writes' | 'deletes' | 'none';
@@ -32,6 +34,12 @@ export interface FsToolsOptions {
    */
   backupDir?: string;
   clock?: Clock;
+  /**
+   * Wall time (ms) one search's regular-expression matching may take before it stops with `stoppedBy: 'time budget'`
+   * (default 10,000). Raise it where results must not depend on machine load (benchmarks); the tool's own
+   * `timeoutMs` still bounds the call.
+   */
+  searchBudgetMs?: number;
 }
 
 /** What every filesystem tool is built from. */
@@ -41,11 +49,16 @@ export interface FsDeps {
   approvals: FsApprovals;
   backupDir?: string;
   clock: Clock;
+  /** Default `SEARCH_REGEX_BUDGET_MS` (deps built by hand, e.g. in tests, may leave it out). */
+  searchBudgetMs?: number;
 }
 
 export function resolveDeps(options: FsToolsOptions): FsDeps {
-  const { policy, access = createNodeFsAccess(), approvals = 'deletes', backupDir, clock = createSystemClock() } = options;
-  return { policy, access, approvals, clock, ...(backupDir == null ? {} : { backupDir }) };
+  const { policy, access = createNodeFsAccess(), approvals = 'deletes', backupDir, clock = createSystemClock(), searchBudgetMs = SEARCH_REGEX_BUDGET_MS } = options;
+  if (!Number.isInteger(searchBudgetMs) || searchBudgetMs <= 0) {
+    throw createAigentError({ code: 'invalid_definition', message: `searchBudgetMs must be a positive integer number of milliseconds, got ${String(searchBudgetMs)}`, details: { option: 'searchBudgetMs' } });
+  }
+  return { policy, access, approvals, clock, searchBudgetMs, ...(backupDir == null ? {} : { backupDir }) };
 }
 
 /** Upper bound on items in one filesystem call. */

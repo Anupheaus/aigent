@@ -30,7 +30,16 @@ never published, not part of the package build.
 - **Self-tests** (`src/self-tests*.tests.ts`, run by `npm test`): on every non-held-out spec the reference is correct,
   reproduces its committed measurement (so it sits at target by construction: the budgets derive from it) and finishes
   within the declared wall time, the decoy-falling and lazy policies fail, and the naive policy passes but
-  misses target on at least 80% of specs; a deliberately broken checker makes them fail.
+  misses target on at least 80% of specs; a deliberately broken checker makes them fail. Counts (tokens, turns, tool
+  calls) are judged exactly (`RunRow.countTier`); wall time is judged against the declared time scaled by the
+  machine's slowdown, measured by a fixed calibration workload just before and after each run
+  (`src/wall-time.test-support.ts`, bounded at 8x, so a genuinely slow policy still fails). The four solvers run one
+  after another: run together on one event loop, each one's time included the others' work. The optimised-policy
+  test judges time the same way.
+- **Load and determinism**: the bench's tools get a 120 s regex budget (`searchBudgetMs`) and a 180 s call timeout.
+  With the library's 10 s wall-clock default, a search on a loaded machine stopped early (`stoppedBy: 'time
+  budget'`), which changed the tool results and so the measured tokens. The CLI's tiers and the `--gate` check are
+  unchanged (the gate checks counts; `budgets.json` was not re-derived).
 
 ## Rounds and the gate
 

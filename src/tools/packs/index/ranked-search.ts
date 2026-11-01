@@ -73,7 +73,7 @@ export async function answerLayer(params: { snapshot: IndexSnapshot; deps: FsDep
     texts.push(...searched);
   }
   // One matcher run over every candidate line: regexes run in the guarded worker pool under the search budget.
-  const outcome = await createTextMatcher({ pattern: query.pattern, regex: query.regex, caseSensitive: query.caseSensitive, wholeWord: query.wholeWord, ...(signal == null ? {} : { signal }) })({ texts, keep: Number.MAX_SAFE_INTEGER });
+  const outcome = await createTextMatcher({ pattern: query.pattern, regex: query.regex, caseSensitive: query.caseSensitive, wholeWord: query.wholeWord, ...(deps.searchBudgetMs == null ? {} : { budgetMs: deps.searchBudgetMs }), ...(signal == null ? {} : { signal }) })({ texts, keep: Number.MAX_SAFE_INTEGER });
   if (outcome.status !== 'done') throw toolFailure({ code: 'search_stopped', message: `The search stopped (${outcome.status === 'timed-out' ? 'time budget' : 'aborted'}); use a simpler pattern`, retryable: false });
   const matchedLines = new Set(outcome.hits.map(({ text }) => text));
   const hits: FileHit[] = candidates.flatMap(({ path, text, first, lines: count }) => {

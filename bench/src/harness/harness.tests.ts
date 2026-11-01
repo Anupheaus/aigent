@@ -5,7 +5,9 @@ import { createModelSolver, modelSolverFromEnv } from '../model-solver.js';
 import { createFakeProvider, textTurn, toolTurn } from '../../../src/testing/index.js';
 import { readSpecs } from '../tasks/spec-files.js';
 import { buildReport, quantile, reportMarkdown } from './report.js';
-import { repoTools } from './repo-tools.js';
+import { BENCH_SEARCH_BUDGET_MS, BENCH_TOOL_TIMEOUT_MS, repoTools } from './repo-tools.js';
+import { TOOL_SETS, toolSet } from './tool-sets.js';
+import { DECLARED_MS } from '../tasks/catalogue.js';
 import { benchRepo } from './repo-cache.js';
 import { runSuite } from './suite.js';
 import { runTask } from './run-task.js';
@@ -30,6 +32,17 @@ describe('trap access wrappers', () => {
     const handle = await access.open('/r/a.ts');
     expect(new TextDecoder().decode(await handle.read({ offset: 0, length: 100 }))).toContain('revision 2');
     expect((await handle.stat?.())?.fileId).toBe((await base.stat('/r/a.ts')).fileId);
+  });
+});
+
+describe('bench tools and machine load', () => {
+  it('give every tool set searches and calls bounded far above any run\'s declared time, so results do not depend on load', async () => {
+    const repo = await benchRepo({ seed: 1, size: 'small' });
+    expect(BENCH_SEARCH_BUDGET_MS).toBeGreaterThanOrEqual(Math.max(...Object.values(DECLARED_MS)));
+    expect(BENCH_TOOL_TIMEOUT_MS).toBeGreaterThan(BENCH_SEARCH_BUDGET_MS);
+    for (const name of Object.keys(TOOL_SETS)) {
+      for (const tool of repoTools({ repo, build: toolSet(name) })) expect(tool.timeoutMs, `${name}/${tool.name}`).toBe(BENCH_TOOL_TIMEOUT_MS);
+    }
   });
 });
 

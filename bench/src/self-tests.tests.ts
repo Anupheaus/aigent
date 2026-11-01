@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { naivePassedPoorly, NAIVE_PASS_SHARE, selfTest, selfTestFindings, selfTestSpecs } from './self-test.test-support.js';
+import { naivePassedPoorly, NAIVE_PASS_SHARE, SELF_TEST_TIMEOUT_MS, selfTest, selfTestFindings, selfTestSpecs } from './self-test.test-support.js';
 import type { SelfTestRows } from './self-test.test-support.js';
 import type { TaskSpec } from './task-spec.js';
 
@@ -11,7 +11,7 @@ describe('self-tests (first half of the catalogue)', () => {
     const rows = await selfTest(spec);
     results.set(spec.id, rows);
     expect(selfTestFindings({ spec, rows })).toEqual([]);
-  }, 60_000);
+  }, SELF_TEST_TIMEOUT_MS);
 
   it(`the naive policy passes but misses target on at least ${NAIVE_PASS_SHARE * 100}% of tasks`, () => {
     const poorly = [...results.values()].filter(naivePassedPoorly).length;
@@ -25,5 +25,5 @@ describe('self-tests (first half of the catalogue)', () => {
     const decoy = spec.decoys.find(({ path }) => path !== '')?.path ?? '';
     const mutated: TaskSpec = { ...spec, groundTruth: { kind: 'files', files: [...spec.groundTruth.files, decoy] } };
     expect(selfTestFindings({ spec: mutated, rows: await selfTest(mutated) })).not.toEqual([]);
-  }, 60_000);
+  }, SELF_TEST_TIMEOUT_MS);
 });

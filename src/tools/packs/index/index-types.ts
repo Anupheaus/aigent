@@ -125,4 +125,6 @@ export interface IndexToolsOptions {
   root?: string;
   /** Where cards are kept by content hash, shared by every index over the same store (collection `repo-index`). */
   store?: Store;
+  /** Wall time (ms) one `search_layers` query's regex matching may take (default 10,000; see `FsToolsOptions.searchBudgetMs`). */
+  searchBudgetMs?: number;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { naivePassedPoorly, NAIVE_PASS_SHARE, selfTest, selfTestFindings, selfTestSpecs } from './self-test.test-support.js';
+import { naivePassedPoorly, NAIVE_PASS_SHARE, SELF_TEST_TIMEOUT_MS, selfTest, selfTestFindings, selfTestSpecs } from './self-test.test-support.js';
 import type { SelfTestRows } from './self-test.test-support.js';
 
 const specs = await selfTestSpecs(1);
@@ -10,7 +10,7 @@ describe('self-tests (second half of the catalogue, with the behavioural traps)'
     const rows = await selfTest(spec);
     results.set(spec.id, rows);
     expect(selfTestFindings({ spec, rows })).toEqual([]);
-  }, 60_000);
+  }, SELF_TEST_TIMEOUT_MS);
 
   it(`the naive policy passes but misses target on at least ${NAIVE_PASS_SHARE * 100}% of tasks`, () => {
     const poorly = [...results.values()].filter(naivePassedPoorly).length;

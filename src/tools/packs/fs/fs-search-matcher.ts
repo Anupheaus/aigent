@@ -6,6 +6,7 @@ import { runRegexJob } from '../regex-pool.js';
  * pattern ends at this search's deadline instead of blocking the process. Plain-text searches compile to escaped
  * literals, which match in linear time, and run here.
  */
+/** The default regex budget of one search (see `FsToolsOptions.searchBudgetMs`). */
 export const SEARCH_REGEX_BUDGET_MS = 10_000;
 
 /** One hit: index of the text searched (a line, or a name) and the 0-based column. */
@@ -25,6 +26,8 @@ export interface MatcherRequest {
   caseSensitive: boolean;
   wholeWord: boolean;
   signal?: AbortSignal;
+  /** Wall time the whole search's regex matching may take; default `SEARCH_REGEX_BUDGET_MS`. */
+  budgetMs?: number;
 }
 
 function inlineMatcher(regex: RegExp): TextMatcher {
@@ -43,9 +46,9 @@ function inlineMatcher(regex: RegExp): TextMatcher {
   };
 }
 
-function workerMatcher(params: { regex: RegExp; signal?: AbortSignal }): TextMatcher {
-  const { regex, signal } = params;
-  const deadline = Date.now() + SEARCH_REGEX_BUDGET_MS;
+function workerMatcher(params: { regex: RegExp; signal?: AbortSignal; budgetMs: number }): TextMatcher {
+  const { regex, signal, budgetMs } = params;
+  const deadline = Date.now() + budgetMs;
   return async ({ texts, keep }) => {
     const outcome = await runRegexJob({ job: { pattern: regex.source, flags: regex.flags, texts, keep, countAll: true }, deadline, ...(signal == null ? {} : { signal }) });
     if (outcome.status === 'timed-out' || outcome.status === 'aborted') return { status: outcome.status };
@@ -57,8 +60,8 @@ function workerMatcher(params: { regex: RegExp; signal?: AbortSignal }): TextMat
 
 /** The search's matcher: the guard checks the model's own pattern, so a wrapper never hides repetition from it. */
 export function createTextMatcher(request: MatcherRequest): TextMatcher {
-  const { pattern, regex, caseSensitive, wholeWord, signal } = request;
+  const { pattern, regex, caseSensitive, wholeWord, signal, budgetMs = SEARCH_REGEX_BUDGET_MS } = request;
   const guarded = compileGuardedRegex({ pattern: regex ? pattern : literalPattern(pattern), flags: caseSensitive ? 'g' : 'gi' });
   const compiled = wholeWord ? new RegExp(`\\b(?:${guarded.source})\\b`, guarded.flags) : guarded;
-  return regex ? workerMatcher({ regex: compiled, ...(signal == null ? {} : { signal }) }) : inlineMatcher(compiled);
+  return regex ? workerMatcher({ regex: compiled, budgetMs, ...(signal == null ? {} : { signal }) }) : inlineMatcher(compiled);
 }

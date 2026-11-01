@@ -71,8 +71,8 @@ const factsKey = (params: { hash: string; language: string }): string => `v${CON
  * apply), so nothing outside the allowed root is ever read.
  */
 export function createRepoIndex(options: IndexToolsOptions): RepoIndex {
-  const { policy, access = createNodeFsAccess(), store } = options;
-  const deps = resolveDeps({ policy, access });
+  const { policy, access = createNodeFsAccess(), store, searchBudgetMs } = options;
+  const deps = resolveDeps({ policy, access, ...(searchBudgetMs == null ? {} : { searchBudgetMs }) });
   const root = options.root ?? policy.roots[0]?.path;
   if (root == null) throw createAigentError({ code: 'invalid_definition', message: 'indexTools: the policy has no roots and no root was given', details: { option: 'root' } });
   let remembered = new Map<string, Remembered>();
