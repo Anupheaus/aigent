@@ -35,11 +35,15 @@ interface RevertState {
   runsLeft: number;
 }
 
-/** The cheap model when its lower confidence bound reaches `minSuccessRate` of the best proven rate. */
+/**
+ * The cheap model when its lower confidence bound reaches `minSuccessRate` of the best proven rate. The default must be
+ * proven as well: otherwise the best proven rate can be the cheap model's own, and a poor model clears a bar set by itself.
+ */
 function costChoice(params: DecideParams): RouteDecision | undefined {
-  const { choose: { routes: { cheap } }, arms, options: { minSamples, minSuccessRate }, evidence } = params;
+  const { choose: { routes: { cheap, default: defaultModel } }, arms, options: { minSamples, minSuccessRate }, evidence } = params;
+  const isProven = (model: string | undefined): boolean => (arms.find(arm => arm.model === model)?.outcomes.length ?? 0) >= minSamples;
   const cheapArm = arms.find(({ model }) => model === cheap);
-  if (cheapArm == null || cheapArm.outcomes.length < minSamples) return undefined;
+  if (cheapArm == null || !isProven(cheap) || !isProven(defaultModel)) return undefined;
   const proven = arms.filter(({ outcomes }) => outcomes.length >= minSamples).map(toAlternative);
   const bar = minSuccessRate * Math.max(...proven.map(({ successRate }) => successRate));
   const { successes, trials } = toBanditArm(cheapArm);

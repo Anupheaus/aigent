@@ -127,6 +127,17 @@ describe('createModelRouter', () => {
     expect(await choose({ routerOf: router({ runs: weak.runs }), priority: 'cost' })).toMatchObject({ model: 'p:big', reason: 'default' });
   });
 
+  it('never measures the cost bar against the cheap model alone: the default must be proven too', async () => {
+    const built = runsBuilder();
+    built.add({ model: 'p:small', successes: outcomes({ count: 600, rate: 0.4 }) });
+    built.add({ model: 'p:big', successes: outcomes({ count: 5, rate: 1 }) });
+    for (const options of [undefined, {}]) {
+      const decision = await choose({ routerOf: router({ runs: built.runs, ...(options == null ? {} : { options }) }), priority: 'cost' });
+      expect(decision.reason).not.toBe('priority-cost');
+      expect(decision.model).toBe('p:big');
+    }
+  });
+
   it('counts a rated run once in the confidence bound: verdicts weigh the rate, not the sample size', async () => {
     const built = runsBuilder();
     built.add({ model: 'p:big', successes: outcomes({ count: 20, rate: 1 }) });

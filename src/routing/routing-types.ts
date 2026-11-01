@@ -78,7 +78,10 @@ export interface RoutingOptions {
   minSamples?: number;
   /** Success-rate points subtracted per unit of relative cost (default 0.1). */
   costWeight?: number;
-  /** `routingPriority: 'cost'`: the cheap model's lower bound must reach this share of the best rate (default 0.85). */
+  /**
+   * `routingPriority: 'cost'`: the cheap model's lower bound must reach this share of the best proven rate (default
+   * 0.85). Applies only once the cheap and the default model both have `minSamples` runs.
+   */
   minSuccessRate?: number;
   /** Largest share of runs sent to a model to learn about it (default 0.1). Never for quality or unattended tasks. */
   maxExploration?: number;
