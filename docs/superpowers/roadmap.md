@@ -24,7 +24,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 16 | Memory (Phase 2) | done |
 | 17 | Efficiency: routing and caching (Phase 3) | done |
 | 18 | Strategy learning (Phase 4), skill learning (Phase 5) | done |
-| 19 | Adapters: file store, Mongo store, embeddings recall (Phase 6) | partly built on branch `slices-18-20-offline`: contract suite, file store, Mongo store (fake-tested); vector index and embedding recall still todo (need slices 13 and 16) |
+| 19 | Adapters: file store, Mongo store, embeddings recall (Phase 6) | done |
 | 20 | Packaging, release, docs, examples | todo |
 
 Known limits of this autonomous run: anything needing a model download, a running Ollama, paid API keys, a real MongoDB, or the Claude Code binary is built against interfaces and fakes, with live tests gated off.
