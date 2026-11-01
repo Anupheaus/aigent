@@ -17,6 +17,9 @@ export type {
 export type {
   MemoryEntry, MemoryKind, MemoryNote, MemoryOptions, MemoryOrigin, MemoryRank, MemoryRemoval, MemoryRetriever, MemoryScope, MemorySource, RecalledMemory,
 } from './memory/memory-types.js';
+export { embeddingRetriever } from './memory/embedding-retriever.js';
+export type { EmbeddingRetrieverOptions } from './memory/embedding-retriever.js';
+export type { MemoryVectorRecord } from './memory/memory-vectors.js';
 export type {
   AgentFeedbackEntry, AgentFeedbackKind, AgentFeedbackRecord, StoredAgentFeedbackEntry, ResponseIndexRecord, UserFeedback, UserFeedbackHistoryEntry, UserFeedbackRecord, UserRating,
 } from './feedback/feedback-records.js';

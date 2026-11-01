@@ -13,7 +13,7 @@ export interface RelevanceParams {
 }
 
 /** BM25 over each entry's text and tags, stop words left out of both sides. */
-function keywordRelevance(params: { query: string; entries: MemoryEntry[] }): Map<string, number> {
+export function keywordRelevance(params: { query: string; entries: MemoryEntry[] }): Map<string, number> {
   const { query, entries } = params;
   const index = createBm25(entries.map(({ id, text, tags }) => ({ id, text: contentTerms([text, ...tags].join(' ')).join(' ') })));
   return new Map(index.search({ query: contentTerms(query).join(' '), k: entries.length }).map(({ id, score }) => [id, score]));

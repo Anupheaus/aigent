@@ -18,7 +18,7 @@ import * as mongoStores from './stores/mongo/index.js';
 describe('public API', () => {
   it('exports the documented surface and nothing placeholder', () => {
     expect(Object.keys(api).sort()).toEqual([
-      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'EFFECTS_COLLECTION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'anthropicPlugin', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createFileStore', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'deepseekPlugin', 'defineBatchTool', 'defineGuardrail', 'definePlugin', 'defineTool',
+      'BUILTIN_GUARDRAILS', 'CHECKPOINT_SCHEMA_VERSION', 'EFFECTS_COLLECTION', 'GUARDRAIL_STAGES', 'QUESTION_TYPES', 'ROOT_BRANCH_ID', 'RUN_RECORD_SCHEMA_VERSION', 'anthropic', 'anthropicPlugin', 'createAigent', 'createAigentError', 'createConversationStore', 'createEmptyConversation', 'createFileStore', 'createInMemoryStore', 'createScheduler', 'createWriteQueue', 'deepseek', 'deepseekPlugin', 'defineBatchTool', 'defineGuardrail', 'definePlugin', 'defineTool', 'embeddingRetriever',
       'isAigentError', 'ollama', 'ollamaPlugin', 'openAiCompatible', 'openAiCompatiblePlugin', 'openai', 'openaiPlugin', 'pluginTools', 'reduceConversation', 'toolFailure', 'updateRecord',
     ]);
   });
