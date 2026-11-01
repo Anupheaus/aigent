@@ -185,6 +185,17 @@ describe('createModelRouter', () => {
     expect(await choose({ routerOf })).toMatchObject({ model: 'p:big', evidence: { reverted: { model: 'p:small' } } });
   });
 
+  it('fails safe after a restart: a new router reverts again on the stored degraded window', async () => {
+    const built = runsBuilder();
+    built.add({ model: 'p:big', successes: outcomes({ count: 60, rate: 0.6 }) });
+    built.add({ model: 'p:huge', successes: outcomes({ count: 60, rate: 0.6 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 60, rate: 0.95 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 30, rate: 0.7 }) });
+    expect(await choose({ routerOf: router({ runs: built.runs, options: {} }) })).toMatchObject({ model: 'p:big', evidence: { reverted: { model: 'p:small' } } });
+    // Revert state is in memory only: a restarted runtime finds the same evidence in the stored runs.
+    expect(await choose({ routerOf: router({ runs: built.runs, options: {} }) })).toMatchObject({ model: 'p:big', evidence: { reverted: { model: 'p:small' } } });
+  });
+
   it('does not revert on a drop that chance explains', async () => {
     const built = runsBuilder();
     built.add({ model: 'p:big', successes: outcomes({ count: 60, rate: 0.6 }) });
