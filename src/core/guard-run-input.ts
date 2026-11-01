@@ -8,6 +8,11 @@ export interface GuardedInput {
   conversation?: ConversationRun;
   /** Set when an input guardrail blocked: the run fails with it and never calls the provider. */
   blocked?: string;
+  /**
+   * The task text or chat message as the input stage left it (rewritten when a guardrail rewrote it): what anything
+   * beyond the model, such as a memory embedder, may be sent.
+   */
+  checkedText?: string;
 }
 
 /** The message a chat turn answers: the last user message of its history. */
@@ -30,8 +35,9 @@ export async function guardRunInput(params: { guardrails: RunGuardrails; input: 
     const { guardrail, reason } = checked.blocked;
     return { input, ...(conversation == null ? {} : { conversation }), blocked: `Guardrail '${guardrail}' blocked the input: ${reason}` };
   }
-  if (checked.text === text) return { input, ...(conversation == null ? {} : { conversation }) };
-  if (conversation == null || target == null) return { input: { ...input, task: checked.text } };
-  const history = conversation.history.map((entry, position) => (position === index ? { ...entry, message: { ...entry.message, text: checked.text } } : entry));
-  return { input, conversation: { ...conversation, history } };
+  const checkedText = checked.text;
+  if (checkedText === text) return { input, ...(conversation == null ? {} : { conversation }), checkedText };
+  if (conversation == null || target == null) return { input: { ...input, task: checkedText }, checkedText };
+  const history = conversation.history.map((entry, position) => (position === index ? { ...entry, message: { ...entry.message, text: checkedText } } : entry));
+  return { input, conversation: { ...conversation, history }, checkedText };
 }

@@ -182,7 +182,8 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
         const brief = texts == null || instructions == null ? texts?.brief ?? '' : `${texts.brief}\n\n${instructions}`;
         const initial = texts == null ? [] : initialMessages({ system: texts.system, brief, ...(guarded.conversation == null ? {} : { conversation: guarded.conversation }) });
         // Recalled at run start, before the first request, into the volatile block only (never stored or compacted).
-        if (guarded.blocked == null) await memorySetup?.recall.start(recallQueryOf(input));
+        // The guarded text, never the raw input: an input guardrail's rewrite (a masked id, say) must hold for the embedder too.
+        if (guarded.blocked == null) await memorySetup?.recall.start(recallQueryOf({ ...input, task: guarded.checkedText ?? input.task }));
         return await runAgentTurns({
           runId, responseId, agentName, instanceId, initial, registry: runRegistry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
