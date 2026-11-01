@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, readdir, readFile, rename, rm, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { createAigentError } from '../core/aigent-error.js';
 import { acquireFileLock } from './file-lock.js';
 import { encodeName } from './key-encoding.js';
@@ -43,6 +43,8 @@ const DEFAULT_LOCK_TIMEOUT_MS = 10_000;
 const DEFAULT_STALE_LOCK_MS = 30_000;
 const RENAME_ATTEMPTS = 20;
 const RENAME_RETRY_MS = 5;
+/** A record's temporary file: `<record file>.<uuid>.tmp` (lock and break files never end this way). */
+const TEMP_NAME = /^(.+)\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/;
 /** Windows refuses to replace a file another process has open for a moment. */
 const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 
@@ -52,6 +54,17 @@ function errorCode(error: unknown): string | undefined {
 
 function realSleep(delayMs: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, delayMs));
+}
+
+/** Makes a rename durable. Windows cannot open a directory for flushing (NTFS journals the rename itself). */
+async function syncDirectory(path: string): Promise<void> {
+  if (process.platform === 'win32') return;
+  const handle = await open(path, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
 }
 
 function storeFailed(message: string, details: Record<string, unknown>): Error {
@@ -123,12 +136,26 @@ export function createFileStore(options: FileStoreOptions): FileStore {
       await unlink(temporaryPath).catch(() => undefined);
       throw error;
     }
+    // The record is committed either way; a directory that cannot be flushed only weakens durability across a power cut.
+    await syncDirectory(dirname(path)).catch(() => undefined);
+  }
+
+  /**
+   * Temporary files of `path` exist only while its lock is held, so once a crashed holder's lock was taken over, any
+   * left beside the record are that holder's leftovers.
+   */
+  async function sweepTemporaries(path: string): Promise<void> {
+    const recordName = basename(path);
+    for (const name of await readdir(dirname(path)).catch(() => [])) {
+      if (TEMP_NAME.exec(name)?.[1] === recordName) await unlink(join(dirname(path), name)).catch(() => undefined);
+    }
   }
 
   async function withLock<R>(path: string, action: () => Promise<R>): Promise<R> {
     await mkdir(join(path, '..'), { recursive: true });
     const lock = await acquireFileLock(`${path}${LOCK_SUFFIX}`, lockOptions);
     try {
+      if (lock.tookOver) await sweepTemporaries(path);
       return await action();
     } finally {
       await lock.release();
