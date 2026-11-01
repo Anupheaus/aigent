@@ -146,6 +146,75 @@ describe('createModelRouter', () => {
     expect(await choose({ routerOf })).toMatchObject({ model: 'p:small', reason: 'learned' });
   });
 
+  it('puts a reverted model on probation after its cooldown instead of reverting it again on the same runs', async () => {
+    const built = runsBuilder();
+    built.add({ model: 'p:big', successes: outcomes({ count: 60, rate: 0.6 }) });
+    built.add({ model: 'p:huge', successes: outcomes({ count: 60, rate: 0.6 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 60, rate: 0.95 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 30, rate: 0.7 }) });
+    const routerOf = router({ runs: built.runs, options: { cooldownRuns: 1 } });
+    expect(await choose({ routerOf })).toMatchObject({ model: 'p:big', evidence: { reverted: { model: 'p:small' } } });
+    expect(await choose({ routerOf })).toMatchObject({ model: 'p:big', evidence: { cooldownRunsLeft: 0 } });
+    // No new runs of p:small: the window that reverted it cannot revert it twice.
+    expect(await choose({ routerOf })).toMatchObject({ model: 'p:small', reason: 'learned' });
+    // A fresh window as bad as the first reverts it again.
+    built.add({ model: 'p:small', successes: outcomes({ count: 30, rate: 0.5 }) });
+    expect(await choose({ routerOf })).toMatchObject({ model: 'p:big', evidence: { reverted: { model: 'p:small' } } });
+  });
+
+  it('does not revert on a drop that chance explains', async () => {
+    const built = runsBuilder();
+    built.add({ model: 'p:big', successes: outcomes({ count: 60, rate: 0.6 }) });
+    built.add({ model: 'p:huge', successes: outcomes({ count: 60, rate: 0.6 }) });
+    // 0.9 earlier, then 23 of 30: 0.133 lower, more than revertDrop, but one-sided p is about 0.04.
+    built.add({ model: 'p:small', successes: outcomes({ count: 60, rate: 0.9 }) });
+    built.add({ model: 'p:small', successes: outcomes({ count: 30, rate: 23 / 30 }) });
+    expect(await choose({ routerOf: router({ runs: built.runs, options: {} }) })).toMatchObject({ model: 'p:small', reason: 'learned' });
+  });
+
+  it('keeps a stable better model through noisy windows: no lock-out after a spurious revert (simulation)', async () => {
+    const rates: Record<string, number> = { 'p:big': 0.7, 'p:small': 0.9 };
+    const routes: ModelRoutes = { default: 'p:big', cheap: 'p:small' };
+    const shares: number[] = [];
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const built = runsBuilder();
+      built.add({ model: 'p:big', successes: outcomes({ count: 20, rate: rates['p:big'] as number }) });
+      built.add({ model: 'p:small', successes: outcomes({ count: 20, rate: rates['p:small'] as number }) });
+      const routerOf = router({ runs: built.runs, options: {}, seed });
+      const world = createSeededRandom(1_000 + seed);
+      const chosen: string[] = [];
+      for (let choice = 0; choice < 2_000; choice += 1) {
+        const { model } = await routerOf.choose({ agentName: 'helper', agentVersion: 'v1', features: FEATURES, routes, now: 0 });
+        chosen.push(model);
+        built.add({ model, successes: [world() < (rates[model] as number)] });
+      }
+      shares.push(chosen.slice(-1_000).filter(model => model === 'p:small').length / 1_000);
+    }
+    // Nothing about either model changes, so the better one must keep nearly all of the traffic in every world.
+    for (const share of shares) expect(share).toBeGreaterThan(0.85);
+  }, 120_000);
+
+  it('still moves traffic off a learned model that really degrades (simulation)', async () => {
+    const routes: ModelRoutes = { default: 'p:big', cheap: 'p:small' };
+    for (const seed of [1, 2, 3]) {
+      const built = runsBuilder();
+      built.add({ model: 'p:big', successes: outcomes({ count: 40, rate: 0.7 }) });
+      built.add({ model: 'p:small', successes: outcomes({ count: 200, rate: 0.95 }) });
+      const routerOf = router({ runs: built.runs, options: {}, seed });
+      const world = createSeededRandom(2_000 + seed);
+      // From now on the learned model succeeds only 40% of the time.
+      const rates: Record<string, number> = { 'p:big': 0.7, 'p:small': 0.4 };
+      const chosen: string[] = [];
+      for (let choice = 0; choice < 600; choice += 1) {
+        const { model } = await routerOf.choose({ agentName: 'helper', agentVersion: 'v1', features: FEATURES, routes, now: 0 });
+        chosen.push(model);
+        built.add({ model, successes: [world() < (rates[model] as number)] });
+      }
+      // Each probation costs a fresh window on the bad model, so the default keeps most, not all, of the traffic.
+      expect(chosen.slice(-300).filter(model => model === 'p:big').length / 300).toBeGreaterThan(0.55);
+    }
+  }, 120_000);
+
   it('keeps statistics per agent and per bucket', async () => {
     const built = runsBuilder();
     built.add({ model: 'p:small', successes: outcomes({ count: 60, rate: 1 }), agentName: 'other' });

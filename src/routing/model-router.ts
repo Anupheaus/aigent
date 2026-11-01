@@ -26,6 +26,15 @@ interface DecideParams {
   evidence: RouteEvidence;
 }
 
+/** A bucket's last revert. */
+interface RevertState {
+  model: string;
+  /** The reverted model's outcomes at the revert: they never decide another revert. */
+  judgedOutcomes: number;
+  /** Runs of the bucket still kept on `default`. */
+  runsLeft: number;
+}
+
 /** The cheap model when its lower confidence bound reaches `minSuccessRate` of the best proven rate. */
 function costChoice(params: DecideParams): RouteDecision | undefined {
   const { choose: { routes: { cheap } }, arms, options: { minSamples, minSuccessRate }, evidence } = params;
@@ -44,8 +53,8 @@ export function createModelRouter(params: CreateModelRouterParams): ModelRouter 
   const { random, readRuns, price } = params;
   const isLearning = params.options != null;
   const options = resolveRoutingOptions(params.options);
-  /** Runs left on `default` per agent and bucket after a revert. */
-  const cooldowns = new Map<string, number>();
+  /** Per agent and bucket: the last revert, and the runs it still keeps on `default`. */
+  const cooldowns = new Map<string, RevertState>();
 
   async function choose(choice: ChooseRouteParams): Promise<RouteDecision> {
     const { agentName, features, priority, routes } = choice;
@@ -62,10 +71,11 @@ export function createModelRouter(params: CreateModelRouterParams): ModelRouter 
     }
     if (!isLearning) return decision(routes.default, 'default');
     const key = `${agentName}${KEY_SEPARATOR}${bucket}`;
-    const cooldownRunsLeft = cooldowns.get(key) ?? 0;
-    if (cooldownRunsLeft > 0) {
-      cooldowns.set(key, cooldownRunsLeft - 1);
-      return decision(routes.default, 'default', { cooldownRunsLeft: cooldownRunsLeft - 1 });
+    const lastRevert = cooldowns.get(key);
+    if (lastRevert != null && lastRevert.runsLeft > 0) {
+      const runsLeft = lastRevert.runsLeft - 1;
+      cooldowns.set(key, { ...lastRevert, runsLeft });
+      return decision(routes.default, 'default', { cooldownRunsLeft: runsLeft });
     }
     const unproven = arms.filter(({ outcomes }) => outcomes.length < options.minSamples);
     // Exploration is bounded and never risks a task nobody is watching.
@@ -76,9 +86,11 @@ export function createModelRouter(params: CreateModelRouterParams): ModelRouter 
     }
     const learned = chooseArm({ arms: arms.map(toBanditArm), costWeight: options.costWeight });
     const learnedArm = arms.find(({ model }) => model === learned) as ArmRecord;
-    const dropped = degradation({ outcomes: learnedArm.outcomes, window: options.window, minSamples: options.minSamples, revertDrop: options.revertDrop });
+    // After a cooldown the reverted model is on probation: it runs again, and only runs after the revert can revert it again.
+    const judgedOutcomes = lastRevert?.model === learned ? lastRevert.judgedOutcomes : 0;
+    const dropped = degradation({ outcomes: learnedArm.outcomes, window: options.window, minSamples: options.minSamples, revertDrop: options.revertDrop, judgedOutcomes });
     if (dropped != null) {
-      cooldowns.set(key, options.cooldownRuns);
+      cooldowns.set(key, { model: learned, judgedOutcomes: learnedArm.outcomes.length, runsLeft: options.cooldownRuns });
       return decision(routes.default, 'default', { reverted: { model: learned, ...dropped }, cooldownRunsLeft: options.cooldownRuns });
     }
     return decision(learned, 'learned');

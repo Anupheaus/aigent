@@ -1,5 +1,6 @@
 import { runSuccess, weightedRate } from '../learning/run-success.js';
 import type { RunSuccess } from '../learning/run-success.js';
+import { oneSidedProportionPValue } from '../scoring/stats.js';
 import type { RunRecord } from '../telemetry/run-record.js';
 import type { BanditArm } from './bandit.js';
 import type { RouteAlternative } from './routing-types.js';
@@ -57,17 +58,35 @@ export interface DegradationParams {
   /** Earlier runs needed before a comparison counts. */
   minSamples: number;
   revertDrop: number;
+  /**
+   * Outcomes the arm had when it was last reverted: the recent window must lie wholly after them, so a revert is
+   * only ever decided on runs it has not been judged on before. 0 (default) when it was never reverted.
+   */
+  judgedOutcomes?: number;
 }
 
 /**
- * The earlier and recent rates when the last `window` runs fell more than `revertDrop` below the runs before them;
- * undefined otherwise (also when there are not yet `minSamples` earlier runs and a full window).
+ * The one-sided level a drop must reach before it reverts. The check runs at every choice over overlapping windows,
+ * so it is held well below the usual 0.05: a stable model must not be thrown out by an unlucky stretch.
+ */
+export const REVERT_ALPHA = 0.005;
+
+/**
+ * The earlier and recent rates when the last `window` runs fell more than `revertDrop` below the runs before them and
+ * the drop is significant (one-sided two-proportion test at `REVERT_ALPHA`, on run counts); undefined otherwise (also
+ * when there are not yet `minSamples` earlier runs and a full window of runs after `judgedOutcomes`).
  */
 export function degradation(params: DegradationParams): { earlierRate: number; recentRate: number } | undefined {
-  const { outcomes, window, minSamples, revertDrop } = params;
+  const { outcomes, window, minSamples, revertDrop, judgedOutcomes = 0 } = params;
   const earlier = outcomes.slice(0, -window);
-  if (earlier.length < minSamples || outcomes.length - earlier.length < window) return undefined;
+  if (earlier.length < minSamples || outcomes.length - earlier.length < window || earlier.length < judgedOutcomes) return undefined;
+  const recent = outcomes.slice(-window);
   const earlierRate = weightedRate(earlier).rate;
-  const recentRate = weightedRate(outcomes.slice(-window)).rate;
-  return earlierRate - recentRate > revertDrop ? { earlierRate, recentRate } : undefined;
+  const recentRate = weightedRate(recent).rate;
+  if (earlierRate - recentRate <= revertDrop) return undefined;
+  const pValue = oneSidedProportionPValue({
+    treatment: { successes: earlierRate * earlier.length, n: earlier.length },
+    control: { successes: recentRate * recent.length, n: recent.length },
+  });
+  return pValue < REVERT_ALPHA ? { earlierRate, recentRate } : undefined;
 }

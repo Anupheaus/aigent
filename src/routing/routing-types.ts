@@ -84,7 +84,7 @@ export interface RoutingOptions {
   maxExploration?: number;
   /** Recent runs compared against the learned model's earlier rate (default 30). */
   window?: number;
-  /** Drop in success rate that reverts a learned choice (default 0.1). */
+  /** Drop in success rate that reverts a learned choice when it is also significant (default 0.1). */
   revertDrop?: number;
   /** Runs of the bucket that stay on `default` after a revert (default 50). */
   cooldownRuns?: number;
@@ -107,7 +107,7 @@ export interface ChooseRouteParams {
 /** Picks a model for each routed run, from its routes and the stored outcomes of earlier runs. */
 export interface ModelRouter {
   choose(params: ChooseRouteParams): Promise<RouteDecision>;
-  /** Forgets reverts and cooldowns (all agents, or one), so learned routing starts again from the stored statistics. */
+  /** Forgets reverts, cooldowns and probations (all agents, or one), so learned routing starts again from the stored statistics. */
   reset(agentName?: string): void;
 }
 
