@@ -26,6 +26,9 @@ const DEFAULT_ROUNDS = 20;
 const DEFAULT_LARGE_VALUE_BYTES = 5_000_000;
 const LONG_KEY_LENGTH = 300;
 const TEST_TIMEOUT_MS = 120_000;
+/** Big enough that a file write is not one disk block, so a store that is not atomic shows a torn value. */
+const TORN_READ_VALUE_BYTES = 200_000;
+const TORN_READ_WRITES = 30;
 
 /** Keys that have broken stores before: path tricks, Windows device names, separators, case, escapes, length. */
 const AWKWARD_KEYS = ['../x', '..', '.', 'CON', 'nul', 'a/b', 'a\\b', 'ünïcode ✓', ' ', 'Key', 'key', 'KEY', 'x.', '%41', 'A', 'a', 'a.json', 'tab\tkey', 'a'.repeat(LONG_KEY_LENGTH), 'a'.repeat(LONG_KEY_LENGTH - 1) + 'b'];
@@ -155,6 +158,34 @@ export function describeStoreContract(subject: StoreContractSubject): void {
         const read = await store.get<{ big: string }>('big', 'a');
         expect(read?.value.big.length).toBe(largeValueBytes);
         expect(read?.value.big === big).toBe(true);
+      });
+    }, TEST_TIMEOUT_MS);
+
+    it('never shows a reader half of a write: every read is one whole version', async () => {
+      await withStore(subject, async store => {
+        const valueFor = (version: number): { version: number; body: string } => ({ version, body: String(version % 10).repeat(TORN_READ_VALUE_BYTES) });
+        let written = 0;
+        let isWriting = true;
+        const writing = (async () => {
+          for (let version = 1; version <= TORN_READ_WRITES; version += 1) {
+            expect(await store.compareAndSet({ collection: 'torn', key: 'k', expectedVersion: version === 1 ? undefined : version - 1, value: valueFor(version) })).toBe(true);
+            written = version;
+          }
+          isWriting = false;
+        })();
+        const torn: string[] = [];
+        let reads = 0;
+        while (isWriting || reads === 0) {
+          const writtenBefore = written;
+          const read = await store.get<{ version: number; body: string }>('torn', 'k');
+          reads += 1;
+          if (read == null) continue;
+          const expected = valueFor(read.version);
+          if (read.value.version !== read.version || read.value.body !== expected.body) torn.push(`read ${reads}: record version ${read.version}, value version ${read.value.version}`);
+          if (read.version < writtenBefore) torn.push(`read ${reads}: version ${read.version} after version ${writtenBefore} was written`);
+        }
+        await writing;
+        expect(torn).toEqual([]);
       });
     }, TEST_TIMEOUT_MS);
 
