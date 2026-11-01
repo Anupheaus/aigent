@@ -5,7 +5,7 @@ import type { RecalledMemory } from './memory-types.js';
 import { MAX_RECALL_TOKENS, RECALL_PREAMBLE, RECALL_TITLE, renderRecall, WITHHELD_MEMORY } from './render-recall.js';
 
 function memory(overrides: Partial<RecalledMemory>): RecalledMemory {
-  return { id: 'm', kind: 'fact', text: 'x', tags: [], pinned: false, score: 1, ...overrides };
+  return { id: 'm', kind: 'fact', text: 'x', tags: [], pinned: false, origin: 'tool-call', score: 1, ...overrides };
 }
 
 describe('renderRecall', () => {
@@ -45,6 +45,11 @@ describe('renderRecall', () => {
     expect(body).toContain(`- [fact] ${WITHHELD_MEMORY} (${kind})`);
     expect(body).not.toContain(text);
     expect(body).toContain('- [fact] Run the linter first');
+  });
+
+  it('marks a lesson from a user correction apart from the notes the agent wrote itself', () => {
+    const { body } = renderRecall([memory({ kind: 'lesson', text: 'Invoices live in billing', origin: 'user-correction' }), memory({ id: 'own', kind: 'lesson', text: 'Run the linter first' })]) ?? { body: '' };
+    expect(body.split('\n').slice(1)).toEqual(['- [lesson, from a user correction] Invoices live in billing', '- [lesson] Run the linter first']);
   });
 
   it('redacts secrets in stored text before the model sees it (entries saved before memory redacted them)', () => {

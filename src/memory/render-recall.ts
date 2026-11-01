@@ -1,7 +1,7 @@
 import type { VolatileSection } from '../context/volatile-block.js';
 import { findInjection, neutraliseInstructions, REMOVED_DIRECTIVE } from '../guardrails/builtin/injection.js';
 import { estimateTokens } from '../telemetry/estimate-tokens.js';
-import type { RecalledMemory } from './memory-types.js';
+import type { MemoryOrigin, RecalledMemory } from './memory-types.js';
 import { scrubMemoryText } from './scrub-memory-text.js';
 
 /** The volatile section's title. */
@@ -31,9 +31,12 @@ export function defuseMemoryText(text: string): string {
   return neutraliseInstructions(scrubMemoryText({ text })).replace(/\s+/g, ' ').trim().replace(ANY_DIRECTIVE_MARKER, REMOVED_DIRECTIVE);
 }
 
+/** How a memory's label says where it came from; the agent's own notes need no mark. */
+const ORIGIN_LABELS: Record<MemoryOrigin, string> = { 'tool-call': '', 'user-correction': ', from a user correction', manual: ', from the application' };
+
 function memoryLine(memory: RecalledMemory): string {
-  const { kind, text } = memory;
-  return `- [${kind}] ${defuseMemoryText(text)}`;
+  const { kind, text, origin } = memory;
+  return `- [${kind}${ORIGIN_LABELS[origin]}] ${defuseMemoryText(text)}`;
 }
 
 /** The `## Remembered from earlier` section of the volatile block, best memory first, cut to its token budget; undefined when empty. */

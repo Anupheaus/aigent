@@ -39,6 +39,8 @@ export interface MemoryForgetResult {
   forgotten: string[];
   /** Ids with no live entry of this agent and scope (unknown, another scope's, already forgotten or evicted). */
   notFound: string[];
+  /** Lessons from a user's correction: the model may not forget what a user taught (a later correction replaces it). */
+  kept: string[];
 }
 
 /** The memory domain over the runtime's store: every write is scrubbed of secrets, redacted and runs in the agent's write queue. */
@@ -106,11 +108,20 @@ export function createMemoryStore(params: CreateMemoryStoreParams): MemoryStore 
     return writeQueue.enqueue(agentName, async () => {
       const forgotten: string[] = [];
       const notFound: string[] = [];
+      const kept: string[] = [];
       for (const id of [...new Set(ids)]) {
-        const wasLive = await updateIfLive({ agentName, scopeKey, id, change: entry => ({ ...entry, removed: { at: now(), reason: 'forgotten' } }) });
-        (wasLive ? forgotten : notFound).push(id);
+        let isUserCorrection = false;
+        const wasLive = await updateIfLive({
+          agentName, scopeKey, id,
+          change: entry => {
+            isUserCorrection = entry.source.origin === 'user-correction';
+            return isUserCorrection ? entry : { ...entry, removed: { at: now(), reason: 'forgotten' } };
+          },
+        });
+        if (!wasLive) notFound.push(id);
+        else (isUserCorrection ? kept : forgotten).push(id);
       }
-      return { forgotten, notFound };
+      return { forgotten, notFound, kept };
     });
   }
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool } from '../tools/define-tool.js';
 import type { Tool } from '../tools/tool-types.js';
 import type { MemoryForgetResult } from './memory-store.js';
-import type { MemoryKind, RecalledMemory } from './memory-types.js';
+import type { MemoryKind, MemoryOrigin, RecalledMemory } from './memory-types.js';
 import { defuseMemoryText } from './render-recall.js';
 
 export const MEMORY_RECALL_TOOL_NAME = 'memory_recall';
@@ -28,11 +28,13 @@ interface ShownMemory {
   text: string;
   tags: string[];
   pinned: boolean;
+  /** A user's correction reads apart from the agent's own notes. */
+  origin: MemoryOrigin;
 }
 
 function shown(memory: RecalledMemory): ShownMemory {
-  const { id, kind, text, tags, pinned } = memory;
-  return { id, kind, text: defuseMemoryText(text), tags, pinned };
+  const { id, kind, text, tags, pinned, origin } = memory;
+  return { id, kind, text: defuseMemoryText(text), tags, pinned, origin };
 }
 
 const recallArgs = z.object({
@@ -59,7 +61,7 @@ export function createMemoryTools(access: MemoryToolAccess): Tool[] {
   });
   const forgetTool = defineTool({
     name: MEMORY_FORGET_TOOL_NAME,
-    description: `Forget saved notes that are wrong or outdated, by id (from memory_recall), up to ${MAX_FORGET_IDS} per call. Forgotten notes are never recalled again.`,
+    description: `Forget saved notes that are wrong or outdated, by id (from memory_recall), up to ${MAX_FORGET_IDS} per call. Forgotten notes are never recalled again. Lessons from a user correction are kept (listed as kept).`,
     args: forgetArgs,
     deterministic: false,
     cache: false,

@@ -80,6 +80,18 @@ describe('createMemoryStore', () => {
     expect((await store.list<MemoryEntry>(MEMORY_COLLECTION))[0]?.value.uses).toBe(0);
   });
 
+  it('never forgets a user correction\'s lesson for the model, and recall says where each memory came from', async () => {
+    const store = createInMemoryStore();
+    const memory = createMemoryStore({ store, writeQueue: createWriteQueue(), now: () => 1_000 });
+    await memory.save({ options: OPTIONS, request: { agentName: 'helper', scopeKey: 'agent', source: { runId: 'r', origin: 'user-correction' }, notes: [{ kind: 'lesson', text: 'lint with the strict config' }] } });
+    await memory.save(note('lint before committing'));
+    const recalled = (await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })).memories;
+    const lesson = recalled.find(({ origin }) => origin === 'user-correction')?.id ?? '';
+    expect(recalled.map(({ origin }) => origin).sort()).toEqual(['tool-call', 'user-correction']);
+    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [lesson] })).toEqual({ forgotten: [], notFound: [], kept: [lesson] });
+    expect((await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })).memories.map(({ id }) => id)).toContain(lesson);
+  });
+
   it('forgets live entries of its own agent and scope only, never recalls them, and a later save brings one back', async () => {
     const store = createInMemoryStore();
     const memory = createMemoryStore({ store, writeQueue: createWriteQueue(), now: () => 1_000 });
@@ -88,8 +100,8 @@ describe('createMemoryStore', () => {
     const entries = (await store.list<MemoryEntry>(MEMORY_COLLECTION)).map(({ value }) => value);
     const mine = entries.find(({ scopeKey }) => scopeKey === 'agent')?.id ?? '';
     const otherScope = entries.find(({ scopeKey }) => scopeKey === 'session:s1')?.id ?? '';
-    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine, otherScope, 'unknown', mine] })).toEqual({ forgotten: [mine], notFound: [otherScope, 'unknown'] });
-    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine] })).toEqual({ forgotten: [], notFound: [mine] });
+    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine, otherScope, 'unknown', mine] })).toEqual({ forgotten: [mine], notFound: [otherScope, 'unknown'], kept: [] });
+    expect(await memory.forget({ agentName: 'helper', scopeKey: 'agent', ids: [mine] })).toEqual({ forgotten: [], notFound: [mine], kept: [] });
     expect(await store.get('memory', 'unknown')).toBeUndefined();
     expect((await memory.recall({ agentName: 'helper', scopeKey: 'agent', query: 'lint', limit: 5 })).memories).toEqual([]);
     expect((await memory.recall({ agentName: 'helper', scopeKey: 'session:s1', query: 'lint', limit: 5 })).memories).toHaveLength(1);

@@ -60,5 +60,5 @@ export async function recallMemories(params: RecallParams): Promise<RecalledMemo
     .filter(({ score }) => score > 0)
     .sort((left, right) => right.score - left.score || right.entry.updatedAt - left.entry.updatedAt || (left.entry.id < right.entry.id ? -1 : 1))
     .slice(0, limit)
-    .map(({ entry: { id, kind, text, tags, pinned }, score }) => ({ id, kind, text, tags: [...tags], pinned, score }));
+    .map(({ entry: { id, kind, text, tags, pinned, source: { origin } }, score }) => ({ id, kind, text, tags: [...tags], pinned, origin, score }));
 }

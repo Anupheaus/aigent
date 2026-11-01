@@ -131,6 +131,8 @@ export interface RecalledMemory {
   text: string;
   tags: string[];
   pinned: boolean;
+  /** Where the text came from (the winning source): the model reads a user's correction apart from its own notes. */
+  origin: MemoryOrigin;
   /** relevance × (0.5 + confidence) × recency × use boost. */
   score: number;
 }
