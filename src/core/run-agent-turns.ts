@@ -7,6 +7,7 @@ import type { ToolRegistry } from '../tools/tool-registry.js';
 import type { AigentEvent, TaskStatus } from './aigent-events.js';
 import type { TaskResultData } from './agent-types.js';
 import { describeError } from './describe-value.js';
+import { PREVIOUS_FIELD } from '../feedback/previous-outcome.js';
 import { COMMENTARY_TOOLS } from './dispatch-tool-call.js';
 import { nothingHeld } from './run-memory.js';
 import { createTurnWork, drainWork, failedDetails } from './drain-work.js';
@@ -184,6 +185,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     const round = await reconcileInterruptedRound({
       // Bookkeeping tools carry no memory field, as in a live dispatch.
       ...(memory == null ? {} : { takeMemory: (call: ToolCall) => (COMMENTARY_TOOLS.has(call.name) ? nothingHeld(call) : memory.take(call)) }),
+      // Feedback's previous is stripped as a live dispatch strips it; the interrupted process already linked it.
+      ...(telemetry.feedback.isEnabled ? { injectedFields: (call: ToolCall) => (COMMENTARY_TOOLS.has(call.name) ? [] : [PREVIOUS_FIELD]) } : {}),
       restored: restore, registry: originals.registry(), ids: { runId: ledgerRunId ?? runId, agentName, instanceId }, signal, sideEffectSignal, isUnattended, now: () => clock.now(), emit,
       ...(ledger == null ? {} : { ledger }), ...(effects == null ? {} : { dryRun: effects.dryRun, record: effects.record }), ...(guardrails == null ? {} : { guard: guardSettledCall(guardrails.checks) }),
       ...(gate == null ? {} : { gate: ({ call, tool, force }: { call: ToolCall; tool: Tool; force?: { reason: string } }) => gate({ call, tool, context: { runId, agentName, instanceId, callId: call.id, signal }, ...(force == null ? {} : { force }) }) }),

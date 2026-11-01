@@ -3,6 +3,7 @@ import type { NewContextMessage } from '../core/run-context.js';
 import { turnMessages } from '../core/turn-messages.js';
 import type { ThinkingBlock, ToolCall } from '../providers/provider-types.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
+import { stripInjectedFields } from '../tools/injected-fields.js';
 import { MULTI_TOOL_NAME } from '../tools/multi-tool.js';
 import type { ToolEnvelope } from '../tools/tool-envelope.js';
 import type { ToolRegistry } from '../tools/tool-registry.js';
@@ -57,6 +58,11 @@ export interface ReconcileParams {
    * sent them), so its tool, ledger entry and verify see the arguments a live call would.
    */
   takeMemory?(call: ToolCall): TakenMemory;
+  /**
+   * Other injected wrapper fields (feedback's `previous`) to take out of an interrupted call and its `aigent_multi`
+   * inner calls, as a live dispatch does. Their content is not acted on again: the interrupted process already did.
+   */
+  injectedFields?(call: ToolCall): readonly string[];
 }
 
 /**
@@ -88,14 +94,15 @@ function thinkingOf(params: { restored: RestoredRun; ids: ReadonlySet<string> })
  * their tool's `resume` policy, and an `aigent_multi` call is settled call by call. Empty when the round was committed.
  */
 export async function reconcileInterruptedRound(params: ReconcileParams): Promise<ReconciledRound> {
-  const { restored, registry, emit, record, takeMemory, ...rest } = params;
+  const { restored, registry, emit, record, takeMemory, injectedFields, ...rest } = params;
   const { state: { inFlight, totals }, ledger } = restored;
   const calls = interruptedCalls(restored);
   if (calls.length === 0) return { messages: [], turn: totals.turns };
   const executed: ExecutedToolCall[] = [];
   for (const sentCall of calls) {
     const taken = takeMemory?.(sentCall);
-    const call = taken?.call ?? sentCall;
+    const withoutMemory = taken?.call ?? sentCall;
+    const call = injectedFields == null ? withoutMemory : stripInjectedFields({ call: withoutMemory, fields: injectedFields(withoutMemory) });
     // A call in the ledger was admitted by the interrupted process, which queued its notes then: they are not saved
     // twice (a second save would count as a repeat and raise the note's confidence).
     const wasAdmitted = ledger.some(({ callId }) => callId === call.id);

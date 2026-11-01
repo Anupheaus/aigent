@@ -1,5 +1,7 @@
 import { describeIssues } from '../core/describe-issues.js';
 import { DIRECTIVE_SCHEMAS } from '../streaming/directive-schemas.js';
+import { splitInjectedField, stripInnerField } from '../tools/injected-fields.js';
+import type { StripInnerFieldResult } from '../tools/injected-fields.js';
 
 /** The argument key that carries the agent's verdict on its previous tool step. */
 export const PREVIOUS_FIELD = 'previous';
@@ -22,39 +24,22 @@ export interface SplitPreviousResult {
   previous: PreviousReport;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 /** Takes `previous` out of a call's arguments (never mutating them) and validates it with the outcome directive's schema. */
 export function splitPrevious(rawArgs: unknown): SplitPreviousResult {
-  if (!isPlainObject(rawArgs)) return { args: rawArgs, previous: { kind: 'missing' } };
-  const { [PREVIOUS_FIELD]: previous, ...args } = rawArgs;
+  const { args, value: previous } = splitInjectedField({ args: rawArgs, field: PREVIOUS_FIELD });
   if (previous == null) return { args, previous: { kind: 'missing' } };
   const parsed = DIRECTIVE_SCHEMAS.outcome.safeParse(previous);
   if (!parsed.success) return { args, previous: { kind: 'invalid', reason: describeIssues(parsed.error) } };
   return { args, previous: { kind: 'reported', outcome: parsed.data } };
 }
 
-export interface StripInnerPreviousResult {
-  /** The `aigent_multi` arguments with `previous` taken out of every inner call's arguments. */
-  args: unknown;
-  /** Ids of the inner calls that carried `previous` (null included), in call order. */
-  strippedCallIds: string[];
-}
+/** The `aigent_multi` arguments with `previous` taken out of every inner call, and the ids of the calls that carried it. */
+export type StripInnerPreviousResult = StripInnerFieldResult;
 
 /**
  * Inner `aigent_multi` calls never carry `previous` (the wrapper reports for them), but a model may add it anyway.
  * Their tools' strict schemas would reject the unknown key, so it is taken out (never mutating the input) and ignored.
  */
 export function stripInnerPrevious(multiArgs: unknown): StripInnerPreviousResult {
-  if (!isPlainObject(multiArgs) || !Array.isArray(multiArgs.calls)) return { args: multiArgs, strippedCallIds: [] };
-  const strippedCallIds: string[] = [];
-  const calls = multiArgs.calls.map((innerCall: unknown) => {
-    if (!isPlainObject(innerCall) || !isPlainObject(innerCall.args) || !(PREVIOUS_FIELD in innerCall.args)) return innerCall;
-    const { [PREVIOUS_FIELD]: _ignored, ...innerArgs } = innerCall.args;
-    strippedCallIds.push(String(innerCall.id));
-    return { ...innerCall, args: innerArgs };
-  });
-  return { args: { ...multiArgs, calls }, strippedCallIds };
+  return stripInnerField({ args: multiArgs, field: PREVIOUS_FIELD });
 }
