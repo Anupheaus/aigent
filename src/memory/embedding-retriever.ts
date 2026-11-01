@@ -60,8 +60,9 @@ function ranksOf(scores: Map<string, number>): Map<string, number> {
 
 /** Weighted reciprocal-rank fusion of the semantic and keyword rankings; an entry in neither is left out. */
 function fuse(params: { semantic: Map<string, number>; keyword: Map<string, number> }): MemoryRank[] {
-  const semanticRanks = ranksOf(params.semantic);
-  const keywordRanks = ranksOf(params.keyword);
+  const { semantic, keyword } = params;
+  const semanticRanks = ranksOf(semantic);
+  const keywordRanks = ranksOf(keyword);
   const ids = new Set([...semanticRanks.keys(), ...keywordRanks.keys()]);
   return [...ids].map(id => {
     const semanticRank = semanticRanks.get(id);
