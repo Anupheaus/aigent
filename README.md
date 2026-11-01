@@ -743,6 +743,30 @@ The report also looks at what was asked, across runs, without any model calls:
 
 Both depend on outcomes: with `enableFeedback` off they rely on user verdicts alone.
 
+## Learning (`createAigent({ learning })`)
+
+Everything here is off unless you turn it on, learns only from stored run records, and never bypasses guardrails, approvals or policies. Every decision is stored with the run and can be inspected and undone through `ai.learning`.
+
+### Model routing
+
+An agent's `model` can be a route set instead of one model:
+
+```ts
+const ai = createAigent({ providers, store, pricing, learning: { routing: { minSamples: 20 } } });
+const agent = ai.agent({ name: 'helper', model: { default: 'anthropic:claude-sonnet-5-5', cheap: 'deepseek:deepseek-chat', capable: 'anthropic:claude-opus-5-5', fallback: ['openai:gpt-5'] } });
+await agent.task({ task: 'Find the release notes', routingPriority: 'cost' });
+```
+
+- Each run uses `default` unless one of these applies, in order: `routingPriority: 'quality'` always uses `capable` (or `default`); `routingPriority: 'cost'` uses `cheap` once its Wilson lower bound (95%) reaches `minSuccessRate` (0.85) of the best proven model's rate; with `learning.routing` on, a UCB1 bandit over success rate minus `costWeight` (0.1) times the relative cost picks the model once every routed model has `minSamples` (20) runs in the task's bucket. Before that, at most `maxExploration` (0.1) of the runs try the least-tried model (never for unattended tasks), with a reproducible `seed` if you give one.
+- A task's bucket is its length (task plus context: short below 200 characters, medium below 1,000, long) and the kinds of work its words name (search, edit, analyse, summarise; a small fixed lexicon). `extractTaskFeatures` also records plan, acceptance criteria, output schema, tool count, unattended and label.
+- Success is the user's verdict when there is one (correct 1, partial 0.5, incorrect 0, counted twice), else the agent's own outcome on a completed run. Dry runs are left out.
+- **Automatic revert:** when the learned model's last `window` (30) runs fall more than `revertDrop` (0.1) below its earlier rate, the bucket goes back to `default` for `cooldownRuns` (50) runs. `ai.learning.routing.reset(agentName?)` forgets reverts and cooldowns.
+- The run's models are the chosen one, then `default`, then `fallback` (which replaces `fallbackModels`). Every decision is stored on the run record as `route: { model, reason, evidence, alternatives }`, where `reason` is `default`, `priority-quality`, `priority-cost`, `learned` or `explore`, and `alternatives` lists each routed model's success rate, mean cost and run count in the bucket. Routes are part of `agentVersion`.
+
+### Response cache
+
+`learning: { responseCache: { ttlMs: 600_000, maxEntries: 500, shared: false } }` replays an identical model request from memory instead of sending it. Only requests that are reproducible (`temperature: 0` or a `seed`) qualify, and the key covers the provider, model, settings as sent, messages, tools, the run's agent version and the agent instance (unless `shared: true`). A response is stored only when it completed normally, on the requested model (no fallback), and every tool call in it is to a deterministic, cached tool (so replaying it is safe); errors and aborted streams are never stored. The turn after a round that ran a tool with side effects is neither replayed nor stored, and neither is the first turn of a resumed run or any turn of a provider that runs its own tool loop. A replayed turn reports zero usage on a `usage` event with `cachedResponse: true` and counts in `usage.cachedResponses`. `ai.learning.responseCache.size()` and `.clear()` inspect and empty it. Entries never reach the store.
+
 ## Guardrails
 
 ```ts

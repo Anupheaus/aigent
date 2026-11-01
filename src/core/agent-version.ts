@@ -9,6 +9,7 @@ import type { ModelSettings } from './model-settings.js';
 import { DEFAULT_RESILIENCE_POLICY } from './resilience-policy.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskLimits } from './task-input.js';
+import type { ModelRoutes } from '../routing/routing-types.js';
 
 /** The tool fields that change how an agent behaves; code (`run`, renderers) is not hashable and is left out. */
 export type AgentVersionTool = Pick<Tool, 'name' | 'description' | 'jsonSchema' | 'strict' | 'deterministic' | 'cache' | 'cacheTtlMs' | 'hasSideEffects' | 'timeoutMs' | 'maxResultTokens' | 'version' | 'contentKind' | 'fidelity' | 'acceptsAliases' | 'cacheNamespace' | 'sharedCache' | 'compactable' | 'compressible' | 'promptAddendum'>;
@@ -53,6 +54,8 @@ export interface AgentVersionInput {
   compression?: Record<string, unknown>;
   /** The resolved memory options, only when memory is on (it adds a prompt addendum and a field to every tool). */
   memory?: ResolvedMemoryOptions;
+  /** The agent's model routes, when `model` is a route set (`model` is then its `default`). */
+  routes?: ModelRoutes;
 }
 
 const HASH_ALGORITHM = 'sha256';
@@ -100,7 +103,7 @@ function effectiveLimits(limits: TaskLimits | undefined): TaskLimits {
  * Empty and default-valued fields are normalised first, so only a change in behaviour changes the hash.
  */
 export function computeAgentVersion(input: AgentVersionInput): string {
-  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel, compression, memory } = input;
+  const { libraryVersion, model, persona, skillset, context, modelSettings, limits, version, tools, fallbacks = [], resilience, enableFeedback = false, shapers, todo = true, compaction, compactionModel, compression, memory, routes } = input;
   const sortedTools = tools.map(versionTool).sort((left, right) => left.name.localeCompare(right.name));
   const hashed = {
     libraryVersion,
@@ -117,6 +120,8 @@ export function computeAgentVersion(input: AgentVersionInput): string {
     ...(compression == null ? {} : { compression }),
     // Only when on, so the versions of agents without memory are unchanged.
     ...(memory == null ? {} : { memory }),
+    // Only for routed agents, so the versions of single-model agents are unchanged.
+    ...(routes == null ? {} : { routes }),
     tools: sortedTools,
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');

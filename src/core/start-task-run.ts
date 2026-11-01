@@ -32,6 +32,8 @@ import type { MemoryStore } from '../memory/memory-store.js';
 import type { MemoryRetriever, ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
+import type { ModelRouter, ModelRoutes } from '../routing/routing-types.js';
+import type { ResponseCache } from '../cache/response-cache.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
 export interface ModelTarget {
   /** `provider:model`, as written in the definition. */
@@ -79,6 +81,8 @@ export interface ResolvedAgent {
   memory?: ResolvedMemoryOptions;
   /** `MemoryOptions.retriever`, when the agent's memory options give one. */
   memoryRetriever?: MemoryRetriever;
+  /** Routed agents (`model: ModelRoutes`): the routes and each routed model's target. */
+  routing?: { routes: ModelRoutes; targets: Map<string, ModelTarget> };
 }
 
 /** Shared, per-`createAigent` services. */
@@ -122,6 +126,10 @@ export interface RuntimeServices {
   pluginHooks?(): RegisteredHooks[];
   /** Memory over the runtime's store; present whenever the runtime has a store (used only by agents with memory on). */
   memory?: MemoryStore;
+  /** Picks the model of each run of a routed agent. */
+  router?: ModelRouter;
+  /** `learning.responseCache`: replays identical reproducible requests. */
+  responseCache?: ResponseCache;
 }
 
 export interface StartTaskRunParams {

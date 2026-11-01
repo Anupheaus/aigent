@@ -44,3 +44,56 @@ export function roundUsd(value: number): number {
 export function roundRate(value: number): number {
   return Math.round(value * RATE_PRECISION) / RATE_PRECISION;
 }
+
+// ─── Significance ───
+
+/** Abramowitz and Stegun 7.1.26 coefficients for erf (absolute error below 1.5e-7). */
+const ERF_P = 0.327_591_1;
+const ERF_A = [0.254_829_592, -0.284_496_736, 1.421_413_741, -1.453_152_027, 1.061_405_429] as const;
+/** z for a two-sided 95% interval. */
+export const Z_95 = 1.959_963_985;
+
+function erf(value: number): number {
+  const sign = value < 0 ? -1 : 1;
+  const absolute = Math.abs(value);
+  const t = 1 / (1 + ERF_P * absolute);
+  // Horner's scheme over the five coefficients.
+  const polynomial = ERF_A.reduceRight((total, coefficient) => total * t + coefficient, 0) * t;
+  return sign * (1 - polynomial * Math.exp(-absolute * absolute));
+}
+
+/** Standard normal cumulative distribution Φ(z). */
+export function normalCdf(z: number): number {
+  return 0.5 * (1 + erf(z / Math.SQRT2));
+}
+
+/** Successes out of `n` trials (successes may be fractional when outcomes are weighted). */
+export interface Proportion {
+  successes: number;
+  n: number;
+}
+
+/** Lower end of the Wilson score interval (95% by default): a success rate that small samples cannot inflate. 0 for no data. */
+export function wilsonLowerBound(params: Proportion & { z?: number }): number {
+  const { successes, n, z = Z_95 } = params;
+  if (n <= 0) return 0;
+  const rate = successes / n;
+  const zSquared = z * z;
+  const centre = rate + zSquared / (2 * n);
+  const spread = z * Math.sqrt((rate * (1 - rate) + zSquared / (4 * n)) / n);
+  return Math.max(0, (centre - spread) / (1 + zSquared / n));
+}
+
+/**
+ * One-sided p-value that `treatment`'s rate is higher than `control`'s (two-proportion z-test, pooled variance, normal
+ * approximation). 1 (no evidence) when either side has no data or there is no variance.
+ */
+export function oneSidedProportionPValue(params: { treatment: Proportion; control: Proportion }): number {
+  const { treatment, control } = params;
+  if (treatment.n <= 0 || control.n <= 0) return 1;
+  const pooled = (treatment.successes + control.successes) / (treatment.n + control.n);
+  const standardError = Math.sqrt(pooled * (1 - pooled) * (1 / treatment.n + 1 / control.n));
+  if (standardError === 0) return 1;
+  const z = (treatment.successes / treatment.n - control.successes / control.n) / standardError;
+  return 1 - normalCdf(z);
+}

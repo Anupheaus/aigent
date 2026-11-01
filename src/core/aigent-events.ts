@@ -33,7 +33,8 @@ export type AigentEvent =
   | { type: 'tool-activity'; callId: string; view: ToolActivityView }
   | { type: 'tool-result'; callId: string; envelope: ToolEnvelope }
   | { type: 'directive'; directive: Directive }
-  | { type: 'usage'; usage: Usage }
+  /** `cachedResponse`: the turn was replayed from the response cache, at no cost (its usage is zero). */
+  | { type: 'usage'; usage: Usage; cachedResponse?: true }
   | { type: 'warning'; message: string }
   /** A provider call failed before any event and will be retried after `delayMs`; `attempt` is 1 for the first retry. */
   | { type: 'retry'; attempt: number; delayMs: number; model: string; reason: string }

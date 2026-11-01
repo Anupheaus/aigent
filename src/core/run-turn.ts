@@ -1,7 +1,7 @@
 import type { ToolCache } from '../cache/cache-types.js';
 import { createDirectiveParser } from '../streaming/directive-parser.js';
 import type { ParseOutput } from '../streaming/directive-parser.js';
-import type { FinishReason, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
+import type { FinishReason, ProviderEvent, ThinkingBlock, ToolCall, Usage } from '../providers/provider-types.js';
 import type { RunTimer } from '../telemetry/run-timer.js';
 import type { TraceRecorder } from '../telemetry/trace-recorder.js';
 import type { ExecutedToolCall } from '../tools/execute-tool-call.js';
@@ -32,6 +32,8 @@ import type { TurnStreamGuard } from './turn-stream-guard.js';
 import type { DelegatedUsage, RunDelegation } from './delegation-types.js';
 import type { RunCallIds } from './run-call-ids.js';
 import type { RunMemory } from './run-memory.js';
+import { openCachedTurn } from './run-response-cache.js';
+import type { RunResponseCache } from './run-response-cache.js';
 
 /** Running totals for a whole run; a turn updates them as provider events and tool calls arrive, so partial turns still count. */
 export interface RunTotals extends ResilienceCounters {
@@ -45,6 +47,8 @@ export interface RunTotals extends ResilienceCounters {
   toolCalls: number;
   /** Input plus output tokens of compaction summaries (also included in `usage`). */
   compactionTokens: number;
+  /** Turns replayed from the response cache; absent until one is. */
+  cachedResponses?: number;
 }
 
 /** The run's telemetry collectors, shared by its turns. */
@@ -120,6 +124,10 @@ export interface RunTurnParams {
   callIds?: RunCallIds;
   /** Aborts on any stop of the run, graceful included. */
   stopSignal?: AbortSignal;
+  /** `learning.responseCache`: identical reproducible requests are replayed instead of sent. */
+  responseCache?: RunResponseCache;
+  /** The previous round ran a tool with side effects (its response is then neither replayed nor stored). */
+  previousRoundHadSideEffects?: boolean;
   emit(event: AigentEvent): void;
 }
 
@@ -182,10 +190,18 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
   // Set by the first delegated call: from then on a failed stream is never replayed (the call would run again).
   let hasDelegatedCall = false;
   const toolExecutor = isDelegating ? (call: ToolCall) => { hasDelegatedCall = true; return runDelegatedCall({ call, turn: params }); } : undefined;
-  const iterator = openTurnStream({
+  const open = (): AsyncIterable<ProviderEvent> => openTurnStream({
     routing, request: { ...request, ...(toolExecutor == null ? {} : { toolExecutor }) }, signal, counters: totals, emit,
     ...(isDelegating ? { isCommitted: () => hasDelegatedCall } : {}),
-  })[Symbol.asyncIterator]();
+  });
+  // A provider that runs tools inside its own stream cannot be replayed: its calls would not run again.
+  const fallbacksBefore = totals.fallbacks;
+  const turnStream = params.responseCache == null || isDelegating ? { stream: open(), isHit: false } : openCachedTurn({
+    responseCache: params.responseCache, target: routing.targets[0], request, registry, previousRoundHadSideEffects: params.previousRoundHadSideEffects ?? false, open,
+    didFallback: () => totals.fallbacks > fallbacksBefore,
+  });
+  if (turnStream.isHit) totals.cachedResponses = (totals.cachedResponses ?? 0) + 1;
+  const iterator = turnStream.stream[Symbol.asyncIterator]();
   let isAbandoned = false;
   try {
     for (;;) {
@@ -206,7 +222,7 @@ export async function runTurn(params: RunTurnParams): Promise<TurnStreamResult> 
         // Opaque replay data (signatures, encrypted reasoning), not output: kept for the next request, never emitted.
         case 'thinking-block': thinkingBlocks.push(event.block); break;
         case 'tool-call': { const call = params.callIds?.unique({ call: event.call, turn: totals.turns }) ?? event.call; calls.push(call); dispatchToolCall({ call, turn: params }); break; }
-        case 'usage': addUsage(totals, event.usage); reportedTokens = event.usage.inputTokens; emit(event); break;
+        case 'usage': addUsage(totals, event.usage); if (!turnStream.isHit) reportedTokens = event.usage.inputTokens; emit(turnStream.isHit ? { ...event, cachedResponse: true } : event); break;
         case 'done': finishReason = event.finishReason; break;
       }
     }

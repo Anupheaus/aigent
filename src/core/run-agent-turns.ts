@@ -43,6 +43,8 @@ import { settleAnswer } from './settle-answer.js';
 import { guardSettledCall } from './guard-settled-call.js';
 import type { RunEffects } from './run-effects.js';
 import type { RunDelegation } from './delegation-types.js';
+import { roundHasSideEffects } from './run-response-cache.js';
+import type { RunResponseCache } from './run-response-cache.js';
 
 /** Supplies messages that arrived while the run was busy; read at each safe boundary (before a model request). */
 export interface SteerSource {
@@ -96,6 +98,8 @@ export interface RunAgentTurnsParams {
   effects?: RunEffects;
   /** How tools that start sub-runs (`delegate`) reach the runtime's agents. */
   delegation?: RunDelegation;
+  /** `learning.responseCache`: identical reproducible requests are replayed. */
+  responseCache?: RunResponseCache;
   emit(event: AigentEvent): void;
 }
 
@@ -150,6 +154,8 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
   let status: TaskStatus = 'completed';
   let failure: string | undefined;
   let outputRetries = params.guardrails?.outputRetries ?? 0;
+  /** A resumed run may have changed things before it was interrupted, so its first response is never replayed. */
+  let previousRoundHadSideEffects = restore != null;
 
   const commit = (messages: NewContextMessage[]): void => {
     appendContextMessages({ context, messages, createdAt: clock.now() });
@@ -231,6 +237,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
         ...(params.guardrails == null ? {} : { guardrails: params.guardrails.checks }),
         ...(params.effects == null ? {} : { effects: params.effects }),
         ...(params.delegation == null ? {} : { delegation: params.delegation }), stopSignal: control.stopSignal, callIds,
+        ...(params.responseCache == null ? {} : { responseCache: params.responseCache, previousRoundHadSideEffects }),
       });
       endTurn();
     } catch (error) {
@@ -260,6 +267,7 @@ export async function runAgentTurns(params: RunAgentTurnsParams): Promise<TaskRe
     const drained = await drainWork({ work, signal, emit });
     const executed = await compressCommitted({ executed: drained, originals, clock, signal, emit, ...(params.compression == null ? {} : { compression: params.compression }) });
     commit((isDelegated ? delegatedTurnMessages : turnMessages)({ turn, executed, registry }));
+    previousRoundHadSideEffects = roundHasSideEffects({ calls: turn.calls, registry });
     inFlightRound = undefined;
     errors.push(...failedDetails(executed));
     collectCitations({ executed, registry, into: citable });

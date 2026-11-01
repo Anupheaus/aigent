@@ -50,3 +50,21 @@ export function createTimerSleeper(options: TimerSleeperOptions = {}): Sleeper {
 export function createMathRandom(): RandomSource {
   return () => Math.random();
 }
+
+/** mulberry32 increment and output-mixing constants. */
+const MULBERRY_INCREMENT = 0x6d_2b_79_f5;
+const MULBERRY_MIX_A = 0x85_eb_ca_6b;
+const MULBERRY_MIX_B = 0xc2_b2_ae_35;
+const UINT32_RANGE = 4_294_967_296;
+
+/** A reproducible uniform source in [0, 1) (mulberry32): the same seed always gives the same sequence. */
+export function createSeededRandom(seed: number): RandomSource {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + MULBERRY_INCREMENT) >>> 0;
+    let mixed = Math.imul(state ^ (state >>> 15), state | 1);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+    mixed = Math.imul(mixed ^ (mixed >>> 13), MULBERRY_MIX_A) ^ Math.imul(mixed ^ (mixed >>> 16), MULBERRY_MIX_B);
+    return ((mixed ^ (mixed >>> 16)) >>> 0) / UINT32_RANGE;
+  };
+}

@@ -27,6 +27,11 @@ export type {
 } from './scoring/report-types.js';
 export type { RetentionOptions } from './telemetry/retention.js';
 export type { ResiliencePolicy } from './core/resilience-policy.js';
+export type {
+  KeywordClass, LengthBucket, ModelRoutes, RouteAlternative, RouteDecision, RouteEvidence, RouteReason, RoutingOptions, RoutingPriority, TaskFeatures,
+} from './routing/routing-types.js';
+export type { ResponseCacheOptions } from './cache/response-cache.js';
+export type { LearningApi, LearningOptions, ResponseCacheApi, RoutingLearningApi } from './learning/learning-types.js';
 export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';

@@ -50,6 +50,7 @@ export function buildTurnsResult(params: BuildTurnsResultParams): TaskResultData
       ...(context.peakTokens > 0 ? { contextTokensPeak: context.peakTokens } : {}),
       ...compactionUsage({ compactor, totals }),
       ...(totals.delegated == null ? {} : { delegated: { ...totals.delegated } }),
+      ...(totals.cachedResponses == null ? {} : { cachedResponses: totals.cachedResponses }),
     },
   };
   if (failure != null) result.failure = failure;

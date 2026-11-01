@@ -8,6 +8,7 @@ import type { CompressionRecord } from '../compression/compressor-types.js';
 import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
 import type { OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RuntimeOnlySettings, ToolUse, TraceRecord, TraceStep } from './run-record.js';
 import type { MeasuredTimings } from './run-timer.js';
+import type { RouteDecision } from '../routing/routing-types.js';
 
 /** What identifies the agent on every record. */
 export type RunRecordAgent = Pick<RunRecord, 'agentVersion' | 'version'>;
@@ -40,6 +41,8 @@ export interface BuildRunRecordsParams {
   compression?: CompressionRecord[];
   /** With memory on: the run's saved and evicted counts, and its scope key. */
   memory?: { saved: number; evicted: number; scopeKey: string };
+  /** Routed agents: the run's model decision. */
+  route?: RouteDecision;
   result: TaskResultData;
   agent: RunRecordAgent;
   targets: RunRecordTargets;
@@ -85,7 +88,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression, memory } = params;
+  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression, memory, route } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -112,6 +115,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(guardrails.length === 0 ? {} : { guardrails: storedDecisions({ decisions: guardrails, captureContent }) }),
     ...(dryRun === true ? { dryRun, plannedEffects: storedEffects({ effects: plannedEffects ?? [], captureContent }) } : {}),
     ...(memory == null ? {} : { memorySaved: memory.saved, memoryEvicted: memory.evicted, memoryScopeKey: memory.scopeKey }),
+    ...(route == null ? {} : { route }),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

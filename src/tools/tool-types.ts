@@ -170,6 +170,11 @@ export interface Tool {
   applyUndo?(descriptor: UndoDescriptor, context: UndoContext): Promise<UndoOutcome>;
   /** Effects recorded inside a result (the calls inside an `aigent_multi` result). */
   capturedEffects?(result: unknown): CapturedEffect[];
+  /**
+   * The tools this tool runs one after another through the run's dispatcher (learned skills): each step takes the path
+   * of an `aigent_multi` inner call, and the tool's context carries `runInnerCall`.
+   */
+  composedTools?: string[];
   /** The tool starts sub-runs of other agents (`delegate`): its context then carries `delegation`. */
   startsSubRuns?: boolean;
   /**

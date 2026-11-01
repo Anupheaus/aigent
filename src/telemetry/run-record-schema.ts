@@ -34,6 +34,7 @@ const usageSchema = z.object({
   compactions: count.optional(),
   compactionTokens: count.optional(),
   compactionTokensSaved: count.optional(),
+  cachedResponses: count.optional(),
   delegated: z.object({ runs: count, inputTokens: count, outputTokens: count, cachedTokens: count, turns: count, toolCalls: count, costUsd: z.number().nonnegative().optional() }).optional(),
 });
 
@@ -89,6 +90,15 @@ export const runRecordSchema = z.object({
   memorySaved: count.optional(),
   memoryEvicted: count.optional(),
   memoryScopeKey: z.string().optional(),
+  route: z.object({
+    model: z.string(), reason: z.enum(['default', 'priority-quality', 'priority-cost', 'learned', 'explore']),
+    evidence: z.object({
+      bucket: z.string(), minSamples: count, cooldownRunsLeft: count.optional(),
+      reverted: z.object({ model: z.string(), earlierRate: z.number(), recentRate: z.number() }).optional(),
+      lowerBound: z.number().optional(), bar: z.number().optional(),
+    }).optional(),
+    alternatives: z.array(z.object({ model: z.string(), successRate: z.number(), meanCostUsd: z.number(), n: count })),
+  }).optional(),
 });
 
 export const traceStepSchema = z.object({

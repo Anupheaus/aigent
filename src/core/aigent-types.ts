@@ -19,6 +19,7 @@ import type { ModelSettings } from './model-settings.js';
 import type { Plugin } from '../plugins/plugin-types.js';
 import type { MemoryOptions } from '../memory/memory-types.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
+import type { LearningApi, LearningOptions } from '../learning/learning-types.js';
 
 export interface AigentOptions {
   /** Providers agents may use (besides those of `plugins`); ids must be unique across both. Default none. */
@@ -99,6 +100,12 @@ export interface AigentOptions {
    * the agent's write queue, and are recalled at run start. Needs a store and `captureContent` on.
    */
   memory?: MemoryOptions | boolean;
+  /**
+   * Learning from the stored runs, every part off unless given: `routing` (learned model choice for agents whose
+   * `model` is a route set) and `responseCache` (replay of identical reproducible requests). Inspect and remove what was
+   * learned through `ai.learning`.
+   */
+  learning?: LearningOptions;
 }
 
 export interface Aigent {
@@ -150,4 +157,6 @@ export interface Aigent {
    * provider and with telemetry off, and compares status, answer, plan outcome, input tokens and time.
    */
   evalCompression(params: Omit<EvalCompressionParams, 'createAgent'>): Promise<CompressionEvalReport>;
+  /** What the runtime learned (routing state, cached responses), to inspect or remove. */
+  learning: LearningApi;
 }

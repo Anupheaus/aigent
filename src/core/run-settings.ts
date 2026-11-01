@@ -54,7 +54,8 @@ function asSummariserTarget(target: ProviderTarget): ProviderTarget {
 export function compactionSettings(params: CompactionSettingsParams): RunCompactionSettings {
   const { agent, input, routing, settings: { contextSize, maxOutputTokens } } = params;
   const { compaction: policy, compactionTarget, targets } = agent;
-  const usableBudget = Math.min(...targets.map(({ provider }) => resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) }).usable));
+  // The run's own models (a routed run's chosen one first), so no model it may use is sent an oversized request.
+  const usableBudget = Math.min(...routing.targets.map(({ provider }) => resolveContextBudget({ maxContextTokens: provider.capabilities.maxContextTokens, ...(contextSize == null ? {} : { contextSize }), ...(maxOutputTokens == null ? {} : { maxOutputTokens }) }).usable));
   const [first, ...rest]: TurnRouting['targets'] = compactionTarget == null ? routing.targets : [toProviderTarget({ target: compactionTarget, agent, input })];
   const summariser: TurnRouting = { ...routing, targets: [asSummariserTarget(first), ...rest.map(asSummariserTarget)] };
   const summariserProvider = compactionTarget?.provider ?? targets[0].provider;

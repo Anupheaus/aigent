@@ -26,6 +26,8 @@ export const taskInputSchema = z.object({
   unattended: z.boolean().optional(),
   /** Scheduler lane; defaults to `background` for unattended tasks and `interactive` otherwise. */
   priority: z.enum(['interactive', 'background']).optional(),
+  /** Routed agents only: `quality` always uses the capable model, `cost` prefers the cheap one once it is proven. */
+  routingPriority: z.enum(['speed', 'cost', 'quality']).optional(),
   disableTelemetry: z.boolean().optional(),
   label: z.string().optional(),
   scope: z.record(z.string(), z.string()).optional(),

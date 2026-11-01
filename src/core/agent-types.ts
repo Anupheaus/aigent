@@ -22,12 +22,17 @@ import type { MemoryOptions } from '../memory/memory-types.js';
 import type { ModelSettings } from './model-settings.js';
 import type { ResiliencePolicy } from './resilience-policy.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
+import type { ModelRoutes } from '../routing/routing-types.js';
 
 export interface AgentDefinition {
   /** Unique, required; keys all stored data for this agent. */
   name: string;
-  /** `provider:model`, e.g. `anthropic:claude-sonnet-5-5`. */
-  model: string;
+  /**
+   * `provider:model`, e.g. `anthropic:claude-sonnet-5-5`, or routes (`{ default, cheap?, capable?, fallback? }`): each
+   * run then uses `default` unless its `routingPriority` or the learned statistics (`createAigent({ learning: {
+   * routing } })`) pick another; the decision is stored on the run record as `route`.
+   */
+  model: string | ModelRoutes;
   persona?: string;
   skillset?: string;
   /** The environment the consumer places the agent in. */
@@ -109,6 +114,8 @@ export interface TaskUsage extends Usage {
   compactionTokensSaved?: number;
   /** What the sub-runs this run delegated to used (not included in the counts above); absent when it delegated nothing. */
   delegated?: DelegatedUsage;
+  /** Turns replayed from the response cache (`learning.responseCache`), at zero tokens; absent when none was. */
+  cachedResponses?: number;
 }
 
 export interface TaskResult {

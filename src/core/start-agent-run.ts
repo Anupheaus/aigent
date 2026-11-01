@@ -39,6 +39,8 @@ import { recallQueryOf } from './run-recall.js';
 import { createRunPluginHooks } from './run-plugin-hooks.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
+import { routeRun } from './run-routing.js';
+import type { RouteDecision } from '../routing/routing-types.js';
 
 /** What a chat turn adds to a run: its history instead of a task brief, and hooks into the loop. */
 export interface ConversationRun {
@@ -83,14 +85,16 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const { name: agentName, instanceId, targets, resilience, feedbackCollector } = agent;
   const { clock, ids, sleep, random, scheduler } = services;
   const [target, ...fallbackTargets] = targets;
+  // A routed run replaces these once its model is chosen (at the start of `execute`).
+  let routeDecision: RouteDecision | undefined;
   const runId = params.runId ?? ids.next('run');
   const responseId = ids.next('resp');
   const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
   const { registry: shapingRegistry, shaping } = setUpRunShaping({ registry: agent.registry, settings: input.shapers ?? agent.shapers, isFeedbackEnabled: feedbackCollector != null });
   const limits = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
-  const primary = toProviderTarget({ target, agent, input });
-  const fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
+  let primary = toProviderTarget({ target, agent, input });
+  let fallbacks = fallbackTargets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
   const priority = input.priority ?? (input.unattended === true ? 'background' : 'interactive');
   const measuredScheduler = measureQueueWait({ scheduler, now: () => clock.now(), onWait: waitedMs => telemetry.timer.addQueuedMs(waitedMs) });
   const routing: TurnRouting = { targets: [primary, ...fallbacks], policy: resilience, sleep, random, usedLabels: new Set([primary.label]), scheduler: measuredScheduler, priority, agentName };
@@ -98,9 +102,10 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const thinking = createEventStream<AigentEvent, void>();
   let activity: ActivityPublisher | undefined;
   const emitter = createRunEmitter({ push: event => stream.push(event), pushThinking: event => thinking.push(event), showThinking: settings.showThinking ?? true, activity: () => activity });
+  const runInfo = { runId, agentName, instanceId, model: primary.label, mode: conversation == null ? 'task' as const : 'chat' as const };
   const pluginHooks = createRunPluginHooks({
     ...(services.pluginHooks == null ? {} : { plugins: services.pluginHooks }),
-    run: { runId, agentName, instanceId, model: primary.label, mode: conversation == null ? 'task' : 'chat' },
+    run: runInfo,
     warn: message => emitter.emit({ type: 'warning', message }),
   });
   /** Every run event, also shown to the plugins' hooks (which only observe, off the run's path). */
@@ -128,6 +133,19 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   const price = (usage: Parameters<typeof costOfUsage>[0]['usage']): number => costOfUsage({ model: primary.label, usage, ...(services.pricing == null ? {} : { pricing: services.pricing }) }) ?? 0;
 
   async function execute(): Promise<void> {
+    const routed = await routeRun({ agent, services, input, toolCount: registry.list().length, warn: message => emit({ type: 'warning', message }) });
+    if (routed != null) {
+      routeDecision = routed.decision;
+      const [chosen, ...rest] = routed.targets.map(modelTarget => toProviderTarget({ target: modelTarget, agent, input }));
+      primary = chosen as typeof primary;
+      fallbacks = rest;
+      routing.targets = [primary, ...fallbacks];
+      routing.usedLabels.clear();
+      routing.usedLabels.add(primary.label);
+      runInfo.model = primary.label;
+      thinkingContext.provider = primary.provider.id;
+      thinkingContext.model = primary.model;
+    }
     activity = createActivityPublisher({
       runId, ...(conversation == null ? {} : { messageId: conversation.messageId }), clock, sleep: services.activityTimers, ...(services.activity == null ? {} : { options: services.activity }),
       maxTurns: limits.maxTurns, plan: planning.state.plan, criteriaTotal: input.acceptanceCriteria?.length ?? 0, price, publish: update => stream.push({ type: 'activity', update }),
@@ -160,6 +178,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
           runId, responseId, agentName, instanceId, initial, registry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
           ...(services.cache == null ? {} : { cache: services.cache }),
+          ...(services.responseCache == null ? {} : { responseCache: { cache: services.responseCache, agentVersion: agent.agentVersion, instanceId } }),
           ...(shaping == null ? {} : { shaping }),
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras(), ...memorySetup?.recall.extras() ?? []] },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
@@ -184,7 +203,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     activity.enter('finishing');
     const result = await finishAgentRun({
       agent, services, input, telemetry, result: resultData, targets: { primary, fallbacks: fallbacks.filter(({ label }) => routing.usedLabels.has(label)), runtimeSettings: settings }, emit,
-      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(memoryTotals == null || memory == null ? {} : { memory: { ...memoryTotals, scopeKey: memory.scopeKey } }),
+      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(routeDecision == null ? {} : { route: routeDecision }), ...(memoryTotals == null || memory == null ? {} : { memory: { ...memoryTotals, scopeKey: memory.scopeKey } }),
       ...(onFinished == null ? {} : { onFinished }),
     });
     // The wait is bounded overall (1.5 hook timeouts), so slow observers never delay done once per event.

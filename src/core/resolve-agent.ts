@@ -23,6 +23,7 @@ import type { Tool } from '../tools/tool-types.js';
 import type { ResolvedAgent } from './start-task-run.js';
 import { memoiseStaticPrompt } from './static-prompt.js';
 import { parseAgentLimits } from './task-input.js';
+import { parseModelRoutes, routedModels } from '../routing/model-routes.js';
 
 /** What resolving an agent needs from its runtime. */
 export interface AgentResolutionContext {
@@ -56,8 +57,11 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
   const agentSettings = parseModelSettings({ owner: `Agent '${name}'`, settings: definition.modelSettings });
   const policy = parseResiliencePolicy({ agentName: name, resilience });
   const shapers = parseAgentShapers({ agentName: name, shapers: definition.shapers });
-  const target = resolveTarget(definition.model);
-  const fallbackTargets = (fallbackModels ?? []).map(resolveTarget);
+  const routes = parseModelRoutes({ agentName: name, model: definition.model });
+  const target = resolveTarget(routes?.default ?? definition.model as string);
+  const fallbackTargets = (routes?.fallback ?? fallbackModels ?? []).map(resolveTarget);
+  // Every routed model is resolved now, so an unknown provider fails at ai.agent rather than in a run.
+  const routeTargets = routes == null ? undefined : new Map(routedModels(routes).map(reference => [reference, resolveTarget(reference)]));
   const compaction = parseCompactionPolicy({ agentName: name, policy: definition.compaction });
   const compactionTarget = definition.compactionModel == null ? undefined : resolveTarget(definition.compactionModel);
   const compression = parseCompressionOptions({ agentName: name, options: definition.compression });
@@ -86,6 +90,7 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     ...(compactionTarget == null ? {} : { compactionModel: compactionTarget.reference }),
     ...(compression == null ? {} : { compression: compressionVersionInput(compression) }),
     ...(memory == null ? {} : { memory }),
+    ...(routes == null ? {} : { routes }),
   });
   const toolAddenda = tools.flatMap(({ promptAddendum }) => (promptAddendum == null ? [] : [promptAddendum]));
   const prompt = { persona, skillset, context, enableFeedback, ...(memory == null ? {} : { enableMemory: true }), ...(toolAddenda.length === 0 ? {} : { toolAddenda }) };
@@ -99,5 +104,6 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     ...(compression == null ? {} : { compression }),
     ...(memory == null ? {} : { memory }),
     ...(memoryRetriever == null ? {} : { memoryRetriever }),
+    ...(routes == null || routeTargets == null ? {} : { routing: { routes, targets: routeTargets } }),
   };
 }

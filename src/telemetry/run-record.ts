@@ -8,6 +8,7 @@ import type { ToolErrorCategory } from '../tools/tool-error-detail.js';
 import type { CompressionRecord } from '../compression/compressor-types.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
+import type { RouteDecision } from '../routing/routing-types.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
 export const RUN_RECORD_SCHEMA_VERSION = 1;
@@ -230,6 +231,8 @@ export interface RunRecord extends RecordMeta {
   memoryEvicted?: number;
   /** With memory on: the scope the run read and wrote (`agent`, `session:<id>`, `interface:<key>`); user corrections land there. */
   memoryScopeKey?: string;
+  /** Routed agents (`model: ModelRoutes`): which model the run used and why, with the statistics it rested on. */
+  route?: RouteDecision;
 }
 
 /** One document in the `traces` collection, keyed by run id. */
