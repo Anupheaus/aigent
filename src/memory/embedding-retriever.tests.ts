@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hashEmbedder } from '../knowledge/embedder.js';
 import type { Embedder } from '../knowledge/knowledge-types.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
 import type { Store } from '../store/store-types.js';
@@ -7,13 +8,16 @@ import type { EmbeddingRetrieverOptions } from './embedding-retriever.js';
 import { MEMORY_COLLECTION } from './memory-types.js';
 import type { MemoryEntry } from './memory-types.js';
 import { MEMORY_VECTOR_COLLECTION, readMemoryVector, writeMemoryVector } from './memory-vectors.js';
-import { PARAPHRASE_QUERIES, conceptEmbedder } from './paraphrase-fixtures.test-support.js';
+import { HELD_OUT_QUERIES, PARAPHRASE_QUERIES, conceptEmbedder } from './paraphrase-fixtures.test-support.js';
 import { recallMemories } from './recall.js';
 import type { RecallParams } from './recall.js';
 import { FIXTURE_MEMORIES, FIXTURE_NOW, fixtureEntry } from './recall-fixtures.test-support.js';
 import { contentTerms } from './stop-words.js';
 
-/** Set before the fixture was run: embedding recall must put the labelled memory first for at least 8 of 10 paraphrases. */
+/**
+ * Plumbing bar: the fixture, the fake embedder's synonym table and this bar were added together (202aa5b), so it does
+ * not measure semantic quality; it checks that vectors flow from the embedder through storage into the ranking.
+ */
 const MIN_PARAPHRASE_TOP_ONE = 0.8;
 const SHORT_TIMEOUT_MS = 50;
 /** The review's slow-embedder measurement: 100 memories at 5 ms a text under a 200 ms deadline stored nothing in 5 recalls. */
@@ -37,14 +41,14 @@ function recall(params: Partial<RecallParams> & { store: Store; query: string })
   return recallMemories({ agentName: 'helper', scopeKey: 'agent', limit: 10, now: FIXTURE_NOW, ...params });
 }
 
-async function topOneRate(params: { store: Store; retriever?: RecallParams['retriever'] }): Promise<number> {
-  const { store, retriever } = params;
+async function topOneRate(params: { store: Store; retriever?: RecallParams['retriever']; queries?: { query: string; expected: string }[] }): Promise<number> {
+  const { store, retriever, queries = PARAPHRASE_QUERIES } = params;
   let hits = 0;
-  for (const { query, expected } of PARAPHRASE_QUERIES) {
+  for (const { query, expected } of queries) {
     const [first] = await recall({ store, query, ...(retriever == null ? {} : { retriever }) });
     if (first?.id === expected) hits += 1;
   }
-  return hits / PARAPHRASE_QUERIES.length;
+  return hits / queries.length;
 }
 
 function retrieverOver(params: Partial<EmbeddingRetrieverOptions> & { store: Store }) {
@@ -61,12 +65,29 @@ describe('embeddingRetriever', () => {
     }
   });
 
-  it(`finds paraphrased memories that keyword recall misses (top-1 >= ${MIN_PARAPHRASE_TOP_ONE}, better than BM25)`, async () => {
+  it(`plumbing: carries the fake embedder's vectors into the ranking (co-designed paraphrases, top-1 >= ${MIN_PARAPHRASE_TOP_ONE}, better than BM25)`, async () => {
     const store = await fixtureStore();
     const embedded = await topOneRate({ store, retriever: retrieverOver({ store }) });
     const keywords = await topOneRate({ store });
     expect(embedded).toBeGreaterThanOrEqual(MIN_PARAPHRASE_TOP_ONE);
     expect(embedded).toBeGreaterThan(keywords);
+  });
+
+  // Bar fixed before the first run over HELD_OUT_QUERIES and not changed after it: fusing in an embedder's ranking must
+  // not lose top-1 hits BM25 alone finds. It makes no claim about semantic quality. First run: BM25 0.5, concept
+  // embedder 0.7, hash embedder 0.4.
+  it('does no worse than keyword recall on held-out queries with the fake concept embedder', async () => {
+    const store = await fixtureStore();
+    const keywords = await topOneRate({ store, queries: HELD_OUT_QUERIES });
+    expect(await topOneRate({ store, queries: HELD_OUT_QUERIES, retriever: retrieverOver({ store }) })).toBeGreaterThanOrEqual(keywords);
+  });
+
+  // Known shortfall, recorded rather than hidden: a vocabulary-only embedder's ranking, fused in, cost a top-1 hit BM25
+  // found (0.4 against 0.5). `it.fails` keeps the bar as set and reports when this starts to pass.
+  it.fails('does no worse than keyword recall on held-out queries with hashEmbedder (known to fail: 0.4 against 0.5)', async () => {
+    const store = await fixtureStore();
+    const keywords = await topOneRate({ store, queries: HELD_OUT_QUERIES });
+    expect(await topOneRate({ store, queries: HELD_OUT_QUERIES, retriever: embeddingRetriever({ embedder: hashEmbedder(), store }) })).toBeGreaterThanOrEqual(keywords);
   });
 
   it('recalls nothing for a task unrelated to every memory', async () => {

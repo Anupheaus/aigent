@@ -4,7 +4,10 @@ import { contentTerms } from './stop-words.js';
 
 /**
  * Task texts written by hand as paraphrases of one memory each in `FIXTURE_MEMORIES`, sharing none of its content
- * words, so keyword search alone cannot find it. Each is labelled with the memory a person would want first.
+ * words, so keyword search alone cannot find it (BM25 scores 0 of 10 by construction). Each is labelled with the
+ * memory a person would want first. Circular by design: `SYNONYMS` below was written with these queries in view and
+ * maps their words onto the memories' concepts, so a run over them tests the plumbing (embedding, vector storage,
+ * fusion), not whether embedding recall finds paraphrases. `HELD_OUT_QUERIES` is the check that is not co-designed.
  */
 export const PARAPHRASE_QUERIES: { query: string; expected: string }[] = [
   { query: 'Execute the system checks', expected: 'tests' },
@@ -20,8 +23,26 @@ export const PARAPHRASE_QUERIES: { query: string; expected: string }[] = [
 ];
 
 /**
- * Words with the same meaning in this fixture's domain, written down from the words' meanings (not from any ranking
- * result): each word maps to a concept, and words without an entry are their own concept.
+ * Task texts written later, as a user might type them, for the memories of `FIXTURE_MEMORIES`, without consulting
+ * `SYNONYMS` or running any ranking; unlike `PARAPHRASE_QUERIES` they may share words with their memory. Nothing was
+ * changed after the first run over them.
+ */
+export const HELD_OUT_QUERIES: { query: string; expected: string }[] = [
+  { query: 'The integration suite keeps failing to connect, what do I start first?', expected: 'tests' },
+  { query: 'Should the README say colour or color?', expected: 'spelling' },
+  { query: 'Push this build out to the staging environment', expected: 'deploy' },
+  { query: 'Where is the code that charges customers?', expected: 'billing' },
+  { query: 'How do I add a new npm dependency here?', expected: 'pnpm' },
+  { query: 'Where should I put the Stripe API token?', expected: 'secrets' },
+  { query: 'The pre-commit hook complains about formatting', expected: 'lint' },
+  { query: 'Which folder holds the web client?', expected: 'frontend' },
+  { query: 'How do I apply the new table changes to the database?', expected: 'migrations' },
+  { query: 'Document this fix for the next version', expected: 'release' },
+];
+
+/**
+ * Words with the same meaning in this fixture's domain, written alongside `PARAPHRASE_QUERIES` (see there): each word
+ * maps to a concept, and words without an entry are their own concept.
  */
 const SYNONYMS: Record<string, string[]> = {
   test: ['test', 'tests', 'check', 'checks', 'spec', 'specs', 'suite'],
