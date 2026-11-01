@@ -767,6 +767,24 @@ await agent.task({ task: 'Find the release notes', routingPriority: 'cost' });
 
 `learning: { responseCache: { ttlMs: 600_000, maxEntries: 500, shared: false } }` replays an identical model request from memory instead of sending it. Only requests that are reproducible (`temperature: 0` or a `seed`) qualify, and the key covers the provider, model, settings as sent, messages, tools, the run's agent version and the agent instance (unless `shared: true`). A response is stored only when it completed normally, on the requested model (no fallback), and every tool call in it is to a deterministic, cached tool (so replaying it is safe); errors and aborted streams are never stored. The turn after a round that ran a tool with side effects is neither replayed nor stored, and neither is the first turn of a resumed run or any turn of a provider that runs its own tool loop. A replayed turn reports zero usage on a `usage` event with `cachedResponse: true` and counts in `usage.cachedResponses`. `ai.learning.responseCache.size()` and `.clear()` inspect and empty it. Entries never reach the store.
 
+### Strategy variants
+
+Agents with `strategy: true` take part in strategy learning: prompt-level variants are tried on a share of the runs, promoted only on significant evidence, and reverted automatically when they degrade.
+
+```ts
+const ai = createAigent({ providers, store, learning: { strategy: { trialShare: 0.2 } } });
+const agent = ai.agent({ name: 'helper', model: 'anthropic:claude-sonnet-5-5', tools, strategy: true });
+const variant = await ai.learning.strategy.propose('helper', { label: 'index first', changes: [{ kind: 'system-rule', text: 'Check the index before reading files.', position: 'after-rules' }] });
+await ai.learning.strategy.approve(variant.id); // candidate -> trial
+```
+
+- **Changes** are additive overlays only, never code or permissions: `tool-description` (replaces one tool's description), `system-rule` (at most 400 characters, in a `# Strategy` section right after the library rules), `tool-order-hint` and `batching-hint`. Proposals are validated (lengths, known tool names), secrets are scrubbed before they are stored (personal data too when the pii guardrail redacts), and instruction-like text is refused with `invalid_input`. Stored text is checked again before each run and skipped with a warning if it is no longer safe. Variants are stored in the `strategy` collection through `redact`, or in memory without a store.
+- **Lifecycle:** `candidate` (proposed, or `suggest`ed from the agent's report findings: `unbatched-repeats` becomes a batching hint, `slow-tool` and `verbose-tool` a tool description with advice) -> `trial` (only through `approve`, one per agent at a time) -> `active` or `rejected`; `active` -> `reverted`. Every change is in the variant's `history` with its reason and evidence.
+- **Trials:** a run gets the variant with probability `trialShare` (0.2), decided from a hash of its run id and `seed`, so the same run always gets the same arm. Each run's record holds `strategy: { bucket, arm, trialVariantId, activeVariantIds }`. At every run start the guard compares the arms: promotion needs `minSamples` (30) runs per arm, a one-sided two-proportion z-test below `alpha` (0.05) split over the planned looks (Bonferroni, so looking at every run does not inflate false promotions), no feature bucket where the variant is significantly worse, and no more than `maxEfficiencyRegression` (10%) extra tokens or turns per successful run. A variant significantly worse, or undecided after `maxTrialRuns` (300), is rejected. User verdicts outweigh the agent's own claims, and runs rated incorrect never count towards efficiency.
+- **Rollout guard:** an active variant whose last `window` (30) runs fall more than `tolerance` (0.05) below the control rate it was promoted over is reverted automatically.
+- Applied variants are part of the run's agent version (stored on its records, so `compareVersions` sees them); with none applied the prompt and `agentVersion` are byte-identical to the agent's own. `ai.learning.strategy` also has `reject`, `revert`, `remove`, `get`, `list` and `evaluate` (run the guard now).
+- **Lessons:** `ai.learning.strategy.lessons(agentName)` groups similar tasks (the request-analysis grouping) that users rated incorrect at least twice with an expected answer, and saves one `lesson` memory per group in the memory scope those runs used (never across scopes; a task's own session scope is skipped). Recalled like any memory; no model call.
+
 ## Guardrails
 
 ```ts

@@ -40,6 +40,9 @@ import { createRunPluginHooks } from './run-plugin-hooks.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput } from './task-input.js';
 import { routeRun } from './run-routing.js';
+import { prepareLearnedRun } from './run-learned.js';
+import type { LearnedRun } from './run-learned.js';
+import { describeError } from './describe-value.js';
 import type { RouteDecision } from '../routing/routing-types.js';
 
 /** What a chat turn adds to a run: its history instead of a task brief, and hooks into the loop. */
@@ -146,6 +149,12 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       thinkingContext.provider = primary.provider.id;
       thinkingContext.model = primary.model;
     }
+    // What the agent learned (strategy variants): its overlays apply to this run only; a failure to read them is not the run's.
+    const learned: LearnedRun | undefined = await prepareLearnedRun({ agent, services, input, runId, toolCount: registry.list().length })
+      .catch((error: unknown) => { emit({ type: 'warning', message: `Agent '${agentName}' runs without what it learned: ${describeError(error)}` }); return undefined; });
+    for (const message of learned?.warnings ?? []) emit({ type: 'warning', message });
+    const runRegistry = learned == null ? registry : createToolRegistry(learned.tools(registry.list()));
+    const runAgentVersion = learned?.agentVersion ?? agent.agentVersion;
     activity = createActivityPublisher({
       runId, ...(conversation == null ? {} : { messageId: conversation.messageId }), clock, sleep: services.activityTimers, ...(services.activity == null ? {} : { options: services.activity }),
       maxTurns: limits.maxTurns, plan: planning.state.plan, criteriaTotal: input.acceptanceCriteria?.length ?? 0, price, publish: update => stream.push({ type: 'activity', update }),
@@ -157,14 +166,14 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       try {
         const { signal } = control.abortController;
         const { checkpoints, restored } = await prepareRunResume({
-          runtime: services.resume, agent, runId, input, registry, mode: conversation == null ? 'task' : 'chat', clock, planning, emit,
+          runtime: services.resume, agent, runId, input, registry: runRegistry, mode: conversation == null ? 'task' : 'chat', clock, planning, emit,
           ...(shaping == null ? {} : { shaping }), ...(params.restore == null ? {} : { restore: params.restore }),
           ...(conversation?.sessionId == null ? {} : { sessionId: conversation.sessionId }), ...(conversation == null ? {} : { messageId: conversation.messageId }),
         });
         // A resumed run passed its input checks when it started.
         const guarded = restored != null ? { input, ...(conversation == null ? {} : { conversation }) } : await guardRunInput({ guardrails, input, ...(conversation == null ? {} : { conversation }) });
         // Chat turns use the persona only: the user's words arrive as history, not as task fields. A resumed run has its prompt in its checkpoint.
-        const texts = restored != null || guarded.blocked != null ? undefined : await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input: guarded.input } : {}), context: { ...promptCompressionContext({ agent, services }), signal } })
+        const texts = restored != null || guarded.blocked != null ? undefined : await buildPromptTexts({ staticPrompt: agent.staticPrompt, ...(conversation == null ? { input: guarded.input } : {}), context: { ...promptCompressionContext({ agent, services }), signal }, ...(learned == null ? {} : { overlay: learned.overlay }) })
           .catch(error => { if (signal.aborted) return undefined; throw error; });
         for (const message of texts?.warnings ?? []) emit({ type: 'warning', message });
         compression = agent.compression == null ? undefined : { settings: agent.compression, cache: services.compressionCache, log: [...texts?.records ?? []] };
@@ -175,10 +184,10 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
         // Recalled at run start, before the first request, into the volatile block only (never stored or compacted).
         if (guarded.blocked == null) await memorySetup?.recall.start(recallQueryOf(input));
         return await runAgentTurns({
-          runId, responseId, agentName, instanceId, initial, registry, clock, control, telemetry, emit,
+          runId, responseId, agentName, instanceId, initial, registry: runRegistry, clock, control, telemetry, emit,
           ...(compression == null ? {} : { compression }),
           ...(services.cache == null ? {} : { cache: services.cache }),
-          ...(services.responseCache == null ? {} : { responseCache: { cache: services.responseCache, agentVersion: agent.agentVersion, instanceId } }),
+          ...(services.responseCache == null ? {} : { responseCache: { cache: services.responseCache, agentVersion: runAgentVersion, instanceId } }),
           ...(shaping == null ? {} : { shaping }),
           volatile: { options: services.volatile, monitor: createStabilityMonitor({ emit, isEnabled: services.isPrefixMonitorEnabled }), extras: () => [...(isDryRun ? [DRY_RUN_SECTION] : []), ...planning.extras(), ...memorySetup?.recall.extras() ?? []] },
           planning, routing, compaction: compactionSettings({ agent, input, routing, settings }), limits: { maxTurns: limits.maxTurns, maxToolCalls: limits.maxToolCalls },
@@ -203,7 +212,8 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
     activity.enter('finishing');
     const result = await finishAgentRun({
       agent, services, input, telemetry, result: resultData, targets: { primary, fallbacks: fallbacks.filter(({ label }) => routing.usedLabels.has(label)), runtimeSettings: settings }, emit,
-      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(routeDecision == null ? {} : { route: routeDecision }), ...(memoryTotals == null || memory == null ? {} : { memory: { ...memoryTotals, scopeKey: memory.scopeKey } }),
+      mode: conversation == null ? 'task' : 'chat', ...(compression == null ? {} : { compression }), price, ...(routeDecision == null ? {} : { route: routeDecision }),
+      ...(runAgentVersion === agent.agentVersion ? {} : { agentVersion: runAgentVersion }), ...(learned?.strategy == null ? {} : { strategy: learned.strategy }), ...(memoryTotals == null || memory == null ? {} : { memory: { ...memoryTotals, scopeKey: memory.scopeKey } }),
       ...(onFinished == null ? {} : { onFinished }),
     });
     // The wait is bounded overall (1.5 hook timeouts), so slow observers never delay done once per event.

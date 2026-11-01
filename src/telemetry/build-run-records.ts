@@ -9,6 +9,7 @@ import { RUN_RECORD_SCHEMA_VERSION } from './run-record.js';
 import type { OutcomeSummary, RecordMeta, RunMode, RunRecord, RunRecordFallback, RuntimeOnlySettings, ToolUse, TraceRecord, TraceStep } from './run-record.js';
 import type { MeasuredTimings } from './run-timer.js';
 import type { RouteDecision } from '../routing/routing-types.js';
+import type { RunStrategyRecord } from '../learning/strategy-types.js';
 
 /** What identifies the agent on every record. */
 export type RunRecordAgent = Pick<RunRecord, 'agentVersion' | 'version'>;
@@ -43,6 +44,8 @@ export interface BuildRunRecordsParams {
   memory?: { saved: number; evicted: number; scopeKey: string };
   /** Routed agents: the run's model decision. */
   route?: RouteDecision;
+  /** Strategy agents: the run's arm and variants. */
+  strategy?: RunStrategyRecord;
   result: TaskResultData;
   agent: RunRecordAgent;
   targets: RunRecordTargets;
@@ -88,7 +91,7 @@ function recordMeta(params: BuildRunRecordsParams): RecordMeta {
 
 /** The `runs` and `traces` documents of a finished run. */
 export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
-  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression, memory, route } = params;
+  const { input: { label, unattended = false, task, dryRun, parent }, result: { responseId, status, usage, errors, answer, plan, todo, guardrails = [], plannedEffects }, agent: { version }, targets, facts, compression, memory, route, strategy } = params;
   const { primary, fallbacks, runtimeSettings } = targets;
   const { timings, steps, toolUse, captureContent } = facts;
   const meta = recordMeta(params);
@@ -116,6 +119,7 @@ export function buildRunRecords(params: BuildRunRecordsParams): RunRecords {
     ...(dryRun === true ? { dryRun, plannedEffects: storedEffects({ effects: plannedEffects ?? [], captureContent }) } : {}),
     ...(memory == null ? {} : { memorySaved: memory.saved, memoryEvicted: memory.evicted, memoryScopeKey: memory.scopeKey }),
     ...(route == null ? {} : { route }),
+    ...(strategy == null ? {} : { strategy }),
   };
   return { meta, run, trace: { ...meta, steps } };
 }

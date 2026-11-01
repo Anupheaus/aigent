@@ -61,6 +61,8 @@ import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { RatedRun } from '../feedback/user-feedback.js';
 import { saveCorrectionLesson } from './correction-lesson.js';
 import { createLearning } from '../learning/create-learning.js';
+import { saveGroupLesson } from './group-lesson.js';
+import type { Tool } from '../tools/tool-types.js';
 
 function isScheduler(value: Scheduler | SchedulerOptions): value is Scheduler {
   return typeof (value as Partial<Scheduler>).acquire === 'function';
@@ -98,13 +100,20 @@ export function createAigent(options: AigentOptions): Aigent {
   const effectLog = createRuntimeEffectLog({ store, writeQueue, ...(redact == null ? {} : { redact }), clock, ids, options: options.undo });
   const telemetry = { ...(writer == null ? {} : { writer }), captureContent, ...(expiresInMs == null ? {} : { expiresInMs }) };
   const guardrails = parseGuardrailOptions(options.guardrails);
-  const learning = createLearning({ ...(options.learning == null ? {} : { options: options.learning }), ...(store == null ? {} : { store }), clock, random, ...(pricing == null ? {} : { pricing }) });
   const memoryStore = store == null ? undefined : createMemoryStore({
     store, writeQueue, ...(redact == null ? {} : { redact }), redactsPii: redactsPersonalData(guardrails.builtins?.pii),
     ...(expiresInMs == null ? {} : { expiresInMs }), now: () => clock.now(),
   });
   // Validated here too, so bad runtime options fail at createAigent rather than at the first agent.
   const runtimeMemory = resolveMemoryOptions({ owner: 'createAigent', options: options.memory });
+  const redactsPii = redactsPersonalData(guardrails.builtins?.pii);
+  /** The tools of each agent defined here by name, so learned variants can only name tools the agent has. */
+  const toolsByAgent = new Map<string, Tool[]>();
+  const learning = createLearning({
+    ...(options.learning == null ? {} : { options: options.learning }), ...(store == null ? {} : { store }), writeQueue, ...(redact == null ? {} : { redact }),
+    clock, ids, random, ...(pricing == null ? {} : { pricing }), redactsPii, agentTools: agentName => toolsByAgent.get(agentName),
+    ...(memoryStore == null ? {} : { saveLesson: ({ agentName, lesson }) => saveGroupLesson({ memory: memoryStore, options: memoryByAgent.get(agentName), agentName, lesson }) }),
+  });
   /** Each memory-enabled agent's options by name, for lessons from ratings of its runs. */
   const memoryByAgent = new Map<string, ResolvedMemoryOptions>();
   const onRated = memoryStore == null ? undefined : (rated: RatedRun): Promise<void> => saveCorrectionLesson({
@@ -124,7 +133,7 @@ export function createAigent(options: AigentOptions): Aigent {
     startSubRun: request => startSubRun(request),
     pluginHooks: () => pluginRegistry.hooks(),
     ...(memoryStore == null ? {} : { memory: memoryStore }),
-    router: learning.router,
+    router: learning.router, strategy: learning.strategy, redactsPii,
     ...(learning.responseCache == null ? {} : { responseCache: learning.responseCache }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
@@ -202,6 +211,7 @@ export function createAigent(options: AigentOptions): Aigent {
     const resolved = { ...base, approvals: createApprovalCenter({ rules: options.approvals ?? {}, allowAlways, audit, clock, agent: { name, instanceId } }) };
     definitions.set(name, definition);
     if (resolved.memory == null) memoryByAgent.delete(name); else memoryByAgent.set(name, resolved.memory);
+    toolsByAgent.set(name, tools);
     for (const { dispose } of tools) if (dispose != null) toolDisposers.add(dispose);
     const restore = createAgentResume({ agent: resolved, services, isExplicitInstance: definition.instanceId != null });
     /** This agent object's runs, so `close()` waits for them before it lets the instance go. */

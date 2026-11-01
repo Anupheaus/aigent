@@ -1,5 +1,6 @@
 import type { ResponseCacheOptions } from '../cache/response-cache.js';
 import type { RoutingOptions } from '../routing/routing-types.js';
+import type { StrategyApi, StrategyOptions } from './strategy-types.js';
 
 /** `createAigent({ learning })`: every part is off unless given. Nothing learned bypasses guardrails, approvals or policies. */
 export interface LearningOptions {
@@ -7,6 +8,8 @@ export interface LearningOptions {
   routing?: RoutingOptions;
   /** Replays identical reproducible model requests (temperature 0 or a seed) from memory. */
   responseCache?: ResponseCacheOptions;
+  /** Tuning of strategy trials, promotion and the rollout guard; agents opt in with `strategy: true`. */
+  strategy?: StrategyOptions;
 }
 
 /** `ai.learning.routing`. */
@@ -27,4 +30,6 @@ export interface ResponseCacheApi {
 export interface LearningApi {
   routing: RoutingLearningApi;
   responseCache: ResponseCacheApi;
+  /** Strategy variants: propose, approve, inspect, revert and remove. */
+  strategy: StrategyApi;
 }

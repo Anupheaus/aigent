@@ -21,10 +21,17 @@ const LIBRARY_RULES = [
   'Finish with a plain answer and no tool calls.',
 ].join('\n');
 
+/** Learned additions to one run's system prompt (strategy rules, skill hints); absent means the agent's baseline prompt. */
+export interface SystemPromptOverlay {
+  /** Whole sections placed right after the library rules, in the order given. */
+  afterRules?: string[];
+}
+
 /** Library rules (and the feedback addendum) first, then general-to-specific agent text, so the stable prefix stays cache-friendly. */
-export function buildSystemPrompt(definition: PromptPersona): string {
+export function buildSystemPrompt(definition: PromptPersona, overlay: SystemPromptOverlay = {}): string {
   const { persona, skillset, context, enableFeedback = false, enableMemory = false, toolAddenda = [] } = definition;
-  const sections = enableFeedback ? [LIBRARY_RULES, FEEDBACK_PROMPT_ADDENDUM] : [LIBRARY_RULES];
+  const sections = [LIBRARY_RULES, ...overlay.afterRules ?? []];
+  if (enableFeedback) sections.push(FEEDBACK_PROMPT_ADDENDUM);
   if (enableMemory) sections.push(MEMORY_PROMPT_ADDENDUM);
   // Sorted and unique, so the stable prefix does not depend on tool order.
   sections.push(...[...new Set(toolAddenda)].sort());

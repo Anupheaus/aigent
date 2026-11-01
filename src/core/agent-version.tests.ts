@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeAgentVersion } from './agent-version.js';
+import { computeAgentVersion, withLearnedVersion } from './agent-version.js';
 import type { AgentVersionInput, AgentVersionTool } from './agent-version.js';
 import { canonicalJson } from './canonical-json.js';
 
@@ -134,5 +134,25 @@ describe('computeAgentVersion', () => {
     expect(computeAgentVersion({ ...BASE, memory: undefined })).toBe(computeAgentVersion(BASE));
     expect(computeAgentVersion({ ...BASE, memory })).not.toBe(computeAgentVersion(BASE));
     expect(computeAgentVersion({ ...BASE, memory: { ...memory, maxPerCall: 2 } })).not.toBe(computeAgentVersion({ ...BASE, memory }));
+  });
+});
+
+describe('withLearnedVersion', () => {
+  const base = 'a'.repeat(64);
+  const rule = { id: 'v1', changes: [{ kind: 'batching-hint', text: 'Batch reads.' }] };
+  const other = { id: 'v2', changes: [{ kind: 'batching-hint', text: 'Batch writes.' }] };
+
+  it('is the agent version itself when nothing learned applies', () => {
+    expect(withLearnedVersion({ agentVersion: base })).toBe(base);
+    expect(withLearnedVersion({ agentVersion: base, variants: [], skills: [] })).toBe(base);
+  });
+
+  it('changes with the learned parts and their content, not their order', () => {
+    const both = withLearnedVersion({ agentVersion: base, variants: [rule, other] });
+    expect(both).not.toBe(base);
+    expect(withLearnedVersion({ agentVersion: base, variants: [other, rule] })).toBe(both);
+    expect(withLearnedVersion({ agentVersion: base, variants: [rule] })).not.toBe(both);
+    expect(withLearnedVersion({ agentVersion: base, variants: [{ ...rule, changes: [] }, other] })).not.toBe(both);
+    expect(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 1, status: 'active' }] })).not.toBe(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 2, status: 'active' }] }));
   });
 });

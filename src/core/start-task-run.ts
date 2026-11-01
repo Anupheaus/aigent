@@ -34,6 +34,7 @@ import type { PromptPersona } from './system-prompt.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 import type { ModelRouter, ModelRoutes } from '../routing/routing-types.js';
 import type { ResponseCache } from '../cache/response-cache.js';
+import type { StrategyRuntime } from '../learning/strategy-runtime.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
 export interface ModelTarget {
   /** `provider:model`, as written in the definition. */
@@ -83,6 +84,8 @@ export interface ResolvedAgent {
   memoryRetriever?: MemoryRetriever;
   /** Routed agents (`model: ModelRoutes`): the routes and each routed model's target. */
   routing?: { routes: ModelRoutes; targets: Map<string, ModelTarget> };
+  /** `strategy: true`: the agent's runs take part in strategy trials and apply its active variants. */
+  isStrategyEnabled?: boolean;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -130,6 +133,10 @@ export interface RuntimeServices {
   router?: ModelRouter;
   /** `learning.responseCache`: replays identical reproducible requests. */
   responseCache?: ResponseCache;
+  /** `learning.strategy` (present whenever learning is set up; used only by agents with `strategy: true`). */
+  strategy?: StrategyRuntime;
+  /** The runtime's pii guardrail redacts: learned text shown to the model is held to the same rule. */
+  redactsPii?: boolean;
 }
 
 export interface StartTaskRunParams {

@@ -126,3 +126,24 @@ export function computeAgentVersion(input: AgentVersionInput): string {
   };
   return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');
 }
+
+/** Learned parts a run applies on top of its agent, each identified by id and content. */
+export interface LearnedVersionInput {
+  agentVersion: string;
+  /** Strategy variants the run applies. */
+  variants?: { id: string; changes: unknown }[];
+  /** Skills the run offers or hints at (with their version and status). */
+  skills?: { id: string; version: number; status: string }[];
+}
+
+/**
+ * The run's effective agent version: the agent's own when nothing learned applies (so removing everything learned
+ * restores it exactly), else the hash of the agent's version with the learned parts sorted by id.
+ */
+export function withLearnedVersion(input: LearnedVersionInput): string {
+  const { agentVersion, variants = [], skills = [] } = input;
+  if (variants.length === 0 && skills.length === 0) return agentVersion;
+  const byId = <T extends { id: string }>(left: T, right: T): number => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  const hashed = { agentVersion, variants: [...variants].sort(byId), skills: [...skills].sort(byId) };
+  return createHash(HASH_ALGORITHM).update(canonicalJson(hashed)).digest('hex');
+}

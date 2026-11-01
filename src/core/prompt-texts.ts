@@ -2,6 +2,7 @@ import { compressionRecords, compressionWarnings, compressTaskInput } from '../c
 import type { FieldOutcome, PromptCompressionContext } from '../compression/compress-prompt.js';
 import type { CompressionRecord } from '../compression/compressor-types.js';
 import { buildSystemPrompt } from './system-prompt.js';
+import type { SystemPromptOverlay } from './system-prompt.js';
 import type { StaticPrompt } from './static-prompt.js';
 import { buildTaskBrief } from './task-brief.js';
 import type { TaskInput } from './task-input.js';
@@ -22,6 +23,8 @@ export interface BuildPromptTextsParams {
   input?: TaskInput;
   /** With `signal` set, compression stops when the run is stopped (rejects as aborted). */
   context: PromptCompressionContext;
+  /** What the run learned to add to its system prompt (never compressed). */
+  overlay?: SystemPromptOverlay;
 }
 
 /**
@@ -29,12 +32,12 @@ export interface BuildPromptTextsParams {
  * through the store-backed cache. The run and `agent.preview` both use this, so a preview shows exactly what is sent.
  */
 export async function buildPromptTexts(params: BuildPromptTextsParams): Promise<PromptTexts> {
-  const { staticPrompt, input, context } = params;
+  const { staticPrompt, input, context, overlay } = params;
   const persona = await staticPrompt(context.signal);
   const task = input == null ? undefined : await compressTaskInput({ input, context });
   const fields = [...persona.fields, ...(task?.fields ?? [])];
   return {
-    system: buildSystemPrompt(persona.value),
+    system: buildSystemPrompt(persona.value, overlay),
     brief: task == null ? '' : buildTaskBrief(task.value),
     fields,
     records: compressionRecords(fields),

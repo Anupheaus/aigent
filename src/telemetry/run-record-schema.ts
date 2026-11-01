@@ -99,6 +99,7 @@ export const runRecordSchema = z.object({
     }).optional(),
     alternatives: z.array(z.object({ model: z.string(), successRate: z.number(), meanCostUsd: z.number(), n: count })),
   }).optional(),
+  strategy: z.object({ bucket: z.string(), arm: z.enum(['trial', 'control']), trialVariantId: z.string().optional(), activeVariantIds: z.array(z.string()) }).optional(),
 });
 
 export const traceStepSchema = z.object({

@@ -80,6 +80,11 @@ export interface AgentDefinition {
    * `createAigent({ memory })` whole; false turns it off for this agent. Off by default; needs a store.
    */
   memory?: MemoryOptions | boolean;
+  /**
+   * Takes part in strategy learning (`ai.learning.strategy`): approved variants are trialled on a share of the runs,
+   * promoted on significant evidence and reverted when they degrade. Off by default.
+   */
+  strategy?: boolean;
 }
 
 export interface TaskUsage extends Usage {

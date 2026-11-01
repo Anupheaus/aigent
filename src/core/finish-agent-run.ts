@@ -13,6 +13,7 @@ import type { RunMemoryTotals } from './run-memory.js';
 import type { ResolvedAgent, RuntimeServices } from './start-task-run.js';
 import type { TaskInput, TaskLimits } from './task-input.js';
 import type { RouteDecision } from '../routing/routing-types.js';
+import type { RunStrategyRecord } from '../learning/strategy-types.js';
 
 export interface ResolvedLimits {
   maxTurns: number;
@@ -58,6 +59,10 @@ export interface FinishAgentRunParams {
   memory?: RunMemoryTotals & { scopeKey: string };
   /** Routed agents: the run's model decision. */
   route?: RouteDecision;
+  /** The run's effective agent version when learned variants or skills applied (default: the agent's own). */
+  agentVersion?: string;
+  /** Strategy agents: the run's arm and variants. */
+  strategy?: RunStrategyRecord;
 }
 
 /** Adds `feedback` as a non-enumerable method, so results stay plain data for `toEqual`, JSON and structured clones. */
@@ -81,7 +86,8 @@ function summarise(params: FinishAgentRunParams): RunSummary {
 
 /** Takes the run's agent feedback, writes its records (unless telemetry is off) and returns the consumer's result. */
 export async function finishAgentRun(params: FinishAgentRunParams): Promise<TaskResult> {
-  const { agent: { feedbackCollector, agentVersion, version }, services, input, telemetry, result, targets, mode, compression, emit, onFinished, memory, route } = params;
+  const { agent: { feedbackCollector, version }, services, input, telemetry, result, targets, mode, compression, emit, onFinished, memory, route, strategy } = params;
+  const agentVersion = params.agentVersion ?? params.agent.agentVersion;
   // Taken even when nothing is stored, so a disabled run's entries are not kept in memory.
   const feedback = feedbackCollector?.take(result.runId) ?? [];
   onFinished?.(summarise(params));
@@ -94,6 +100,7 @@ export async function finishAgentRun(params: FinishAgentRunParams): Promise<Task
         ...(compression == null || compression.log.length === 0 ? {} : { compression: compression.log }),
         ...(memory == null ? {} : { memory }),
         ...(route == null ? {} : { route }),
+        ...(strategy == null ? {} : { strategy }),
       },
     });
     if (warning != null) emit({ type: 'warning', message: warning });

@@ -32,6 +32,9 @@ export type {
 } from './routing/routing-types.js';
 export type { ResponseCacheOptions } from './cache/response-cache.js';
 export type { LearningApi, LearningOptions, ResponseCacheApi, RoutingLearningApi } from './learning/learning-types.js';
+export type {
+  ProposedVariant, RunStrategyRecord, StrategyApi, StrategyOptions, StrategyVariant, VariantChange, VariantEvent, VariantStatus,
+} from './learning/strategy-types.js';
 export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';
