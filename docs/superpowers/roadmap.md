@@ -21,7 +21,7 @@ Standing rules: no downloads other than npm packages (no Ollama/models), no live
 | 13 | Database pack, knowledge/RAG pack | done |
 | 14 | Plugins (`definePlugin`), MCP plugin, Claude Code plugin package (unpublished) | done |
 | 15 | Benchmark suite and optimisation rounds (scripted tiers only) | done |
-| 16 | Memory (Phase 2) | todo |
+| 16 | Memory (Phase 2) | done |
 | 17 | Efficiency: routing and caching (Phase 3) | todo |
 | 18 | Strategy learning (Phase 4), skill learning (Phase 5) | todo |
 | 19 | Adapters: file store, Mongo store, embeddings recall (Phase 6) | partly built on branch `slices-18-20-offline`: contract suite, file store, Mongo store (fake-tested); vector index and embedding recall still todo (need slices 13 and 16) |
