@@ -30,7 +30,7 @@ describe('createSkillTool', () => {
     const result = await tool.run({ query: 'retry policy' }, context) as SkillResult;
     expect(calls).toEqual(['search:retry policy', 'read:src/net/retry.ts', 'search:backoffMs', 'read:src/net/backoff.ts']);
     expect(inner.map(({ id }) => id)).toEqual(['step_1', 'step_2', 'step_3', 'step_4']);
-    expect(result).toMatchObject({ skill: 'skill_search_then_read', outcome: { success: true, completedSteps: 4 }, result: { path: 'src/net/backoff.ts' } });
+    expect(result).toMatchObject({ skill: 'skill_search_then_read_then_search_then_read', outcome: { success: true, completedSteps: 4 }, result: { path: 'src/net/backoff.ts' } });
     expect(result.steps.every(({ ok }) => ok)).toBe(true);
     expect(tool).toMatchObject({ composedTools: ['search', 'read', 'search', 'read'], deterministic: true, cache: false, hasSideEffects: false, resume: 'skip' });
     expect(tool.jsonSchema).toMatchObject({ properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false });
@@ -80,6 +80,6 @@ describe('createSkillTool', () => {
     const writing = { ...skill, allowSideEffects: true, steps: [...skill.steps, { tool: 'write', args: { path: { fromStep: 3, path: '/path' } }, onFailure: 'stop' as const }] };
     const { context, inner } = dispatcher(tools);
     await createSkillTool({ skill: writing, tools: new Map(tools.map(each => [each.name, each])) }).run({ query: 'retry policy' }, context);
-    expect(inner.map(({ approvalReason }) => approvalReason)).toEqual([undefined, undefined, undefined, undefined, "Step 5 of learned skill 'skill_search_then_read' changes something"]);
+    expect(inner.map(({ approvalReason }) => approvalReason)).toEqual([undefined, undefined, undefined, undefined, "Step 5 of learned skill 'skill_search_then_read_then_search_then_read' changes something"]);
   });
 });

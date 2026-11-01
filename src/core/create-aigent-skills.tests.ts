@@ -15,7 +15,7 @@ function sequentialIds(): IdGenerator {
   return { next: prefix => `${prefix}-t${++counter}` };
 }
 
-const SKILL = 'skill_search_then_read';
+const SKILL = 'skill_search_then_read_then_search_then_read';
 const callSkill = (query: string): FakeTurn => toolTurn([{ id: 'k1', name: SKILL, args: { query } }]);
 
 async function setup(params: { turns: FakeTurn[]; options?: Partial<AigentOptions>; traces?: ReturnType<typeof lookupTraces> }) {
@@ -130,6 +130,24 @@ describe('createAigent skills', () => {
     const rolled = await ai.skills.rollback(first!.id, 1);
     expect(rolled).toMatchObject({ version: 1, status: 'active', previousVersions: [expect.objectContaining({ version: 2, status: 'candidate' })] });
     await expect(ai.skills.rollback(first!.id, 7)).rejects.toMatchObject({ code: 'invalid_input' });
+    await ai.close();
+  });
+
+  it('never churns an approved skill when distilled again without new runs, whatever other sequences use the same tools', async () => {
+    const short = lookupTraces(2).map(trace => ({
+      ...trace, run: { ...trace.run, runId: `${trace.run.runId}_short`, responseId: `${trace.run.responseId}_short` },
+      steps: trace.steps.slice(2).map((step, index) => ({ ...step, index, ...(index === 1 ? { outcome: { success: true, answer: '', source: 'previous' as const } } : {}) })),
+    }));
+    const { ai } = await setup({ turns: [], traces: [...lookupTraces(), ...short] });
+    const first = await ai.skills.distil('helper');
+    expect(first.updated).toEqual([]);
+    expect(first.created.every(({ version }) => version === 1)).toBe(true);
+    const skill = first.created.find(({ name }) => name === SKILL)!;
+    await ai.skills.approve(skill.id);
+    await ai.skills.approve(skill.id);
+    const again = await ai.skills.distil('helper');
+    expect(again).toMatchObject({ created: [], updated: [] });
+    expect(await ai.skills.get(skill.id)).toMatchObject({ version: 1, status: 'active' });
     await ai.close();
   });
 

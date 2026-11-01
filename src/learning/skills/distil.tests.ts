@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RunTrace } from '../../telemetry/run-record.js';
-import { distilSkills } from './distil.js';
+import { distilSkills, skillNameFor } from './distil.js';
 import type { SkillRefusal } from './skill-types.js';
 import { lookupTools, lookupTraces } from './skills.test-support.js';
 import { validateSkill } from './validate-skill.js';
@@ -22,7 +22,7 @@ describe('distilSkills', () => {
     // Written out by hand from the fixture: the root never varies, the first query does, and every later
     // argument is a value an earlier step returned.
     expect(skill).toMatchObject({
-      name: 'skill_search_then_read',
+      name: 'skill_search_then_read_then_search_then_read',
       agentName: 'helper',
       argsSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false },
       steps: [
@@ -35,6 +35,30 @@ describe('distilSkills', () => {
       supportingRunIds: ['run_1', 'run_2', 'run_3', 'run_4'],
     });
     expect(skill?.examples[0]).toEqual({ args: { query: 'login handler' }, summary: 'as in run run_1' });
+  });
+
+  it('names each skill after its full ordered tool sequence, so different sequences never share a name', () => {
+    // Two more runs that only searched and read: a sequence of the same tools, but a different one.
+    const short = lookupTraces(2).map(trace => ({
+      ...trace, run: { ...trace.run, runId: `${trace.run.runId}_short`, responseId: `${trace.run.responseId}_short` },
+      steps: trace.steps.slice(2).map((step, index) => ({ ...step, index, ...(index === 1 ? { outcome: { success: true, answer: '', source: 'previous' as const } } : {}) })),
+    }));
+    const { candidates } = distil([...lookupTraces(), ...short]);
+    const names = candidates.map(({ name }) => name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(candidates.find(({ steps }) => steps.length === 4)?.name).toBe('skill_search_then_read_then_search_then_read');
+    expect(candidates.find(({ steps }) => steps.length === 2)?.name).toBe('skill_search_then_read');
+  });
+
+  it('keeps names within the tool name limit and still distinct when two long sequences share a prefix', () => {
+    const long = ['search_everything', 'read_the_file', 'search_everything', 'read_the_file', 'search_everything'];
+    const first = skillNameFor([...long, 'read_the_file']);
+    const second = skillNameFor([...long, 'write_the_file']);
+    expect(first.length).toBeLessThanOrEqual(64);
+    expect(second.length).toBeLessThanOrEqual(64);
+    expect(first).not.toBe(second);
+    expect(first).toMatch(/^skill_search_everything_then_read_the_file/);
+    expect(skillNameFor([...long, 'read_the_file'])).toBe(first);
   });
 
   it('refuses low support', () => {

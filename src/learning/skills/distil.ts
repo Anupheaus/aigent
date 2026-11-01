@@ -1,7 +1,7 @@
+import { createHash } from 'node:crypto';
 import { alignOccurrences, bindSequenceArguments } from '../../analysis/sequence-bindings.js';
 import type { BoundParam } from '../../analysis/sequence-bindings.js';
 import { mineSequences } from '../../analysis/sequence-mining.js';
-import { toolNameFor } from '../../analysis/tool-suggestions.js';
 import type { JsonSchema } from '../../providers/provider-types.js';
 import type { RunTrace } from '../../telemetry/run-record.js';
 import type { Tool } from '../../tools/tool-types.js';
@@ -15,6 +15,21 @@ const MIN_POSSIBLE_SUPPORT = 2;
 const MAX_TOOL_NAME_LENGTH = 64;
 const MAX_EXAMPLES = 3;
 const SEQUENCE_JOINER = ' -> ';
+const NAME_JOINER = '_then_';
+/** Hex characters of the sequence's hash that end a name cut to the length limit. */
+const NAME_HASH_LENGTH = 8;
+const HASH_ALGORITHM = 'sha256';
+
+/**
+ * The skill's tool name from its full ordered sequence (`skill_search_then_read_then_search_then_read`), so two
+ * different sequences never share a name. One longer than a tool name may be is cut and ends in a hash of the sequence.
+ */
+export function skillNameFor(tools: string[]): string {
+  const name = `${SKILL_NAME_PREFIX}${tools.map(tool => tool.toLowerCase().replace(/[^a-z0-9_]/g, '_')).join(NAME_JOINER)}`;
+  if (name.length <= MAX_TOOL_NAME_LENGTH) return name;
+  const hash = createHash(HASH_ALGORITHM).update(tools.join(SEQUENCE_JOINER)).digest('hex').slice(0, NAME_HASH_LENGTH);
+  return `${name.slice(0, MAX_TOOL_NAME_LENGTH - NAME_HASH_LENGTH - 1)}_${hash}`;
+}
 
 export interface DistilSkillsParams {
   traces: RunTrace[];
@@ -69,7 +84,10 @@ export function distilSkills(params: DistilSkillsParams): SkillCandidate[] {
     const occurrences = alignOccurrences({ sequence, traces: successful });
     const binding = bindSequenceArguments(occurrences);
     if (!binding.ok) { refuse(binding.reason); continue; }
-    const name = `${SKILL_NAME_PREFIX}${toolNameFor(sequence.tools)}`.slice(0, MAX_TOOL_NAME_LENGTH);
+    const name = skillNameFor(sequence.tools);
+    // A name is the skill's identity in the registry: two candidates under one name would overwrite each other.
+    const holder = candidates.find(candidate => candidate.name === name);
+    if (holder != null) { refuse(`its name '${name}' is already taken by ${holder.steps.map(({ tool }) => tool).join(SEQUENCE_JOINER)} in this pass`); continue; }
     const runIds = occurrences.map(({ runId }) => runId);
     candidates.push({
       name, agentName,
