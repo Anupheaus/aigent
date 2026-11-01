@@ -1,5 +1,6 @@
 import { withFeedbackFields } from '../feedback/with-feedback-fields.js';
 import type { MemoryStore } from '../memory/memory-store.js';
+import type { MemoryRetriever } from '../memory/memory-types.js';
 import { createMemoryTools } from '../memory/memory-tools.js';
 import type { MemoryToolAccess } from '../memory/memory-tools.js';
 import { interfaceKeyOf, memoryScopeKey } from '../memory/scope-key.js';
@@ -64,9 +65,11 @@ export async function previewMemory(params: PreviewMemoryParams): Promise<{ tool
   // A preview has no run and no session: agent scope reads the shared memories; the others have nothing to show yet.
   if (options.scope === 'session' || (options.scope === 'interface' && interfaceKey == null)) return { tools };
   const scopeKey = memoryScopeKey({ scope: options.scope, runId: 'preview', ...(interfaceKey == null ? {} : { interfaceKey }) });
+  // A preview changes nothing: the retriever's read-only ranking when it has one.
+  const previewRetriever: MemoryRetriever | undefined = retriever?.preview == null ? retriever : { rank: retriever.preview };
   const { memories } = await store.recall({
     agentName, scopeKey, query: recallQueryOf(input), limit: options.recallLimit, halfLifeDays: options.halfLifeDays, minConfidence: options.minConfidence, markUsed: false,
-    ...(retriever == null ? {} : { retriever }),
+    ...(previewRetriever == null ? {} : { retriever: previewRetriever }),
   });
   const section = renderRecall(memories);
   return { tools, ...(section == null ? {} : { section: `## ${section.title}\n${section.body}` }) };

@@ -118,11 +118,12 @@ export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRe
     }
   }
 
-  async function semanticScores(params: { query: string; embeddables: EmbeddableEntry[]; signal: AbortSignal }): Promise<Map<string, number>> {
-    const { query, embeddables, signal } = params;
+  /** Read-only: only stored vectors count and nothing is embedded but the query, so nothing is written. */
+  async function semanticScores(params: { query: string; embeddables: EmbeddableEntry[]; signal: AbortSignal; isReadOnly: boolean }): Promise<Map<string, number>> {
+    const { query, embeddables, signal, isReadOnly } = params;
     const known = await loadVectors({ store, embeddables, embedder });
     const [queryVector = []] = await embedChecked({ texts: [scrubMemoryText({ text: query })], signal });
-    await embedMissing({ missing: embeddables.filter(({ entry }) => !known.has(entry.id)), known, signal });
+    if (!isReadOnly) await embedMissing({ missing: embeddables.filter(({ entry }) => !known.has(entry.id)), known, signal });
     const scores = new Map<string, number>();
     for (const [id, vector] of known) {
       const similarity = cosine(queryVector, vector);
@@ -131,7 +132,8 @@ export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRe
     return scores;
   }
 
-  async function rank(query: string, entries: MemoryEntry[]): Promise<MemoryRank[]> {
+  async function rankWithin(params: { query: string; entries: MemoryEntry[]; isReadOnly: boolean }): Promise<MemoryRank[]> {
+    const { query, entries, isReadOnly } = params;
     if (entries.length === 0) return [];
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -141,7 +143,7 @@ export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRe
         reject(failure({ embedder, message: `took longer than ${timeoutMs} ms` }));
       }, timeoutMs);
     });
-    const work = semanticScores({ query, embeddables: entries.map(embeddableOf), signal: controller.signal });
+    const work = semanticScores({ query, embeddables: entries.map(embeddableOf), signal: controller.signal, isReadOnly });
     // Whichever loses the race settles unobserved later; its rejection is not an unhandled one.
     work.catch(() => undefined);
     deadline.catch(() => undefined);
@@ -153,5 +155,9 @@ export function embeddingRetriever(options: EmbeddingRetrieverOptions): MemoryRe
     }
   }
 
-  return { rank };
+  return {
+    rank: (query, entries) => rankWithin({ query, entries, isReadOnly: false }),
+    // A preview embeds only the query: memories without a stored vector are ranked by keywords alone.
+    preview: (query, entries) => rankWithin({ query, entries, isReadOnly: true }),
+  };
 }

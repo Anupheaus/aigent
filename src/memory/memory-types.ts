@@ -115,6 +115,11 @@ export interface ResolvedMemoryOptions {
 export interface MemoryRetriever {
   /** A relevance score (higher is better, 0 for none) for the entries it can judge; missing entries score 0. */
   rank(query: string, entries: MemoryEntry[]): Promise<MemoryRank[]>;
+  /**
+   * Optional: ranks as `rank` does but writes nothing (no caching of embeddings, say). `agent.preview` uses it when
+   * present, and `rank` otherwise.
+   */
+  preview?(query: string, entries: MemoryEntry[]): Promise<MemoryRank[]>;
 }
 
 /** One entry's relevance to a query. */

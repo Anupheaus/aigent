@@ -93,6 +93,28 @@ describe('embedding recall through the agent loop (mongo store, fake driver)', (
     expect(embedder.embedded.join('\n')).not.toContain(ssn);
   });
 
+  it('previews without side effects: only the query is embedded and no vector is written', async () => {
+    const { store } = await seeded();
+    const embedder = conceptEmbedder();
+    const { agent } = runtime({ store, prefix: 'preview', turns: [], retriever: embeddingRetriever({ embedder, store }) });
+    await agent.preview({ task: PARAPHRASE });
+    expect(embedder.embedded).toEqual([PARAPHRASE]);
+    expect(await store.list(MEMORY_VECTOR_COLLECTION)).toEqual([]);
+  });
+
+  it('previews by meaning with the vectors a run already stored', async () => {
+    const { store } = await seeded();
+    const embedder = conceptEmbedder();
+    const run = runtime({ store, prefix: 'stored', turns: [textTurn('done')], retriever: embeddingRetriever({ embedder, store }) });
+    await run.agent.task({ task: PARAPHRASE });
+    const stored = await store.list(MEMORY_VECTOR_COLLECTION);
+    embedder.embedded.length = 0;
+    const preview = await run.agent.preview({ task: PARAPHRASE });
+    expect(preview.memory).toContain(FACT);
+    expect(embedder.embedded).toEqual([PARAPHRASE]);
+    expect(await store.list(MEMORY_VECTOR_COLLECTION)).toEqual(stored);
+  });
+
   it('purges a memory\'s vector with the run that wrote the memory', async () => {
     const { store, runId } = await seeded();
     const { ai, agent } = runtime({ store, prefix: 'purge', turns: [textTurn('done')], retriever: embeddingRetriever({ embedder: conceptEmbedder(), store }) });
