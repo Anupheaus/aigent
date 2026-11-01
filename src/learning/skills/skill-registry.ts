@@ -35,6 +35,8 @@ export interface SkillRegistry {
 
 const byName = (left: Skill, right: Skill): number => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
 const contentKey = (skill: Pick<Skill, 'steps' | 'argsSchema'>): string => canonicalJson({ steps: skill.steps, argsSchema: skill.argsSchema });
+/** One past every version the skill ever had: after a rollback the current version is not the highest, and a number never names two contents. */
+const nextVersion = (skill: Skill): number => Math.max(skill.version, ...skill.previousVersions.map(({ version }) => version)) + 1;
 
 export function createSkillRegistry(params: CreateSkillRegistryParams): SkillRegistry {
   const { records, clock, ids, redactsPii, readTraces, agentTools, options } = params;
@@ -70,9 +72,9 @@ export function createSkillRegistry(params: CreateSkillRegistryParams): SkillReg
     if (!isChanged && canonicalJson(existing.supportingRunIds) === canonicalJson(candidate.supportingRunIds)) return;
     const updated = await records.update(existing.id, current => (isChanged
       ? {
-        ...candidate, version: current.version + 1, status: 'candidate', stats: { ...candidate.stats, uses: 0, successRate: 0 },
+        ...candidate, version: nextVersion(current), status: 'candidate', stats: { ...candidate.stats, uses: 0, successRate: 0 },
         previousVersions: [...current.previousVersions, { version: current.version, status: current.status, description: current.description, argsSchema: current.argsSchema, steps: current.steps, preconditions: current.preconditions, examples: current.examples }],
-        history: [...current.history, { at: now, version: current.version + 1, status: 'candidate', reason: 'distilled again with changed steps; needs approval again' }],
+        history: [...current.history, { at: now, version: nextVersion(current), status: 'candidate', reason: 'distilled again with changed steps; needs approval again' }],
       }
       : { supportingRunIds: candidate.supportingRunIds, stats: { ...current.stats, supportingRuns: candidate.stats.supportingRuns } }));
     if (updated != null) report.updated.push(updated);

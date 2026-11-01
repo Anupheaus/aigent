@@ -132,8 +132,8 @@ export interface LearnedVersionInput {
   agentVersion: string;
   /** Strategy variants the run applies. */
   variants?: { id: string; changes: unknown }[];
-  /** Skills the run offers or hints at (with their version and status). */
-  skills?: { id: string; version: number; status: string }[];
+  /** Skills the run offers or hints at (with their version, status and what they contain: a version number is only a label). */
+  skills?: { id: string; version: number; status: string; content: unknown }[];
 }
 
 /**

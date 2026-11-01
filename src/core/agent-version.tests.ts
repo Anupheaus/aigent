@@ -153,6 +153,12 @@ describe('withLearnedVersion', () => {
     expect(withLearnedVersion({ agentVersion: base, variants: [other, rule] })).toBe(both);
     expect(withLearnedVersion({ agentVersion: base, variants: [rule] })).not.toBe(both);
     expect(withLearnedVersion({ agentVersion: base, variants: [{ ...rule, changes: [] }, other] })).not.toBe(both);
-    expect(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 1, status: 'active' }] })).not.toBe(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 2, status: 'active' }] }));
+    expect(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 1, status: 'active', content: 'k' }] })).not.toBe(withLearnedVersion({ agentVersion: base, skills: [{ id: 's', version: 2, status: 'active', content: 'k' }] }));
+  });
+
+  it('tells two contents of one skill version apart', () => {
+    const skill = { id: 's', version: 2, status: 'active' };
+    expect(withLearnedVersion({ agentVersion: base, skills: [{ ...skill, content: { steps: ['search', 'read'] } }] }))
+      .not.toBe(withLearnedVersion({ agentVersion: base, skills: [{ ...skill, content: { steps: ['search', 'read', 'read'] } }] }));
   });
 });

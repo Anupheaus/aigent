@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { defineGuardrail } from '../guardrails/define-guardrail.js';
 import { createInMemoryStore } from '../store/in-memory-store.js';
-import type { TraceRecord } from '../telemetry/run-record.js';
+import type { RunRecord, TraceRecord } from '../telemetry/run-record.js';
+import type { Skill } from '../learning/skills/skill-types.js';
 import { createFakeProvider, textTurn, toolTurn } from '../testing/fake-provider.js';
 import type { FakeProvider, FakeTurn } from '../testing/fake-provider.js';
 import { lookupTools, lookupTraces, storeTraces } from '../learning/skills/skills.test-support.js';
@@ -130,6 +131,44 @@ describe('createAigent skills', () => {
     const rolled = await ai.skills.rollback(first!.id, 1);
     expect(rolled).toMatchObject({ version: 1, status: 'active', previousVersions: [expect.objectContaining({ version: 2, status: 'candidate' })] });
     await expect(ai.skills.rollback(first!.id, 7)).rejects.toMatchObject({ code: 'invalid_input' });
+    await ai.close();
+  });
+
+  it('never reuses a version number after a rollback: each number names one content', async () => {
+    const { ai, store } = await setup({ turns: [] });
+    const { created: [first] } = await ai.skills.distil('helper');
+    const rerun = (suffix: string, change: (step: TraceRecord['steps'][number], runId: string) => TraceRecord['steps'][number]) => lookupTraces().map(trace => ({
+      ...trace, run: { ...trace.run, runId: `${trace.run.runId}_${suffix}`, responseId: `${trace.run.responseId}_${suffix}` },
+      steps: trace.steps.map(step => change(step, trace.run.runId)),
+    }));
+    await storeTraces({ store, traces: rerun('b', step => (step.tool === 'search' ? { ...step, args: { ...(step.args as object), root: 'lib' } } : step)) });
+    await ai.skills.distil('helper');
+    const second = (await ai.skills.get(first!.id))!;
+    expect(second.version).toBe(2);
+    await ai.skills.rollback(first!.id, 1);
+    // Newer runs read other files at the end: the steps change again.
+    await storeTraces({ store, traces: rerun('c', (step, runId) => (step.index === 3 ? { ...step, args: { path: `other/${runId}` } } : step)) });
+    const report = await ai.skills.distil('helper');
+    expect(report.updated).toEqual([expect.objectContaining({ id: first!.id, version: 3 })]);
+    const third = (await ai.skills.get(first!.id))!;
+    expect(third.steps).not.toEqual(second.steps);
+    const versions = third.previousVersions.map(({ version }) => version);
+    expect(new Set(versions).size).toBe(versions.length);
+    expect((await ai.skills.rollback(first!.id, 2)).steps).toEqual(second.steps);
+    await ai.close();
+  });
+
+  it('gives runs whose skills differ in content different effective agent versions, even under one version number', async () => {
+    const { ai, agent, store } = await setup({ turns: [textTurn('a'), textTurn('b')] });
+    const { created: [skill] } = await ai.skills.distil('helper');
+    await ai.skills.approve(skill!.id);
+    const before = await agent.task({ task: 'x' });
+    // The same id, version and status with other steps (as a reused version number used to produce).
+    const stored = (await store.get<Skill>('skills', skill!.id))!;
+    await store.compareAndSet({ collection: 'skills', key: skill!.id, expectedVersion: stored.version, value: { ...stored.value, steps: stored.value.steps.slice(0, 2) } });
+    const after = await agent.task({ task: 'x' });
+    const versionOf = async (runId: string): Promise<string> => (await store.get<RunRecord>('runs', runId))!.value.agentVersion;
+    expect(await versionOf(after.runId)).not.toBe(await versionOf(before.runId));
     await ai.close();
   });
 

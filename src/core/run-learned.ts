@@ -74,7 +74,10 @@ export async function prepareLearnedRun(params: PrepareLearnedRunParams): Promis
     });
     return [...overlaid, ...added];
   };
-  const learnedSkills = [...active, ...skills.shadow].map(({ id, version, status }) => ({ id, version, status }));
+  // The content is hashed too: the version is only a label, and the run's agent version must change whenever what it is offered does.
+  const learnedSkills = [...active, ...skills.shadow].map(({ id, version, status, name, description, argsSchema, steps, allowSideEffects }) => ({
+    id, version, status, content: { name, description, argsSchema, steps, allowSideEffects: allowSideEffects === true },
+  }));
   return {
     ...(strategy.record == null ? {} : { strategy: strategy.record }),
     overlay: sections.length === 0 ? {} : { afterRules: sections },
