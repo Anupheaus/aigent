@@ -42,6 +42,8 @@ export interface InnerCall {
   id: string;
   tool: string;
   args: unknown;
+  /** A person must approve this call whatever the approval rules say (a learned skill's step with side effects). */
+  approvalReason?: string;
 }
 
 /** Run-internal context given only to `aigent_multi`, so its inner calls take the run's dispatch path. */

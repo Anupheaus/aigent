@@ -1,6 +1,7 @@
 import type { ResponseCacheOptions } from '../cache/response-cache.js';
 import type { RoutingOptions } from '../routing/routing-types.js';
 import type { StrategyApi, StrategyOptions } from './strategy-types.js';
+import type { SkillOptions } from './skills/skill-health.js';
 
 /** `createAigent({ learning })`: every part is off unless given. Nothing learned bypasses guardrails, approvals or policies. */
 export interface LearningOptions {
@@ -10,6 +11,8 @@ export interface LearningOptions {
   responseCache?: ResponseCacheOptions;
   /** Tuning of strategy trials, promotion and the rollout guard; agents opt in with `strategy: true`. */
   strategy?: StrategyOptions;
+  /** When active skills are retired automatically; agents opt in to skills with `skills: true`. */
+  skills?: SkillOptions;
 }
 
 /** `ai.learning.routing`. */

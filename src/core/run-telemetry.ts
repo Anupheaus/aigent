@@ -33,6 +33,8 @@ export interface CreateRunTelemetryParams {
   settings: TelemetrySettings;
   /** The agent's resolved `enableFeedback`. */
   enableFeedback: boolean;
+  /** Agents with `skills: true`: results' leaves are traced, so skills can be distilled from the run. */
+  captureResults?: boolean;
 }
 
 export interface PersistRunTelemetryParams {
@@ -64,7 +66,7 @@ export function createRunTelemetry(params: CreateRunTelemetryParams): RunTelemet
   const { now, runId, settings: { captureContent }, enableFeedback } = params;
   return {
     // aigent_feedback is commentary, not work, so outcomes never attach to it.
-    recorder: createTraceRecorder({ now, captureContent, argsDigestKey: runId, nonOutcomeTools: [...COMMENTARY_TOOLS] }),
+    recorder: createTraceRecorder({ now, captureContent, argsDigestKey: runId, nonOutcomeTools: [...COMMENTARY_TOOLS], ...(params.captureResults === true ? { captureResults: true } : {}) }),
     timer: createRunTimer({ now }),
     feedback: { isEnabled: enableFeedback, hasWarnedMissing: false },
   };

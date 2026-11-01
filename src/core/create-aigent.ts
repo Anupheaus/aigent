@@ -61,6 +61,7 @@ import type { ResolvedMemoryOptions } from '../memory/memory-types.js';
 import type { RatedRun } from '../feedback/user-feedback.js';
 import { saveCorrectionLesson } from './correction-lesson.js';
 import { createLearning } from '../learning/create-learning.js';
+import { linkSuggestionsToSkills } from '../learning/skills/link-suggestions.js';
 import { saveGroupLesson } from './group-lesson.js';
 import type { Tool } from '../tools/tool-types.js';
 
@@ -133,7 +134,7 @@ export function createAigent(options: AigentOptions): Aigent {
     startSubRun: request => startSubRun(request),
     pluginHooks: () => pluginRegistry.hooks(),
     ...(memoryStore == null ? {} : { memory: memoryStore }),
-    router: learning.router, strategy: learning.strategy, redactsPii,
+    router: learning.router, strategy: learning.strategy, skills: learning.skills, redactsPii,
     ...(learning.responseCache == null ? {} : { responseCache: learning.responseCache }),
   };
   /** Settles (never rejects) when its run or feedback call has finished, including its store writes. */
@@ -272,7 +273,12 @@ export function createAigent(options: AigentOptions): Aigent {
     purge: async filter => purgeRecords({ store, filter }),
     feedback,
     evalCompression: async params => evalCompression({ ...params, createAgent: agent }),
-    report: async filter => readReport({ store, filter, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) }),
+    report: async filter => {
+      const report = await readReport({ store, filter, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) });
+      if (report.toolSuggestions.length === 0) return report;
+      return { ...report, toolSuggestions: linkSuggestionsToSkills({ suggestions: report.toolSuggestions, skills: await learning.skills.api.list() }) };
+    },
     learning: learning.api,
+    skills: learning.skills.api,
   };
 }

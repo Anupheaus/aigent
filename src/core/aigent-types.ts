@@ -20,6 +20,7 @@ import type { Plugin } from '../plugins/plugin-types.js';
 import type { MemoryOptions } from '../memory/memory-types.js';
 import type { Clock, IdGenerator, RandomSource, Sleeper } from './runtime-services.js';
 import type { LearningApi, LearningOptions } from '../learning/learning-types.js';
+import type { SkillsApi } from '../learning/skills/skill-types.js';
 
 export interface AigentOptions {
   /** Providers agents may use (besides those of `plugins`); ids must be unique across both. Default none. */
@@ -159,4 +160,9 @@ export interface Aigent {
   evalCompression(params: Omit<EvalCompressionParams, 'createAgent'>): Promise<CompressionEvalReport>;
   /** What the runtime learned (routing state, cached responses), to inspect or remove. */
   learning: LearningApi;
+  /**
+   * Learned skills: `distil` composed tools from recurring successful traces (replay-validated), then `approve` each
+   * twice (`candidate` -> `shadow` hint -> `active` tool for agents with `skills: true`); `reject`, `retire`, `rollback`.
+   */
+  skills: SkillsApi;
 }

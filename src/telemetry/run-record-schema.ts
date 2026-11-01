@@ -122,6 +122,8 @@ export const traceStepSchema = z.object({
   resultBytes: count,
   resultTokens: count,
   truncated: z.boolean(),
+  resultLeaves: z.array(z.object({ path: z.string(), value: z.union([z.string(), z.number(), z.boolean()]) })).optional(),
+  resultHash: z.string().optional(),
   durationMs,
   startedAtMs: z.number(),
   outcome: z.object({ success: z.boolean(), answer: z.string(), source: z.enum(['directive', 'previous']) }).optional(),

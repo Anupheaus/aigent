@@ -70,3 +70,10 @@ export function buildAgentRegistry(params: BuildAgentRegistryParams): ToolRegist
   const work = [...tools, multiTool].map(tool => withMemory(withFeedback(tool)));
   return createToolRegistry(feedbackCollector == null ? work : [...work, createFeedbackTool({ collector: feedbackCollector })]);
 }
+
+/** A tool added to one run (a learned skill) with the same `previous` and `memory` fields as the agent's own tools. */
+export function withAgentFields(params: { tool: Tool; isFeedbackEnabled: boolean; maxMemoryPerCall?: number }): Tool {
+  const { tool, isFeedbackEnabled, maxMemoryPerCall } = params;
+  const withFeedback = isFeedbackEnabled ? withFeedbackFields(tool) : tool;
+  return maxMemoryPerCall == null ? withFeedback : withMemoryField({ tool: withFeedback, maxPerCall: maxMemoryPerCall });
+}

@@ -19,7 +19,7 @@ interface Saving {
 }
 
 /** snake_case from the sequence's distinct tool names in order, e.g. `search_then_read`. */
-function nameFor(tools: string[]): string {
+export function toolNameFor(tools: string[]): string {
   const parts = [...new Set(tools)].map(tool => tool.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
   const name = parts.join(NAME_JOINER);
   return (/^[a-z]/.test(name) ? name : `tool_${name}`).slice(0, MAX_TOOL_NAME_LENGTH);
@@ -99,7 +99,7 @@ export function suggestTools(sequences: MinedSequence[], traces: RunTrace[]): To
   const stepsByRun = new Map(traces.map(({ run, steps }) => [run.runId, steps]));
   const byName = new Map<string, MinedSequence[]>();
   for (const sequence of sequences) {
-    const name = nameFor(sequence.tools);
+    const name = toolNameFor(sequence.tools);
     byName.set(name, [...byName.get(name) ?? [], sequence]);
   }
   return [...byName.entries()].map(([name, named]) => suggestionFor({ name, sequences: named, stepsByRun }));

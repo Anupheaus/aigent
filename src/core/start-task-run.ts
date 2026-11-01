@@ -35,6 +35,7 @@ import type { TaskInput, TaskLimits } from './task-input.js';
 import type { ModelRouter, ModelRoutes } from '../routing/routing-types.js';
 import type { ResponseCache } from '../cache/response-cache.js';
 import type { StrategyRuntime } from '../learning/strategy-runtime.js';
+import type { SkillRegistry } from '../learning/skills/skill-registry.js';
 /** A model an agent can call: provider resolved, plus that provider's settings layer. */
 export interface ModelTarget {
   /** `provider:model`, as written in the definition. */
@@ -86,6 +87,8 @@ export interface ResolvedAgent {
   routing?: { routes: ModelRoutes; targets: Map<string, ModelTarget> };
   /** `strategy: true`: the agent's runs take part in strategy trials and apply its active variants. */
   isStrategyEnabled?: boolean;
+  /** `skills: true`: the agent offers its active learned skills, hints at its shadow ones, and its traces keep result leaves. */
+  isSkillsEnabled?: boolean;
 }
 
 /** Shared, per-`createAigent` services. */
@@ -135,6 +138,8 @@ export interface RuntimeServices {
   responseCache?: ResponseCache;
   /** `learning.strategy` (present whenever learning is set up; used only by agents with `strategy: true`). */
   strategy?: StrategyRuntime;
+  /** The runtime's learned skills (used only by agents with `skills: true`). */
+  skills?: SkillRegistry;
   /** The runtime's pii guardrail redacts: learned text shown to the model is held to the same rule. */
   redactsPii?: boolean;
 }

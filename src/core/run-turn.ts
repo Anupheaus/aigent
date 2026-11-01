@@ -96,7 +96,7 @@ export interface RunTurnParams {
   /** The run id the ledger and idempotency keys use (the original run's when resumed); default `runId`. */
   ledgerRunId?: string;
   /** The approval gate: whether a call may run (asking a person when its tool requires approval). */
-  approve?(params: { call: ToolCall; tool: Tool; context: ToolContext }): Promise<GateOutcome>;
+  approve?(params: { call: ToolCall; tool: Tool; context: ToolContext; force?: { reason: string } }): Promise<GateOutcome>;
   clock: Clock;
   signal: AbortSignal;
   /** Tools with side effects get this instead of `signal` (see `RunControl.sideEffectSignal`). */

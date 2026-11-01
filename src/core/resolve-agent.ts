@@ -106,5 +106,6 @@ export function resolveAgent(params: { definition: ToolsResolvedDefinition; cont
     ...(memoryRetriever == null ? {} : { memoryRetriever }),
     ...(routes == null || routeTargets == null ? {} : { routing: { routes, targets: routeTargets } }),
     ...(definition.strategy === true ? { isStrategyEnabled: true } : {}),
+    ...(definition.skills === true ? { isSkillsEnabled: true } : {}),
   };
 }

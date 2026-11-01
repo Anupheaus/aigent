@@ -72,7 +72,7 @@ function reserveToolCall(params: ReserveToolCallParams): boolean {
 function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; parentCallId: string }): MultiToolContext {
   const { context, turn, parentCallId } = params;
   const { totals, maxToolCalls, telemetry: { recorder }, registry, signal, sideEffectSignal } = turn;
-  const runInnerCall = async ({ id, tool, args }: InnerCall): Promise<ExecutedToolCall> => {
+  const runInnerCall = async ({ id, tool, args, approvalReason }: InnerCall): Promise<ExecutedToolCall> => {
     const call = { id, name: tool, args };
     const finish = recorder.begin({ turn: totals.turns, callId: id, parentCallId, tool, args });
     const ledgerId = innerLedgerId({ parentCallId, innerId: id });
@@ -80,13 +80,23 @@ function multiToolContext(params: { context: ToolContext; turn: RunTurnParams; p
     const delegation = registry.get(tool)?.startsSubRuns === true ? delegationFor({ turn, callId: ledgerId }) : undefined;
     const { delegation: _wrapperDelegation, ...wrapperContext } = context;
     const innerContext: ToolContext = { ...wrapperContext, callId: id, signal: toolSignal, idempotencyKey: idempotencyKeyOf({ runId: turn.ledgerRunId ?? turn.runId, callId: ledgerId }), ...(delegation == null ? {} : { delegation }) };
-    const executed = tool === MULTI_TOOL_NAME
+    // One level of wrapping is enough: a wrapper inside a wrapper would hide calls from the budget and the trace.
+    const executed = isWrapper({ name: tool, turn })
       ? rejectToolCall({ call, error: nestedMultiError() })
-      : await runDispatchedCall({ call, turn, context: innerContext, ledgerId, parentCallId, isCommentary: COMMENTARY_TOOLS.has(tool), isLedgered: true, reserve: () => reserveToolCall({ totals, maxToolCalls }) });
+      : await runDispatchedCall({
+        call, turn, context: innerContext, ledgerId, parentCallId, isCommentary: COMMENTARY_TOOLS.has(tool), isLedgered: true, reserve: () => reserveToolCall({ totals, maxToolCalls }),
+        ...(approvalReason == null ? {} : { forceApproval: approvalReason }),
+      });
     finish(executed);
     return executed;
   };
   return { ...context, runInnerCall };
+}
+
+/** `aigent_multi` and composed tools (learned skills): their calls run inner calls through the dispatcher. */
+export function isWrapper(params: { name: string; turn: Pick<RunTurnParams, 'registry'> }): boolean {
+  const { name, turn: { registry } } = params;
+  return name === MULTI_TOOL_NAME || registry.get(name)?.composedTools != null;
 }
 
 /** Starts (or refuses, past the limit) one tool call without waiting for it, so tools overlap with generation. */
@@ -138,8 +148,8 @@ export function dispatchToolCall(params: DispatchParams): void {
     ...(effects?.dryRun === true ? { dryRun: true } : {}), ...(delegation == null ? {} : { delegation }),
   };
   let context: ToolContext = baseContext;
-  if (name === MULTI_TOOL_NAME) {
-    // The aigent_multi wrapper is not counted itself: each inner call takes from the shared budget instead.
+  if (isWrapper({ name, turn })) {
+    // A wrapper (aigent_multi, a learned skill) is not counted itself: each inner call takes from the shared budget instead.
     context = multiToolContext({ context: baseContext, turn, parentCallId: callId });
   } else if (!isCommentary) {
     totals.toolCalls += 1;

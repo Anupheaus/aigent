@@ -9,6 +9,7 @@ import type { CompressionRecord } from '../compression/compressor-types.js';
 import type { GuardrailDecisionRecord } from '../guardrails/guardrail-types.js';
 import type { PlannedEffect } from '../effects/planned-effects.js';
 import type { RouteDecision } from '../routing/routing-types.js';
+import type { ResultLeaf } from './result-leaves.js';
 import type { RunStrategyRecord } from '../learning/strategy-types.js';
 
 /** Version of every stored telemetry record's shape; bumped on any incompatible change. */
@@ -122,6 +123,10 @@ export interface TraceStep {
   undoable?: boolean;
   /** The call carried memory notes (top-level calls only). */
   memory?: MemoryStepRecord;
+  /** Agents with `skills: true` (and content capture): the successful result's scalar leaves, for distilling skills. */
+  resultLeaves?: ResultLeaf[];
+  /** With `resultLeaves`: sha-256 of the result's canonical JSON. */
+  resultHash?: string;
 }
 
 /** Where a run's time went, in milliseconds. */

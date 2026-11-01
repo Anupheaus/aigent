@@ -169,6 +169,8 @@ export interface ToolSuggestion {
   /** Union of the argument keys seen at the sequence's first step. */
   proposedArgs: { name: string; type: string }[];
   estimatedSaving: { tokensPerUse: number; turnsPerUse: number; timePerUseMs: number };
+  /** Learned skills (`ai.skills`) distilled from the same sequence and runs, with their lifecycle status. */
+  skills?: { id: string; agentName: string; status: string; version: number }[];
 }
 
 /** How many `aigent_feedback` entries had one kind. */

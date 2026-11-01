@@ -33,6 +33,8 @@ export interface DispatchedCall {
   reserve?(): boolean;
   /** Called once a runnable call passed its guardrails, budget, approval and ledger entry, just before it runs. */
   onAdmitted?(): void;
+  /** A person must approve the call, whatever the rules say (a learned skill's step with side effects). */
+  forceApproval?: string;
 }
 
 function budgetError(params: { call: ToolCall; parentCallId?: string }): ToolErrorDetail {
@@ -80,7 +82,7 @@ async function runLedgered(params: { execute: ExecuteToolCallParams; ledger?: Ca
  * approval gate, the ledger, the tool (cache, dry run), then `toolResult` guardrails. Never rejects.
  */
 export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolCall> {
-  const { call, turn, context, ledgerId, parentCallId, isCommentary, isLedgered, reserve, onAdmitted } = params;
+  const { call, turn, context, ledgerId, parentCallId, isCommentary, isLedgered, reserve, onAdmitted, forceApproval } = params;
   const { registry, clock, cache, shaping, guardrails, effects, approve } = turn;
   const tool = registry.get(call.name);
   const parsed = tool == null ? undefined : parseToolArgs(tool.argsSchema, call.args);
@@ -89,22 +91,27 @@ export function runDispatchedCall(params: DispatchedCall): Promise<ExecutedToolC
   const ledger = isLedgered ? turn.ledger : undefined;
   // Guardrails see work calls only (bookkeeping tools change run state, nothing else); a block means the call never runs.
   const isGuarded = guardrails != null && isRunnable && !isCommentary;
-  // An aigent_multi result is checked call by call as its inner calls finish, so it is not checked again as a whole.
-  const guard = isGuarded && call.name !== MULTI_TOOL_NAME ? guardrails.checkToolResult : undefined;
+  // A wrapper's result (aigent_multi, a learned skill) is checked call by call as its inner calls finish, so it is not checked again as a whole.
+  const isWrapping = call.name === MULTI_TOOL_NAME || tool?.composedTools != null;
+  const guard = isGuarded && !isWrapping ? guardrails.checkToolResult : undefined;
   const start = (verdict: CallVerdict): Promise<ExecutedToolCall> => {
     if ('error' in verdict) return Promise.resolve(rejectToolCall({ call, error: verdict.error }));
     const checked = verdict.call;
     if (reserve != null && !reserve()) return Promise.resolve(rejectToolCall({ call: checked, error: budgetError({ call: checked, ...(parentCallId == null ? {} : { parentCallId }) }) }));
+    // A call that must be approved is refused (fail closed) when there is nobody to ask.
+    if (forceApproval != null && approve == null && isRunnable && !(isDryRun && tool.hasSideEffects)) {
+      return Promise.resolve(rejectToolCall({ call: checked, error: { category: 'denied', code: 'approval_required', retryable: false, message: `${forceApproval}, so it needs a person's approval, and this run cannot ask for one` } }));
+    }
     // The request is keyed by the ledger id, so two inner calls with the same id in different wrappers never collide.
     const gateCall = { ...checked, id: ledgerId };
     return runLedgered({
       // A simulated (or refused) call changes nothing, so there is nothing for a person to approve.
-      ...(approve == null || !isRunnable || (isDryRun && tool.hasSideEffects) ? {} : { gate: () => approve({ call: gateCall, tool, context }) }),
+      ...(approve == null || !isRunnable || (isDryRun && tool.hasSideEffects) ? {} : { gate: () => approve({ call: gateCall, tool, context, ...(forceApproval == null ? {} : { force: { reason: forceApproval } }) }) }),
       execute: {
         registry, call: checked, context, now: () => clock.now(),
         // Inner calls wait for approvals and enforce their own timeouts; a wrapper timeout would cut those waits short
         // and tell the model the calls failed while they may still run.
-        ...(call.name === MULTI_TOOL_NAME ? { timeoutMs: Number.POSITIVE_INFINITY } : {}),
+        ...(isWrapping ? { timeoutMs: Number.POSITIVE_INFINITY } : {}),
         ...(cache == null ? {} : { cache }),
         // Inner results reach the model inside their wrapper's result, which is shaped as a whole.
         ...(shaping == null || parentCallId != null ? {} : { shape: shapeWith(shaping) }),

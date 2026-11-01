@@ -92,7 +92,7 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
   let routeDecision: RouteDecision | undefined;
   const runId = params.runId ?? ids.next('run');
   const responseId = ids.next('resp');
-  const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null });
+  const telemetry = createRunTelemetry({ now: () => clock.now(), runId, settings: services.telemetry, enableFeedback: feedbackCollector != null, ...(agent.isSkillsEnabled === true ? { captureResults: true } : {}) });
   const { registry: shapingRegistry, shaping } = setUpRunShaping({ registry: agent.registry, settings: input.shapers ?? agent.shapers, isFeedbackEnabled: feedbackCollector != null });
   const limits = resolveLimits(input.limits, agent.limits);
   const settings = resolveModelSettings({ task: input.modelSettings, agent: agent.agentSettings, runtime: agent.runtimeSettings, provider: target.providerSettings });
@@ -149,11 +149,11 @@ export function startAgentRun(params: StartAgentRunParams): TaskRun {
       thinkingContext.provider = primary.provider.id;
       thinkingContext.model = primary.model;
     }
-    // What the agent learned (strategy variants): its overlays apply to this run only; a failure to read them is not the run's.
+    // What the agent learned (strategy variants, skills): it applies to this run only; a failure to read it is not the run's.
     const learned: LearnedRun | undefined = await prepareLearnedRun({ agent, services, input, runId, toolCount: registry.list().length })
       .catch((error: unknown) => { emit({ type: 'warning', message: `Agent '${agentName}' runs without what it learned: ${describeError(error)}` }); return undefined; });
-    for (const message of learned?.warnings ?? []) emit({ type: 'warning', message });
     const runRegistry = learned == null ? registry : createToolRegistry(learned.tools(registry.list()));
+    for (const message of learned?.warnings ?? []) emit({ type: 'warning', message });
     const runAgentVersion = learned?.agentVersion ?? agent.agentVersion;
     activity = createActivityPublisher({
       runId, ...(conversation == null ? {} : { messageId: conversation.messageId }), clock, sleep: services.activityTimers, ...(services.activity == null ? {} : { options: services.activity }),

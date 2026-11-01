@@ -209,4 +209,16 @@ describe('createTraceRecorder outcomes', () => {
       { callId: 'b', parentCallId: undefined, memory: { saved: 1, rejected: 0 } },
     ]);
   });
+
+  it('keeps result leaves and hashes only when asked and with content capture on', () => {
+    const result = { matches: [{ path: 'src/a.ts' }] };
+    const run = (params: { captureContent: boolean; captureResults?: boolean }) => {
+      const recorder = createTraceRecorder({ now: () => 0, argsDigestKey: 'run_1', ...params });
+      recorder.begin({ turn: 1, callId: 'a', tool: 'search', args: {} })(succeeded('a', { envelope: { id: 'a', tool: 'search', ok: true, result } }));
+      return recorder.steps()[0];
+    };
+    expect(run({ captureContent: true, captureResults: true })).toMatchObject({ resultLeaves: [{ path: '/matches/0/path', value: 'src/a.ts' }], resultHash: expect.stringMatching(/^[0-9a-f]{64}$/) });
+    expect(run({ captureContent: false, captureResults: true })?.resultLeaves).toBeUndefined();
+    expect(run({ captureContent: true })?.resultLeaves).toBeUndefined();
+  });
 });

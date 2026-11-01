@@ -785,6 +785,24 @@ await ai.learning.strategy.approve(variant.id); // candidate -> trial
 - Applied variants are part of the run's agent version (stored on its records, so `compareVersions` sees them); with none applied the prompt and `agentVersion` are byte-identical to the agent's own. `ai.learning.strategy` also has `reject`, `revert`, `remove`, `get`, `list` and `evaluate` (run the guard now).
 - **Lessons:** `ai.learning.strategy.lessons(agentName)` groups similar tasks (the request-analysis grouping) that users rated incorrect at least twice with an expected answer, and saves one `lesson` memory per group in the memory scope those runs used (never across scopes; a task's own session scope is skipped). Recalled like any memory; no model call.
 
+### Skills (distilled composed tools)
+
+Agents with `skills: true` can be given reusable composed tools distilled from their own recurring successful traces. Nothing is ever activated without two explicit approvals.
+
+```ts
+const agent = ai.agent({ name: 'helper', model, tools, skills: true });
+// ... runs happen ...
+const { created, updated, refused } = await ai.skills.distil('helper', { minSupport: 3, maxSteps: 6 });
+await ai.skills.approve(created[0].id); // candidate -> shadow: an advisory hint only
+await ai.skills.approve(created[0].id); // shadow -> active: offered as the tool `skill_search_then_read`
+```
+
+- **What is recorded:** with `skills: true` and `captureContent`, each successful step's trace keeps `resultLeaves` (up to 64 scalar values at JSON pointers, strings up to 300 characters, after the toolResult guardrails) and `resultHash`. They pass through `redact` like every trace.
+- **Distillation** mines contiguous sequences (2 to `maxSteps` calls) that end in a step the agent called a success, in at least `minSupport` (3) distinct runs that completed and were never rated incorrect. Arguments are aligned across the runs: equal everywhere becomes a constant, equal to an earlier step's result value in every run becomes `{ fromStep, path }`, anything else a parameter (scalars of one type only; the strict `argsSchema` has exactly these, all required). Sequences with unknown tools, nested skills, uncaptured arguments, arguments whose names differ between runs or tools with side effects are refused and listed in `refused` with the reason; side effects are allowed only with `allowSideEffects`, and every such step then asks a person at run time whatever the approval rules say (refused in unattended runs).
+- **Validation gate:** every candidate is replayed against each supporting trace with a recorded-result tool double; it is stored only if every run is reproduced exactly (`stats.replayPass` 1). A tampered trace or a binding to an undeclared parameter fails it.
+- **Lifecycle:** `candidate` -> `shadow` (listed in a `# Learned procedures (hints only)` section after the library rules, never run) -> `active` (a tool); `reject`, `retire`, and `rollback(id, version)` (restores an earlier version's content and status). Distilling again with changed steps makes a new version back at `candidate`. An active skill whose last 20 uses (`learning.skills.retireWindow`) succeed below `retireBelow` (0.5, user verdicts first) is retired automatically. Skills are stored in the `skills` collection through `redact` (in memory without a store), and `ai.report().toolSuggestions` links each suggestion to the skills distilled from it.
+- **Running:** an active skill's steps run one after another through the run's own dispatcher, exactly like `aigent_multi` inner calls, so guardrails, the tool-call budget, approvals, the ledger, the cache, dry runs (planned effects, nothing executed), undo and tracing all apply to every step, and a skill can never do more than its tools may. Parameter values are data: nothing in them is evaluated, and each step's own schema validates its arguments. It returns `{ skill, version, outcome: { success, completedSteps, failedStep? }, steps: [standard envelopes], result }`; a failed step stops the rest (`onFailure: 'stop'`) and each failure is in `TaskResult.errors`. An interrupted skill is never re-run on resume (`resume: 'skip'`). Skill tools sort with the other tools, and with no skills left the prompt is byte-identical to the agent's own. Active and shadow skills are part of the run's agent version.
+
 ## Guardrails
 
 ```ts

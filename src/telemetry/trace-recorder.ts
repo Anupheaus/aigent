@@ -3,6 +3,7 @@ import type { MemoryStepRecord, OutcomeSource, StepOutcome, TraceStep } from './
 import { digestArgs } from './digest-args.js';
 import { summariseArgs } from './summarise-args.js';
 import { storedDecisions } from '../guardrails/stored-decisions.js';
+import { resultHash, resultLeaves } from './result-leaves.js';
 
 export interface BeginStepParams {
   /** 1-based model request that asked for the call. */
@@ -65,10 +66,20 @@ export interface CreateTraceRecorderParams {
   argsDigestKey: string;
   /** Tools whose steps never receive outcomes (commentary such as `aigent_feedback`, not work). */
   nonOutcomeTools?: string[];
+  /**
+   * Keep each successful result's scalar leaves and hash (`resultLeaves`, `resultHash`), so skills can be distilled
+   * and validated from the trace. Only with content capture on; default false.
+   */
+  captureResults?: boolean;
 }
 
 /** Marks a step that never finished, e.g. an inner call cut off when its `aigent_multi` call timed out. */
 const UNFINISHED_ERROR_CODE = 'step_unfinished';
+
+function resultFields(executed: ExecutedToolCall): Partial<TraceStep> {
+  const { envelope } = executed;
+  return envelope.ok ? { resultLeaves: resultLeaves(envelope.result), resultHash: resultHash(envelope.result) } : {};
+}
 
 function finishedFields(executed: ExecutedToolCall): Partial<TraceStep> {
   const { envelope, durationMs, size: { resultBytes, resultTokens, truncated }, items, cacheHit, savedMs, shaped } = executed;
@@ -88,6 +99,7 @@ function finishedFields(executed: ExecutedToolCall): Partial<TraceStep> {
 /** Collects a run's tool steps as plain data while the loop runs; it never does I/O. */
 export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRecorder {
   const { now, captureContent, argsDigestKey, nonOutcomeTools = [] } = params;
+  const isCapturingResults = captureContent && params.captureResults === true;
   const recorded: TraceStep[] = [];
   const finished = new Set<number>();
   const skipped = new Set(nonOutcomeTools);
@@ -131,7 +143,7 @@ export function createTraceRecorder(params: CreateTraceRecorderParams): TraceRec
       if (finished.has(index)) return;
       finished.add(index);
       const { guardrails: decisions = [] } = executed;
-      Object.assign(recorded[index] as TraceStep, finishedFields(executed), decisions.length === 0 ? {} : { guardrails: storedDecisions({ decisions, captureContent }) });
+      Object.assign(recorded[index] as TraceStep, finishedFields(executed), isCapturingResults ? resultFields(executed) : {}, decisions.length === 0 ? {} : { guardrails: storedDecisions({ decisions, captureContent }) });
     };
   }
 

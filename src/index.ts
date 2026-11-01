@@ -35,6 +35,12 @@ export type { LearningApi, LearningOptions, ResponseCacheApi, RoutingLearningApi
 export type {
   ProposedVariant, RunStrategyRecord, StrategyApi, StrategyOptions, StrategyVariant, VariantChange, VariantEvent, VariantStatus,
 } from './learning/strategy-types.js';
+export type {
+  ArgTemplate, DistilOptions, DistilReport, Skill, SkillCandidate, SkillEvent, SkillExample, SkillRefusal, SkillsApi, SkillSnapshot, SkillStats, SkillStatus, SkillStep,
+} from './learning/skills/skill-types.js';
+export type { SkillOptions } from './learning/skills/skill-health.js';
+export type { SkillResult } from './learning/skills/skill-tool.js';
+export type { ResultLeaf } from './telemetry/result-leaves.js';
 export type { Clock, IdGenerator, RandomSource, Sleeper } from './core/runtime-services.js';
 export { createAigentError, isAigentError } from './core/aigent-error.js';
 export type { AigentError, AigentErrorCode } from './core/aigent-error.js';

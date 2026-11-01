@@ -23,6 +23,9 @@ import type { LearningApi, LearningOptions } from './learning-types.js';
 import { createStrategyRecords } from './strategy-store.js';
 import { createStrategyRuntime } from './strategy-runtime.js';
 import type { StrategyRuntime } from './strategy-runtime.js';
+import { createSkillRecords } from './skills/skill-store.js';
+import { createSkillRegistry } from './skills/skill-registry.js';
+import type { SkillRegistry } from './skills/skill-registry.js';
 
 const fraction = z.number().min(0).max(1);
 const positive = z.number().int().positive();
@@ -71,6 +74,7 @@ export interface LearningRuntime {
   router: ModelRouter;
   responseCache?: ResponseCache;
   strategy: StrategyRuntime;
+  skills: SkillRegistry;
   api: LearningApi;
 }
 
@@ -93,8 +97,12 @@ export function createLearning(params: CreateLearningParams): LearningRuntime {
     findings: async agentName => (await readReport({ store, filter: { agentName }, now: () => clock.now(), ...(pricing == null ? {} : { pricing }) })).findings,
     ...(saveLesson == null ? {} : { saveLesson }),
   });
+  const skills = createSkillRegistry({
+    records: createSkillRecords({ store: store ?? createInMemoryStore(), writeQueue, ...(redact == null ? {} : { redact }), now: () => clock.now() }),
+    clock, ids, redactsPii, agentTools, readTraces: () => readRunTraces(store), ...(options.skills == null ? {} : { options: options.skills }),
+  });
   return {
-    router, strategy,
+    router, strategy, skills,
     ...(responseCache == null ? {} : { responseCache }),
     api: {
       routing: { reset: agentName => router.reset(agentName) },

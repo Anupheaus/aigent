@@ -85,6 +85,11 @@ export interface AgentDefinition {
    * promoted on significant evidence and reverted when they degrade. Off by default.
    */
   strategy?: boolean;
+  /**
+   * Takes part in skill learning (`ai.skills`): its traces keep their results' scalar leaves (with content capture), its
+   * approved `active` skills are offered as `skill_*` tools and its `shadow` skills appear as advisory hints. Off by default.
+   */
+  skills?: boolean;
 }
 
 export interface TaskUsage extends Usage {
